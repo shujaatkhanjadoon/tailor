@@ -1,0 +1,57 @@
+// src/components/layout/BottomNav.tsx
+'use client'
+
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { Home, ClipboardList, Users, Wallet, Settings, BarChart3 } from 'lucide-react'
+
+const navItems = [
+  { href: '/dashboard',  icon: Home,          label: 'Ghar',     },
+  { href: '/orders',     icon: ClipboardList, label: 'Orders',   },
+  { href: '/customers',  icon: Users,         label: 'Gahak',    },
+  { href: '/payments',   icon: Wallet,        label: 'Raseed',   },
+  { href: '/settings',   icon: Settings,      label: 'Settings', },
+  { href: '/reports',   icon: BarChart3,     label: 'Reports'  },
+] as const
+
+export function BottomNav() {
+  const pathname = usePathname()
+
+  return (
+    // Safe area padding for iPhone notch / Android nav bar
+<nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] 
+                bg-white border-t border-slate-200 z-50 pb-safe lg:hidden">
+      <div className="flex items-center justify-around h-16">
+        {navItems.map(({ href, icon: Icon, label }) => {
+          const isActive = pathname === href || (href === '/dashboard' && pathname === '/dashboard')
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`flex flex-col items-center justify-center gap-0.5 w-full h-full transition-colors
+                ${isActive
+                  ? 'text-blue-600'
+                  : 'text-slate-400 hover:text-slate-600'
+                }`}
+            >
+              {/* Touch target: min 56px tall (the full h-16 parent) */}
+              <Icon
+                size={22}
+                strokeWidth={isActive ? 2.5 : 1.8}
+                className={isActive ? 'text-blue-600' : 'text-slate-400'}
+              />
+              <span className={`text-[10px] font-medium leading-none
+                ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
+                {label}
+              </span>
+              {/* Active indicator dot */}
+              {isActive && (
+                <span className="absolute bottom-1 w-1 h-1 bg-blue-600 rounded-full" />
+              )}
+            </Link>
+          )
+        })}
+      </div>
+    </nav>
+  )
+}

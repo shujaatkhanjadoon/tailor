@@ -1,0 +1,38 @@
+// src/app/settings/team/page.tsx
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { ArrowLeft } from 'lucide-react'
+import { TeamManager } from '@/components/team/TeamManager'
+
+export default function TeamSettingsPage() {
+  const router = useRouter()
+
+  return (
+    <div className="min-h-screen bg-slate-50 pb-8">
+      <header className="bg-white border-b border-slate-100 px-4 pt-12 lg:pt-6 pb-4 flex items-center gap-3">
+        <button
+          onClick={() => router.back()}
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100"
+        >
+          <ArrowLeft size={18} className="text-slate-600" />
+        </button>
+        <div>
+          <h1 className="text-lg font-bold text-slate-800">Hamare Karigar</h1>
+          <p className="text-xs text-slate-400">Team add ya remove karein</p>
+        </div>
+      </header>
+
+      {/* PIN reminder banner */}
+      <div className="mx-4 mt-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+        <p className="text-xs text-amber-700 font-medium">
+          💡 Har karigar ka 4-digit PIN hota hai login ke liye. Unhein bata dein.
+        </p>
+      </div>
+
+      <div className="px-4 mt-4">
+        <TeamManager />
+      </div>
+    </div>
+  )
+}
