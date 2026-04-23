@@ -1,21 +1,22 @@
 // src/lib/supabase/sync-service.ts
-import { supabase }        from './client'
-import { db }              from '@/lib/db/schema'
+import { supabase } from './client'
+import { db }       from '@/lib/db/schema'
 import type {
   ShopRow, TeamMemberRow, CustomerRow,
   MeasurementRow, OrderRow, PaymentRow, StatusHistoryRow,
 } from './types'
 
+// ── Field mappers: Dexie camelCase → Supabase snake_case ─────────
 
 function shopToRow(r: any): ShopRow {
   return {
     id:              r.id,
     owner_phone:     r.ownerPhone,
     shop_name:       r.shopName,
-    whatsapp_number: r.whatsappNumber ?? null,
-    city:            r.city           ?? null,
-    plan:            r.plan           ?? 'starter',
-    plan_expires_at: r.planExpiresAt  ?? null,
+    whatsapp_number: r.whatsappNumber || undefined,
+    city:            r.city           || undefined,
+    plan:            r.plan           || 'starter',
+    plan_expires_at: r.planExpiresAt  || undefined,
     is_active:       true,
     created_at:      r.createdAt,
     updated_at:      r.updatedAt,
@@ -36,7 +37,7 @@ function memberToRow(r: any): TeamMemberRow {
     is_active:     r.isActive === 1,
     joined_at:     r.joinedAt,
     created_at:    r.createdAt,
-    deleted_at:    r._deleted === 1 ? new Date().toISOString() : undefined,  // ← null → undefined
+    deleted_at:    r._deleted === 1 ? new Date().toISOString() : undefined,
   }
 }
 
@@ -54,7 +55,7 @@ function customerToRow(r: any): CustomerRow {
     created_at:    r.createdAt,
     updated_at:    r.updatedAt,
     last_order_at: r.lastOrderAt   || undefined,
-    deleted_at:    r._deleted === 1 ? new Date().toISOString() : undefined,  // ← null → undefined
+    deleted_at:    r._deleted === 1 ? new Date().toISOString() : undefined,
   }
 }
 
@@ -67,35 +68,40 @@ function measurementToRow(r: any): MeasurementRow {
     values:       r.values,
     notes:        r.notes   || undefined,
     taken_at:     r.takenAt,
-    deleted_at:   r._deleted === 1 ? new Date().toISOString() : undefined,  // ← null → undefined
+    deleted_at:   r._deleted === 1 ? new Date().toISOString() : undefined,
   }
 }
 
 function orderToRow(r: any): OrderRow {
+  // Guard: skip orders missing critical foreign keys
+  if (!r.customerId) {
+    throw new Error(`Order ${r.id} missing customerId — skipping`)
+  }
+
   return {
     id:                   r.id,
     shop_id:              r.shopId,
     order_number:         r.orderNumber,
-    tracking_code:        r.trackingCode,
+    tracking_code:        r.trackingCode        || undefined,
     customer_id:          r.customerId,
-    customer_name:        r.customerName,
-    customer_phone:       r.customerPhone,
+    customer_name:        r.customerName        || 'Unknown',
+    customer_phone:       r.customerPhone       || '',
     measurement_id:       r.measurementId       || undefined,
-    garment_type:         r.garmentType,
-    status:               r.status,
+    garment_type:         r.garmentType         || 'other',
+    status:               r.status              || 'received',
     assigned_to:          r.assignedTo          || undefined,
     assigned_to_name:     r.assignedToName      || undefined,
-    total_price:          r.totalPrice,
-    amount_paid:          r.amountPaid,
+    total_price:          r.totalPrice          ?? 0,
+    amount_paid:          r.amountPaid          ?? 0,
     is_urgent:            r.isUrgent === 1,
-    due_date:             r.dueDate,
+    due_date:             r.dueDate             || today(),
     special_instructions: r.specialInstructions || undefined,
     fabric_photo_url:     r.fabricPhotoUrl      || undefined,
     style_photo_url:      r.stylePhotoUrl       || undefined,
     created_at:           r.createdAt,
     updated_at:           r.updatedAt,
     delivered_at:         r.deliveredAt         || undefined,
-    deleted_at:           r._deleted === 1 ? new Date().toISOString() : undefined,  // ← null → undefined
+    deleted_at:           r._deleted === 1 ? new Date().toISOString() : undefined,
   }
 }
 
@@ -109,7 +115,7 @@ function paymentToRow(r: any): PaymentRow {
     recorded_by: r.recordedBy,
     paid_at:     r.paidAt,
     notes:       r.notes   || undefined,
-    deleted_at:  r._deleted === 1 ? new Date().toISOString() : undefined,  // ← null → undefined
+    deleted_at:  r._deleted === 1 ? new Date().toISOString() : undefined,
   }
 }
 
@@ -117,27 +123,29 @@ function historyToRow(r: any): StatusHistoryRow {
   return {
     id:         r.id,
     order_id:   r.orderId,
-    old_status: r.oldStatus  ?? null,
+    old_status: r.oldStatus || undefined,
     new_status: r.newStatus,
     changed_by: r.changedBy,
     changed_at: r.changedAt,
   }
 }
 
-// ── Type-safe upsert helpers ─────────────────────────────────────
-// Casting through `unknown as TableRow[]` resolves the "never" error
-// because TypeScript loses the generic inference chain on complex unions.
+// ── Helper ───────────────────────────────────────────────────────
 
+const today = () => new Date().toISOString().split('T')[0]
+
+// Type-safe upsert — casts through any to avoid
+// the "never" error from Supabase generic inference
 async function upsertTable<T>(
   tableName: string,
   rows: T[]
 ): Promise<{ error: any }> {
-  return supabase
-    .from(tableName as any)
-    .upsert(rows as any, { onConflict: 'id' }) as any
+  return (supabase as any)
+    .from(tableName)
+    .upsert(rows, { onConflict: 'id' })
 }
 
-// ── Main sync ────────────────────────────────────────────────────
+// ── Main sync service ─────────────────────────────────────────────
 
 export const syncService = {
 
@@ -145,24 +153,13 @@ export const syncService = {
     return typeof navigator !== 'undefined' && navigator.onLine
   },
 
-  async getOrderByTrackingCode(code: string): Promise<any | null> {
-    const { data, error } = await (supabase as any)
-      .from('orders')
-      .select(`*, shops(shop_name, whatsapp_number, city)`)
-      .eq('tracking_code', code.toUpperCase())
-      .is('deleted_at', null)
-      .maybeSingle()
-
-    if (error || !data) return null
-    return data
-  },
-
+  // Push all unsynced Dexie records → Supabase
   async pushAll(shopId: string): Promise<{ success: boolean; errors: string[] }> {
     if (!syncService.isOnline()) return { success: false, errors: ['offline'] }
 
     const errors: string[] = []
 
-    // Helper: upsert rows then mark _synced = 1 in Dexie
+    // Push helper — maps, skips invalid rows, upserts, marks _synced
     const push = async <T>(
       tableName:  string,
       records:    any[],
@@ -171,32 +168,48 @@ export const syncService = {
       ids:        string[]
     ) => {
       if (records.length === 0) return
-      const rows = records.map(mapper)
-      const { error } = await upsertTable<T>(tableName, rows)
+
+      const validRows: T[]     = []
+      const validIds: string[] = []
+
+      records.forEach((r, i) => {
+        try {
+          validRows.push(mapper(r))
+          validIds.push(ids[i])
+        } catch (e) {
+          console.warn(`[Sync] Skipping invalid ${tableName} record:`, String(e))
+          // Mark as synced so it doesn't retry forever
+          dexieTable.update(ids[i], { _synced: 1 }).catch(() => {})
+        }
+      })
+
+      if (validRows.length === 0) return
+
+      const { error } = await upsertTable<T>(tableName, validRows)
       if (error) {
         console.error(`[Sync] ${tableName}:`, error.message)
         errors.push(`${tableName}: ${error.message}`)
       } else {
-        await Promise.all(ids.map(id => dexieTable.update(id, { _synced: 1 })))
-        console.log(`[Sync] ✓ ${tableName} — ${records.length} records`)
+        await Promise.all(validIds.map(id => dexieTable.update(id, { _synced: 1 })))
+        console.log(`[Sync] ✓ ${tableName} — ${validRows.length} records`)
       }
     }
 
     try {
-
-      // ── 1. Shop ───────────────────────────────────────────────
+      // 1. Shop
       const shop = await db.shop.toCollection().first()
       if (shop && shop._synced === 0) {
         const { error } = await upsertTable<ShopRow>('shops', [shopToRow(shop)])
         if (error) {
           errors.push(`shops: ${error.message}`)
+          console.error('[Sync] shops:', error.message)
         } else {
           await db.shop.update(shop.id, { _synced: 1 })
           console.log('[Sync] ✓ shops')
         }
       }
 
-      // ── 2. Team members ───────────────────────────────────────
+      // 2. Team members
       const members = await db.teamMembers
         .where('shopId').equals(shopId)
         .filter(m => m._synced === 0)
@@ -206,7 +219,7 @@ export const syncService = {
         db.teamMembers, members.map(m => m.id)
       )
 
-      // ── 3. Customers ──────────────────────────────────────────
+      // 3. Customers
       const customers = await db.customers
         .where('shopId').equals(shopId)
         .filter(c => c._synced === 0)
@@ -216,7 +229,7 @@ export const syncService = {
         db.customers, customers.map(c => c.id)
       )
 
-      // ── 4. Measurements ───────────────────────────────────────
+      // 4. Measurements
       const measurements = await db.measurements
         .where('shopId').equals(shopId)
         .filter(m => m._synced === 0)
@@ -226,7 +239,7 @@ export const syncService = {
         db.measurements, measurements.map(m => m.id)
       )
 
-      // ── 5. Orders ─────────────────────────────────────────────
+      // 5. Orders
       const orders = await db.orders
         .where('shopId').equals(shopId)
         .filter(o => o._synced === 0)
@@ -236,7 +249,7 @@ export const syncService = {
         db.orders, orders.map(o => o.id)
       )
 
-      // ── 6. Payments ───────────────────────────────────────────
+      // 6. Payments
       const payments = await db.payments
         .where('shopId').equals(shopId)
         .filter(p => p._synced === 0)
@@ -246,7 +259,7 @@ export const syncService = {
         db.payments, payments.map(p => p.id)
       )
 
-      // ── 7. Order status history ───────────────────────────────
+      // 7. Order status history (uses shopId index added in schema v3)
       const history = await db.orderStatusHistory
         .where('shopId').equals(shopId)
         .filter(h => h._synced === 0)
@@ -257,7 +270,7 @@ export const syncService = {
       )
 
     } catch (e) {
-      const msg = `Unexpected sync error: ${String(e)}`
+      const msg = `Unexpected: ${String(e)}`
       console.error('[Sync]', msg)
       errors.push(msg)
     }
@@ -265,7 +278,7 @@ export const syncService = {
     return { success: errors.length === 0, errors }
   },
 
-  // ── Pull from Supabase → Dexie ────────────────────────────────
+  // Pull Supabase → Dexie (for cross-device login)
   async pullAll(shopId: string): Promise<void> {
     if (!syncService.isOnline()) return
 
@@ -275,24 +288,18 @@ export const syncService = {
         { data: customers },
         { data: payments },
         { data: measurements },
-        { data: history },
+        { data: historyOrders },
       ] = await Promise.all([
-        supabase.from('orders' as any).select('*')
+        (supabase as any).from('orders').select('*')
           .eq('shop_id', shopId).is('deleted_at', null),
-        supabase.from('customers' as any).select('*')
+        (supabase as any).from('customers').select('*')
           .eq('shop_id', shopId).is('deleted_at', null),
-        supabase.from('payments' as any).select('*')
+        (supabase as any).from('payments').select('*')
           .eq('shop_id', shopId).is('deleted_at', null),
-        supabase.from('measurements' as any).select('*')
+        (supabase as any).from('measurements').select('*')
           .eq('shop_id', shopId).is('deleted_at', null),
-        supabase.from('order_status_history' as any).select('*')
-          .in('order_id',
-            (await supabase
-              .from('orders' as any)
-              .select('id')
-              .eq('shop_id', shopId)
-            ).data?.map((o: any) => o.id) ?? []
-          ),
+        (supabase as any).from('orders').select('id')
+          .eq('shop_id', shopId),
       ])
 
       if (orders) {
@@ -300,25 +307,25 @@ export const syncService = {
           id:                  o.id,
           shopId:              o.shop_id,
           orderNumber:         o.order_number,
-          trackingCode:        o.tracking_code,
+          trackingCode:        o.tracking_code    ?? '',
           customerId:          o.customer_id,
           customerName:        o.customer_name,
           customerPhone:       o.customer_phone,
-          measurementId:       o.measurement_id  ?? undefined,
+          measurementId:       o.measurement_id   ?? undefined,
           garmentType:         o.garment_type,
           status:              o.status,
-          assignedTo:          o.assigned_to     ?? undefined,
+          assignedTo:          o.assigned_to      ?? undefined,
           assignedToName:      o.assigned_to_name ?? undefined,
           totalPrice:          Number(o.total_price),
           amountPaid:          Number(o.amount_paid),
           isUrgent:            o.is_urgent ? 1 : 0,
           dueDate:             o.due_date,
           specialInstructions: o.special_instructions ?? undefined,
-          fabricPhotoUrl:      o.fabric_photo_url ?? undefined,
-          stylePhotoUrl:       o.style_photo_url  ?? undefined,
+          fabricPhotoUrl:      o.fabric_photo_url     ?? undefined,
+          stylePhotoUrl:       o.style_photo_url      ?? undefined,
           createdAt:           o.created_at,
           updatedAt:           o.updated_at,
-          deliveredAt:         o.delivered_at     ?? undefined,
+          deliveredAt:         o.delivered_at         ?? undefined,
           _synced:             1,
           _deleted:            0,
         })))
@@ -365,31 +372,42 @@ export const syncService = {
           shopId:      m.shop_id,
           garmentType: m.garment_type,
           values:      m.values,
-          notes:       m.notes     ?? undefined,
+          notes:       m.notes    ?? undefined,
           takenAt:     m.taken_at,
           _synced:     1,
           _deleted:    0,
         })))
       }
 
-      if (history) {
-        const orderShopMap = new Map<string, string>()
-        if (orders) {
-          orders.forEach((o: any) => orderShopMap.set(o.id, o.shop_id))
-        }
+      // Pull history using the order IDs we already fetched
+      if (historyOrders && historyOrders.length > 0) {
+        const orderIds = historyOrders.map((o: any) => o.id)
 
-        await db.orderStatusHistory.bulkPut(
-          history.map((h: any) => ({
-            id:        h.id,
-            orderId:   h.order_id,
-            shopId:    orderShopMap.get(h.order_id) ?? shopId,  // ← add shopId
-            oldStatus: h.old_status ?? undefined,
-            newStatus: h.new_status,
-            changedBy: h.changed_by,
-            changedAt: h.changed_at,
-            _synced:   1 as const,
-          }))
-        )
+        const { data: history } = await (supabase as any)
+          .from('order_status_history')
+          .select('*')
+          .in('order_id', orderIds)
+
+        if (history) {
+          // Build orderId → shopId map for the shopId field
+          const orderShopMap = new Map<string, string>()
+          if (orders) {
+            orders.forEach((o: any) => orderShopMap.set(o.id, o.shop_id))
+          }
+
+          await db.orderStatusHistory.bulkPut(
+            history.map((h: any) => ({
+              id:        h.id,
+              orderId:   h.order_id,
+              shopId:    orderShopMap.get(h.order_id) ?? shopId,
+              oldStatus: h.old_status ?? undefined,
+              newStatus: h.new_status,
+              changedBy: h.changed_by,
+              changedAt: h.changed_at,
+              _synced:   1 as const,
+            }))
+          )
+        }
       }
 
       console.log('[Sync] ✓ Pull complete')
@@ -398,7 +416,20 @@ export const syncService = {
     }
   },
 
-  // ── Public tracking ───────────────────────────────────────────
+  // Public order tracking by tracking code (cross-device)
+  async getOrderByTrackingCode(code: string): Promise<any | null> {
+    const { data, error } = await (supabase as any)
+      .from('orders')
+      .select(`*, shops(shop_name, whatsapp_number, city)`)
+      .eq('tracking_code', code.toUpperCase())
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (error || !data) return null
+    return data
+  },
+
+  // Legacy — kept for backward compatibility
   async getOrderByNumber(orderNumber: number): Promise<any | null> {
     const { data, error } = await (supabase as any)
       .from('orders')
@@ -411,7 +442,7 @@ export const syncService = {
     return data
   },
 
-  // ── Auto-sync ─────────────────────────────────────────────────
+  // Auto-sync: push on reconnect + every 5 minutes
   startAutoSync(shopId: string): () => void {
     if (typeof window === 'undefined') return () => {}
 

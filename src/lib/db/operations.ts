@@ -1,10 +1,9 @@
 // src/lib/db/operations.ts
-
 import { db, OrderRecord, CustomerRecord, TeamMemberRecord, PaymentRecord } from './schema'
-import { generateTrackingCode } from '../tracking'
 import { syncQueue } from './sync'
+import { generateTrackingCode } from '../tracking'
 
-// ─── Utility ──────────────────────────────────────────────────────
+// ── Utility ──────────────────────────────────────────────────────
 
 const uuid = (): string => {
   if (
@@ -13,7 +12,6 @@ const uuid = (): string => {
   ) {
     return crypto.randomUUID()
   }
-  // RFC4122 v4 fallback
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = (Math.random() * 16) | 0
     const v = c === 'x' ? r : (r & 0x3) | 0x8
@@ -21,10 +19,23 @@ const uuid = (): string => {
   })
 }
 
-const now  = () => new Date().toISOString()
+const now   = () => new Date().toISOString()
 const today = () => new Date().toISOString().split('T')[0]
 
-// ─── Shop Setup ───────────────────────────────────────────────────
+// ── Standalone interface for teamOps.add ─────────────────────────
+// Must be a named interface — prevents TypeScript inferring it
+// from orderOps.add's Omit<OrderRecord,...> parameter type
+export interface AddTeamMemberData {
+  name:         string
+  phone:        string
+  role:         'owner' | 'karigar'
+  pin:          string
+  speciality?:  string
+  payRateType?: 'daily' | 'per_order' | 'monthly'
+  payRate?:     number
+}
+
+// ── Shop Ops ─────────────────────────────────────────────────────
 
 export const shopOps = {
   async getShopId(): Promise<string | null> {
@@ -33,13 +44,10 @@ export const shopOps = {
   },
 
   async setup(shopName: string, ownerPhone: string): Promise<string> {
-    // Check if shop already exists
     const existing = await db.shop.toCollection().first()
     if (existing) return existing.id
 
     const id = uuid()
-
-    // Use put instead of add — safe if called twice
     await db.shop.put({
       id,
       shopName,
@@ -49,17 +57,15 @@ export const shopOps = {
       _synced:   0,
       _deleted:  0,
     })
-
     await db.appSettings.put({
       key:   'shopId',
       value: JSON.stringify(id),
     })
-
     return id
   },
 }
 
-// ─── Team Members ─────────────────────────────────────────────────
+// ── Team Ops ─────────────────────────────────────────────────────
 
 export const teamOps = {
   async getAll(shopId: string): Promise<TeamMemberRecord[]> {
@@ -69,44 +75,28 @@ export const teamOps = {
       .toArray()
   },
 
-  // ── Explicit types prevent TypeScript from conflating with paymentOps.add ──
- async add(
-    shopId: string,
-    data: Omit<OrderRecord, 'id' | 'shopId' | 'orderNumber' | 'trackingCode' | 'amountPaid' | 'createdAt' | 'updatedAt' | '_synced' | '_deleted'>
-  ): Promise<OrderRecord> {
-    const orderNumber = await orderOps.getNextOrderNumber(shopId)
-
-    // Get shop name for prefix
-    const shop     = await db.shop.toCollection().first()
-    const shopName = shop?.shopName ?? 'DZ'
-
-    const order: OrderRecord = {
-      id:           uuid(),
+  // Uses named AddTeamMemberData interface — TypeScript cannot
+  // confuse this with orderOps.add's Omit<OrderRecord,...> type
+  async add(shopId: string, data: AddTeamMemberData): Promise<TeamMemberRecord> {
+    const member: TeamMemberRecord = {
+      id:          uuid(),
       shopId,
-      orderNumber,
-      trackingCode: generateTrackingCode(shopName),   // ← ADD
-      amountPaid:   0,
-      createdAt:    now(),
-      updatedAt:    now(),
-      _synced:      0,
-      _deleted:     0,
-      ...data,
+      name:        data.name,
+      phone:       data.phone,
+      role:        data.role,
+      pin:         data.pin,
+      speciality:  data.speciality,
+      payRateType: data.payRateType,
+      payRate:     data.payRate,
+      isActive:    1,
+      joinedAt:    today(),
+      createdAt:   now(),
+      _synced:     0,
+      _deleted:    0,
     }
-
-    await db.orders.add(order)
-
-    // Update customer lastOrderAt + totalOrders
-    const customer = await db.customers.get(order.customerId)
-    if (customer) {
-      await db.customers.update(order.customerId, {
-        lastOrderAt: now(),
-        totalOrders: (customer.totalOrders || 0) + 1,
-        _synced:     0,
-      })
-    }
-
-    syncQueue.push('create', 'orders', order.id, order)
-    return order
+    await db.teamMembers.add(member)
+    syncQueue.push('create', 'teamMembers', member.id, member)
+    return member
   },
 
   async verifyPin(memberId: string, pin: string): Promise<boolean> {
@@ -124,12 +114,13 @@ export const teamOps = {
   },
 }
 
-// ─── Customers ────────────────────────────────────────────────────
+// ── Customer Ops ─────────────────────────────────────────────────
 
 export const customerOps = {
   async getAll(shopId: string): Promise<CustomerRecord[]> {
     return db.customers
-      .where({ shopId, _deleted: 0 })
+      .where('shopId').equals(shopId)
+      .filter(c => c._deleted === 0)
       .reverse()
       .sortBy('lastOrderAt')
   },
@@ -151,13 +142,13 @@ export const customerOps = {
     data: Pick<CustomerRecord, 'name' | 'phone' | 'gender' | 'whatsapp'>
   ): Promise<CustomerRecord> {
     const customer: CustomerRecord = {
-      id: uuid(),
+      id:          uuid(),
       shopId,
       totalOrders: 0,
-      createdAt: now(),
-      updatedAt: now(),
-      _synced: 0,
-      _deleted: 0,
+      createdAt:   now(),
+      updatedAt:   now(),
+      _synced:     0,
+      _deleted:    0,
       ...data,
     }
     await db.customers.add(customer)
@@ -170,11 +161,10 @@ export const customerOps = {
   },
 
   async update(id: string, data: Partial<CustomerRecord>): Promise<void> {
-    // Explicit type annotation stops TS widening _synced to `number`
     const updates: Partial<CustomerRecord> = {
       ...data,
       updatedAt: now(),
-      _synced:   0,          // TS now checks against Partial<CustomerRecord>
+      _synced:   0,
     }
     await db.customers.update(id, updates)
     syncQueue.push('update', 'customers', id, updates)
@@ -186,7 +176,7 @@ export const customerOps = {
   },
 }
 
-// ─── Orders ───────────────────────────────────────────────────────
+// ── Order Ops ────────────────────────────────────────────────────
 
 export const orderOps = {
   async getAll(shopId: string): Promise<OrderRecord[]> {
@@ -197,11 +187,10 @@ export const orderOps = {
       .sortBy('createdAt')
   },
 
-  // For Karigar — only their assigned orders
   async getAssignedTo(memberId: string): Promise<OrderRecord[]> {
     return db.orders
       .where('assignedTo').equals(memberId)
-      .filter(o => o._deleted === 0 && !['delivered', 'cancelled'].includes(o.status))
+      .filter(o => o._deleted === 0 && !['delivered','cancelled'].includes(o.status))
       .toArray()
   },
 
@@ -219,7 +208,7 @@ export const orderOps = {
       .filter(o =>
         o._deleted === 0 &&
         o.dueDate < todayStr &&
-        !['delivered', 'cancelled'].includes(o.status)
+        !['delivered','cancelled'].includes(o.status)
       )
       .toArray()
   },
@@ -227,7 +216,7 @@ export const orderOps = {
   async getDueToday(shopId: string): Promise<OrderRecord[]> {
     return db.orders
       .where({ shopId, dueDate: today() })
-      .filter(o => o._deleted === 0 && !['delivered', 'cancelled'].includes(o.status))
+      .filter(o => o._deleted === 0 && !['delivered','cancelled'].includes(o.status))
       .toArray()
   },
 
@@ -236,31 +225,54 @@ export const orderOps = {
     return all.length > 0 ? Math.max(...all.map(o => o.orderNumber)) + 1 : 1
   },
 
+  // trackingCode is Omitted — generated internally below
+  // Do NOT pass trackingCode from the caller
   async add(
     shopId: string,
-    data: Omit<OrderRecord, 'id' | 'shopId' | 'orderNumber' | 'amountPaid' | 'createdAt' | 'updatedAt' | '_synced' | '_deleted'>
+    data: Omit<OrderRecord,
+      | 'id'
+      | 'shopId'
+      | 'orderNumber'
+      | 'trackingCode'
+      | 'amountPaid'
+      | 'createdAt'
+      | 'updatedAt'
+      | '_synced'
+      | '_deleted'
+    >
   ): Promise<OrderRecord> {
+    // ── Validate required fields ───────────────────────────────
+    if (!data.customerId)  throw new Error('customerId is required')
+    if (!data.garmentType) throw new Error('garmentType is required')
+    if (!data.dueDate)     throw new Error('dueDate is required')
+    // ──────────────────────────────────────────────────────────
+
     const orderNumber = await orderOps.getNextOrderNumber(shopId)
+    const shop        = await db.shop.toCollection().first()
+    const shopName    = shop?.shopName ?? 'DZ'
+
     const order: OrderRecord = {
-      id: uuid(),
+      id:           uuid(),
       shopId,
       orderNumber,
-      amountPaid: 0,
-      createdAt: now(),
-      updatedAt: now(),
-      _synced: 0,
-      _deleted: 0,
-      ...data,
+      trackingCode: generateTrackingCode(shopName),  // generated here
+      amountPaid:   0,
+      createdAt:    now(),
+      updatedAt:    now(),
+      _synced:      0,
+      _deleted:     0,
+      ...data,   // data never contains trackingCode — safe spread
     }
+
     await db.orders.add(order)
 
-    // Update customer's lastOrderAt + totalOrders
+    // Update customer stats
     const customer = await db.customers.get(order.customerId)
     if (customer) {
       await db.customers.update(order.customerId, {
         lastOrderAt: now(),
         totalOrders: (customer.totalOrders || 0) + 1,
-        _synced: 0,
+        _synced:     0,
       })
     }
 
@@ -269,7 +281,7 @@ export const orderOps = {
   },
 
   async updateStatus(
-    orderId: string,
+    orderId:   string,
     newStatus: OrderRecord['status'],
     changedBy: string
   ): Promise<void> {
@@ -277,24 +289,23 @@ export const orderOps = {
     if (!order) return
 
     const updates: Partial<OrderRecord> = {
-      status: newStatus,
+      status:    newStatus,
       updatedAt: now(),
-      _synced: 0,
+      _synced:   0,
       ...(newStatus === 'delivered' ? { deliveredAt: now() } : {}),
     }
 
     await db.orders.update(orderId, updates)
 
-    // Record history
     await db.orderStatusHistory.add({
-      id: uuid(),
+      id:        uuid(),
       orderId,
       shopId:    order.shopId,
       oldStatus: order.status,
       newStatus,
       changedBy,
       changedAt: now(),
-      _synced: 0,
+      _synced:   0,
     })
 
     syncQueue.push('update', 'orders', orderId, updates)
@@ -302,22 +313,26 @@ export const orderOps = {
 
   async assign(orderId: string, memberId: string, memberName: string): Promise<void> {
     const updates = {
-      assignedTo: memberId,
+      assignedTo:     memberId,
       assignedToName: memberName,
-      updatedAt: now(),
-      _synced: 0 as const,
+      updatedAt:      now(),
+      _synced:        0 as const,
     }
     await db.orders.update(orderId, updates)
     syncQueue.push('update', 'orders', orderId, updates)
   },
 
   async softDelete(orderId: string): Promise<void> {
-    await db.orders.update(orderId, { _deleted: 1, status: 'cancelled', _synced: 0 })
+    await db.orders.update(orderId, {
+      _deleted: 1,
+      status:   'cancelled',
+      _synced:  0,
+    })
     syncQueue.push('delete', 'orders', orderId, {})
   },
 }
 
-// ─── Payments ─────────────────────────────────────────────────────
+// ── Payment Ops ──────────────────────────────────────────────────
 
 export const paymentOps = {
   async getForOrder(orderId: string): Promise<PaymentRecord[]> {
@@ -326,13 +341,11 @@ export const paymentOps = {
 
   async getTodayTotal(shopId: string): Promise<number> {
     const payments = await db.payments
-      .where({ shopId })
+      .where('shopId').equals(shopId)
       .filter(p => p.paidAt.startsWith(today()))
       .toArray()
     return payments.reduce((sum, p) => sum + p.amount, 0)
   },
-
-  // ── Replace paymentOps.add (was causing line 280 error) ─────────
 
   async add(
     shopId: string,
@@ -346,24 +359,20 @@ export const paymentOps = {
       _deleted: 0,
       ...data,
     }
-    await db.transaction('rw', [db.payments, db.orders], async () => {
 
-      // Step 1: Insert the new payment
+    // Dexie transaction — atomically insert + recalculate
+    await db.transaction('rw', [db.payments, db.orders], async () => {
       await db.payments.add(payment)
 
-      // Step 2: Sum ALL payments for this order
-      //         The new payment is already in the table at this point
       const allPayments = await db.payments
-        .where('orderId')
-        .equals(data.orderId)
+        .where('orderId').equals(data.orderId)
         .toArray()
 
+      // Sum includes the new payment — do NOT add data.amount again
       const totalPaid = allPayments
         .filter(p => p._deleted === 0)
         .reduce((sum, p) => sum + p.amount, 0)
 
-      // Step 3: Update order with the correct total
-      //         totalPaid already includes data.amount — DO NOT add again
       await db.orders.update(data.orderId, {
         amountPaid: totalPaid,
         updatedAt:  now(),
@@ -376,36 +385,37 @@ export const paymentOps = {
   },
 }
 
-
-// ─── Dashboard Stats ───────────────────────────────────────────────
+// ── Dashboard Ops ────────────────────────────────────────────────
 
 export const dashboardOps = {
   async getStats(shopId: string) {
-    const [
-      allActiveOrders,
-      todayIncome,
-      overdueOrders,
-    ] = await Promise.all([
-      db.orders.where({ shopId }).filter(o =>
-        o._deleted === 0 && !['delivered', 'cancelled'].includes(o.status)
-      ).toArray(),
+    const todayStr = today()
+
+    const [allActiveOrders, todayIncome, overdueOrders] = await Promise.all([
+      db.orders
+        .where('shopId').equals(shopId)
+        .filter(o =>
+          o._deleted === 0 &&
+          !['delivered','cancelled'].includes(o.status)
+        )
+        .toArray(),
       paymentOps.getTodayTotal(shopId),
       orderOps.getOverdue(shopId),
     ])
 
-    const readyOrders     = allActiveOrders.filter(o => o.status === 'ready')
-    const todaysOrders    = allActiveOrders.filter(o => o.createdAt.startsWith(today()))
-    const pendingBalance  = allActiveOrders.reduce(
+    const readyOrders    = allActiveOrders.filter(o => o.status === 'ready')
+    const todaysOrders   = allActiveOrders.filter(o => o.createdAt.startsWith(todayStr))
+    const pendingBalance = allActiveOrders.reduce(
       (sum, o) => sum + Math.max(0, o.totalPrice - o.amountPaid), 0
     )
 
     return {
-      totalOrdersToday:  todaysOrders.length,
-      readyOrders:       readyOrders.length,
-      overdueOrders:     overdueOrders.length,
-      incomeToday:       todayIncome,
+      totalOrdersToday: todaysOrders.length,
+      readyOrders:      readyOrders.length,
+      overdueOrders:    overdueOrders.length,
+      incomeToday:      todayIncome,
       pendingBalance,
-      activeOrders:      allActiveOrders.length,
+      activeOrders:     allActiveOrders.length,
     }
   },
 }

@@ -25,19 +25,46 @@ export default function DashboardPage() {
   const [greeting, setGreeting] = useState('Assalam o Alaikum')
   const [todayStr, setTodayStr] = useState('')
 
-  useEffect(() => {
-    const hour = new Date().getHours()
-    setGreeting(
-      hour < 5 ? 'Assalam o Alaikum' :
-        hour < 12 ? 'Subah Bakhair' :
-          hour < 17 ? 'Salam' :
-            'Assalam o Alaikum'
-    )
-    setTodayStr(new Date().toLocaleDateString('en-PK', {
-      weekday: 'long', day: 'numeric', month: 'long',
-    }))
-    db.syncQueue.toCollection().delete()
-  }, [])
+ 
+useEffect(() => {
+  const cleanCorruptOrders = async () => {
+    if (!shopId) return
+    // Find orders missing required fields
+    const corrupt = await db.orders
+      .where('shopId').equals(shopId)
+      .filter(o => !o.customerId || !o.garmentType || !o.dueDate)
+      .toArray()
+
+    if (corrupt.length > 0) {
+      console.warn(`[Cleanup] Found ${corrupt.length} corrupt orders, soft-deleting`)
+      await Promise.all(
+        corrupt.map(o => db.orders.update(o.id, { _deleted: 1, _synced: 1 }))
+      )
+    }
+
+    // Add tracking codes to orders that are missing them
+    const withoutCode = await db.orders
+      .where('shopId').equals(shopId)
+      .filter(o => o._deleted === 0 && !o.trackingCode)
+      .toArray()
+
+    if (withoutCode.length > 0) {
+      const shop = await db.shop.toCollection().first()
+      const { generateTrackingCode } = await import('@/lib/tracking')
+      await Promise.all(
+        withoutCode.map(o =>
+          db.orders.update(o.id, {
+            trackingCode: generateTrackingCode(shop?.shopName ?? 'DZ'),
+            _synced:      0,
+          })
+        )
+      )
+      console.log(`[Cleanup] Added tracking codes to ${withoutCode.length} orders`)
+    }
+  }
+
+  cleanCorruptOrders()
+}, [shopId])
 
   const today = new Date().toISOString().split('T')[0]
 
