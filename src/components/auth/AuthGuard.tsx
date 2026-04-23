@@ -8,7 +8,7 @@ import { notifScheduler } from '@/lib/notifications/scheduler'
 import { notifPermission } from '@/lib/notifications/permission'
 import { Scissors } from 'lucide-react'
 
-const PUBLIC_ROUTES  = ['/setup', '/login', '/track', '/privacy-policy', '/terms-of-service', '/contact', '/pricing']
+const PUBLIC_ROUTES  = [ '/auth', '/setup', '/login', '/track', '/privacy-policy', '/terms-of-service', '/contact', '/pricing']
 const MARKETING_ROOT = ['/']
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -18,17 +18,23 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   // Route protection
   useEffect(() => {
-    if (isLoading) return
-    const isPublic    = PUBLIC_ROUTES.some(r => pathname.startsWith(r))
-    const isMarketing = MARKETING_ROOT.includes(pathname)
-    if (isMarketing || isPublic) return
-    if (!isSetupDone) { router.replace('/setup');  return }
-    if (!currentUser)  { router.replace('/login');  return }
-    if (currentUser.role === 'karigar') {
-      const ok = ['/karigar', '/orders', '/settings'].some(r => pathname.startsWith(r))
-      if (!ok) router.replace('/karigar')
-    }
-  }, [isLoading, isSetupDone, currentUser, pathname, router])
+  if (isLoading) return
+  const isPublic    = PUBLIC_ROUTES.some(r => pathname.startsWith(r))
+  const isMarketing = pathname === '/'
+  if (isMarketing || isPublic) return
+
+  // Not logged in → auth page (handles both new + existing users)
+  if (!currentUser) {
+    router.replace('/auth')
+    return
+  }
+
+  // Karigar routing
+  if (currentUser.role === 'karigar') {
+    const ok = ['/karigar', '/orders', '/settings'].some(r => pathname.startsWith(r))
+    if (!ok) router.replace('/karigar')
+  }
+}, [isLoading, currentUser, pathname, router])
 
   // Run notification scheduler when user logs in
   useEffect(() => {
