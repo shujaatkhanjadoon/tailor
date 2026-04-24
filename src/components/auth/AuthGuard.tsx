@@ -8,7 +8,14 @@ import { notifScheduler } from '@/lib/notifications/scheduler'
 import { notifPermission } from '@/lib/notifications/permission'
 import { Scissors } from 'lucide-react'
 
-const PUBLIC_ROUTES  = [ '/auth', '/setup', '/login', '/track', '/privacy-policy', '/terms-of-service', '/contact', '/pricing']
+const PUBLIC_ROUTES = [
+  '/auth',
+  '/track',
+  '/privacy-policy',
+  '/terms-of-service',
+  '/contact',
+  '/pricing',
+]
 const MARKETING_ROOT = ['/']
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -16,33 +23,30 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router   = useRouter()
   const pathname = usePathname()
 
-  // Route protection
-  useEffect(() => {
+useEffect(() => {
   if (isLoading) return
-  const isPublic    = PUBLIC_ROUTES.some(r => pathname.startsWith(r))
   const isMarketing = pathname === '/'
+  const isPublic    = PUBLIC_ROUTES.some(r => pathname.startsWith(r))
   if (isMarketing || isPublic) return
 
-  // Not logged in → auth page (handles both new + existing users)
   if (!currentUser) {
-    router.replace('/auth')
+    router.replace('/auth')   // ← single entry point
     return
   }
 
-  // Karigar routing
   if (currentUser.role === 'karigar') {
-    const ok = ['/karigar', '/orders', '/settings'].some(r => pathname.startsWith(r))
-    if (!ok) router.replace('/karigar')
+    const allowed = ['/karigar', '/orders', '/settings'].some(r => pathname.startsWith(r))
+    if (!allowed) router.replace('/karigar')
   }
 }, [isLoading, currentUser, pathname, router])
 
-  // Run notification scheduler when user logs in
-  useEffect(() => {
-    if (!currentUser || !shopId) return
-    if (notifPermission.current() === 'granted') {
-      notifScheduler.run(shopId)
-    }
-  }, [currentUser?.id, shopId])
+// Also add this — run notification scheduler when logged in
+useEffect(() => {
+  if (!currentUser || !shopId) return
+  if (notifPermission.current() === 'granted') {
+    notifScheduler.run(shopId)
+  }
+}, [currentUser?.id, shopId])
 
   if (isLoading) {
     return (

@@ -106,7 +106,7 @@ export interface OrderStatusHistoryRecord {
   orderId: string
   oldStatus: string
   newStatus: string
-  shopId:    string
+  shopId: string
   changedBy: string               // TeamMember.id
   changedAt: string
   _synced: 0 | 1
@@ -131,42 +131,42 @@ export interface AppSettingRecord {
 // ─── The Database Class ────────────────────────────────────────────
 
 export interface PhotoRecord {
-  id:          string
-  orderId:     string
-  shopId:      string
-  type:        'fabric' | 'style' | 'reference'
-  base64:      string        // compressed image data
-  cloudUrl?:   string        // Cloudinary URL if uploaded
-  sizeKB:      number
-  takenAt:     string
-  _synced:     0 | 1
+  id: string
+  orderId: string
+  shopId: string
+  type: 'fabric' | 'style' | 'reference'
+  base64: string        // compressed image data
+  cloudUrl?: string        // Cloudinary URL if uploaded
+  sizeKB: number
+  takenAt: string
+  _synced: 0 | 1
 }
 
 export class TailorDB extends Dexie {
-  shop!:               Table<ShopRecord>
-  teamMembers!:        Table<TeamMemberRecord>
-  customers!:          Table<CustomerRecord>
-  measurements!:       Table<MeasurementRecord>
-  orders!:             Table<OrderRecord>
-  payments!:           Table<PaymentRecord>
+  shop!: Table<ShopRecord>
+  teamMembers!: Table<TeamMemberRecord>
+  customers!: Table<CustomerRecord>
+  measurements!: Table<MeasurementRecord>
+  orders!: Table<OrderRecord>
+  payments!: Table<PaymentRecord>
   orderStatusHistory!: Table<OrderStatusHistoryRecord>
-  syncQueue!:          Table<SyncQueueRecord>
-  appSettings!:        Table<AppSettingRecord>
-  photos!:             Table<PhotoRecord>          // ← ADD
+  syncQueue!: Table<SyncQueueRecord>
+  appSettings!: Table<AppSettingRecord>
+  photos!: Table<PhotoRecord>          // ← ADD
 
   constructor() {
     super('DarziManagerDB')
-    this.version(4).stores({     // ← bump to version 2
-      shop:               'id, ownerPhone, _synced',
-      teamMembers:        'id, shopId, phone, role, isActive, _synced',
-      customers:          'id, shopId, phone, name, _synced, _deleted, lastOrderAt',
-      measurements:       'id, customerId, shopId, garmentType, _synced',
-      orders:             'id, shopId, orderNumber, customerId, status, assignedTo, dueDate, isUrgent, _synced, _deleted, createdAt',
-      payments:           'id, shopId, orderId, paidAt, _synced',
+    this.version(5).stores({
+      shop: 'id, ownerPhone, _synced',
+      teamMembers: 'id, shopId, phone, role, isActive, _synced, [shopId+isActive]',
+      customers: 'id, shopId, phone, name, _synced, _deleted, lastOrderAt',
+      measurements: 'id, customerId, shopId, garmentType, _synced',
+      orders: 'id, shopId, orderNumber, trackingCode, customerId, status, assignedTo, dueDate, isUrgent, _synced, _deleted, createdAt',
+      payments: 'id, shopId, orderId, paidAt, _synced',
       orderStatusHistory: 'id, orderId, shopId, changedAt, _synced',
-      syncQueue:          '++id, table, recordId, createdAt, retries',
-      appSettings:        'key',
-      photos:             'id, orderId, shopId, type, _synced',   // ← ADD
+      syncQueue: '++id, table, recordId, createdAt, retries',
+      appSettings: 'key',
+      photos: 'id, orderId, shopId, type, _synced',
     })
   }
 }

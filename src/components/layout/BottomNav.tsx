@@ -10,8 +10,8 @@ const navItems = [
   { href: '/orders',     icon: ClipboardList, label: 'Orders',   },
   { href: '/customers',  icon: Users,         label: 'Gahak',    },
   { href: '/payments',   icon: Wallet,        label: 'Raseed',   },
-  { href: '/settings',   icon: Settings,      label: 'Settings', },
   { href: '/reports',   icon: BarChart3,     label: 'Reports'  },
+  { href: '/settings',   icon: Settings,      label: 'Settings', },
 ] as const
 
 export function BottomNav() {
@@ -19,7 +19,7 @@ export function BottomNav() {
 
   return (
     // Safe area padding for iPhone notch / Android nav bar
-<nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] 
+<nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-107.5 
                 bg-white border-t border-slate-200 z-50 pb-safe lg:hidden">
       <div className="flex items-center justify-around h-16">
         {navItems.map(({ href, icon: Icon, label }) => {

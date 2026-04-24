@@ -1,7 +1,7 @@
 // src/app/dashboard/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -18,31 +18,35 @@ import { db, OrderRecord } from '@/lib/db/schema'
 import { NotificationBell }           from '@/components/notifications/NotificationBell'
 import { NotificationPermissionCard } from '@/components/notifications/NotificationPermissionCard'
 
+
 export default function DashboardPage() {
   const router = useRouter()
   const { shopId, isOwner } = useAuth()
 
   const [greeting, setGreeting] = useState('Assalam o Alaikum')
   const [todayStr, setTodayStr] = useState('')
+  const cleanupDoneRef = useRef(false)
 
- 
-useEffect(() => {
-  const cleanCorruptOrders = async () => {
-    if (!shopId) return
-    // Find orders missing required fields
+ useEffect(() => {
+  if (!shopId) return
+  if (cleanupDoneRef.current) return   // ← run only once per session
+  cleanupDoneRef.current = true
+
+  const cleanup = async () => {
+    // Remove corrupt orders (missing required fields)
     const corrupt = await db.orders
       .where('shopId').equals(shopId)
       .filter(o => !o.customerId || !o.garmentType || !o.dueDate)
       .toArray()
 
     if (corrupt.length > 0) {
-      console.warn(`[Cleanup] Found ${corrupt.length} corrupt orders, soft-deleting`)
+      console.warn(`[Cleanup] Soft-deleting ${corrupt.length} corrupt orders`)
       await Promise.all(
         corrupt.map(o => db.orders.update(o.id, { _deleted: 1, _synced: 1 }))
       )
     }
 
-    // Add tracking codes to orders that are missing them
+    // Backfill tracking codes for orders missing them
     const withoutCode = await db.orders
       .where('shopId').equals(shopId)
       .filter(o => o._deleted === 0 && !o.trackingCode)
@@ -63,8 +67,8 @@ useEffect(() => {
     }
   }
 
-  cleanCorruptOrders()
-}, [shopId])
+  cleanup().catch(console.error)
+}, [shopId]) 
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -144,7 +148,7 @@ useEffect(() => {
     <div className="pb-20 lg:pb-0">
 
       {/* HEADER */}
-      <header className="bg-gradient-to-br from-blue-900 to-blue-700 text-white
+      <header className="bg-linear-to-br from-blue-900 to-blue-700 text-white
                          px-5 pt-12 pb-6 lg:rounded-2xl lg:mb-6 lg:pt-8">
         <div className="flex items-start justify-between">
           <div>
