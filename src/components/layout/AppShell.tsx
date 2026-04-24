@@ -17,10 +17,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!shopId) return
 
-    // Initial push on mount
-    syncService.pushAll(shopId)
+    // Immediate push when user logs in / app loads
+    syncService.pushAll(shopId).then(({ success, errors }) => {
+      if (!success && errors.length > 0) {
+        console.warn('[AutoSync] Errors:', errors)
+      }
+    })
 
-    // Start auto-sync (returns cleanup function)
+    // Pull latest from Supabase on load (for cross-device updates)
+    syncService.pullAll(shopId).catch(console.error)
+
+    // Start ongoing auto-sync
     const stop = syncService.startAutoSync(shopId)
     return stop
   }, [shopId])
@@ -35,7 +42,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
 
         <div className={`flex-1 ${!isKarigar ? 'lg:pl-64' : ''}`}>
-          <div className="lg:hidden min-h-screen max-w-[430px] mx-auto bg-white shadow-xl relative">
+          <div className="lg:hidden min-h-screen max-w-107.5 mx-auto bg-white shadow-xl relative">
             {children}
             {!isKarigar && <BottomNav />}
           </div>

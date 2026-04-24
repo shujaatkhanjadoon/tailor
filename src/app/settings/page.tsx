@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Image } from 'lucide-react'
 import { syncService } from '@/lib/supabase/sync-service'
+import { Button } from '@/components/ui/button'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -72,15 +73,19 @@ export default function SettingsPage() {
     router.replace('/login')
   }
 
+  const [syncResult, setSyncResult] = useState<{
+    success: boolean; errors: string[]
+  } | null>(null)
+
   const handleManualSync = async () => {
     if (!shopId) return
     setSyncing(true)
-    const { success, errors } = await syncService.pushAll(shopId)
+    setSyncResult(null)
+    const result = await syncService.pushAll(shopId)
     setSyncing(false)
-    setPendingSync(0)
-    if (!success) {
-      alert(`Sync errors:\n${errors.join('\n')}`)
-    }
+    setSyncResult(result)
+    // Auto-clear after 5 seconds
+    setTimeout(() => setSyncResult(null), 5000)
   }
 
   return (
@@ -95,7 +100,7 @@ export default function SettingsPage() {
       <div className="flex-1 px-4 pt-5 space-y-4">
 
         {/* ── PROFILE CARD ── */}
-        <div className="bg-gradient-to-br from-blue-700 to-blue-600 rounded-2xl p-5">
+        <div className="bg-linear-to-br from-blue-700 to-blue-600 rounded-2xl p-5">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-white/20 rounded-full flex items-center
                             justify-center font-bold text-xl text-white border border-white/30">
@@ -224,7 +229,7 @@ export default function SettingsPage() {
             <button
               onClick={handleManualSync}
               disabled={syncing}
-              className="w-full px-4 py-3 text-left border-t border-slate-100 active:bg-slate-50"
+              className="cursor-pointer w-full px-4 py-3 text-left border-t border-slate-100 active:bg-slate-50"
             >
               <p className="text-sm font-semibold text-blue-600 flex items-center gap-2">
                 {syncing
@@ -234,6 +239,26 @@ export default function SettingsPage() {
               </p>
             </button>
           )}
+          {syncResult && (
+            <div className={cn(
+              'mx-4 my-2 rounded-2xl px-4 py-3 text-sm',
+              syncResult.success
+                ? 'bg-green-50 border border-green-200 text-green-700'
+                : 'bg-red-50 border border-red-200 text-red-700'
+            )}>
+              {syncResult.success
+                ? '✓ Sab data sync ho gaya!'
+                : syncResult.errors.map(e => <p key={e} className="text-xs">{e}</p>)
+              }
+            </div>
+          )}
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="px-4 pt-3 pb-2">
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              App Info
+            </p>
+          </div>
           <SettingsRow
             icon={Info}
             iconBg="bg-slate-100"
@@ -243,6 +268,13 @@ export default function SettingsPage() {
             value={`${orderCount} orders`}
             last
           />
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="px-4 pt-3 pb-2">
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              App Info
+            </p>
+          </div>
           <SettingsRow
             icon={Bell}
             iconBg="bg-amber-100"
@@ -251,9 +283,7 @@ export default function SettingsPage() {
             sublabel="Due orders ki yaad dahi set karein"
             onClick={() => router.push('/settings/notifications')}
           />
-
-        </div>
-
+          </div>
         {/* ── DANGER ZONE — owner only ── */}
         {isOwner && (
           <div className="bg-white rounded-2xl border border-red-200 overflow-hidden">
