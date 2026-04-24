@@ -55,14 +55,45 @@ export default function SettingsPage() {
       if (shop) setShopName(shop.shopName)
 
       if (shopId) {
-        const [members, orders, pending] = await Promise.all([
-          db.teamMembers.where({ shopId, isActive: 1 }).count(),
-          db.orders.where('shopId').equals(shopId).filter(o => o._deleted === 0).count(),
-          syncQueue.getPendingCount(),
-        ])
+        // Count members
+        const members = await db.teamMembers
+          .where({ shopId, isActive: 1 })
+          .count()
         setMemberCount(members)
+
+        // Count orders
+        const orders = await db.orders
+          .where('shopId').equals(shopId)
+          .filter(o => o._deleted === 0)
+          .count()
         setOrderCount(orders)
-        setPendingSync(pending)
+
+        // ── FIXED: count actual unsynced records, not syncQueue ──
+        const [
+          unsyncedOrders,
+          unsyncedCustomers,
+          unsyncedPayments,
+          unsyncedMeasurements,
+          unsyncedMembers,
+          unsyncedHistory,
+        ] = await Promise.all([
+          db.orders.where('shopId').equals(shopId).filter(o => o._synced === 0).count(),
+          db.customers.where('shopId').equals(shopId).filter(c => c._synced === 0).count(),
+          db.payments.where('shopId').equals(shopId).filter(p => p._synced === 0).count(),
+          db.measurements.where('shopId').equals(shopId).filter(m => m._synced === 0).count(),
+          db.teamMembers.where('shopId').equals(shopId).filter(m => m._synced === 0).count(),
+          db.orderStatusHistory.where('shopId').equals(shopId).filter(h => h._synced === 0).count(),
+        ])
+
+        const total = unsyncedOrders + unsyncedCustomers + unsyncedPayments +
+          unsyncedMeasurements + unsyncedMembers + unsyncedHistory
+        setPendingSync(total)
+
+        const queueCount = await db.syncQueue.count()
+        if (queueCount > 0) {
+          await db.syncQueue.clear()
+          console.log(`[Settings] Cleared ${queueCount} stale syncQueue entries`)
+        }
       }
     }
     load()
@@ -70,7 +101,7 @@ export default function SettingsPage() {
 
   const handleLogout = () => {
     logout()
-    router.replace('/login')
+    router.replace('/auth')
   }
 
   const [syncResult, setSyncResult] = useState<{
@@ -252,8 +283,8 @@ export default function SettingsPage() {
               }
             </div>
           )}
-          </div>
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-4 pt-3 pb-2">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               App Info
@@ -268,8 +299,8 @@ export default function SettingsPage() {
             value={`${orderCount} orders`}
             last
           />
-          </div>
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-4 pt-3 pb-2">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               App Info
@@ -283,7 +314,7 @@ export default function SettingsPage() {
             sublabel="Due orders ki yaad dahi set karein"
             onClick={() => router.push('/settings/notifications')}
           />
-          </div>
+        </div>
         {/* ── DANGER ZONE — owner only ── */}
         {isOwner && (
           <div className="bg-white rounded-2xl border border-red-200 overflow-hidden">

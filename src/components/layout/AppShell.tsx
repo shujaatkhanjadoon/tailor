@@ -1,7 +1,7 @@
 // src/components/layout/AppShell.tsx
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { BottomNav }        from './BottomNav'
 import { SideNav }          from './SideNav'
 import { AuthGuard }        from '@/components/auth/AuthGuard'
@@ -13,24 +13,55 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, shopId } = useAuth()
   const isKarigar = currentUser?.role === 'karigar'
 
-  // ── Auto-sync when user is logged in ──────────────────────
+  const syncStartedRef = useRef(false)
+
   useEffect(() => {
+    // Don't run until we have a real shopId
     if (!shopId) return
 
-    // Immediate push when user logs in / app loads
+    // Prevent duplicate sync setup on re-renders
+    if (syncStartedRef.current) return
+    syncStartedRef.current = true
+
+    console.log('[AppShell] Starting sync for shopId:', shopId)
+
+    // 1. Push immediately on login/load
     syncService.pushAll(shopId).then(({ success, errors }) => {
-      if (!success && errors.length > 0) {
-        console.warn('[AutoSync] Errors:', errors)
-      }
+      if (errors.length > 0) console.warn('[AutoSync] Push errors:', errors)
     })
 
-    // Pull latest from Supabase on load (for cross-device updates)
+    // 2. Pull latest from cloud
     syncService.pullAll(shopId).catch(console.error)
 
-    // Start ongoing auto-sync
-    const stop = syncService.startAutoSync(shopId)
-    return stop
-  }, [shopId])
+    // 3. Push every 2 minutes while app is open
+    const interval = setInterval(() => {
+      if (navigator.onLine) {
+        syncService.pushAll(shopId).catch(console.error)
+      }
+    }, 2 * 60 * 1000)
+
+    // 4. Push when user returns to the tab (visibility change)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        syncService.pushAll(shopId).catch(console.error)
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    // 5. Push when network reconnects
+    const handleOnline = () => {
+      console.log('[AutoSync] Back online — pushing...')
+      syncService.pushAll(shopId).catch(console.error)
+    }
+    window.addEventListener('online', handleOnline)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('online', handleOnline)
+      syncStartedRef.current = false
+    }
+  }, [shopId])   // re-runs when shopId changes (null → real ID on login)
 
   return (
     <AuthGuard>

@@ -48,7 +48,7 @@ export function OfflineBanner() {
 
   return (
     <div className={cn(
-      'fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] lg:max-w-none',
+      'fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-107.5 lg:max-w-none',
       'lg:left-64 lg:translate-x-0 z-50 px-4 py-2.5',
       'flex items-center gap-2 text-sm font-medium',
       !isOnline   ? 'bg-slate-800 text-white' :
