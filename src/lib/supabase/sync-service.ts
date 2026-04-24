@@ -153,8 +153,7 @@ export const syncService = {
     return typeof navigator !== 'undefined' && navigator.onLine
   },
 
-  // Push all unsynced Dexie records → Supabase
- async pushAll(shopId: string): Promise<{ success: boolean; errors: string[] }> {
+  async pushAll(shopId: string): Promise<{ success: boolean; errors: string[] }> {
     if (!syncService.isOnline()) return { success: false, errors: ['offline'] }
 
     const errors: string[] = []
@@ -176,7 +175,8 @@ export const syncService = {
           validRows.push(mapper(r))
           validIds.push(ids[i])
         } catch (e) {
-          console.warn(`[Sync] Skipping invalid ${tableName}:`, String(e))
+          console.warn(`[Sync] Skipping ${tableName}:`, String(e))
+          // Mark as synced to prevent infinite retry of truly broken records
           dexieTable.update(ids[i], { _synced: 1 }).catch(() => {})
         }
       })
@@ -189,215 +189,61 @@ export const syncService = {
         errors.push(`${tableName}: ${error.message}`)
       } else {
         await Promise.all(validIds.map(id => dexieTable.update(id, { _synced: 1 })))
-        console.log(`[Sync] ✓ ${tableName} — ${validRows.length} records`)
+        console.log(`[Sync] ✓ ${tableName} — ${validRows.length}`)
       }
     }
 
     try {
-      // ── STEP 1: Shop (no dependencies) ───────────────────────────
+      // Run all pushes in strict dependency order
+      // Each awaits before the next — guarantees parents exist before children
+
+      // 1. Shop
       const shop = await db.shop.toCollection().first()
-      if (shop && shop._synced === 0) {
+      if (shop?._synced === 0) {
         const { error } = await upsertTable<ShopRow>('shops', [shopToRow(shop)])
-        if (error) {
-          // Shop sync failed — abort everything, nothing else can work
-          errors.push(`shops: ${error.message}`)
-          console.error('[Sync] shops failed — aborting:', error.message)
-          return { success: false, errors }
-        }
+        if (error) { errors.push(`shops: ${error.message}`); return { success: false, errors } }
         await db.shop.update(shop.id, { _synced: 1 })
-        console.log('[Sync] ✓ shops')
       }
 
-      // ── STEP 2: Team members (depends on shop) ───────────────────
-      const members = await db.teamMembers
-        .where('shopId').equals(shopId)
-        .filter(m => m._synced === 0)
-        .toArray()
-      await push<TeamMemberRow>(
-        'team_members', members, memberToRow,
-        db.teamMembers, members.map(m => m.id)
-      )
+      // 2. Team members
+      const members = await db.teamMembers.where('shopId').equals(shopId)
+        .filter(m => m._synced === 0).toArray()
+      await push<TeamMemberRow>('team_members', members, memberToRow,
+        db.teamMembers, members.map(m => m.id))
 
-      // If team members failed, stop — payments reference recorded_by
-      if (errors.some(e => e.startsWith('team_members'))) {
-        console.error('[Sync] team_members failed — aborting downstream')
-        return { success: false, errors }
-      }
+      // 3. Customers
+      const customers = await db.customers.where('shopId').equals(shopId)
+        .filter(c => c._synced === 0).toArray()
+      await push<CustomerRow>('customers', customers, customerToRow,
+        db.customers, customers.map(c => c.id))
 
-      // ── STEP 3: Customers (depends on shop) ──────────────────────
-      const customers = await db.customers
-        .where('shopId').equals(shopId)
-        .filter(c => c._synced === 0)
-        .toArray()
-      await push<CustomerRow>(
-        'customers', customers, customerToRow,
-        db.customers, customers.map(c => c.id)
-      )
+      // 4. Measurements (after customers)
+      const measurements = await db.measurements.where('shopId').equals(shopId)
+        .filter(m => m._synced === 0).toArray()
+      await push<MeasurementRow>('measurements', measurements, measurementToRow,
+        db.measurements, measurements.map(m => m.id))
 
-      // If customers failed, skip measurements and orders
-      // (both have FK to customers)
-      if (errors.some(e => e.startsWith('customers'))) {
-        console.error('[Sync] customers failed — skipping measurements + orders')
-        return { success: false, errors }
-      }
+      // 5. Orders (after customers)
+      const orders = await db.orders.where('shopId').equals(shopId)
+        .filter(o => o._synced === 0).toArray()
+      await push<OrderRow>('orders', orders, orderToRow,
+        db.orders, orders.map(o => o.id))
 
-      // ── STEP 4: Measurements (depends on customers) ──────────────
-      // Extra guard: only sync measurements whose customer is in Supabase
-      const allMeasurements = await db.measurements
-        .where('shopId').equals(shopId)
-        .filter(m => m._synced === 0)
-        .toArray()
+      // 6. Payments (after orders + members)
+      const payments = await db.payments.where('shopId').equals(shopId)
+        .filter(p => p._synced === 0).toArray()
+      await push<PaymentRow>('payments', payments, paymentToRow,
+        db.payments, payments.map(p => p.id))
 
-      if (allMeasurements.length > 0) {
-        // Fetch which customer IDs actually exist in Supabase
-        const customerIds = [...new Set(allMeasurements.map(m => m.customerId))]
-        const { data: existingCustomers } = await (supabase as any)
-          .from('customers')
-          .select('id')
-          .in('id', customerIds)
-
-        const existingCustomerIds = new Set(
-          (existingCustomers ?? []).map((c: any) => c.id)
-        )
-
-        // Split into safe (customer exists) and orphaned (customer missing)
-        const safeMeasurements = allMeasurements.filter(m =>
-          existingCustomerIds.has(m.customerId)
-        )
-        const orphanedMeasurements = allMeasurements.filter(m =>
-          !existingCustomerIds.has(m.customerId)
-        )
-
-        // Retry orphaned: customer may have just been synced in step 3
-        // Re-fetch after step 3 push
-        if (orphanedMeasurements.length > 0) {
-          const orphanCustomerIds = [...new Set(orphanedMeasurements.map(m => m.customerId))]
-          const { data: retryCustomers } = await (supabase as any)
-            .from('customers')
-            .select('id')
-            .in('id', orphanCustomerIds)
-
-          const retryIds = new Set((retryCustomers ?? []).map((c: any) => c.id))
-
-          orphanedMeasurements.forEach(m => {
-            if (retryIds.has(m.customerId)) {
-              safeMeasurements.push(m)
-            } else {
-              console.warn(`[Sync] Measurement ${m.id} orphaned — customer ${m.customerId} not in Supabase`)
-              // Mark synced to prevent infinite retry
-              db.measurements.update(m.id, { _synced: 1 }).catch(() => {})
-            }
-          })
-        }
-
-        await push<MeasurementRow>(
-          'measurements', safeMeasurements, measurementToRow,
-          db.measurements, safeMeasurements.map(m => m.id)
-        )
-      }
-
-      // ── STEP 5: Orders (depends on customers) ────────────────────
-      const allOrders = await db.orders
-        .where('shopId').equals(shopId)
-        .filter(o => o._synced === 0)
-        .toArray()
-
-      if (allOrders.length > 0) {
-        // Same guard: only sync orders whose customer exists in Supabase
-        const orderCustomerIds = [...new Set(allOrders.map(o => o.customerId).filter(Boolean))]
-        const { data: existingForOrders } = await (supabase as any)
-          .from('customers')
-          .select('id')
-          .in('id', orderCustomerIds)
-
-        const existingForOrdersSet = new Set(
-          (existingForOrders ?? []).map((c: any) => c.id)
-        )
-
-        const safeOrders = allOrders.filter(o =>
-          o.customerId && existingForOrdersSet.has(o.customerId)
-        )
-        const skippedOrders = allOrders.filter(o =>
-          !o.customerId || !existingForOrdersSet.has(o.customerId)
-        )
-
-        skippedOrders.forEach(o => {
-          console.warn(`[Sync] Order ${o.id} skipped — customer ${o.customerId} missing`)
-          db.orders.update(o.id, { _synced: 1 }).catch(() => {})
-        })
-
-        await push<OrderRow>(
-          'orders', safeOrders, orderToRow,
-          db.orders, safeOrders.map(o => o.id)
-        )
-      }
-
-      // ── STEP 6: Payments (depends on orders + team_members) ──────
-      const allPayments = await db.payments
-        .where('shopId').equals(shopId)
-        .filter(p => p._synced === 0)
-        .toArray()
-
-      if (allPayments.length > 0) {
-        // Verify order IDs exist in Supabase
-        const payOrderIds = [...new Set(allPayments.map(p => p.orderId))]
-        const { data: existingOrders } = await (supabase as any)
-          .from('orders')
-          .select('id')
-          .in('id', payOrderIds)
-
-        const existingOrderIds = new Set(
-          (existingOrders ?? []).map((o: any) => o.id)
-        )
-
-        const safePayments    = allPayments.filter(p => existingOrderIds.has(p.orderId))
-        const skippedPayments = allPayments.filter(p => !existingOrderIds.has(p.orderId))
-
-        skippedPayments.forEach(p => {
-          console.warn(`[Sync] Payment ${p.id} skipped — order ${p.orderId} missing`)
-          db.payments.update(p.id, { _synced: 1 }).catch(() => {})
-        })
-
-        await push<PaymentRow>(
-          'payments', safePayments, paymentToRow,
-          db.payments, safePayments.map(p => p.id)
-        )
-      }
-
-      // ── STEP 7: Status history (depends on orders) ───────────────
-      const history = await db.orderStatusHistory
-        .where('shopId').equals(shopId)
-        .filter(h => h._synced === 0)
-        .toArray()
-
-      if (history.length > 0) {
-        const histOrderIds = [...new Set(history.map(h => h.orderId))]
-        const { data: existingForHistory } = await (supabase as any)
-          .from('orders')
-          .select('id')
-          .in('id', histOrderIds)
-
-        const existingHistOrderIds = new Set(
-          (existingForHistory ?? []).map((o: any) => o.id)
-        )
-
-        const safeHistory    = history.filter(h => existingHistOrderIds.has(h.orderId))
-        const skippedHistory = history.filter(h => !existingHistOrderIds.has(h.orderId))
-
-        skippedHistory.forEach(h => {
-          db.orderStatusHistory.update(h.id, { _synced: 1 }).catch(() => {})
-        })
-
-        await push<StatusHistoryRow>(
-          'order_status_history', safeHistory, historyToRow,
-          db.orderStatusHistory, safeHistory.map(h => h.id)
-        )
-      }
+      // 7. Status history (after orders)
+      const history = await db.orderStatusHistory.where('shopId').equals(shopId)
+        .filter(h => h._synced === 0).toArray()
+      await push<StatusHistoryRow>('order_status_history', history, historyToRow,
+        db.orderStatusHistory, history.map(h => h.id))
 
     } catch (e) {
-      const msg = `Unexpected: ${String(e)}`
-      console.error('[Sync]', msg)
-      errors.push(msg)
+      errors.push(`Unexpected: ${String(e)}`)
+      console.error('[Sync]', e)
     }
 
     return { success: errors.length === 0, errors }

@@ -43,14 +43,15 @@ export default function KarigarHomePage() {
 
   const handleLogout = () => {
     logout()
-    router.replace('/login')
+    // Use replace not push — prevents back-button loop
+    router.replace('/auth')
   }
 
   return (
     <div className="min-h-screen bg-slate-50 pb-8">
 
       {/* Header */}
-      <div className="bg-gradient-to-br from-green-800 to-green-600 px-5 pt-14 pb-8">
+      <div className="bg-linear-to-br from-green-800 to-green-600 px-5 pt-14 pb-8">
         <div className="flex items-start justify-between mb-5">
           <div>
             <p className="text-green-200 text-sm">{greeting} 👋</p>
@@ -92,7 +93,7 @@ export default function KarigarHomePage() {
         {/* Overdue alert */}
         {overdue.length > 0 && (
           <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex items-center gap-3">
-            <AlertCircle size={20} className="text-red-600 flex-shrink-0" />
+            <AlertCircle size={20} className="text-red-600 shrink-0" />
             <div>
               <p className="text-sm font-bold text-red-700">
                 {overdue.length} order late ho gaye!

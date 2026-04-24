@@ -23,22 +23,38 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router   = useRouter()
   const pathname = usePathname()
 
-useEffect(() => {
-  if (isLoading) return
-  const isMarketing = pathname === '/'
-  const isPublic    = PUBLIC_ROUTES.some(r => pathname.startsWith(r))
-  if (isMarketing || isPublic) return
+  useEffect(() => {
+    if (isLoading) return
 
-  if (!currentUser) {
-    router.replace('/auth')   // ← single entry point
-    return
-  }
+    const isMarketing = pathname === '/'
+    const isPublic    = PUBLIC_ROUTES.some(r => pathname.startsWith(r))
 
-  if (currentUser.role === 'karigar') {
-    const allowed = ['/karigar', '/orders', '/settings'].some(r => pathname.startsWith(r))
-    if (!allowed) router.replace('/karigar')
-  }
-}, [isLoading, currentUser, pathname, router])
+    // Never redirect from public or marketing routes
+    if (isMarketing || isPublic) return
+
+    // Not logged in → auth
+    if (!currentUser) {
+      router.replace('/auth')
+      return
+    }
+
+    // Karigar: only allow specific routes
+    // Check BEFORE any other logic to prevent loops
+    if (currentUser.role === 'karigar') {
+      const karigarRoutes  = ['/karigar', '/orders', '/settings/change-pin']
+      const isAllowed      = karigarRoutes.some(r => pathname.startsWith(r))
+      if (!isAllowed && pathname !== '/karigar') {
+        router.replace('/karigar')
+      }
+      // Stop here — no further checks for karigar
+      return
+    }
+
+    // Owner: all routes allowed except karigar-specific
+    if (pathname.startsWith('/karigar')) {
+      router.replace('/dashboard')
+    }
+  }, [isLoading, currentUser, pathname, router])
 
 // Also add this — run notification scheduler when logged in
 useEffect(() => {

@@ -14,68 +14,51 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, shopId } = useAuth()
   const isKarigar              = currentUser?.role === 'karigar'
 
-  const syncStartedRef  = useRef(false)
-  const realtimeRef     = useRef<{ unsubscribe: () => void } | null>(null)
+  // src/components/layout/AppShell.tsx — replace useEffect
 
   useEffect(() => {
     if (!shopId) return
-    if (syncStartedRef.current) return
-    syncStartedRef.current = true
 
-    console.log('[AppShell] Initialising sync + realtime for:', shopId)
+    // Don't use a ref guard here — let it re-run when shopId changes
+    // Previous cleanup will cancel old listeners/intervals
 
-    // ── 1. Push any locally unsynced data immediately ────────────
-    syncService.pushAll(shopId).then(({ errors }) => {
-      if (errors.length > 0) console.warn('[AppShell] Push errors:', errors)
-    })
+    console.log('[AppShell] Sync + Realtime starting for:', shopId)
 
-    // ── 2. Pull latest from cloud (covers missed changes) ────────
+    // ── Push immediately — don't await, fire and forget ──────────
+    syncService.pushAll(shopId).catch(console.error)
     syncService.pullAll(shopId).catch(console.error)
 
-    // ── 3. Subscribe to real-time changes ────────────────────────
-    // onChange is called whenever Supabase streams a change.
-    // Dexie's useLiveQuery automatically re-renders components
-    // because it watches IndexedDB — no manual state updates needed.
-    realtimeRef.current = subscribeToShop(shopId, () => {
-      // useLiveQuery hooks pick up IndexedDB changes automatically
-      // so we don't need to do anything here — it's just a callback
-      // you could use for logging or analytics if needed
-    })
+    // ── Real-time subscription ────────────────────────────────────
+    const rt = subscribeToShop(shopId, () => {})
 
-    // ── 4. Push every 90 seconds (catches anything missed) ───────
+    // ── Periodic push every 60s ───────────────────────────────────
     const interval = setInterval(() => {
-      if (navigator.onLine) {
-        syncService.pushAll(shopId).catch(console.error)
-      }
-    }, 90_000)
+      if (navigator.onLine) syncService.pushAll(shopId).catch(console.error)
+    }, 60_000)
 
-    // ── 5. Push when tab becomes visible again ───────────────────
-    const handleVisibility = () => {
+    // ── Visibility change ────────────────────────────────────────
+    const onVisible = () => {
       if (document.visibilityState === 'visible' && navigator.onLine) {
         syncService.pushAll(shopId).catch(console.error)
-        // Also pull to catch changes from other devices
         syncService.pullAll(shopId).catch(console.error)
       }
     }
-    document.addEventListener('visibilitychange', handleVisibility)
+    document.addEventListener('visibilitychange', onVisible)
 
-    // ── 6. Push + pull when network reconnects ───────────────────
-    const handleOnline = () => {
-      console.log('[AppShell] Back online — syncing...')
+    // ── Online event ─────────────────────────────────────────────
+    const onOnline = () => {
       syncService.pushAll(shopId).catch(console.error)
       syncService.pullAll(shopId).catch(console.error)
     }
-    window.addEventListener('online', handleOnline)
+    window.addEventListener('online', onOnline)
 
     return () => {
       clearInterval(interval)
-      document.removeEventListener('visibilitychange', handleVisibility)
-      window.removeEventListener('online', handleOnline)
-      realtimeRef.current?.unsubscribe()
-      realtimeRef.current  = null
-      syncStartedRef.current = false
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', onOnline)
+      rt.unsubscribe()
     }
-  }, [shopId])
+  }, [shopId])  // ← correct: re-runs when shopId changes
 
   return (
     <AuthGuard>
