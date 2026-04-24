@@ -2,56 +2,68 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { BottomNav }        from './BottomNav'
-import { SideNav }          from './SideNav'
-import { AuthGuard }        from '@/components/auth/AuthGuard'
-import { PWAInstallPrompt } from './PWAInstallPrompt'
-import { useAuth }          from '@/lib/auth/AuthContext'
-import { syncService }      from '@/lib/supabase/sync-service'
+import { BottomNav }           from './BottomNav'
+import { SideNav }             from './SideNav'
+import { AuthGuard }           from '@/components/auth/AuthGuard'
+import { PWAInstallPrompt }    from './PWAInstallPrompt'
+import { useAuth }             from '@/lib/auth/AuthContext'
+import { syncService }         from '@/lib/supabase/sync-service'
+import { subscribeToShop }     from '@/lib/supabase/realtime'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, shopId } = useAuth()
-  const isKarigar = currentUser?.role === 'karigar'
+  const isKarigar              = currentUser?.role === 'karigar'
 
-  const syncStartedRef = useRef(false)
+  const syncStartedRef  = useRef(false)
+  const realtimeRef     = useRef<{ unsubscribe: () => void } | null>(null)
 
   useEffect(() => {
-    // Don't run until we have a real shopId
     if (!shopId) return
-
-    // Prevent duplicate sync setup on re-renders
     if (syncStartedRef.current) return
     syncStartedRef.current = true
 
-    console.log('[AppShell] Starting sync for shopId:', shopId)
+    console.log('[AppShell] Initialising sync + realtime for:', shopId)
 
-    // 1. Push immediately on login/load
-    syncService.pushAll(shopId).then(({ success, errors }) => {
-      if (errors.length > 0) console.warn('[AutoSync] Push errors:', errors)
+    // ── 1. Push any locally unsynced data immediately ────────────
+    syncService.pushAll(shopId).then(({ errors }) => {
+      if (errors.length > 0) console.warn('[AppShell] Push errors:', errors)
     })
 
-    // 2. Pull latest from cloud
+    // ── 2. Pull latest from cloud (covers missed changes) ────────
     syncService.pullAll(shopId).catch(console.error)
 
-    // 3. Push every 2 minutes while app is open
+    // ── 3. Subscribe to real-time changes ────────────────────────
+    // onChange is called whenever Supabase streams a change.
+    // Dexie's useLiveQuery automatically re-renders components
+    // because it watches IndexedDB — no manual state updates needed.
+    realtimeRef.current = subscribeToShop(shopId, () => {
+      // useLiveQuery hooks pick up IndexedDB changes automatically
+      // so we don't need to do anything here — it's just a callback
+      // you could use for logging or analytics if needed
+    })
+
+    // ── 4. Push every 90 seconds (catches anything missed) ───────
     const interval = setInterval(() => {
       if (navigator.onLine) {
         syncService.pushAll(shopId).catch(console.error)
       }
-    }, 2 * 60 * 1000)
+    }, 90_000)
 
-    // 4. Push when user returns to the tab (visibility change)
+    // ── 5. Push when tab becomes visible again ───────────────────
     const handleVisibility = () => {
       if (document.visibilityState === 'visible' && navigator.onLine) {
         syncService.pushAll(shopId).catch(console.error)
+        // Also pull to catch changes from other devices
+        syncService.pullAll(shopId).catch(console.error)
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
 
-    // 5. Push when network reconnects
+    // ── 6. Push + pull when network reconnects ───────────────────
     const handleOnline = () => {
-      console.log('[AutoSync] Back online — pushing...')
+      console.log('[AppShell] Back online — syncing...')
       syncService.pushAll(shopId).catch(console.error)
+      syncService.pullAll(shopId).catch(console.error)
     }
     window.addEventListener('online', handleOnline)
 
@@ -59,9 +71,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       clearInterval(interval)
       document.removeEventListener('visibilitychange', handleVisibility)
       window.removeEventListener('online', handleOnline)
+      realtimeRef.current?.unsubscribe()
+      realtimeRef.current  = null
       syncStartedRef.current = false
     }
-  }, [shopId])   // re-runs when shopId changes (null → real ID on login)
+  }, [shopId])
 
   return (
     <AuthGuard>
