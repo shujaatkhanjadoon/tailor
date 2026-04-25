@@ -18,6 +18,7 @@ import { AssignSheet } from '@/components/orders/AssignSheet'
 import { OrderPhotoSection } from '@/components/photos/OrderPhotoSection'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
+import { FeatureGate } from '@/components/billing/FeatureGate'
 
 const PAYMENT_METHODS = [
   { key: 'cash', label: 'Cash', emoji: '💵' },
@@ -96,6 +97,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         isOverdue ? 'bg-red-700' : 'bg-linear-to-br from-blue-900 to-blue-700'
       )}>
         <div className="flex items-center justify-between mb-5">
+          <FeatureGate feature="qr_code" mode="inline">
           {/* QR Code button */}
           <button
             onClick={() => setShowQR(true)}
@@ -105,6 +107,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             <QrCode size={16} />
             QR
           </button>
+          </FeatureGate>
           <button
             onClick={() => router.back()}
             className="w-9 h-9 flex items-center justify-center rounded-full bg-white/20"

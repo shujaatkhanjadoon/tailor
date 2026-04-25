@@ -150,7 +150,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
         <button
           onClick={() => onUpdate({ isUrgent: !data.isUrgent })}
           className={cn(
-            'relative w-12 h-6 rounded-full transition-colors flex-shrink-0',
+            'relative w-12 h-6 rounded-full transition-colors shrink-0',
             data.isUrgent ? 'bg-orange-500' : 'bg-slate-300'
           )}
         >
@@ -186,7 +186,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
                     className="flex-1 w-full text-sm font-semibold text-slate-800
                                bg-transparent outline-none"
                   />
-                  <span className="text-[10px] text-slate-400 flex-shrink-0">{unit}</span>
+                  <span className="text-[10px] text-slate-400 shrink-0">{unit}</span>
                 </div>
               </div>
             ))}
@@ -256,7 +256,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
       </div>
 
       {/* Next button */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px]
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-107.5
                       lg:static lg:translate-x-0 lg:max-w-none
                       bg-white border-t border-slate-100 px-4 py-4">
         <button

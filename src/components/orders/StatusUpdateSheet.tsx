@@ -55,7 +55,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
 
       {/* Sheet */}
       <div
-        className="relative w-full max-w-[430px] bg-white rounded-t-3xl lg:rounded-2xl
+        className="relative w-full max-w-107.5 bg-white rounded-t-3xl lg:rounded-2xl
                    px-5 pt-4 pb-8 lg:pb-6 shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
@@ -125,7 +125,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
                     saving ? 'opacity-60' : ''
                   )}
                 >
-                  <span className="text-2xl flex-shrink-0">
+                  <span className="text-2xl shrink-0">
                     {isSaving ? '⏳' : cfg.emoji}
                   </span>
                   <div className="flex-1">
@@ -149,7 +149,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
                   </div>
                   {!isSaving && (
                     <ArrowRight size={16} className={cn(
-                      'flex-shrink-0',
+                      'shrink-0',
                       status === 'cancelled' ? 'text-red-400' : 'text-slate-300'
                     )} />
                   )}

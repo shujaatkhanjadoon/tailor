@@ -52,7 +52,7 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
       <div
-        className="relative w-full max-w-[430px] bg-white rounded-t-3xl lg:rounded-2xl
+        className="relative w-full max-w-107.5 bg-white rounded-t-3xl lg:rounded-2xl
                    px-5 pt-4 pb-8 lg:pb-6 shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
@@ -84,13 +84,13 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
                     : 'border-slate-200 bg-white hover:border-slate-300'
                 )}
               >
-                <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
                   <UserX size={16} className="text-slate-500" />
                 </div>
                 <p className="font-semibold text-slate-700 text-sm flex-1 text-left">
                   Kisi Ko Assign Na Karein
                 </p>
-                {!selected && <Check size={16} className="text-slate-600 flex-shrink-0" />}
+                {!selected && <Check size={16} className="text-slate-600 shrink-0" />}
               </button>
 
               {/* Team members */}
@@ -109,7 +109,7 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
                   >
                     {/* Avatar */}
                     <div className={cn(
-                      'w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0',
+                      'w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0',
                       isSelected ? 'bg-blue-600 text-white' : 'bg-green-100 text-green-700'
                     )}>
                       {isSelected ? <Check size={16} /> : m.name.charAt(0).toUpperCase()}

@@ -1,127 +1,139 @@
 // src/app/dashboard/page.tsx
-'use client'
+"use client";
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useLiveQuery } from "dexie-react-hooks";
 import {
-  ClipboardList, CheckCircle2, AlertCircle,
-  Wallet, Plus, UserPlus, TrendingUp
-} from 'lucide-react'
+  ClipboardList,
+  CheckCircle2,
+  AlertCircle,
+  Wallet,
+  Plus,
+  UserPlus,
+  TrendingUp,
+} from "lucide-react";
 
-import { StatsCard } from '@/components/dashboard/StatsCard'
-import { DueOrdersAlert } from '@/components/dashboard/DueOrdersAlert'
-import { RecentOrderCard } from '@/components/dashboard/RecentOrderCard'
-import { BottomNav } from '@/components/layout/BottomNav'
-import { useAuth } from '@/lib/auth/AuthContext'
-import { db, OrderRecord } from '@/lib/db/schema'
-import { NotificationBell }           from '@/components/notifications/NotificationBell'
-import { NotificationPermissionCard } from '@/components/notifications/NotificationPermissionCard'
-
+import { StatsCard } from "@/components/dashboard/StatsCard";
+import { DueOrdersAlert } from "@/components/dashboard/DueOrdersAlert";
+import { RecentOrderCard } from "@/components/dashboard/RecentOrderCard";
+import { BottomNav } from "@/components/layout/BottomNav";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { db, OrderRecord } from "@/lib/db/schema";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { NotificationPermissionCard } from "@/components/notifications/NotificationPermissionCard";
+import { PlanBadge } from "@/components/billing/PlanBadge";
+import { TrialBanner } from "@/components/billing/TrialBanner";
 
 export default function DashboardPage() {
-  const router = useRouter()
-  const { shopId, isOwner } = useAuth()
+  const router = useRouter();
+  const { shopId, isOwner } = useAuth();
 
-  const [greeting, setGreeting] = useState('Assalam o Alaikum')
-  const [todayStr, setTodayStr] = useState('')
-  const cleanupDoneRef = useRef(false)
+  const [greeting, setGreeting] = useState("Assalam o Alaikum");
+  const [todayStr, setTodayStr] = useState("");
+  const cleanupDoneRef = useRef(false);
 
- useEffect(() => {
-  if (!shopId) return
-  if (cleanupDoneRef.current) return   // ← run only once per session
-  cleanupDoneRef.current = true
+  useEffect(() => {
+    if (!shopId) return;
+    if (cleanupDoneRef.current) return; // ← run only once per session
+    cleanupDoneRef.current = true;
 
-  const cleanup = async () => {
-    // Remove corrupt orders (missing required fields)
-    const corrupt = await db.orders
-      .where('shopId').equals(shopId)
-      .filter(o => !o.customerId || !o.garmentType || !o.dueDate)
-      .toArray()
+    const cleanup = async () => {
+      // Remove corrupt orders (missing required fields)
+      const corrupt = await db.orders
+        .where("shopId")
+        .equals(shopId)
+        .filter((o) => !o.customerId || !o.garmentType || !o.dueDate)
+        .toArray();
 
-    if (corrupt.length > 0) {
-      console.warn(`[Cleanup] Soft-deleting ${corrupt.length} corrupt orders`)
-      await Promise.all(
-        corrupt.map(o => db.orders.update(o.id, { _deleted: 1, _synced: 1 }))
-      )
-    }
+      if (corrupt.length > 0) {
+        console.warn(
+          `[Cleanup] Soft-deleting ${corrupt.length} corrupt orders`,
+        );
+        await Promise.all(
+          corrupt.map((o) =>
+            db.orders.update(o.id, { _deleted: 1, _synced: 1 }),
+          ),
+        );
+      }
 
-    // Backfill tracking codes for orders missing them
-    const withoutCode = await db.orders
-      .where('shopId').equals(shopId)
-      .filter(o => o._deleted === 0 && !o.trackingCode)
-      .toArray()
+      // Backfill tracking codes for orders missing them
+      const withoutCode = await db.orders
+        .where("shopId")
+        .equals(shopId)
+        .filter((o) => o._deleted === 0 && !o.trackingCode)
+        .toArray();
 
-    if (withoutCode.length > 0) {
-      const shop = await db.shop.toCollection().first()
-      const { generateTrackingCode } = await import('@/lib/tracking')
-      await Promise.all(
-        withoutCode.map(o =>
-          db.orders.update(o.id, {
-            trackingCode: generateTrackingCode(shop?.shopName ?? 'DZ'),
-            _synced:      0,
-          })
-        )
-      )
-      console.log(`[Cleanup] Added tracking codes to ${withoutCode.length} orders`)
-    }
-  }
+      if (withoutCode.length > 0) {
+        const shop = await db.shop.toCollection().first();
+        const { generateTrackingCode } = await import("@/lib/tracking");
+        await Promise.all(
+          withoutCode.map((o) =>
+            db.orders.update(o.id, {
+              trackingCode: generateTrackingCode(shop?.shopName ?? "DZ"),
+              _synced: 0,
+            }),
+          ),
+        );
+        console.log(
+          `[Cleanup] Added tracking codes to ${withoutCode.length} orders`,
+        );
+      }
+    };
 
-  cleanup().catch(console.error)
-}, [shopId]) 
+    cleanup().catch(console.error);
+  }, [shopId]);
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toISOString().split("T")[0];
 
   // ── LIVE QUERIES — all from IndexedDB ──────────────────────────
 
-  const allActiveOrders = useLiveQuery(
-    async (): Promise<OrderRecord[]> => {
-      if (!shopId) return []
-      return db.orders
-        .where('shopId').equals(shopId)
-        .filter(o => o._deleted === 0 && !['delivered', 'cancelled'].includes(o.status))
-        .toArray()
-    },
-    [shopId]
-  )
+  const allActiveOrders = useLiveQuery(async (): Promise<OrderRecord[]> => {
+    if (!shopId) return [];
+    return db.orders
+      .where("shopId")
+      .equals(shopId)
+      .filter(
+        (o) =>
+          o._deleted === 0 && !["delivered", "cancelled"].includes(o.status),
+      )
+      .toArray();
+  }, [shopId]);
 
-  const todayPayments = useLiveQuery(
-    async () => {
-      if (!shopId) return []
-      return db.payments
-        .where('shopId').equals(shopId)
-        .filter(p => p.paidAt.startsWith(today))
-        .toArray()
-    },
-    [shopId, today]
-  )
+  const todayPayments = useLiveQuery(async () => {
+    if (!shopId) return [];
+    return db.payments
+      .where("shopId")
+      .equals(shopId)
+      .filter((p) => p.paidAt.startsWith(today))
+      .toArray();
+  }, [shopId, today]);
 
-  const recentOrders = useLiveQuery(
-    async (): Promise<OrderRecord[]> => {
-      if (!shopId) return []
-      const orders = await db.orders
-        .where('shopId').equals(shopId)
-        .filter(o => o._deleted === 0)
-        .toArray()
-      return orders
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-        .slice(0, 5)
-    },
-    [shopId]
-  )
+  const recentOrders = useLiveQuery(async (): Promise<OrderRecord[]> => {
+    if (!shopId) return [];
+    const orders = await db.orders
+      .where("shopId")
+      .equals(shopId)
+      .filter((o) => o._deleted === 0)
+      .toArray();
+    return orders
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .slice(0, 5);
+  }, [shopId]);
 
   // ── DERIVED STATS ───────────────────────────────────────────────
-  const safe = allActiveOrders ?? []
-  const todayPay = todayPayments ?? []
-  const recent = recentOrders ?? []
+  const safe = allActiveOrders ?? [];
+  const todayPay = todayPayments ?? [];
+  const recent = recentOrders ?? [];
 
-  const overdueOrders = safe.filter(o => o.dueDate < today)
-  const readyOrders = safe.filter(o => o.status === 'ready')
-  const todaysNewOrders = safe.filter(o => o.createdAt.startsWith(today))
-  const incomeToday = todayPay.reduce((sum, p) => sum + p.amount, 0)
-  const pendingBalance = safe.reduce((sum, o) =>
-    sum + Math.max(0, o.totalPrice - o.amountPaid), 0
-  )
+  const overdueOrders = safe.filter((o) => o.dueDate < today);
+  const readyOrders = safe.filter((o) => o.status === "ready");
+  const todaysNewOrders = safe.filter((o) => o.createdAt.startsWith(today));
+  const incomeToday = todayPay.reduce((sum, p) => sum + p.amount, 0);
+  const pendingBalance = safe.reduce(
+    (sum, o) => sum + Math.max(0, o.totalPrice - o.amountPaid),
+    0,
+  );
 
   const stats = {
     totalOrdersToday: todaysNewOrders.length,
@@ -129,9 +141,9 @@ export default function DashboardPage() {
     overdueOrders: overdueOrders.length,
     incomeToday,
     pendingBalance,
-  }
+  };
 
-  const isLoading = allActiveOrders === undefined
+  const isLoading = allActiveOrders === undefined;
 
   if (isLoading) {
     return (
@@ -141,15 +153,16 @@ export default function DashboardPage() {
           <p className="text-sm text-slate-400">Loading...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="pb-20 lg:pb-0">
-
       {/* HEADER */}
-      <header className="bg-linear-to-br from-blue-900 to-blue-700 text-white
-                         px-5 pt-12 pb-6 lg:rounded-2xl lg:mb-6 lg:pt-8">
+      <header
+        className="bg-linear-to-br from-blue-900 to-blue-700 text-white
+                         px-5 pt-12 pb-6 lg:rounded-2xl lg:mb-6 lg:pt-8"
+      >
         <div className="flex items-start justify-between">
           <div>
             <p className="text-blue-200 text-sm font-medium">{greeting} 👋</p>
@@ -158,12 +171,16 @@ export default function DashboardPage() {
               {todayStr || <span className="opacity-0">—</span>}
             </p>
           </div>
-          <NotificationBell />
+          <div className="flex items-center gap-2">
+            <PlanBadge />
+            <NotificationBell />
+          </div>
         </div>
       </header>
 
       <div className="px-4 lg:px-0 space-y-5">
-        <NotificationPermissionCard /> 
+        <TrialBanner />
+        <NotificationPermissionCard />
         {/* STATS GRID */}
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatsCard
@@ -172,7 +189,7 @@ export default function DashboardPage() {
             value={stats.totalOrdersToday}
             subLabel="naye orders aaj"
             variant="info"
-            onClick={() => router.push('/orders?filter=today')}
+            onClick={() => router.push("/orders?filter=today")}
           />
           <StatsCard
             icon={CheckCircle2}
@@ -180,7 +197,7 @@ export default function DashboardPage() {
             value={stats.readyOrders}
             subLabel="lene ke intezaar mein"
             variant="success"
-            onClick={() => router.push('/orders?filter=ready')}
+            onClick={() => router.push("/orders?filter=ready")}
           />
           <StatsCard
             icon={Wallet}
@@ -188,33 +205,36 @@ export default function DashboardPage() {
             value={`Rs. ${stats.incomeToday.toLocaleString()}`}
             subLabel="aaj mila paisa"
             variant="default"
-            onClick={() => router.push('/payments')}
+            onClick={() => router.push("/payments")}
           />
           <StatsCard
             icon={AlertCircle}
             label="Deri Wale"
             value={stats.overdueOrders}
-            subLabel={stats.overdueOrders > 0 ? 'turant dhyan dein' : 'sab theek hai'}
-            variant={stats.overdueOrders > 0 ? 'danger' : 'default'}
-            onClick={() => router.push('/orders?filter=overdue')}
+            subLabel={
+              stats.overdueOrders > 0 ? "turant dhyan dein" : "sab theek hai"
+            }
+            variant={stats.overdueOrders > 0 ? "danger" : "default"}
+            onClick={() => router.push("/orders?filter=overdue")}
           />
         </section>
 
         {/* DESKTOP 2-col */}
         <div className="lg:grid lg:grid-cols-3 lg:gap-6">
           <div className="lg:col-span-2 space-y-5">
-
             {/* Baaki strip */}
             {stats.pendingBalance > 0 && (
               <button
-                onClick={() => router.push('/payments')}
+                onClick={() => router.push("/payments")}
                 className="w-full flex items-center justify-between bg-blue-50 border
                            border-blue-200 rounded-2xl px-4 py-3 text-left
                            transition-transform active:scale-[0.98]"
               >
                 <div className="flex items-center gap-2">
                   <TrendingUp size={16} className="text-blue-600" />
-                  <span className="text-sm font-medium text-blue-700">Total Baaki Raqam</span>
+                  <span className="text-sm font-medium text-blue-700">
+                    Total Baaki Raqam
+                  </span>
                 </div>
                 <span className="text-base font-bold text-blue-800">
                   Rs. {stats.pendingBalance.toLocaleString()}
@@ -227,7 +247,7 @@ export default function DashboardPage() {
             {/* Quick actions */}
             <div className="flex gap-3">
               <button
-                onClick={() => router.push('/orders/new')}
+                onClick={() => router.push("/orders/new")}
                 className="flex-1 flex items-center justify-center gap-2 bg-blue-600
                            text-white font-semibold py-4 rounded-2xl
                            transition-colors active:scale-95 shadow-md shadow-blue-200"
@@ -237,7 +257,7 @@ export default function DashboardPage() {
               </button>
               {isOwner && (
                 <button
-                  onClick={() => router.push('/customers/new')}
+                  onClick={() => router.push("/customers/new")}
                   className="flex-1 flex items-center justify-center gap-2 bg-white
                              border-2 border-slate-200 text-slate-700 font-semibold
                              py-4 rounded-2xl transition-colors active:scale-95"
@@ -251,9 +271,11 @@ export default function DashboardPage() {
             {/* Recent orders */}
             <section>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-slate-800">Recent Orders</h2>
+                <h2 className="text-base font-bold text-slate-800">
+                  Recent Orders
+                </h2>
                 <button
-                  onClick={() => router.push('/orders')}
+                  onClick={() => router.push("/orders")}
                   className="text-xs font-medium text-blue-600"
                 >
                   Sab Dekhein →
@@ -268,7 +290,9 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {recent.map(o => <RecentOrderCard key={o.id} order={o} />)}
+                  {recent.map((o) => (
+                    <RecentOrderCard key={o.id} order={o} />
+                  ))}
                 </div>
               )}
             </section>
@@ -277,25 +301,30 @@ export default function DashboardPage() {
           {/* Desktop sidebar */}
           <div className="hidden lg:block space-y-4">
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-              <h3 className="text-sm font-bold text-slate-700 mb-3">Order Status</h3>
+              <h3 className="text-sm font-bold text-slate-700 mb-3">
+                Order Status
+              </h3>
               {[
-                { label: 'Kapra Mila', emoji: '📋', color: 'text-amber-700' },
-                { label: 'Katai', emoji: '✂️', color: 'text-orange-700' },
-                { label: 'Silai', emoji: '🧵', color: 'text-blue-700' },
-                { label: 'Finishing', emoji: '✨', color: 'text-purple-700' },
-                { label: 'Tayyar', emoji: '✅', color: 'text-green-700' },
-                { label: 'De Diya', emoji: '📦', color: 'text-slate-600' },
-              ].map(s => (
+                { label: "Kapra Mila", emoji: "📋", color: "text-amber-700" },
+                { label: "Katai", emoji: "✂️", color: "text-orange-700" },
+                { label: "Silai", emoji: "🧵", color: "text-blue-700" },
+                { label: "Finishing", emoji: "✨", color: "text-purple-700" },
+                { label: "Tayyar", emoji: "✅", color: "text-green-700" },
+                { label: "De Diya", emoji: "📦", color: "text-slate-600" },
+              ].map((s) => (
                 <div key={s.label} className="flex items-center gap-2 py-1.5">
                   <span className="text-base w-6 text-center">{s.emoji}</span>
-                  <span className={`text-sm font-medium ${s.color}`}>{s.label}</span>
+                  <span className={`text-sm font-medium ${s.color}`}>
+                    {s.label}
+                  </span>
                 </div>
               ))}
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
               <h3 className="text-sm font-bold text-blue-800 mb-2">💡 Tip</h3>
               <p className="text-xs text-blue-600 leading-relaxed">
-                Tayyar orders ke liye WhatsApp button se seedha gahak ko message karein.
+                Tayyar orders ke liye WhatsApp button se seedha gahak ko message
+                karein.
               </p>
             </div>
           </div>
@@ -304,5 +333,5 @@ export default function DashboardPage() {
 
       <BottomNav />
     </div>
-  )
+  );
 }

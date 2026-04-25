@@ -1,12 +1,13 @@
 // src/app/settings/team/page.tsx
-'use client'
+"use client";
 
-import { useRouter } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
-import { TeamManager } from '@/components/team/TeamManager'
+import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+import { TeamManager } from "@/components/team/TeamManager";
+import { FeatureGate } from "@/components/billing/FeatureGate";
 
 export default function TeamSettingsPage() {
-  const router = useRouter()
+  const router = useRouter();
 
   return (
     <div className="min-h-screen bg-slate-50 pb-8">
@@ -26,13 +27,16 @@ export default function TeamSettingsPage() {
       {/* PIN reminder banner */}
       <div className="mx-4 mt-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
         <p className="text-xs text-amber-700 font-medium">
-          💡 Har karigar ka 4-digit PIN hota hai login ke liye. Unhein bata dein.
+          💡 Har karigar ka 4-digit PIN hota hai login ke liye. Unhein bata
+          dein.
         </p>
       </div>
 
       <div className="px-4 mt-4">
-        <TeamManager />
+        <FeatureGate feature="karigar" mode="blur">
+          <TeamManager />
+        </FeatureGate>
       </div>
     </div>
-  )
+  );
 }
