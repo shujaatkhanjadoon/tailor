@@ -1,84 +1,105 @@
 // src/hooks/usePhotoCapture.ts
 import { useState, useCallback, useRef } from 'react'
-import { compressImage, base64SizeKB } from '@/lib/photos/compress'
-import { uploadToCloudinary, cloudinaryEnabled } from '@/lib/photos/cloudinary'
-import { db, PhotoRecord } from '@/lib/db/schema'
-import { useAuth } from '@/lib/auth/AuthContext'
+import { compressImage, base64ToKB }     from '@/lib/photos/compress'
+import { uploadToCloudinary, deleteFromCloudinary, cloudinaryEnabled } from '@/lib/photos/cloudinary'
+import { db, PhotoRecord }               from '@/lib/db/schema'
+import { useAuth }                       from '@/lib/auth/AuthContext'
 
 interface UsePhotoCaptureOptions {
   orderId:  string
   type:     PhotoRecord['type']
 }
 
+export interface PhotoUploadState {
+  phase:    'idle' | 'compressing' | 'saving' | 'uploading' | 'done' | 'error'
+  sizeKB?:  number
+  quality?: number
+  error?:   string
+}
+
 export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
-  const { shopId }           = useAuth()
-  const fileInputRef         = useRef<HTMLInputElement>(null)
-  const [capturing, setCapturing] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [error, setError]         = useState<string | null>(null)
+  const { shopId }   = useAuth()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [state, setState] = useState<PhotoUploadState>({ phase: 'idle' })
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const processFile = useCallback(async (file: File): Promise<PhotoRecord | null> => {
     if (!shopId) return null
-    setCapturing(true)
-    setError(null)
+
+    setState({ phase: 'compressing' })
 
     try {
-      // 1. Compress image
-      const base64 = await compressImage(file, {
-        maxWidthPx: 1200,
-        qualityPct: 0.8,
-        maxSizeKB:  300,
+      // ── 1. Compress client-side ──────────────────────────────
+      const result = await compressImage(file, {
+        maxWidthPx:   1024,
+        maxHeightPx:  1024,
+        qualityStart: 0.82,
+        qualityMin:   0.45,
+        targetKB:     150,     // aim for 150KB
+        hardLimitKB:  280,     // never go above 280KB
       })
 
-      const sizeKB = base64SizeKB(base64)
+      setState({ phase: 'saving', sizeKB: result.sizeKB, quality: result.quality })
 
-      // 2. Save to IndexedDB immediately (works offline)
+      // ── 2. Save to IndexedDB immediately (works offline) ─────
       const photo: PhotoRecord = {
-        id:       crypto.randomUUID(),
+        id:      crypto.randomUUID(),
         orderId,
         shopId,
         type,
-        base64,
-        sizeKB,
-        takenAt:  new Date().toISOString(),
-        _synced:  0,
+        base64:  result.base64,
+        sizeKB:  result.sizeKB,
+        takenAt: new Date().toISOString(),
+        _synced: 0,
       }
       await db.photos.add(photo)
 
-      // 3. Try Cloudinary upload in background (optional)
+      // ── 3. Upload to Cloudinary in background ────────────────
       if (cloudinaryEnabled && navigator.onLine) {
-        setUploading(true)
-        const cloudUrl = await uploadToCloudinary(base64, `darzi/${shopId}`)
-        if (cloudUrl) {
-          await db.photos.update(photo.id, { cloudUrl, _synced: 1 })
-          photo.cloudUrl = cloudUrl
+        setState(s => ({ ...s, phase: 'uploading' }))
+
+        const uploaded = await uploadToCloudinary(
+          result.base64,
+          shopId,
+          orderId,
+          type
+        )
+
+        if (uploaded) {
+          await db.photos.update(photo.id, {
+            cloudUrl:  uploaded.url,
+            publicId:  uploaded.publicId,
+            cloudSizeKB: Math.round(uploaded.bytes / 1024),
+            _synced:   1,
+          })
+          photo.cloudUrl = uploaded.url
         }
-        setUploading(false)
       }
+
+      setState({ phase: 'done', sizeKB: result.sizeKB })
+      setTimeout(() => setState({ phase: 'idle' }), 2000)
 
       return photo
     } catch (e) {
-      console.error('Photo capture failed:', e)
-      setError('Photo save nahi hui. Dobara try karein.')
+      console.error('Photo processing failed:', e)
+      setState({ phase: 'error', error: 'Photo save nahi hui. Dobara try karein.' })
+      setTimeout(() => setState({ phase: 'idle' }), 4000)
       return null
-    } finally {
-      setCapturing(false)
     }
   }, [shopId, orderId, type])
 
   const openCamera = useCallback(() => {
-    // Trigger file input with camera capture
-    if (fileInputRef.current) {
-      fileInputRef.current.setAttribute('capture', 'environment')
-      fileInputRef.current.click()
-    }
+    if (!fileInputRef.current) return
+    fileInputRef.current.setAttribute('capture', 'environment')
+    fileInputRef.current.accept = 'image/*'
+    fileInputRef.current.click()
   }, [])
 
   const openGallery = useCallback(() => {
-    if (fileInputRef.current) {
-      fileInputRef.current.removeAttribute('capture')
-      fileInputRef.current.click()
-    }
+    if (!fileInputRef.current) return
+    fileInputRef.current.removeAttribute('capture')
+    fileInputRef.current.accept = 'image/*'
+    fileInputRef.current.click()
   }, [])
 
   const handleFileChange = useCallback(async (
@@ -87,23 +108,34 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
     const file = e.target.files?.[0]
     if (!file) return
     await processFile(file)
-    // Reset input so same file can be selected again
-    e.target.value = ''
+    e.target.value = ''   // reset so same file works again
   }, [processFile])
 
-  const deletePhoto = useCallback(async (photoId: string) => {
-    await db.photos.delete(photoId)
+  const deletePhoto = useCallback(async (photo: PhotoRecord) => {
+    setDeletingId(photo.id)
+    try {
+      // Delete from Cloudinary if uploaded
+      if (photo.publicId) {
+        await deleteFromCloudinary(photo.publicId)
+      }
+      // Delete from IndexedDB
+      await db.photos.delete(photo.id)
+    } catch (e) {
+      console.error('Delete failed:', e)
+    } finally {
+      setDeletingId(null)
+    }
   }, [])
 
   return {
     fileInputRef,
-    capturing,
-    uploading,
-    error,
+    state,
+    deletingId,
     openCamera,
     openGallery,
     handleFileChange,
     deletePhoto,
-    cloudEnabled: cloudinaryEnabled,
+    cloudEnabled:  cloudinaryEnabled,
+    isProcessing:  state.phase !== 'idle' && state.phase !== 'done' && state.phase !== 'error',
   }
 }

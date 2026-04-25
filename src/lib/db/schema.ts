@@ -131,15 +131,17 @@ export interface AppSettingRecord {
 // ─── The Database Class ────────────────────────────────────────────
 
 export interface PhotoRecord {
-  id: string
-  orderId: string
-  shopId: string
-  type: 'fabric' | 'style' | 'reference'
-  base64: string        // compressed image data
-  cloudUrl?: string        // Cloudinary URL if uploaded
-  sizeKB: number
-  takenAt: string
-  _synced: 0 | 1
+  id:           string
+  orderId:      string
+  shopId:       string
+  type:         'fabric' | 'style' | 'reference'
+  base64:       string           // always stored locally
+  cloudUrl?:    string           // Cloudinary delivery URL
+  publicId?:    string           // Cloudinary public_id (for deletion)
+  cloudSizeKB?: number           // size after Cloudinary processing
+  sizeKB:       number           // local compressed size
+  takenAt:      string
+  _synced:      0 | 1
 }
 
 export class TailorDB extends Dexie {
