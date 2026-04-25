@@ -84,9 +84,9 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
     if (!file) return
     setTakingPhoto(true)
     try {
-      const base64 = await compressImage(file)
-      setQuickPhoto(base64)
-      onUpdate({ fabricPhotoBase64: base64 } as any)
+      const result = await compressImage(file)
+      setQuickPhoto(result.base64)
+      onUpdate({ fabricPhotoBase64: result.base64 } as any)
     } finally {
       setTakingPhoto(false)
     }
