@@ -93,7 +93,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       {/* Header */}
       <div className={cn(
         'px-4 pt-12 pb-5',
-        isOverdue ? 'bg-red-700' : 'bg-gradient-to-br from-blue-900 to-blue-700'
+        isOverdue ? 'bg-red-700' : 'bg-linear-to-br from-blue-900 to-blue-700'
       )}>
         <div className="flex items-center justify-between mb-5">
           {/* QR Code button */}
@@ -215,7 +215,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
                 <div className="flex items-center gap-2 bg-slate-50 border-2 border-slate-200
                                 rounded-xl px-4 py-3 focus-within:border-blue-500 transition-colors">
-                  <span className="text-slate-400 font-medium text-sm flex-shrink-0">Rs.</span>
+                  <span className="text-slate-400 font-medium text-sm shrink-0">Rs.</span>
                   <input
                     type="number"
                     inputMode="numeric"
@@ -320,7 +320,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             },
           ].map(({ icon: Icon, label, value, valueClass }) => (
             <div key={label} className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center shrink-0">
                 <Icon size={14} className="text-slate-500" />
               </div>
               <div className="flex-1">
@@ -363,7 +363,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 const newCfg = ORDER_STATUS_CONFIG[h.newStatus as OrderStatus]
                 return (
                   <div key={h.id} className="flex items-center gap-2 text-xs">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 mt-0.5" />
                     <span className="text-slate-500">
                       {oldCfg?.emoji} {oldCfg?.label}
                     </span>
@@ -371,7 +371,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     <span className={cn('font-semibold', newCfg?.color)}>
                       {newCfg?.emoji} {newCfg?.label}
                     </span>
-                    <span className="text-slate-400 ml-auto flex-shrink-0">
+                    <span className="text-slate-400 ml-auto shrink-0">
                       {format(new Date(h.changedAt), 'd MMM')}
                     </span>
                   </div>
@@ -407,6 +407,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           orderNumber={order.orderNumber}
           customerName={order.customerName}
           customerPhone={order.customerPhone}
+          trackingCode={order.trackingCode}
           onClose={() => setShowQR(false)}
         />
       )}
