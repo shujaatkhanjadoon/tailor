@@ -24,11 +24,12 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { Image } from "lucide-react";
 import { syncService } from "@/lib/supabase/sync-service";
 import { usePlan } from "@/hooks/usePlan";
+import { PLANS } from "@/lib/billing/plans";
 
 export default function SettingsPage() {
   const router = useRouter();
   const { currentUser, shopId, logout, isOwner } = useAuth();
-  const plan = usePlan();
+  const myPlan = usePlan();
 
   const [shopName, setShopName] = useState("");
   const [memberCount, setMemberCount] = useState(0);
@@ -282,7 +283,8 @@ export default function SettingsPage() {
             iconBg="bg-blue-100"
             iconColor="text-blue-600"
             label="Billing & Plan"
-            sublabel={`${plan.plan === "starter" ? "Free" : plan.plan} plan · ${plan.isTrial ? "Trial" : "Active"}`}
+            sublabel={`${PLANS[myPlan.plan].name} · ${myPlan.isTrial ? `Trial: ${myPlan.daysLeft} din baaki` : myPlan.isActive ? "Active" : "Expired"}`}
+            badge={myPlan.isTrial ? "Trial" : undefined}
             onClick={() => router.push("/billing")}
           />
         </div>
