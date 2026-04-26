@@ -24,6 +24,7 @@ import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { NotificationPermissionCard } from "@/components/notifications/NotificationPermissionCard";
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { TrialBanner } from "@/components/billing/TrialBanner";
+import { ExpiryReminderBanner } from '@/components/billing/ExpiryReminderBanner'
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -180,6 +181,7 @@ export default function DashboardPage() {
 
       <div className="px-4 lg:px-0 space-y-5">
         <TrialBanner />
+        <ExpiryReminderBanner />
         <NotificationPermissionCard />
         {/* STATS GRID */}
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">

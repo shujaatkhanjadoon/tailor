@@ -16,8 +16,20 @@ const poppins = Poppins({
 })
 
 export const metadata: Metadata = {
-  title:        'Darzi Manager',
-  description:  'Tailor shop management — simple aur fast',
+  title: {
+    default:  'My Darzi',
+    template: '%s | My Darzi',
+  },
+  description: 'Pakistan ka pehla tailor management app — orders, measurements, payments. Offline bhi kaam kare.',
+  keywords:    ['tailor', 'darzi', 'pakistan', 'order management', 'kapra'],
+  openGraph: {
+    title:       'Darzi Manager',
+    description: 'Pakistan ka pehla tailor management app',
+    url:         'https://mydarzi.vercel.app',
+    siteName:    'Darzi Manager',
+    locale:      'ur_PK',
+    type:        'website',
+  },
   manifest:     '/manifest.json',
   appleWebApp: {
     capable:           true,
