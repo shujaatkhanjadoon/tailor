@@ -55,25 +55,28 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
     <div className="min-h-screen bg-slate-50 pb-8">
 
       {/* ── TOP HEADER ── */}
-      <div className="bg-gradient-to-br from-blue-900 to-blue-700 px-4 pt-12 pb-6">
+      <div className="bg-linear-to-br from-blue-900 to-blue-700 px-4 pt-12 pb-6">
         <div className="flex items-center justify-between mb-6">
           <button
+            aria-label="Go back"
             onClick={() => router.back()}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-white/20"
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-white/20"
           >
             <ArrowLeft size={16} className="text-white" />
           </button>
           {isOwner && (
             <div className="flex gap-2">
               <button
+                aria-label="Edit customer"
                 onClick={() => router.push(`/customers/${id}/edit`)}
-                className="w-9 h-9 flex items-center justify-center rounded-full bg-white/20"
+                className="w-11 h-11 flex items-center justify-center rounded-full bg-white/20"
               >
                 <Edit3 size={15} className="text-white" />
               </button>
               <button
+                aria-label="Delete customer"
                 onClick={handleDelete}
-                className="w-9 h-9 flex items-center justify-center rounded-full bg-red-500/40"
+                className="w-11 h-11 flex items-center justify-center rounded-full bg-red-500/40"
               >
                 <Trash2 size={15} className="text-white" />
               </button>

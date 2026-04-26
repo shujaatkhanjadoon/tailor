@@ -34,8 +34,9 @@ export function UpgradePrompt({ feature, onClose }: UpgradePromptProps) {
 
         {/* Close */}
         <button
+          aria-label="Close upgrade prompt"
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center
+          className="absolute top-4 right-4 w-11 h-11 flex items-center justify-center
                      rounded-full bg-slate-100"
         >
           <X size={15} className="text-slate-500" />

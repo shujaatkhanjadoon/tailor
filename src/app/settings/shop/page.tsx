@@ -59,8 +59,9 @@ export default function ShopSettingsPage() {
     <div className="min-h-screen bg-white flex flex-col pb-8">
       <header className="px-4 pt-12 lg:pt-6 pb-4 border-b border-slate-100 flex items-center gap-3">
         <button
+          aria-label="Go back"
           onClick={() => router.back()}
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100"
+          className="w-11 h-11 flex items-center justify-center rounded-full bg-slate-100"
         >
           <ArrowLeft size={18} className="text-slate-600" />
         </button>
@@ -79,7 +80,7 @@ export default function ShopSettingsPage() {
           </label>
           <div className="flex items-center gap-2 bg-slate-50 border-2 border-slate-200
                           rounded-2xl px-4 py-4 focus-within:border-blue-500 focus-within:bg-white transition-all">
-            <Store size={16} className="text-slate-400 flex-shrink-0" />
+            <Store size={16} className="text-slate-400 shrink-0" />
             <input
               type="text"
               value={shopName}
@@ -97,8 +98,8 @@ export default function ShopSettingsPage() {
           </label>
           <div className="flex items-center gap-2 bg-slate-50 border-2 border-slate-200
                           rounded-2xl px-4 py-4 focus-within:border-green-500 focus-within:bg-white transition-all">
-            <MessageCircle size={16} className="text-green-500 flex-shrink-0" />
-            <span className="text-slate-400 text-sm font-medium flex-shrink-0">+92</span>
+            <MessageCircle size={16} className="text-green-500 shrink-0" />
+            <span className="text-slate-400 text-sm font-medium shrink-0">+92</span>
             <div className="w-px h-4 bg-slate-300" />
             <input
               type="tel"
@@ -109,7 +110,7 @@ export default function ShopSettingsPage() {
               className="flex-1 text-sm font-mono text-slate-800 bg-transparent outline-none placeholder:text-slate-400"
             />
             {whatsapp.length >= 10 && (
-              <span className="text-green-500 text-xs flex-shrink-0">✓</span>
+              <span className="text-green-500 text-xs shrink-0">✓</span>
             )}
           </div>
         </div>
@@ -125,7 +126,7 @@ export default function ShopSettingsPage() {
               className="w-full flex items-center gap-2 bg-slate-50 border-2 border-slate-200
                          rounded-2xl px-4 py-4 text-left transition-all hover:border-slate-300"
             >
-              <MapPin size={16} className="text-slate-400 flex-shrink-0" />
+              <MapPin size={16} className="text-slate-400 shrink-0" />
               <span className={cn('flex-1 text-sm', city ? 'text-slate-800 font-medium' : 'text-slate-400')}>
                 {city || 'Sheher chunein...'}
               </span>

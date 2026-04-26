@@ -126,8 +126,9 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
+              aria-label="Go back"
               onClick={() => router.back()}
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100"
+              className="w-11 h-11 flex items-center justify-center rounded-full bg-slate-100"
             >
               <ArrowLeft size={16} className="text-slate-600" />
             </button>
@@ -216,7 +217,7 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
                           className="flex-1 w-full text-base font-bold text-slate-800
                                      bg-transparent outline-none placeholder:text-slate-300"
                         />
-                        <span className="text-[10px] text-slate-400 flex-shrink-0">"</span>
+                        <span className="text-[10px] text-slate-400 shrink-0">"</span>
                       </div>
                     </div>
                   )
@@ -292,7 +293,7 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
                     className="flex items-center gap-3 px-4 py-3.5 cursor-pointer"
                     onClick={() => setExpandedId(isExpanded ? null : m.id)}
                   >
-                    <span className="text-2xl flex-shrink-0">{gc?.emoji}</span>
+                    <span className="text-2xl shrink-0">{gc?.emoji}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-slate-800 text-sm">{gc?.label}</p>
@@ -306,11 +307,12 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
                         {format(new Date(m.takenAt), 'd MMM yyyy')} · {filled.length} nap
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       <button
+                        aria-label="Copy measurements into new form"
                         onClick={e => { e.stopPropagation(); copyFromPrevious(m) }}
                         title="Copy into new form"
-                        className="w-8 h-8 flex items-center justify-center rounded-full
+                        className="w-11 h-11 flex items-center justify-center rounded-full
                                    bg-slate-100 hover:bg-blue-100 transition-colors"
                       >
                         <Copy size={13} className="text-slate-500" />

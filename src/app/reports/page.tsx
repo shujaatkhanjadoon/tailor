@@ -114,7 +114,7 @@ export default function ReportsPage() {
 
   if (isLoading) {
     return (
-      <div className="px-4 pt-4">
+      <div className="px-4 pt-4 min-h-100">
         <ReportSkeleton />
       </div>
     );
@@ -181,7 +181,7 @@ export default function ReportsPage() {
             </div>
           </div>
         ) : (
-          <main className="flex-1 px-4 pt-4 space-y-5">
+          <main className="flex-1 px-4 pt-4 space-y-5 min-h-100">
             {/* Summary cards */}
             <SummaryCards summary={summary} />
 

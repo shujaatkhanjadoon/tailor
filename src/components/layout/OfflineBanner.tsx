@@ -102,7 +102,7 @@ export function OfflineBanner() {
       'w-full max-w-107.5 lg:max-w-none lg:left-64 lg:translate-x-0',
       'z-50 px-4 py-2.5',
       'flex items-center gap-2 text-sm font-medium',
-      'transition-all duration-300',
+      'transition-all duration-300 will-change-transform',
       showOffline ? 'bg-slate-800 text-white' :
       showError   ? 'bg-amber-500 text-white'  :
       showSynced  ? 'bg-green-600 text-white'  :

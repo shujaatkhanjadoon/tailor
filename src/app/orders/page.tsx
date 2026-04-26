@@ -58,7 +58,7 @@ function OrdersContent() {
   // Loading state:
 if (isLoading) {
   return (
-    <div className="px-4 pt-4">
+    <div className="px-4 pt-4 min-h-100">
       {Array.from({ length: 4 }).map((_, i) => <OrderCardSkeleton key={i} />)}
     </div>
   )
@@ -118,7 +118,11 @@ if (orders.length === 0) {
                          focus:border-blue-500 transition-all"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+              <button
+                aria-label="Clear order search"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+              >
                 <X size={14} className="text-slate-400" />
               </button>
             )}
@@ -212,7 +216,7 @@ if (orders.length === 0) {
       </header>
 
       {/* ── ORDER LIST ── */}
-      <main className="flex-1 px-4 pt-4 space-y-3">
+      <main className="flex-1 px-4 pt-4 space-y-3 min-h-100">
         {orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <p className="text-4xl mb-3">📋</p>

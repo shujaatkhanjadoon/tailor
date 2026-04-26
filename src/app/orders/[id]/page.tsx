@@ -109,8 +109,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </button>
           </FeatureGate>
           <button
+            aria-label="Go back"
             onClick={() => router.back()}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-white/20"
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-white/20"
           >
             <ArrowLeft size={16} className="text-white" />
           </button>

@@ -32,7 +32,7 @@ export function DangerZone() {
         onClick={() => { setShowModal(true); setStep('confirm'); setTyped('') }}
         className="w-full flex items-center gap-3 px-4 py-4 text-left"
       >
-        <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
           <Trash2 size={17} className="text-red-600" />
         </div>
         <div className="flex-1">
@@ -48,7 +48,7 @@ export function DangerZone() {
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => !deleting && setShowModal(false)}
           />
-          <div className="relative w-full max-w-[430px] bg-white rounded-t-3xl lg:rounded-2xl
+          <div className="relative w-full max-w-107.5 bg-white rounded-t-3xl lg:rounded-2xl
                           px-5 pt-5 pb-8 shadow-2xl z-10">
 
             {/* Handle */}
@@ -57,8 +57,9 @@ export function DangerZone() {
             {/* Close */}
             {!deleting && (
               <button
+                aria-label="Close delete data dialog"
                 onClick={() => setShowModal(false)}
-                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center
+                className="absolute top-4 right-4 w-11 h-11 flex items-center justify-center
                            rounded-full bg-slate-100"
               >
                 <X size={14} className="text-slate-500" />
@@ -75,7 +76,7 @@ export function DangerZone() {
             ) : (
               <>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center shrink-0">
                     <AlertTriangle size={24} className="text-red-600" />
                   </div>
                   <div>
@@ -89,7 +90,7 @@ export function DangerZone() {
                   <ul className="text-xs text-red-600 space-y-1">
                     {['Sare gahak','Sare orders','Sari payments','Sare karigar','Sab measurements'].map(item => (
                       <li key={item} className="flex items-center gap-1.5">
-                        <span className="w-1 h-1 bg-red-400 rounded-full flex-shrink-0" />
+                        <span className="w-1 h-1 bg-red-400 rounded-full shrink-0" />
                         {item}
                       </li>
                     ))}

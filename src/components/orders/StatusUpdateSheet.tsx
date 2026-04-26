@@ -75,8 +75,9 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
             <h3 className="text-base font-bold text-slate-800">Status Update Karein</h3>
           </div>
           <button
+            aria-label="Close status sheet"
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100"
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-slate-100"
           >
             <X size={15} className="text-slate-500" />
           </button>

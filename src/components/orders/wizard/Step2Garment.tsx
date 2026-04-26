@@ -224,8 +224,9 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
               className="w-full h-40 object-cover rounded-2xl"
             />
             <button
+              aria-label="Remove fabric photo"
               onClick={() => { setQuickPhoto(null); onUpdate({ fabricPhotoBase64: undefined } as any) }}
-              className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white
+              className="absolute top-2 right-2 w-11 h-11 bg-red-500 text-white
                    rounded-full flex items-center justify-center text-sm font-bold"
             >
               ✕

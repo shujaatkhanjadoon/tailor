@@ -69,7 +69,7 @@ export default function CustomersPage() {
 
     if (isLoading) {
   return (
-    <div className="px-4 pt-4">
+    <div className="px-4 pt-4 min-h-100">
       {Array.from({ length: 5 }).map((_, i) => <CustomerCardSkeleton key={i} />)}
     </div>
   )
@@ -125,6 +125,7 @@ if (customers.length === 0) {
             />
             {query && (
               <button
+                aria-label="Clear customer search"
                 onClick={() => setQuery('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2"
               >
@@ -133,6 +134,7 @@ if (customers.length === 0) {
             )}
           </div>
           <button
+            aria-label="Toggle customer filters"
             onClick={() => setShowFilters(v => !v)}
             className={cn(
               'w-10 h-10 flex items-center justify-center rounded-xl border-2 transition-colors',
@@ -167,7 +169,7 @@ if (customers.length === 0) {
       </header>
 
       {/* ── LIST ── */}
-      <main className="flex-1 px-4 pt-4 space-y-3">
+      <main className="flex-1 px-4 pt-4 space-y-3 min-h-100">
         {customers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Users size={48} className="text-slate-200 mb-4" />

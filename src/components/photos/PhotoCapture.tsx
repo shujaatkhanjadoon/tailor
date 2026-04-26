@@ -109,8 +109,9 @@ export function PhotoCapture({
               )}>
                 {/* Expand */}
                 <button
+                  aria-label={`Expand ${label} photo`}
                   onClick={() => setViewing(photo.cloudUrl ?? photo.base64)}
-                  className="opacity-0 group-hover:opacity-100 w-9 h-9 bg-white/90
+                  className="opacity-0 group-hover:opacity-100 w-11 h-11 bg-white/90
                              rounded-full flex items-center justify-center
                              transition-all active:scale-90"
                 >
@@ -119,9 +120,10 @@ export function PhotoCapture({
 
                 {/* Delete */}
                 <button
+                  aria-label={`Delete ${label} photo`}
                   onClick={() => deletePhoto(photo)}
                   disabled={isDeleting}
-                  className="opacity-0 group-hover:opacity-100 w-9 h-9 bg-red-500
+                  className="opacity-0 group-hover:opacity-100 w-11 h-11 bg-red-500
                              rounded-full flex items-center justify-center
                              transition-all active:scale-90 disabled:opacity-50"
                 >
@@ -277,6 +279,7 @@ export function PhotoCapture({
             onClick={e => e.stopPropagation()}
           />
           <button
+            aria-label="Close photo viewer"
             onClick={() => setViewing(null)}
             className="absolute top-5 right-5 w-11 h-11 bg-white/20
                        backdrop-blur-sm rounded-full flex items-center justify-center

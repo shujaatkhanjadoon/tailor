@@ -213,7 +213,7 @@ export function TeamManager() {
             >
               {/* Avatar */}
               <div className={cn(
-                'w-11 h-11 rounded-full flex items-center justify-center font-bold text-base flex-shrink-0',
+                'w-11 h-11 rounded-full flex items-center justify-center font-bold text-base shrink-0',
                 member.role === 'owner'
                   ? 'bg-blue-100 text-blue-700'
                   : 'bg-green-100 text-green-700'
@@ -225,7 +225,7 @@ export function TeamManager() {
                 <div className="flex items-center gap-2">
                   <p className="font-semibold text-slate-800 truncate">{member.name}</p>
                   {member.role === 'owner' && (
-                    <Star size={12} className="text-amber-500 flex-shrink-0" fill="currentColor" />
+                    <Star size={12} className="text-amber-500 shrink-0" fill="currentColor" />
                   )}
                 </div>
                 <p className="text-xs text-slate-400">{member.phone}</p>
@@ -239,7 +239,7 @@ export function TeamManager() {
                 )}
               </div>
 
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 <span className={cn(
                   'text-[10px] font-bold px-2 py-1 rounded-full',
                   member.role === 'owner'
@@ -250,8 +250,9 @@ export function TeamManager() {
                 </span>
                 {member.role !== 'owner' && (
                   <button
+                    aria-label={`Remove ${member.name}`}
                     onClick={() => handleDeactivate(member.id)}
-                    className="w-8 h-8 flex items-center justify-center rounded-full
+                    className="w-11 h-11 flex items-center justify-center rounded-full
                                hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"
                   >
                     <Trash2 size={14} />

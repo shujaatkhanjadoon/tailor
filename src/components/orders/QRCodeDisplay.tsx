@@ -108,8 +108,9 @@ export function QRCodeDisplay({
             </p>
           </div>
           <button
+            aria-label="Close QR code"
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100"
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-slate-100"
           >
             <X size={15} className="text-slate-500" />
           </button>

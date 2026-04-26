@@ -64,6 +64,7 @@ function DialogContent({
             data-slot="dialog-close"
             render={
               <Button
+                aria-label="Close dialog"
                 variant="ghost"
                 className="absolute top-4 right-4"
                 size="icon-sm"

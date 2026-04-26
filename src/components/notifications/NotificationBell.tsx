@@ -54,8 +54,9 @@ export function NotificationBell() {
     <div className="relative">
       {/* Bell button */}
       <button
+        aria-label={open ? 'Close notifications' : 'Open notifications'}
         onClick={() => setOpen(v => !v)}
-        className="relative w-10 h-10 flex items-center justify-center
+        className="relative w-11 h-11 flex items-center justify-center
                    rounded-full bg-slate-100 hover:bg-slate-200 transition-colors"
       >
         {hasPermission
@@ -65,7 +66,7 @@ export function NotificationBell() {
 
         {/* Badge */}
         {count > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500
+          <span className="absolute -top-0.5 -right-0.5 min-w-4.5 h-4.5 bg-red-500
                            text-white text-[10px] font-bold rounded-full flex items-center
                            justify-center px-1 leading-none">
             {count > 9 ? '9+' : count}
@@ -83,7 +84,7 @@ export function NotificationBell() {
           />
 
           <div className="absolute right-0 top-12 w-[320px] bg-white border border-slate-200
-                          rounded-2xl shadow-xl z-40 overflow-hidden max-h-[480px] flex flex-col">
+                          rounded-2xl shadow-xl z-40 overflow-hidden max-h-120 flex flex-col">
 
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
@@ -95,7 +96,7 @@ export function NotificationBell() {
                 >
                   Settings
                 </button>
-                <button onClick={() => setOpen(false)}>
+                <button aria-label="Close notifications" onClick={() => setOpen(false)}>
                   <X size={15} className="text-slate-400" />
                 </button>
               </div>
@@ -223,7 +224,7 @@ function NotifRow({
                  hover:bg-slate-50 text-left transition-colors"
     >
       {/* Status emoji */}
-      <span className="text-lg flex-shrink-0">{sc?.emoji ?? '📋'}</span>
+      <span className="text-lg shrink-0">{sc?.emoji ?? '📋'}</span>
 
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-slate-800 truncate">
@@ -234,7 +235,7 @@ function NotifRow({
         </p>
       </div>
 
-      <div className="flex-shrink-0 text-right">
+      <div className="shrink-0 text-right">
         <span className={cn(
           'text-[10px] font-bold px-2 py-1 rounded-full',
           variant === 'overdue'

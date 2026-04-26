@@ -56,7 +56,7 @@ export default function PaymentsPage() {
 
   if (isLoading) {
   return (
-    <div className="px-4 pt-4 space-y-3">
+    <div className="px-4 pt-4 space-y-3 min-h-100">
       {Array.from({ length: 4 }).map((_, i) => <PaymentCardSkeleton key={i} />)}
     </div>
   )
@@ -107,6 +107,7 @@ if (payments.length === 0) {
             />
             {searchQuery && (
               <button
+                aria-label="Clear payment search"
                 onClick={() => setSearchQuery('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2"
               >
@@ -116,6 +117,7 @@ if (payments.length === 0) {
           </div>
           {/* Method filter toggle */}
           <button
+            aria-label="Toggle payment method filters"
             onClick={() => setShowMethodFilter(v => !v)}
             className={cn(
               'h-10 px-3 flex items-center gap-1.5 rounded-xl border-2 text-sm font-medium transition-colors',
@@ -231,6 +233,7 @@ if (payments.length === 0) {
         )}
 
         {/* ── PAYMENT LIST ── */}
+        <div className="min-h-100 space-y-5">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -284,6 +287,7 @@ if (payments.length === 0) {
             </div>
           ))
         )}
+        </div>
       </main>
 
       <BottomNav />

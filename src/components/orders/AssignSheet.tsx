@@ -60,7 +60,11 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
 
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-bold text-slate-800">Karigar Ko Assign Karein</h3>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100">
+          <button
+            aria-label="Close assign sheet"
+            onClick={onClose}
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-slate-100"
+          >
             <X size={15} className="text-slate-500" />
           </button>
         </div>
