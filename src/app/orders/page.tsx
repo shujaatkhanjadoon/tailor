@@ -42,7 +42,6 @@ function OrdersContent() {
   const [statusSheet, setStatusSheet] = useState<OrderRecord | null>(null)
   const [assignSheet, setAssignSheet] = useState<OrderRecord | null>(null)
   const [showStatusDropdown, setShowStatusDropdown] = useState(false)
-  const [isLoading, _setIsLoading] = useState(true)
 
   const {
     orders, total, counts,
@@ -56,13 +55,13 @@ function OrdersContent() {
   )
 
   // Loading state:
-if (isLoading) {
-  return (
-    <div className="px-4 pt-4 min-h-100">
-      {Array.from({ length: 4 }).map((_, i) => <OrderCardSkeleton key={i} />)}
-    </div>
-  )
-}
+// if (isLoading) {
+//   return (
+//     <div className="px-4 pt-4 min-h-100">
+//       {Array.from({ length: 4 }).map((_, i) => <OrderCardSkeleton key={i} />)}
+//     </div>
+//   )
+// }
 
 // Empty state:
 if (orders.length === 0) {

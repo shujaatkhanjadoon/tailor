@@ -37,10 +37,16 @@ const nextConfig: NextConfig = {
 
   // Image optimization
   images: {
-    formats:   ['image/webp', 'image/avif'],
-    domains:   ['res.cloudinary.com'],
-    minimumCacheTTL: 60,
-  },
+  formats: ['image/webp', 'image/avif'],
+  remotePatterns: [
+    {
+      protocol: 'https',
+      hostname: 'res.cloudinary.com',
+      pathname: '/**',
+    },
+  ],
+  minimumCacheTTL: 60,
+},
 
   // Remove powered-by header
   poweredByHeader: false,
