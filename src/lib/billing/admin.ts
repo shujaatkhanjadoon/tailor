@@ -3,6 +3,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { buildActivationWhatsApp, buildRejectionWhatsApp } from './whatsapp-notify'
+import { logAdminAction } from '@/lib/admin/audit'
 
 // Server-side Supabase client with service role
 // Never expose this to the browser

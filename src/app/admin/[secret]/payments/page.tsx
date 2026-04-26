@@ -6,6 +6,7 @@ import { useRouter }   from 'next/navigation'
 import { ArrowLeft, RefreshCw, CheckCircle2, Inbox } from 'lucide-react'
 import { getPendingPayments } from '@/lib/billing/admin'
 import { PaymentVerificationCard } from '@/components/billing/PaymentVerificationCard'
+import { AdminShell } from '@/components/admin/AdminShell'
 
 export default function AdminPaymentsPage({
   params,
@@ -32,6 +33,7 @@ export default function AdminPaymentsPage({
   useEffect(() => { load() }, [load])
 
   return (
+    <AdminShell secret={secret}>
     <div className="min-h-screen bg-slate-900">
       <header className="border-b border-slate-700 px-6 py-4 flex items-center gap-3 sticky top-0 bg-slate-900 z-10">
         <button
@@ -94,5 +96,6 @@ export default function AdminPaymentsPage({
         )}
       </div>
     </div>
+    </AdminShell>
   )
 }

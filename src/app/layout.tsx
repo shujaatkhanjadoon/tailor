@@ -23,10 +23,10 @@ export const metadata: Metadata = {
   description: 'Pakistan ka pehla tailor management app — orders, measurements, payments. Offline bhi kaam kare.',
   keywords:    ['tailor', 'darzi', 'pakistan', 'order management', 'kapra'],
   openGraph: {
-    title:       'Darzi Manager',
+    title:       'My Darzi',
     description: 'Pakistan ka pehla tailor management app',
     url:         'https://mydarzi.vercel.app',
-    siteName:    'Darzi Manager',
+    siteName:    'My Darzi',
     locale:      'ur_PK',
     type:        'website',
   },
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable:           true,
     statusBarStyle:    'default',
-    title:             'Darzi Manager',
+    title:             'My Darzi',
   },
   formatDetection: { telephone: false },
   icons: {

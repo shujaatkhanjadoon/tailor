@@ -1,8 +1,15 @@
 // src/app/admin/[secret]/page.tsx
-import { notFound }     from 'next/navigation'
-import Link             from 'next/link'
-import { Scissors, ShoppingBag, Users, CreditCard, Clock, TrendingUp } from 'lucide-react'
-import { getRevenueSummary, getPendingPayments } from '@/lib/billing/admin'
+import { notFound }   from 'next/navigation'
+import { AdminShell } from '@/components/admin/AdminShell'
+import { StatCard }   from '@/components/admin/StatCard'
+import {
+  TrendingUp, Users, CreditCard,
+  Clock, AlertCircle, ShoppingBag,
+  CheckCircle2, Store,
+} from 'lucide-react'
+import { getRevenueSummary, getPendingPayments, getAllShops } from '@/lib/billing/admin'
+import Link   from 'next/link'
+import { format } from 'date-fns'
 
 export default async function AdminDashboard({
   params,
@@ -10,159 +17,175 @@ export default async function AdminDashboard({
   params: Promise<{ secret: string }>
 }) {
   const { secret } = await params
-
-  // Double-check secret server-side (middleware handles first check)
   if (secret !== process.env.ADMIN_SECRET) notFound()
 
-  const [summary, pending] = await Promise.all([
+  const [summary, pending, allShops] = await Promise.all([
     getRevenueSummary(),
     getPendingPayments(),
+    getAllShops(),
   ])
 
-  const stats = [
-    {
-      label:    'Total Revenue',
-      value:    `Rs. ${summary.total.toLocaleString()}`,
-      icon:     TrendingUp,
-      bg:       'bg-green-50',
-      iconBg:   'bg-green-100',
-      iconCol:  'text-green-600',
-      valCol:   'text-green-800',
-    },
-    {
-      label:    'This Month',
-      value:    `Rs. ${summary.thisMonthRevenue.toLocaleString()}`,
-      icon:     CreditCard,
-      bg:       'bg-blue-50',
-      iconBg:   'bg-blue-100',
-      iconCol:  'text-blue-600',
-      valCol:   'text-blue-800',
-    },
-    {
-      label:    'Active Subs',
-      value:    summary.activeSubscriptions,
-      icon:     Users,
-      bg:       'bg-purple-50',
-      iconBg:   'bg-purple-100',
-      iconCol:  'text-purple-600',
-      valCol:   'text-purple-800',
-    },
-    {
-      label:    'On Trial',
-      value:    summary.trialing,
-      icon:     Clock,
-      bg:       'bg-amber-50',
-      iconBg:   'bg-amber-100',
-      iconCol:  'text-amber-600',
-      valCol:   'text-amber-800',
-    },
-    {
-      label:    'Pending',
-      value:    pending.length,
-      icon:     ShoppingBag,
-      bg:       pending.length > 0 ? 'bg-red-50' : 'bg-slate-50',
-      iconBg:   pending.length > 0 ? 'bg-red-100' : 'bg-slate-100',
-      iconCol:  pending.length > 0 ? 'text-red-600' : 'text-slate-500',
-      valCol:   pending.length > 0 ? 'text-red-700' : 'text-slate-700',
-    },
-  ]
+  // Plan distribution
+  const planCounts = allShops.reduce((acc: Record<string, number>, shop: any) => {
+    const plan = shop.subscriptions?.[0]?.plan ?? 'starter'
+    acc[plan] = (acc[plan] || 0) + 1
+    return acc
+  }, {})
+
+  // Recent shops (last 10)
+  const recentShops = allShops.slice(0, 8)
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <AdminShell secret={secret}>
+      <div className="space-y-8">
 
-      {/* Header */}
-      <header className="border-b border-slate-700 px-6 py-4 flex items-center gap-3">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-          <Scissors size={16} className="text-white" />
-        </div>
+        {/* Page title */}
         <div>
-          <h1 className="font-bold text-white">Darzi Manager — Super Admin</h1>
-          <p className="text-slate-400 text-xs">Platform management dashboard</p>
-        </div>
-        <div className="ml-auto">
-          <span className="text-xs text-slate-500 font-mono bg-slate-800 px-3 py-1.5 rounded-lg">
-            🔒 Secure Admin Session
-          </span>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          {stats.map(s => (
-            <div key={s.label} className={`${s.bg} rounded-2xl p-4`}>
-              <div className={`w-9 h-9 ${s.iconBg} rounded-xl flex items-center justify-center mb-3`}>
-                <s.icon size={17} className={s.iconCol} />
-              </div>
-              <p className={`text-xl font-bold ${s.valCol}`}>{s.value}</p>
-              <p className="text-xs text-slate-500 mt-1">{s.label}</p>
-            </div>
-          ))}
+          <h1 className="text-2xl font-bold text-white">Platform Overview</h1>
+          <p className="text-slate-400 text-sm mt-1">
+            Last updated: {format(new Date(), 'd MMM yyyy, h:mm a')}
+          </p>
         </div>
 
-        {/* Pending payments alert */}
+        {/* Pending alert */}
         {pending.length > 0 && (
-          <div className="bg-amber-900/30 border border-amber-600 rounded-2xl px-5 py-4
-                          flex items-center justify-between">
+          <div className="bg-amber-900/30 border-2 border-amber-600 rounded-2xl
+                          px-5 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Clock size={20} className="text-amber-400" />
+              <AlertCircle size={22} className="text-amber-400 shrink-0" />
               <div>
                 <p className="font-bold text-amber-300">
-                  {pending.length} payment{pending.length > 1 ? 's' : ''} pending verification
+                  {pending.length} payment{pending.length > 1 ? 's' : ''} awaiting verification
                 </p>
-                <p className="text-amber-400/70 text-xs mt-0.5">
-                  Shop owners are waiting — verify ASAP
+                <p className="text-amber-500 text-xs mt-0.5">
+                  Shop owners are waiting for activation
                 </p>
               </div>
             </div>
             <Link
               href={`/admin/${secret}/payments`}
-              className="bg-amber-500 hover:bg-amber-400 text-amber-900 font-bold
-                         px-5 py-2.5 rounded-xl text-sm transition-colors"
+              className="bg-amber-500 hover:bg-amber-400 text-amber-900
+                         font-bold px-5 py-2.5 rounded-xl text-sm transition-colors"
             >
               Verify Now →
             </Link>
           </div>
         )}
 
-        {/* Quick nav */}
-        <div className="grid lg:grid-cols-2 gap-4">
-          {[
-            {
-              href:     `/admin/${secret}/payments`,
-              title:    'Payment Verification',
-              desc:     'Pending payments verify karein aur plans activate karein',
-              badge:    pending.length > 0 ? `${pending.length} pending` : null,
-              color:    'border-amber-600 bg-amber-900/20 hover:bg-amber-900/40',
-            },
-            {
-              href:     `/admin/${secret}/shops`,
-              title:    'All Shops',
-              desc:     'Sare shops dekhein, plans manage karein',
-              badge:    null,
-              color:    'border-blue-600 bg-blue-900/20 hover:bg-blue-900/40',
-            },
-          ].map(card => (
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            label="Total Revenue"
+            value={`Rs. ${(summary.total / 1000).toFixed(1)}k`}
+            sub={`Rs. ${summary.thisMonthRevenue.toLocaleString()} this month`}
+            icon={TrendingUp}
+            color="green"
+          />
+          <StatCard
+            label="Active Subscriptions"
+            value={summary.activeSubscriptions}
+            sub={`${summary.trialing} on trial`}
+            icon={CheckCircle2}
+            color="blue"
+          />
+          <StatCard
+            label="Total Shops"
+            value={allShops.length}
+            sub={`${planCounts.professional ?? 0} Pro · ${planCounts.business ?? 0} Biz`}
+            icon={Store}
+            color="purple"
+          />
+          <StatCard
+            label="Pending Payments"
+            value={pending.length}
+            sub={pending.length > 0 ? 'Action required' : 'All clear'}
+            icon={CreditCard}
+            color={pending.length > 0 ? 'amber' : 'slate'}
+          />
+        </div>
+
+        {/* Plan distribution */}
+        <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5">
+          <h2 className="font-bold text-white mb-4">Plan Distribution</h2>
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { plan: 'starter',      emoji: '🌱', color: 'bg-slate-700' },
+              { plan: 'professional', emoji: '⭐', color: 'bg-blue-700'  },
+              { plan: 'business',     emoji: '👑', color: 'bg-purple-700' },
+            ].map(({ plan, emoji, color }) => {
+              const count = planCounts[plan] ?? 0
+              const pct   = allShops.length > 0
+                ? Math.round((count / allShops.length) * 100)
+                : 0
+              return (
+                <div key={plan} className="text-center">
+                  <p className="text-2xl mb-1">{emoji}</p>
+                  <p className="text-2xl font-bold text-white">{count}</p>
+                  <p className="text-slate-400 text-xs capitalize">{plan}</p>
+                  <div className="h-1.5 bg-slate-800 rounded-full mt-2 overflow-hidden">
+                    <div
+                      className={cn('h-full rounded-full', color)}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <p className="text-slate-600 text-[10px] mt-1">{pct}%</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Recent shops */}
+        <div className="bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+            <h2 className="font-bold text-white">Recently Joined Shops</h2>
             <Link
-              key={card.href}
-              href={card.href}
-              className={`block border-2 ${card.color} rounded-2xl px-6 py-5 transition-colors`}
+              href={`/admin/${secret}/shops`}
+              className="text-blue-400 text-xs font-semibold hover:text-blue-300"
             >
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-bold text-white text-lg">{card.title}</h3>
-                {card.badge && (
-                  <span className="bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">
-                    {card.badge}
-                  </span>
-                )}
-              </div>
-              <p className="text-slate-400 text-sm">{card.desc}</p>
-              <p className="text-blue-400 text-sm font-semibold mt-3">Open →</p>
+              View All →
             </Link>
-          ))}
+          </div>
+          <div className="divide-y divide-slate-800">
+            {recentShops.map((shop: any) => {
+              const sub    = shop.subscriptions?.[0]
+              const status = sub?.status ?? 'none'
+              return (
+                <div key={shop.id}
+                  className="flex items-center justify-between px-5 py-3.5">
+                  <div>
+                    <p className="font-semibold text-slate-200 text-sm">
+                      {shop.shop_name}
+                    </p>
+                    <p className="text-slate-500 text-xs font-mono">
+                      {shop.owner_phone}
+                      {shop.city ? ` · ${shop.city}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      'text-[10px] font-bold px-2 py-1 rounded-full',
+                      status === 'active'   ? 'bg-green-900 text-green-400' :
+                      status === 'trialing' ? 'bg-blue-900  text-blue-400'  :
+                      status === 'expired'  ? 'bg-red-900   text-red-400'   :
+                                             'bg-slate-800  text-slate-500'
+                    )}>
+                      {status}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {sub?.plan ?? 'starter'}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
-    </div>
+    </AdminShell>
   )
+}
+
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(' ')
 }

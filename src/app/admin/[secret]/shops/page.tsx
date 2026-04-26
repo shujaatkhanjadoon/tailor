@@ -12,6 +12,7 @@ import { PLANS, PlanId }            from '@/lib/billing/plans'
 import { buildExpiryReminderWhatsApp } from '@/lib/billing/whatsapp-notify'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
+import { AdminShell } from '@/components/admin/AdminShell'
 
 const STATUS_CONFIG = {
   trialing: { label: 'Trial',    color: 'bg-blue-100 text-blue-700',   icon: Clock         },
@@ -61,6 +62,7 @@ export default function AdminShopsPage({
   }
 
   return (
+    <AdminShell secret={secret}>
     <div className="min-h-screen bg-slate-900">
       <header className="border-b border-slate-700 px-6 py-4 flex items-center gap-3 sticky top-0 bg-slate-900 z-10">
         <button
@@ -70,8 +72,8 @@ export default function AdminShopsPage({
           <ArrowLeft size={16} className="text-slate-400" />
         </button>
         <div className="flex-1">
-          <h1 className="font-bold text-white">All Shops</h1>
-          <p className="text-slate-400 text-xs">{shops.length} total</p>
+          <h1 className="text-2xl font-bold text-white">All Shops</h1>
+        <p className="text-slate-400 text-sm mt-1">{shops.length} total registered shops</p>
         </div>
         <button onClick={load} disabled={loading}
           className="bg-slate-800 text-slate-300 px-4 py-2 rounded-xl text-sm font-semibold">
@@ -192,5 +194,6 @@ export default function AdminShopsPage({
         </div>
       </div>
     </div>
+    </AdminShell>
   )
 }
