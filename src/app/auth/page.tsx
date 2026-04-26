@@ -43,10 +43,12 @@ export default function AuthPage() {
   // Already logged in → redirect
   useEffect(() => {
     if (authLoading) return
-    if (currentUser) {
-      router.replace(currentUser.role === 'karigar' ? '/karigar' : '/dashboard')
-    }
-  }, [currentUser, authLoading, router])
+    if (!currentUser) return
+
+    // Use window.location instead of router.replace to avoid RSC conflict
+    const dest = currentUser.role === 'karigar' ? '/karigar' : '/dashboard'
+    window.location.href = dest
+  }, [currentUser, authLoading])
 
   // ── Step 1: Check phone ───────────────────────────────────────
   const handlePhoneSubmit = useCallback(async () => {

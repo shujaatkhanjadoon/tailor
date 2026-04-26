@@ -1,212 +1,403 @@
 // src/app/customers/page.tsx
-"use client";
+'use client'
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useLiveQuery } from "dexie-react-hooks";
-import { Search, UserPlus, Users, SlidersHorizontal, X } from "lucide-react";
-import { useAuth } from "@/lib/auth/AuthContext";
-import { useCustomers } from "@/hooks/useCustomers";
-import { CustomerCard } from "@/components/customers/CustomerCard";
-import { db } from "@/lib/db/schema";
-import { cn } from "@/lib/utils";
-import { BottomNav } from "@/components/layout/BottomNav";
-import { CustomerCardSkeleton } from "@/components/ui/Skeleton";
-import { EmptyState, EMPTY_STATES } from "@/components/ui/EmptyState";
+import { useState, useMemo }          from 'react'
+import { useRouter }                  from 'next/navigation'
+import { useLiveQuery }               from 'dexie-react-hooks'
+import {
+  Plus, Search, X,
+  Users, Phone, ChevronRight,
+  ShoppingBag, TrendingUp,
+} from 'lucide-react'
+import { db, CustomerRecord }         from '@/lib/db/schema'
+import { useAuth }                    from '@/lib/auth/AuthContext'
+import { BottomNav }                  from '@/components/layout/BottomNav'
+import { CustomerCardSkeleton }       from '@/components/ui/Skeleton'
+import { cn }                         from '@/lib/utils'
+import { format, isToday, isYesterday } from 'date-fns'
 
-const GENDER_FILTERS = [
-  { key: "all", label: "Sab" },
-  { key: "male", label: "Mard" },
-  { key: "female", label: "Aurat" },
-  { key: "child", label: "Bachcha" },
-] as const;
+// ── Gender filter config ─────────────────────────────────────────
 
-export default function CustomersPage() {
-  const router = useRouter();
-  const { shopId, isOwner } = useAuth();
-  const [showFilters, setShowFilters] = useState(false);
+type GenderFilter = 'all' | 'male' | 'female' | 'child'
 
-  const { customers, total, query, setQuery, genderFilter, setGenderFilter } =
-    useCustomers(shopId);
+const GENDER_FILTERS: { key: GenderFilter; label: string }[] = [
+  { key: 'all',    label: 'Sab'     },
+  { key: 'male',   label: '👨 Mard'  },
+  { key: 'female', label: '👩 Aurat' },
+  { key: 'child',  label: '👶 Bacha' },
+]
 
-  // Get order counts per customer in one query
-  const orderCounts = useLiveQuery(async (): Promise<
-    Record<string, number>
-  > => {
-    if (!shopId) return {};
-    const orders = await db.orders
-      .where("shopId")
-      .equals(shopId)
-      .filter((o) => o._deleted === 0)
-      .toArray();
-    return orders.reduce<Record<string, number>>((acc, o) => {
-      acc[o.customerId] = (acc[o.customerId] || 0) + 1;
-      return acc;
-    }, {});
-  }, [shopId]);
+// ── Customer Card ─────────────────────────────────────────────────
 
-  // Pending balances per customer
-  const pendingBalances = useLiveQuery(async (): Promise<
-    Record<string, number>
-  > => {
-    if (!shopId) return {};
-    const orders = await db.orders
-      .where("shopId")
-      .equals(shopId)
-      .filter(
-        (o) =>
-          o._deleted === 0 && !["delivered", "cancelled"].includes(o.status),
-      )
-      .toArray();
-    return orders.reduce<Record<string, number>>((acc, o) => {
-      const bal = Math.max(0, o.totalPrice - o.amountPaid);
-      acc[o.customerId] = (acc[o.customerId] || 0) + bal;
-      return acc;
-    }, {});
-  }, [shopId]);
+function CustomerCard({
+  customer,
+  onClick,
+}: {
+  customer: CustomerRecord
+  onClick:  () => void
+}) {
+  const initials = customer.name
+    .split(' ')
+    .map(w => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
 
-  // if (isLoading) {
-  //   return (
-  //     <div className="px-4 pt-4 min-h-100">
-  //       {Array.from({ length: 5 }).map((_, i) => (
-  //         <CustomerCardSkeleton key={i} />
-  //       ))}
-  //     </div>
-  //   );
-  // }
+  const lastOrderText = customer.lastOrderAt
+    ? isToday(new Date(customer.lastOrderAt))
+      ? 'Aaj'
+      : isYesterday(new Date(customer.lastOrderAt))
+      ? 'Kal'
+      : format(new Date(customer.lastOrderAt), 'd MMM')
+    : null
 
-  if (customers.length === 0) {
-    return (
-      <EmptyState
-        {...EMPTY_STATES.customers}
-        action={{
-          label: "Naya Gahak",
-          onClick: () => router.push("/customers/new"),
-        }}
-      />
-    );
-  }
+  const AVATAR_COLORS = [
+    'bg-blue-100 text-blue-700',
+    'bg-green-100 text-green-700',
+    'bg-purple-100 text-purple-700',
+    'bg-amber-100 text-amber-700',
+    'bg-red-100 text-red-700',
+    'bg-teal-100 text-teal-700',
+  ]
+  const colorIdx  = customer.name.charCodeAt(0) % AVATAR_COLORS.length
+  const avatarCol = AVATAR_COLORS[colorIdx]
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 pb-20">
+    <button
+      onClick={onClick}
+      className="w-full bg-white border border-slate-200 rounded-2xl p-4
+                 text-left transition-all active:scale-[0.98] hover:border-slate-300
+                 hover:shadow-sm"
+    >
+      <div className="flex items-center gap-3">
+        {/* Avatar */}
+        <div className={cn(
+          'w-12 h-12 rounded-full flex items-center justify-center',
+          'font-bold text-sm shrink-0',
+          avatarCol
+        )}>
+          {initials}
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <p className="font-bold text-slate-800 truncate">{customer.name}</p>
+            {customer.gender === 'female' && (
+              <span className="text-[10px] bg-pink-100 text-pink-600 font-semibold
+                               px-1.5 py-0.5 rounded-full shrink-0">
+                Aurat
+              </span>
+            )}
+            {customer.gender === 'child' && (
+              <span className="text-[10px] bg-amber-100 text-amber-600 font-semibold
+                               px-1.5 py-0.5 rounded-full shrink-0">
+                Bacha
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <Phone size={10} />
+            <span className="font-mono">{customer.phone}</span>
+          </div>
+
+          <div className="flex items-center gap-3 mt-1.5">
+            {(customer.totalOrders ?? 0) > 0 && (
+              <span className="flex items-center gap-1 text-[10px] text-slate-500">
+                <ShoppingBag size={10} />
+                {customer.totalOrders} orders
+              </span>
+            )}
+            {lastOrderText && (
+              <span className="text-[10px] text-slate-400">
+                Aakhri: {lastOrderText}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <ChevronRight size={16} className="text-slate-300 shrink-0" />
+      </div>
+    </button>
+  )
+}
+
+// ── Main Page ─────────────────────────────────────────────────────
+
+export default function CustomersPage() {
+  const router              = useRouter()
+  const { shopId, isOwner } = useAuth()
+  const [search,  setSearch]  = useState('')
+  const [gender,  setGender]  = useState<GenderFilter>('all')
+  const [sortBy,  setSortBy]  = useState<'name' | 'orders' | 'recent'>('recent')
+
+  // undefined = loading, array = loaded
+  const rawCustomers = useLiveQuery(
+    async (): Promise<CustomerRecord[]> => {
+      if (!shopId) return []
+      return db.customers
+        .where('shopId').equals(shopId)
+        .filter(c => c._deleted === 0)
+        .toArray()
+    },
+    [shopId]
+  )
+
+  // isLoading: undefined means Dexie hasn't resolved yet
+  const isLoading    = rawCustomers === undefined
+  const allCustomers = rawCustomers ?? []
+
+  // ── Filter + sort ─────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    let list = [...allCustomers]
+
+    // Gender filter
+    if (gender !== 'all') {
+      list = list.filter(c => c.gender === gender)
+    }
+
+    // Search
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      list = list.filter(c =>
+        c.name.toLowerCase().includes(q) ||
+        c.phone.includes(q)
+      )
+    }
+
+    // Sort
+    if (sortBy === 'name') {
+      list.sort((a, b) => a.name.localeCompare(b.name))
+    } else if (sortBy === 'orders') {
+      list.sort((a, b) => (b.totalOrders ?? 0) - (a.totalOrders ?? 0))
+    } else {
+      // Most recent order first, no order last
+      list.sort((a, b) => {
+        if (!a.lastOrderAt && !b.lastOrderAt) return 0
+        if (!a.lastOrderAt) return 1
+        if (!b.lastOrderAt) return -1
+        return new Date(b.lastOrderAt).getTime() - new Date(a.lastOrderAt).getTime()
+      })
+    }
+
+    return list
+  }, [allCustomers, gender, search, sortBy])
+
+  const hasFilters = search || gender !== 'all'
+
+  return (
+    <div className="flex flex-col min-h-screen bg-slate-50 pb-20 lg:pb-8">
+
       {/* ── HEADER ── */}
-      <header className="bg-white border-b border-slate-100 px-4 pt-12 lg:pt-6 pb-4 sticky top-0 z-10">
+      <header className="bg-white border-b border-slate-100 px-4 pt-12 lg:pt-6 pb-4
+                         sticky top-0 z-10">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h1 className="text-xl font-bold text-slate-800">Hamare Gahak</h1>
-            <p className="text-xs text-slate-400">{total} total gahak</p>
+            <h1 className="text-xl font-bold text-slate-800">Gahak</h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {isLoading
+                ? 'Loading...'
+                : `${filtered.length} customer${filtered.length !== 1 ? 's' : ''}`
+              }
+            </p>
           </div>
           {isOwner && (
             <button
-              onClick={() => router.push("/customers/new")}
+              onClick={() => router.push('/customers/new')}
               className="flex items-center gap-1.5 bg-blue-600 text-white
-                         text-sm font-semibold px-4 py-2 rounded-xl
-                         transition-colors active:scale-95"
+                         text-sm font-semibold px-4 py-2.5 rounded-xl
+                         active:scale-95 transition-colors hover:bg-blue-700"
             >
-              <UserPlus size={15} />
-              Naya
+              <Plus size={16} />
+              Naya Gahak
             </button>
           )}
         </div>
 
-        {/* Search bar */}
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <input
-              type="text"
-              placeholder="Naam ya number se dhundein..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-slate-100 rounded-xl text-sm
-                         outline-none focus:bg-white border-2 border-transparent
-                         focus:border-blue-500 transition-all"
-            />
-            {query && (
-              <button
-                aria-label="Clear customer search"
-                onClick={() => setQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2"
-              >
-                <X size={14} className="text-slate-400" />
-              </button>
-            )}
-          </div>
-          <button
-            aria-label="Toggle customer filters"
-            onClick={() => setShowFilters((v) => !v)}
-            className={cn(
-              "w-10 h-10 flex items-center justify-center rounded-xl border-2 transition-colors",
-              showFilters
-                ? "bg-blue-600 border-blue-600 text-white"
-                : "bg-slate-100 border-transparent text-slate-500",
-            )}
-          >
-            <SlidersHorizontal size={16} />
-          </button>
+        {/* Search */}
+        <div className="relative mb-3">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Naam ya phone number dhundein..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-9 py-2.5 bg-slate-100 rounded-xl text-sm
+                       outline-none focus:bg-white border-2 border-transparent
+                       focus:border-blue-500 transition-all placeholder:text-slate-400"
+          />
+          {search && (
+            <button
+              aria-label="Clear search"
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2"
+            >
+              <X size={14} className="text-slate-400" />
+            </button>
+          )}
         </div>
 
-        {/* Gender filter pills */}
-        {showFilters && (
-          <div className="flex gap-2 mt-2">
-            {GENDER_FILTERS.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setGenderFilter(key)}
-                className={cn(
-                  "flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-colors",
-                  genderFilter === key
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-slate-600 border-slate-200",
-                )}
-              >
-                {label}
-              </button>
+        {/* Filter + sort row */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+
+          {/* Gender pills */}
+          {GENDER_FILTERS.map(f => (
+            <button
+              key={f.key}
+              onClick={() => setGender(f.key)}
+              className={cn(
+                'shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold',
+                'border transition-colors',
+                gender === f.key
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+
+          {/* Divider */}
+          <div className="w-px h-5 bg-slate-200 shrink-0 mx-1" />
+
+          {/* Sort buttons */}
+          {([
+            { key: 'recent' as const, label: '🕐 Recent' },
+            { key: 'name'   as const, label: '🔤 Naam'   },
+            { key: 'orders' as const, label: '📦 Orders'  },
+          ]).map(s => (
+            <button
+              key={s.key}
+              onClick={() => setSortBy(s.key)}
+              className={cn(
+                'shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold',
+                'border transition-colors',
+                sortBy === s.key
+                  ? 'bg-slate-800 text-white border-slate-800'
+                  : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+              )}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {/* ── MAIN CONTENT ── */}
+      <main className="flex-1 px-4 pt-4 pb-4">
+
+        {/* Loading */}
+        {isLoading && (
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <CustomerCardSkeleton key={i} />
             ))}
           </div>
         )}
-      </header>
 
-      {/* ── LIST ── */}
-      <main className="flex-1 px-4 pt-4 space-y-3 min-h-100">
-        {customers.length === 0 ? (
+        {/* Empty — no customers at all */}
+        {!isLoading && allCustomers.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Users size={48} className="text-slate-200 mb-4" />
-            <p className="font-semibold text-slate-500">
-              {query ? "Koi gahak nahi mila" : "Abhi koi gahak nahi"}
+            <p className="text-5xl mb-4">👥</p>
+            <p className="font-bold text-slate-600 text-base mb-1">Koi Gahak Nahi</p>
+            <p className="text-sm text-slate-400 mb-6 max-w-xs">
+              Pehle gahak ko register karein — ya order banate waqt automatically add ho jata hai
             </p>
-            <p className="text-sm text-slate-400 mt-1">
-              {query
-                ? "Alag naam ya number try karein"
-                : "Pehla gahak add karein"}
-            </p>
-            {!query && isOwner && (
+            {isOwner && (
               <button
-                onClick={() => router.push("/customers/new")}
-                className="mt-4 flex items-center gap-2 bg-blue-600 text-white
-                           font-semibold px-6 py-3 rounded-xl text-sm"
+                onClick={() => router.push('/customers/new')}
+                className="flex items-center gap-2 bg-blue-600 text-white
+                           font-semibold px-6 py-3.5 rounded-2xl text-sm
+                           active:scale-95 transition-transform"
               >
-                <UserPlus size={16} />
-                Naya Gahak Add Karein
+                <Plus size={16} />
+                Pehla Gahak Add Karein
               </button>
             )}
           </div>
-        ) : (
-          customers.map((customer) => (
-            <CustomerCard
-              key={customer.id}
-              customer={customer}
-              orderCount={orderCounts?.[customer.id] ?? 0}
-              pendingBalance={pendingBalances?.[customer.id] ?? 0}
-            />
-          ))
+        )}
+
+        {/* Empty — filter has no results */}
+        {!isLoading && allCustomers.length > 0 && filtered.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <p className="text-4xl mb-3">🔍</p>
+            <p className="font-semibold text-slate-500 mb-1">Koi Gahak Nahi Mila</p>
+            <p className="text-sm text-slate-400 mb-5">
+              Alag naam ya filter try karein
+            </p>
+            <button
+              onClick={() => { setSearch(''); setGender('all') }}
+              className="text-blue-600 font-semibold text-sm underline"
+            >
+              Filters Clear Karein
+            </button>
+          </div>
+        )}
+
+        {/* Customer list */}
+        {!isLoading && filtered.length > 0 && (
+          <div className="space-y-3">
+
+            {/* Summary strip */}
+            {!hasFilters && allCustomers.length > 0 && (
+              <div className="flex gap-3 mb-2">
+                {[
+                  {
+                    label: 'Total',
+                    value: allCustomers.length,
+                    color: 'text-blue-700',
+                    bg:    'bg-blue-50',
+                  },
+                  {
+                    label: 'Active',
+                    value: allCustomers.filter(c => (c.totalOrders ?? 0) > 0).length,
+                    color: 'text-green-700',
+                    bg:    'bg-green-50',
+                  },
+                  {
+                    label: 'Is Mahine',
+                    value: allCustomers.filter(c => {
+                      const thisMonth = new Date().toISOString().slice(0, 7)
+                      return c.lastOrderAt?.startsWith(thisMonth)
+                    }).length,
+                    color: 'text-purple-700',
+                    bg:    'bg-purple-50',
+                  },
+                ].map(s => (
+                  <div
+                    key={s.label}
+                    className={cn(
+                      'flex-1 rounded-2xl py-3 text-center',
+                      s.bg
+                    )}
+                  >
+                    <p className={cn('text-xl font-bold', s.color)}>{s.value}</p>
+                    <p className="text-[10px] text-slate-500 font-medium mt-0.5">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {filtered.map(customer => (
+              <CustomerCard
+                key={customer.id}
+                customer={customer}
+                onClick={() => router.push(`/customers/${customer.id}`)}
+              />
+            ))}
+
+            {/* Count footer */}
+            {filtered.length >= 10 && (
+              <p className="text-center text-xs text-slate-400 py-3">
+                {filtered.length} customers dikh rahe hain
+              </p>
+            )}
+          </div>
         )}
       </main>
 
       <BottomNav />
     </div>
-  );
+  )
 }

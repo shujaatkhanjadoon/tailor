@@ -1,25 +1,27 @@
 // src/components/auth/AuthGuard.tsx
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth/AuthContext'
-import { notifScheduler } from '@/lib/notifications/scheduler'
-import { notifPermission } from '@/lib/notifications/permission'
 import { Scissors } from 'lucide-react'
 
+// All routes that never need auth check
 const PUBLIC_ROUTES = [
   '/auth',
+  '/login',
+  '/setup',
   '/track',
+  '/pricing',
+  '/about',
   '/privacy-policy',
   '/terms-of-service',
   '/contact',
-  '/pricing',
+  '/admin',        // ← admin handles its own secret-based auth
 ]
-const MARKETING_ROOT = ['/']
 
-export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isLoading, isSetupDone, currentUser, shopId } = useAuth()
+export function AuthGuard({ children }: { children: ReactNode }) {
+  const { isLoading, currentUser, shopId } = useAuth()
   const router   = useRouter()
   const pathname = usePathname()
 
@@ -28,56 +30,44 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     const isMarketing = pathname === '/'
     const isPublic    = PUBLIC_ROUTES.some(r => pathname.startsWith(r))
-
-    // Never redirect from public or marketing routes
     if (isMarketing || isPublic) return
 
-    // Not logged in → auth
+    // Not logged in → go to auth
     if (!currentUser) {
-      router.replace('/auth')
+      // Use window.location to avoid RSC conflict
+      window.location.href = '/auth'
       return
     }
 
-    // Karigar: only allow specific routes
-    // Check BEFORE any other logic to prevent loops
+    // Karigar routing
     if (currentUser.role === 'karigar') {
-      const karigarRoutes  = ['/karigar', '/orders', '/settings/change-pin']
-      const isAllowed      = karigarRoutes.some(r => pathname.startsWith(r))
-      if (!isAllowed && pathname !== '/karigar') {
-        router.replace('/karigar')
+      const allowed = ['/karigar', '/orders', '/settings/change-pin']
+      const isAllowed = allowed.some(r => pathname.startsWith(r))
+      if (!isAllowed) {
+        window.location.href = '/karigar'
       }
-      // Stop here — no further checks for karigar
       return
     }
 
-    // Owner: all routes allowed except karigar-specific
-    if (pathname.startsWith('/karigar')) {
-      router.replace('/dashboard')
+    // Owner trying to access karigar-only route
+    if (pathname === '/karigar') {
+      window.location.href = '/dashboard'
     }
-  }, [isLoading, currentUser, pathname, router])
+  }, [isLoading, currentUser, pathname])
 
-// Also add this — run notification scheduler when logged in
-useEffect(() => {
-  if (!currentUser || !shopId) return
-  if (notifPermission.current() === 'granted') {
-    notifScheduler.run(shopId)
-  }
-}, [currentUser?.id, shopId])
-
+  // Show spinner while loading
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center">
-            <Scissors size={24} className="text-white" />
+          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <Scissors size={24} className="text-white" strokeWidth={1.5} />
           </div>
           <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-slate-400 font-medium">Loading...</p>
         </div>
       </div>
     )
   }
 
-  if (MARKETING_ROOT.includes(pathname)) return <>{children}</>
   return <>{children}</>
 }

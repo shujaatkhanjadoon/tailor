@@ -1,12 +1,22 @@
 // src/app/api/cron/expire-subscriptions/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient }              from '@supabase/supabase-js'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-const adminSupabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-)
+const sbFetch = async (path: string, options: RequestInit = {}) => {
+  const res = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      'Content-Type':  'application/json',
+      'apikey':        serviceKey,
+      'Authorization': `Bearer ${serviceKey}`,
+      ...(options.headers ?? {}),
+    },
+  })
+  const data = res.ok ? await res.json().catch(() => null) : null
+  const error = res.ok ? null : await res.text()
+  return { data, error }
+}
 
 export async function GET(req: NextRequest) {
   // Verify this is a legitimate cron call
@@ -26,7 +36,7 @@ export async function GET(req: NextRequest) {
   try {
     // ── 1. Active subscriptions past expiry → grace period ────────
     // Give 7 days grace before fully expiring
-    const { data: toGrace, error: graceErr } = await adminSupabase
+    const { data: toGrace, error: graceErr } = await sbFetch
       .from('subscriptions')
       .select('id, shop_id, plan, expires_at')
       .eq('status', 'active')
@@ -39,7 +49,7 @@ export async function GET(req: NextRequest) {
       const graceEnd = new Date(sub.expires_at)
       graceEnd.setDate(graceEnd.getDate() + 7)
 
-      const { error } = await adminSupabase
+      const { error } = await sbFetch
         .from('subscriptions')
         .update({
           status:       'grace',
@@ -57,7 +67,7 @@ export async function GET(req: NextRequest) {
     }
 
     // ── 2. Grace period lapsed → expired ─────────────────────────
-    const { data: toLapse, error: lapseErr } = await adminSupabase
+    const { data: toLapse, error: lapseErr } = await sbFetch
       .from('subscriptions')
       .select('id, shop_id, plan')
       .eq('status', 'grace')
@@ -67,7 +77,7 @@ export async function GET(req: NextRequest) {
     if (lapseErr) results.errors.push(`lapse query: ${lapseErr.message}`)
 
     for (const sub of (toLapse ?? [])) {
-      const { error } = await adminSupabase
+      const { error } = await sbFetch
         .from('subscriptions')
         .update({
           status:     'expired',
@@ -79,7 +89,7 @@ export async function GET(req: NextRequest) {
         results.errors.push(`expire update ${sub.id}: ${error.message}`)
       } else {
         // Downgrade shop plan to starter
-        await adminSupabase
+        await sbFetch
           .from('shops')
           .update({ plan: 'starter', updated_at: now })
           .eq('id', sub.shop_id)
@@ -90,7 +100,7 @@ export async function GET(req: NextRequest) {
     }
 
     // ── 3. Trials past end date → starter ────────────────────────
-    const { data: trialLapsed, error: trialErr } = await adminSupabase
+    const { data: trialLapsed, error: trialErr } = await sbFetch
       .from('subscriptions')
       .select('id, shop_id')
       .eq('status', 'trialing')
@@ -99,7 +109,7 @@ export async function GET(req: NextRequest) {
     if (trialErr) results.errors.push(`trial query: ${trialErr.message}`)
 
     for (const sub of (trialLapsed ?? [])) {
-      const { error } = await adminSupabase
+      const { error } = await sbFetch
         .from('subscriptions')
         .update({
           status:     'expired',
@@ -111,7 +121,7 @@ export async function GET(req: NextRequest) {
       if (error) {
         results.errors.push(`trial expire ${sub.id}: ${error.message}`)
       } else {
-        await adminSupabase
+        await sbFetch
           .from('shops')
           .update({ plan: 'starter', updated_at: now })
           .eq('id', sub.shop_id)

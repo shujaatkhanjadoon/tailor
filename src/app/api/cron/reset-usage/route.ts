@@ -1,45 +1,60 @@
-// src/app/api/cron/reset-usage/route.ts
-// Resets monthly order counter on the 1st of each month
+// src/app/api/cron/reset-usage/route.ts — replace entirely
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient }              from '@supabase/supabase-js'
-
-const adminSupabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-)
 
 export async function GET(req: NextRequest) {
+  // Auth check
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const now       = new Date()
-  const monthYear = now.toISOString().slice(0, 7)   // "2025-05"
+  // Validate env vars exist
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !serviceKey) {
+    return NextResponse.json({
+      error: 'Missing env vars: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY'
+    }, { status: 500 })
+  }
+
+  const now       = new Date().toISOString()
+  const monthYear = now.slice(0, 7)
 
   try {
-    const { error, count } = await adminSupabase
-      .from('shop_usage')
-      .update({
-        orders_this_month: 0,
-        month_year:        monthYear,
-        updated_at:        now.toISOString(),
-      })
-      .neq('month_year', monthYear)   // only update if not already reset
+    // Use fetch directly instead of createClient (avoids DNS issues locally)
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/shop_usage?month_year=neq.${monthYear}`,
+      {
+        method:  'PATCH',
+        headers: {
+          'Content-Type':  'application/json',
+          'apikey':        serviceKey,
+          'Authorization': `Bearer ${serviceKey}`,
+          'Prefer':        'return=minimal',
+        },
+        body: JSON.stringify({
+          orders_this_month: 0,
+          month_year:        monthYear,
+          updated_at:        now,
+        }),
+      }
+    )
 
-    if (error) throw error
+    if (!res.ok) {
+      const errText = await res.text()
+      throw new Error(`Supabase error ${res.status}: ${errText}`)
+    }
 
-    console.log(`[Cron] reset-usage: ${count ?? 0} shops reset for ${monthYear}`)
+    console.log(`[Cron] reset-usage: done for ${monthYear}`)
+    return NextResponse.json({ success: true, monthYear, timestamp: now })
 
-    return NextResponse.json({
-      success:   true,
-      monthYear,
-      shopsReset: count ?? 0,
-    })
   } catch (e) {
-    console.error('[Cron] reset-usage error:', e)
-    return NextResponse.json({ success: false, error: String(e) }, { status: 500 })
+    console.error('[Cron] reset-usage error:', String(e))
+    return NextResponse.json(
+      { success: false, error: String(e) },
+      { status: 500 }
+    )
   }
 }

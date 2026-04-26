@@ -13,9 +13,11 @@ export function useOrders(shopId: string | null, role: 'owner' | 'karigar', memb
   const today = new Date().toISOString().split('T')[0]
 
   // ── Remove 3rd argument, return typed Promise instead ──────────
-  const allOrders = useLiveQuery(
+  const rawOrders = useLiveQuery(
     async (): Promise<OrderRecord[]> => {
       if (!shopId) return []
+      const today = new Date().toISOString().split('T')[0]
+
       if (role === 'karigar' && memberId) {
         return db.orders
           .where('assignedTo').equals(memberId)
@@ -23,73 +25,79 @@ export function useOrders(shopId: string | null, role: 'owner' | 'karigar', memb
           .reverse()
           .sortBy('createdAt')
       }
+
       return db.orders
         .where('shopId').equals(shopId)
         .filter(o => o._deleted === 0)
         .reverse()
         .sortBy('createdAt')
     },
-    [shopId, role, memberId]   // ← only 2 args
+    [shopId, role, memberId]
   )
 
-  const filtered = useMemo((): OrderRecord[] => {
-    // allOrders is OrderRecord[] | undefined — guard with ?? []
-    let list: OrderRecord[] = allOrders ?? []
+  // ── isLoading: undefined means Dexie hasn't resolved yet ─────────
+  const isLoading = rawOrders === undefined
+  const allOrders = rawOrders ?? []
 
+  const tomorrow  = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+
+
+  const filtered = useMemo(() => {
+    let list = allOrders
+
+    // Quick filter
+    if (activeFilter === 'overdue') {
+      list = list.filter(o =>
+        o.dueDate < today && !['delivered','cancelled'].includes(o.status)
+      )
+    } else if (activeFilter === 'ready') {
+      list = list.filter(o => o.status === 'ready')
+    } else if (activeFilter === 'today') {
+      list = list.filter(o => o.createdAt.startsWith(today))
+    } else if (activeFilter === 'unassigned') {
+      list = list.filter(o =>
+        !o.assignedTo && !['delivered','cancelled'].includes(o.status)
+      )
+    }
+
+    // Status filter
     if (statusFilter !== 'all') {
       list = list.filter(o => o.status === statusFilter)
     }
 
-    switch (activeFilter) {
-      case 'today':
-        list = list.filter(o => o.createdAt.startsWith(today))
-        break
-      case 'overdue':
-        list = list.filter(o =>
-          o.dueDate < today &&
-          !['delivered', 'cancelled'].includes(o.status)
-        )
-        break
-      case 'ready':
-        list = list.filter(o => o.status === 'ready')
-        break
-      case 'unassigned':
-        list = list.filter(o =>
-          !o.assignedTo &&
-          !['delivered', 'cancelled'].includes(o.status)
-        )
-        break
-    }
-
+    // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       list = list.filter(o =>
         o.customerName.toLowerCase().includes(q) ||
-        o.customerPhone.includes(q) ||
-        String(o.orderNumber).includes(q)
+        String(o.orderNumber).includes(q) ||
+        o.trackingCode?.toLowerCase().includes(q) ||
+        o.customerPhone?.includes(q)
       )
     }
 
     return list
-  }, [allOrders, statusFilter, activeFilter, searchQuery, today])
+  }, [allOrders, activeFilter, statusFilter, searchQuery, today])
 
-  const counts = useMemo(() => {
-    const all: OrderRecord[] = allOrders ?? []
-    return {
-      overdue:    all.filter(o => o.dueDate < today && !['delivered','cancelled'].includes(o.status)).length,
-      ready:      all.filter(o => o.status === 'ready').length,
-      unassigned: all.filter(o => !o.assignedTo && !['delivered','cancelled'].includes(o.status)).length,
-      today:      all.filter(o => o.createdAt.startsWith(today)).length,
-    }
-  }, [allOrders, today])
+  const counts = useMemo(() => ({
+    overdue:    allOrders.filter(o =>
+      o.dueDate < today && !['delivered','cancelled'].includes(o.status)
+    ).length,
+    ready:      allOrders.filter(o => o.status === 'ready').length,
+    today:      allOrders.filter(o => o.createdAt.startsWith(today)).length,
+    unassigned: allOrders.filter(o =>
+      !o.assignedTo && !['delivered','cancelled'].includes(o.status)
+    ).length,
+  }), [allOrders, today])
 
   return {
-    orders: filtered,          // OrderRecord[] — never undefined
-    total: allOrders?.length ?? 0,
+    orders:       filtered,
+    total:        allOrders.length,
     counts,
-    statusFilter, setStatusFilter,
-    activeFilter, setActiveFilter,
-    searchQuery,  setSearchQuery,
+    isLoading,                // ← expose this
+    statusFilter,  setStatusFilter,
+    activeFilter,  setActiveFilter,
+    searchQuery,   setSearchQuery,
   }
 }
 

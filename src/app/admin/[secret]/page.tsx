@@ -19,11 +19,51 @@ export default async function AdminDashboard({
   const { secret } = await params
   if (secret !== process.env.ADMIN_SECRET) notFound()
 
-  const [summary, pending, allShops] = await Promise.all([
-    getRevenueSummary(),
-    getPendingPayments(),
-    getAllShops(),
-  ])
+    // Validate service role key exists
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="bg-red-900/30 border border-red-700 rounded-2xl p-8 max-w-md text-center">
+          <p className="text-red-400 font-bold text-lg mb-2">Configuration Error</p>
+          <p className="text-red-300 text-sm">
+            SUPABASE_SERVICE_ROLE_KEY is missing from environment variables.
+          </p>
+          <p className="text-red-400/60 text-xs mt-3">
+            Add it to .env.local and restart the server.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // const [summary, pending, allShops] = await Promise.all([
+  //   getRevenueSummary(),
+  //   getPendingPayments(),
+  //   getAllShops(),
+  // ])
+
+  let summary, pending, allShops
+  try {
+    [summary, pending, allShops] = await Promise.all([
+      getRevenueSummary(),
+      getPendingPayments(),
+      getAllShops(),
+    ])
+  } catch (e) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="bg-red-900/30 border border-red-700 rounded-2xl p-8 max-w-md text-center">
+          <p className="text-red-400 font-bold text-lg mb-2">Connection Error</p>
+          <p className="text-red-300 text-sm">
+            Cannot connect to Supabase. Check your SUPABASE_SERVICE_ROLE_KEY.
+          </p>
+          <code className="block mt-3 text-xs text-red-400/60 bg-red-950 p-3 rounded-xl">
+            {String(e).slice(0, 200)}
+          </code>
+        </div>
+      </div>
+    )
+  }
 
   // Plan distribution
   const planCounts = allShops.reduce((acc: Record<string, number>, shop: any) => {
