@@ -9,6 +9,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useSearchParams } from "next/navigation";
+import { BillingHistory } from "@/components/billing/BillingHistory";
 
 export default function BillingPage() {
   const router = useRouter();
@@ -213,6 +214,27 @@ export default function BillingPage() {
           </p>
         </div>
       </div>
+
+      <BillingHistory />
+
+      {/* Cancel link — only for paid active plans */}
+      {plan.plan !== "starter" && plan.isActive && !plan.isTrial && (
+        <button
+          onClick={() => router.push("/billing/cancel")}
+          className="w-full text-slate-400 text-xs font-medium py-3 underline"
+        >
+          Subscription cancel karna chahte hain?
+        </button>
+      )}
+
+      {/* History link */}
+      <button
+        onClick={() => router.push("/billing/history")}
+        className="w-full flex items-center justify-center gap-2 bg-slate-100
+             text-slate-600 font-semibold py-3 rounded-2xl text-sm"
+      >
+        Payment History Dekhein →
+      </button>
 
       <BottomNav />
     </div>
