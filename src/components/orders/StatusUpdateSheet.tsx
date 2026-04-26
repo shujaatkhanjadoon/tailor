@@ -8,6 +8,7 @@ import { orderOps } from '@/lib/db/operations'
 import { ORDER_STATUS_CONFIG, OrderStatus } from '@/types'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { cn } from '@/lib/utils'
+import { toast } from "sonner"
 
 // Valid next statuses from current
 const NEXT_STATUSES: Record<OrderStatus, OrderStatus[]> = {
@@ -42,6 +43,9 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
       onClose()
     } finally {
       setSaving(null)
+      toast.success('Status Update Ho Gaya', {
+      description: `${status} → ${newStatus}`,
+    })
     }
   }
 

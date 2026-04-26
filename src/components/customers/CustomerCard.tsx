@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Phone, MessageCircle, ChevronRight, ShoppingBag } from 'lucide-react'
 import { CustomerRecord } from '@/lib/db/schema'
 import { formatDistanceToNow } from 'date-fns'
+import { memo } from 'react'
 
 const GENDER_CONFIG = {
   male:   { emoji: '👨', label: 'Mard',    color: 'bg-blue-100   text-blue-700'   },
@@ -18,7 +19,7 @@ interface CustomerCardProps {
   pendingBalance?: number
 }
 
-export function CustomerCard({ customer, orderCount = 0, pendingBalance = 0 }: CustomerCardProps) {
+export const CustomerCard = memo(function CustomerCard({ customer, orderCount = 0, pendingBalance = 0 }: CustomerCardProps) {
   const router  = useRouter()
   const gender  = GENDER_CONFIG[customer.gender]
   const initials = customer.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
@@ -36,8 +37,8 @@ export function CustomerCard({ customer, orderCount = 0, pendingBalance = 0 }: C
       <div className="flex items-center gap-3">
 
         {/* Avatar */}
-        <div className="relative flex-shrink-0">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700
+        <div className="relative shrink-0">
+          <div className="w-12 h-12 bg-linear-to-br from-blue-500 to-blue-700
                           rounded-full flex items-center justify-center
                           text-white font-bold text-base">
             {initials}
@@ -51,7 +52,7 @@ export function CustomerCard({ customer, orderCount = 0, pendingBalance = 0 }: C
           <div className="flex items-center gap-2">
             <p className="font-semibold text-slate-800 truncate">{customer.name}</p>
             {pendingBalance > 0 && (
-              <span className="text-[10px] font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full flex-shrink-0">
+              <span className="text-[10px] font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full shrink-0">
                 Baaki
               </span>
             )}
@@ -79,7 +80,7 @@ export function CustomerCard({ customer, orderCount = 0, pendingBalance = 0 }: C
         </div>
 
         {/* Right side */}
-        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+        <div className="flex flex-col items-end gap-2 shrink-0">
           {/* WhatsApp quick button */}
           {whatsappHref && (
             <a
@@ -108,4 +109,4 @@ export function CustomerCard({ customer, orderCount = 0, pendingBalance = 0 }: C
       )}
     </div>
   )
-}
+})

@@ -1,7 +1,7 @@
 // src/components/layout/AppShell.tsx
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect} from 'react'
 import { BottomNav }           from './BottomNav'
 import { SideNav }             from './SideNav'
 import { AuthGuard }           from '@/components/auth/AuthGuard'
@@ -9,6 +9,7 @@ import { PWAInstallPrompt }    from './PWAInstallPrompt'
 import { useAuth }             from '@/lib/auth/AuthContext'
 import { syncService }         from '@/lib/supabase/sync-service'
 import { subscribeToShop }     from '@/lib/supabase/realtime'
+import { toast } from "sonner"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, shopId } = useAuth()

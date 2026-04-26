@@ -12,6 +12,7 @@ import { Step3Confirm } from "@/components/orders/wizard/Step3Confirm";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { orderOps, paymentOps } from "@/lib/db/operations";
 import { db } from "@/lib/db/schema";
+import { toast } from "sonner";
 
 // ── UUID helper ──────────────────────────────────────────────────
 const uuid = (): string => {
@@ -162,6 +163,9 @@ export default function NewOrderPage() {
       // ── 5. Show success screen ─────────────────────────────────
       setSaving(false);
       setPageStep("success");
+      toast.success("Order Save Ho Gaya! ✓", {
+        description: `#${String(order.orderNumber).padStart(3, "0")} · ${data.customerName}`,
+      });
     } catch (e) {
       console.error("Order save failed:", e);
       // Unlock on failure so user can retry

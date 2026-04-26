@@ -13,6 +13,9 @@ import { GarmentBreakdown } from "@/components/reports/GarmentBreakdown";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { cn } from "@/lib/utils";
 import { FeatureGate } from "@/components/billing/FeatureGate";
+import { ReportSkeleton } from "@/components/ui/Skeleton";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import dynamic from "next/dynamic";
 
 const PERIODS: { key: ReportPeriod; label: string }[] = [
   { key: "7d", label: "7 Din" },
@@ -43,6 +46,32 @@ export default function ReportsPage() {
   const { shopId, isOwner } = useAuth();
   const [activeTab, setActiveTab] = useState<"overview" | "customers" | "team">(
     "overview",
+  );
+
+  const IncomeChart = dynamic(
+    () => import("@/components/reports/IncomeChart").then((m) => m.IncomeChart),
+    {
+      loading: () => (
+        <div
+          className="border border-slate-200 rounded-2xl p-5 h-70
+                      animate-pulse bg-slate-100"
+        />
+      ),
+      ssr: false, // recharts uses window — disable SSR
+    },
+  );
+
+  const OrderStatusChart = dynamic(
+    () =>
+      import("@/components/reports/OrderStatusChart").then(
+        (m) => m.OrderStatusChart,
+      ),
+    {
+      loading: () => (
+        <div className="h-40 animate-pulse bg-slate-100 rounded-2xl" />
+      ),
+      ssr: false,
+    },
   );
 
   const {
@@ -79,6 +108,14 @@ export default function ReportsPage() {
         <p className="text-slate-500 text-sm">
           Reports sirf Owner ke liye hain.
         </p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="px-4 pt-4">
+        <ReportSkeleton />
       </div>
     );
   }
@@ -174,14 +211,18 @@ export default function ReportsPage() {
             {activeTab === "overview" && (
               <div className="space-y-4 pb-4">
                 {/* Income chart */}
-                <IncomeChart monthly={monthlyIncome} weekly={weeklyIncome} />
+                <ErrorBoundary>
+                  <IncomeChart monthly={monthlyIncome} weekly={weeklyIncome} />
+                </ErrorBoundary>
 
                 {/* Status + Payment methods side by side on desktop */}
                 <div className="lg:grid lg:grid-cols-2 lg:gap-4 space-y-4 lg:space-y-0">
-                  <OrderStatusChart
-                    data={statusDistribution}
-                    total={summary.totalOrders}
-                  />
+                  <ErrorBoundary>
+                    <OrderStatusChart
+                      data={statusDistribution}
+                      total={summary.totalOrders}
+                    />
+                  </ErrorBoundary>
 
                   {/* Payment methods */}
                   <div className="bg-white border border-slate-200 rounded-2xl p-5">

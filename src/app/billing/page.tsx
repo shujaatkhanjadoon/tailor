@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useSearchParams } from "next/navigation";
 import { BillingHistory } from "@/components/billing/BillingHistory";
+import { BillingSkeleton } from '@/components/ui/Skeleton'
 
 export default function BillingPage() {
   const router = useRouter();
@@ -17,6 +18,8 @@ export default function BillingPage() {
   const planDef = PLANS[plan.plan];
   const searchParams = useSearchParams();
   const paymentSubmitted = searchParams.get("payment") === "submitted";
+
+  if (plan.isLoading) return <BillingSkeleton />
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20 lg:pb-8">

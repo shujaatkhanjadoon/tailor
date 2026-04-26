@@ -13,6 +13,8 @@ import { BottomNav } from '@/components/layout/BottomNav'
 import { OrderRecord } from '@/lib/db/schema'
 import { ORDER_STATUS_CONFIG, OrderStatus } from '@/types'
 import { cn } from '@/lib/utils'
+import { OrderCardSkeleton } from '@/components/ui/Skeleton'
+import { EmptyState, EMPTY_STATES } from '@/components/ui/EmptyState'
 
 const QUICK_FILTERS: { key: OrderFilter; label: string; emoji: string }[] = [
   { key: 'all',        label: 'Sab',        emoji: '📋' },
@@ -40,6 +42,7 @@ function OrdersContent() {
   const [statusSheet, setStatusSheet] = useState<OrderRecord | null>(null)
   const [assignSheet, setAssignSheet] = useState<OrderRecord | null>(null)
   const [showStatusDropdown, setShowStatusDropdown] = useState(false)
+  const [isLoading, _setIsLoading] = useState(true)
 
   const {
     orders, total, counts,
@@ -51,6 +54,29 @@ function OrdersContent() {
     isOwner ? 'owner' : 'karigar',
     currentUser?.id
   )
+
+  // Loading state:
+if (isLoading) {
+  return (
+    <div className="px-4 pt-4">
+      {Array.from({ length: 4 }).map((_, i) => <OrderCardSkeleton key={i} />)}
+    </div>
+  )
+}
+
+// Empty state:
+if (orders.length === 0) {
+  return (
+    <EmptyState
+      {...EMPTY_STATES.orders}
+      action={{
+        label:   'Naya Order',
+        onClick: () => router.push('/orders/new'),
+        icon:    Plus,
+      }}
+    />
+  )
+}
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 pb-20">
@@ -157,7 +183,7 @@ function OrdersContent() {
                 onClick={() => setActiveFilter(key)}
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold',
-                  'flex-shrink-0 border transition-colors',
+                  'shrink-0 border transition-colors',
                   activeFilter === key
                     ? hasAlert
                       ? 'bg-red-600 text-white border-red-600'
@@ -171,7 +197,7 @@ function OrdersContent() {
                 <span>{label}</span>
                 {count > 0 && (
                   <span className={cn(
-                    'text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center',
+                    'text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-4.5 text-center',
                     activeFilter === key
                       ? 'bg-white/30 text-white'
                       : hasAlert ? 'bg-red-200 text-red-800' : 'bg-slate-100 text-slate-600'

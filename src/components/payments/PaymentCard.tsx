@@ -7,6 +7,7 @@ import { PaymentWithOrder } from '@/hooks/usePayments'
 import { GARMENT_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
 import { format, isToday, isYesterday } from 'date-fns'
+import { memo } from 'react'
 
 const METHOD_CONFIG = {
   cash:      { label: 'Cash',      emoji: '💵', bg: 'bg-green-100',  color: 'text-green-700'  },
@@ -27,7 +28,7 @@ interface PaymentCardProps {
   payment: PaymentWithOrder
 }
 
-export function PaymentCard({ payment }: PaymentCardProps) {
+export const PaymentCard = memo(function PaymentCard({ payment }: PaymentCardProps) {
   const router = useRouter()
   const method = METHOD_CONFIG[payment.method as keyof typeof METHOD_CONFIG]
     ?? METHOD_CONFIG.other
@@ -44,7 +45,7 @@ export function PaymentCard({ payment }: PaymentCardProps) {
 
         {/* Method badge */}
         <div className={cn(
-          'w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0',
+          'w-11 h-11 rounded-xl flex items-center justify-center shrink-0',
           method.bg
         )}>
           <span className="text-xl">{method.emoji}</span>
@@ -57,7 +58,7 @@ export function PaymentCard({ payment }: PaymentCardProps) {
               {payment.customerName}
             </p>
             <span className={cn(
-              'text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0',
+              'text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0',
               method.bg, method.color
             )}>
               {method.label}
@@ -85,7 +86,7 @@ export function PaymentCard({ payment }: PaymentCardProps) {
         </div>
 
         {/* Amount */}
-        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+        <div className="flex flex-col items-end gap-1 shrink-0">
           <p className="text-lg font-bold text-green-700">
             +{payment.amount.toLocaleString()}
           </p>
@@ -124,4 +125,4 @@ export function PaymentCard({ payment }: PaymentCardProps) {
       )}
     </button>
   )
-}
+})

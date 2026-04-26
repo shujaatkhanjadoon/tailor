@@ -11,6 +11,8 @@ import { CustomerCard } from '@/components/customers/CustomerCard'
 import { db } from '@/lib/db/schema'
 import { cn } from '@/lib/utils'
 import { BottomNav } from '@/components/layout/BottomNav'
+import { CustomerCardSkeleton } from '@/components/ui/Skeleton'
+import { EmptyState, EMPTY_STATES } from '@/components/ui/EmptyState'
 
 const GENDER_FILTERS = [
   { key: 'all',    label: 'Sab'    },
@@ -23,6 +25,7 @@ export default function CustomersPage() {
   const router              = useRouter()
   const { shopId, isOwner } = useAuth()
   const [showFilters, setShowFilters] = useState(false)
+  const [isLoading, _setIsLoading] = useState(true)
 
   const {
     customers, total,
@@ -63,6 +66,26 @@ export default function CustomersPage() {
       }, {})
     },
     [shopId])
+
+    if (isLoading) {
+  return (
+    <div className="px-4 pt-4">
+      {Array.from({ length: 5 }).map((_, i) => <CustomerCardSkeleton key={i} />)}
+    </div>
+  )
+}
+
+if (customers.length === 0) {
+  return (
+    <EmptyState
+      {...EMPTY_STATES.customers}
+      action={{
+        label:   'Naya Gahak',
+        onClick: () => router.push('/customers/new'),
+      }}
+    />
+  )
+}
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 pb-20">

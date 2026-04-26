@@ -10,6 +10,8 @@ import { PaymentSummaryStrip }    from '@/components/payments/PaymentSummaryStri
 import { QuickPaymentSheet }      from '@/components/payments/QuickPaymentSheet'
 import { BottomNav }              from '@/components/layout/BottomNav'
 import { cn }                     from '@/lib/utils'
+import { PaymentCardSkeleton } from '@/components/ui/Skeleton'
+import { EmptyState, EMPTY_STATES } from '@/components/ui/EmptyState'
 
 const DATE_FILTERS: { key: PaymentFilter; label: string }[] = [
   { key: 'all',        label: 'Sab'       },
@@ -51,6 +53,18 @@ export default function PaymentsPage() {
     acc[key].push(p)
     return acc
   }, {})
+
+  if (isLoading) {
+  return (
+    <div className="px-4 pt-4 space-y-3">
+      {Array.from({ length: 4 }).map((_, i) => <PaymentCardSkeleton key={i} />)}
+    </div>
+  )
+}
+
+if (payments.length === 0) {
+  return <EmptyState {...EMPTY_STATES.payments} />
+}
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 pb-20 lg:pb-8">
@@ -123,7 +137,7 @@ export default function PaymentsPage() {
                 onClick={() => { setMethodFilter(m.key); setShowMethodFilter(false) }}
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold',
-                  'flex-shrink-0 border transition-colors',
+                  'shrink-0 border transition-colors',
                   methodFilter === m.key
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white text-slate-600 border-slate-200'
@@ -143,7 +157,7 @@ export default function PaymentsPage() {
               key={f.key}
               onClick={() => setFilter(f.key)}
               className={cn(
-                'flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors',
+                'shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors',
                 filter === f.key
                   ? 'bg-blue-600 text-white border-blue-600'
                   : 'bg-white text-slate-600 border-slate-200'

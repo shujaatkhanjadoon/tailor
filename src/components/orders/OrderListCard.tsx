@@ -10,7 +10,7 @@ import { format, formatDistanceToNow, isToday, isTomorrow } from 'date-fns'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db/schema'
 import { Image } from 'lucide-react'
-
+import { memo } from 'react'
 
 interface OrderListCardProps {
   order: OrderRecord
@@ -31,7 +31,7 @@ function formatDueDate(dateStr: string): { label: string; urgent: boolean } {
   return { label: format(date, 'd MMM'), urgent: false }
 }
 
-export function OrderListCard({
+export const OrderListCard = memo(function OrderListCard({
   order,
   showCustomer = true,
   onStatusTap,
@@ -194,4 +194,4 @@ export function OrderListCard({
       </div>
     </div>
   )
-}
+})

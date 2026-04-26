@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
+import { DashboardSkeleton } from '@/components/ui/Skeleton'
 import {
   ClipboardList,
   CheckCircle2,
@@ -156,7 +157,7 @@ export default function DashboardPage() {
       </div>
     );
   }
-
+if (isLoading || !shopId) return <DashboardSkeleton />
   return (
     <div className="pb-20 lg:pb-0">
       {/* HEADER */}
