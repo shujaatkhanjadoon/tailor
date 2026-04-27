@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { db, TeamMemberRecord } from '../db/schema'
 import { teamOps, shopOps }     from '../db/operations'
+import { supabase } from '../supabase/client'
 
 interface AuthState {
   isLoading:   boolean
@@ -123,12 +124,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     pin:        string,
     ownerName?: string,
   ) => {
-    // Guard: never create duplicate
+    // ── Require internet ──────────────────────────────────────────
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('Naya account banane ke liye internet chahiye')
+    }
+
+    // ── Prevent duplicate shops ───────────────────────────────────
     const existing = await db.shop.toCollection().first()
     if (existing) {
       console.warn('[Auth] Shop already exists — aborting setup')
       await reinitialize()
       return
+    }
+
+    // ── Also check Supabase for existing phone ────────────────────
+    try {
+      const { data: supabaseExisting } = await (supabase as any)
+        .from('team_members')
+        .select('id')
+        .eq('phone', ownerPhone)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (supabaseExisting) {
+        throw new Error('Yeh phone number pehle se registered hai')
+      }
+    } catch (e: any) {
+      if (e.message?.includes('registered')) throw e
+      // Other errors (network) — log and continue
+      console.warn('[Auth] Supabase check failed, proceeding:', e)
     }
 
     const shopId = await shopOps.setup(shopName, ownerPhone)

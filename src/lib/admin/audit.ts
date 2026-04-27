@@ -1,66 +1,91 @@
 // src/lib/admin/audit.ts
 'use server'
 
+// ── REST-based audit logger — avoids createClient timeout ─────────
+
+function getSupabaseHeaders() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const url  = process.env.NEXT_PUBLIC_SUPABASE_URL
+
+  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY not set')
+  if (!url) throw new Error('NEXT_PUBLIC_SUPABASE_URL not set')
+
+  return {
+    url,
+    headers: {
+      'Content-Type':  'application/json',
+      'apikey':        key,
+      'Authorization': `Bearer ${key}`,
+      'Prefer':        'return=minimal',
+    },
+  }
+}
+
 export type AuditAction =
   | 'activate_subscription'
   | 'reject_payment'
   | 'manual_plan_change'
   | 'shop_deactivated'
   | 'shop_activated'
+  | 'shop_deleted'
   | 'reminder_sent'
   | 'subscription_cancelled'
   | 'admin_login'
 
-const getHeaders = () => ({
-  'Content-Type':  'application/json',
-  'apikey':        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-  'Prefer':        'return=minimal',
-})
-
 export async function logAdminAction(
-  action:     AuditAction,
-  targetType: string,
-  targetId:   string,
-  shopId?:    string,
-  details?:   Record<string, unknown>
+  action:      AuditAction,
+  targetType:  string,
+  targetId:    string,
+  shopId?:     string,
+  details?:    Record<string, unknown>
 ): Promise<void> {
   try {
-    await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/admin_audit_log`,
-      {
-        method:  'POST',
-        headers: getHeaders(),
-        body:    JSON.stringify({
-          action,
-          target_type:  targetType,
-          target_id:    targetId,
-          shop_id:      shopId ?? null,
-          details:      details ?? {},
-          performed_at: new Date().toISOString(),
-        }),
-      }
-    )
+    const { url, headers } = getSupabaseHeaders()
+
+    const body = JSON.stringify({
+      action,
+      target_type:  targetType,
+      target_id:    targetId,
+      shop_id:      shopId ?? null,
+      details:      details ?? {},
+      performed_at: new Date().toISOString(),
+    })
+
+    const res = await fetch(`${url}/rest/v1/admin_audit_log`, {
+      method: 'POST',
+      headers,
+      body,
+    })
+
+    if (!res.ok) {
+      const errText = await res.text()
+      console.error('[Audit] Insert failed:', res.status, errText)
+    } else {
+      console.log('[Audit] ✓ logged:', action, targetType, targetId)
+    }
   } catch (e) {
-    // Never throw — audit failure must not block the action
-    console.error('[Audit] Log failed:', e)
+    // Never throw — audit failure must not block the admin action
+    console.error('[Audit] logAdminAction error (non-fatal):', String(e))
   }
 }
 
-export async function getAuditLog(limit = 100) {
+export async function getAuditLog(limit = 200): Promise<any[]> {
   try {
+    const { url, headers } = getSupabaseHeaders()
+
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/admin_audit_log?order=performed_at.desc&limit=${limit}&select=*`,
-      {
-        headers: {
-          'apikey':        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-        },
-      }
+      `${url}/rest/v1/admin_audit_log?order=performed_at.desc&limit=${limit}&select=*`,
+      { headers: { ...headers, 'Prefer': '' } }
     )
-    if (!res.ok) return []
+
+    if (!res.ok) {
+      console.error('[Audit] getAuditLog failed:', res.status)
+      return []
+    }
+
     return res.json()
-  } catch {
+  } catch (e) {
+    console.error('[Audit] getAuditLog error:', e)
     return []
   }
 }

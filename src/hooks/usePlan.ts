@@ -1,84 +1,135 @@
 // src/hooks/usePlan.ts
-import { useState, useEffect, useCallback } from 'react'
-import { useRouter }   from 'next/navigation'
-import { useAuth }     from '@/lib/auth/AuthContext'
-import { supabase }    from '@/lib/supabase/client'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter }  from 'next/navigation'
+import { useAuth }    from '@/lib/auth/AuthContext'
+import { supabase }   from '@/lib/supabase/client'
 import { PLANS, PlanId, SubStatus } from '@/lib/billing/plans'
 
 export interface PlanState {
-  plan:          PlanId
-  status:        SubStatus
-  trialEndsAt:   Date | null
-  expiresAt:     Date | null
-  gracEndsAt:    Date | null
-  isTrialing:    boolean
-  isActive:      boolean
-  isExpired:     boolean
-  inGrace:       boolean
-  daysLeft:      number | null
-  isTrial:       boolean
-  canAddKarigar:     boolean
-  karigarLimit:      number
-  canUseTracking:    boolean
-  canUseQR:          boolean
-  canUsePhotos:      boolean
-  canUseAnalytics:   boolean
-  canSyncCloud:      boolean
-  canUseMultiDevice: boolean
-  ordersThisMonth:   number
-  ordersLimit:       number | null
-  isAtOrderLimit:    boolean
-  customersTotal:    number
-  customersLimit:    number | null
-  isAtCustomerLimit: boolean
-  karigarCount:      number
-  isAtKarigarLimit:  boolean
-  upgrade:       (targetPlan?: PlanId) => void
-  isLoading:     boolean
-  refetch:       () => Promise<void>
+  // Plan info
+  plan:           PlanId
+  status:         SubStatus
+  trialEndsAt:    Date | null
+  expiresAt:      Date | null
+  gracEndsAt:     Date | null
+
+  // Computed booleans
+  isTrialing:     boolean
+  isActive:       boolean
+  isExpired:      boolean
+  inGrace:        boolean
+  daysLeft:       number | null
+  isTrial:        boolean
+
+  // Feature gates
+  canAddKarigar:      boolean
+  karigarLimit:       number
+  canUseTracking:     boolean
+  canUseQR:           boolean
+  canUsePhotos:       boolean
+  canUseAnalytics:    boolean
+  canSyncCloud:       boolean
+  canUseMultiDevice:  boolean
+
+  // Usage
+  ordersThisMonth:    number
+  ordersLimit:        number | null
+  isAtOrderLimit:     boolean
+  customersTotal:     number
+  customersLimit:     number | null
+  isAtCustomerLimit:  boolean
+  karigarCount:       number
+  isAtKarigarLimit:   boolean
+
+  // Actions
+  upgrade:    (targetPlan?: PlanId) => void
+  isLoading:  boolean
+  refetch:    () => Promise<void>
+}
+
+// ── Strict plan validator ─────────────────────────────────────────
+// Returns 'starter' for any unknown/null/undefined value
+const VALID_PLANS: PlanId[]     = ['starter', 'professional', 'business']
+const VALID_STATUSES: SubStatus[] = ['trialing', 'active', 'cancelled', 'expired', 'grace']
+
+function safePlan(raw: unknown): PlanId {
+  if (typeof raw === 'string' && VALID_PLANS.includes(raw as PlanId)) {
+    return raw as PlanId
+  }
+  return 'starter'
+}
+
+function safeStatus(raw: unknown): SubStatus {
+  if (typeof raw === 'string' && VALID_STATUSES.includes(raw as SubStatus)) {
+    return raw as SubStatus
+  }
+  return 'active'
 }
 
 export function usePlan(): PlanState {
-  const router            = useRouter()
-  const { shopId, isOwner } = useAuth()
+  const router              = useRouter()
+  const { shopId }          = useAuth()
   const [isLoading, setIsLoading] = useState(true)
-  const [subData,   setSubData]   = useState<any>(null)
-  const [usageData, setUsageData] = useState<any>(null)
+  const [subData,   setSubData]   = useState<Record<string, unknown> | null>(null)
+  const [usageData, setUsageData] = useState<Record<string, unknown> | null>(null)
 
-  // src/hooks/usePlan.ts — replace fetchPlanData and derivation section
+  // Track if component is still mounted
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
 
   const fetchPlanData = useCallback(async () => {
     if (!shopId) {
       setIsLoading(false)
       return
     }
+
     setIsLoading(true)
+
     try {
       const [subResult, usageResult] = await Promise.all([
         (supabase as any)
           .from('subscriptions')
-          .select('*')
+          .select('plan, status, billing_cycle, trial_ends_at, expires_at, grace_ends_at, amount_pkr')
           .eq('shop_id', shopId)
           .maybeSingle(),
         (supabase as any)
           .from('shop_usage')
-          .select('*')
+          .select('orders_this_month, customers_total, karigar_count, storage_used_kb')
           .eq('shop_id', shopId)
           .maybeSingle(),
       ])
 
-      // Log for debugging
-      console.log('[usePlan] subscription data:', subResult.data)
-      console.log('[usePlan] usage data:', usageResult.data)
+      if (!mountedRef.current) return
 
-      setSubData(subResult.data)
-      setUsageData(usageResult.data)
+      // Log for debugging — remove in production
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[usePlan] raw subscription:', subResult.data)
+        console.log('[usePlan] raw usage:', usageResult.data)
+        console.log('[usePlan] errors:', subResult.error, usageResult.error)
+      }
+
+      if (subResult.error) {
+        console.error('[usePlan] subscription fetch error:', subResult.error.message)
+      }
+
+      // If no subscription row exists yet, default to starter
+      setSubData(subResult.data ?? { plan: 'starter', status: 'active' })
+      setUsageData(usageResult.data ?? null)
+
     } catch (e) {
       console.error('[usePlan] fetch error:', e)
-      // Default to starter on error
-      setSubData({ plan: 'starter', status: 'active' })
+      // Safe fallback — never show wrong plan
+      if (mountedRef.current) {
+        setSubData({ plan: 'starter', status: 'active' })
+        setUsageData(null)
+      }
     } finally {
-      setIsLoading(false)
+      if (mountedRef.current) {
+        setIsLoading(false)
+      }
     }
   }, [shopId])
 
@@ -86,53 +137,53 @@ export function usePlan(): PlanState {
     fetchPlanData()
   }, [fetchPlanData])
 
-  // ── Derive values ────────────────────────────────────────────────
+  // ── Derive values safely ──────────────────────────────────────
 
-  // If no subscription data at all, default to starter
-  const rawPlan: string = subData?.plan ?? 'starter'
-
-  // Strict validation — only accept known plan IDs
-  const VALID_PLANS = ['starter', 'professional', 'business'] as const
-  const planId: PlanId = VALID_PLANS.includes(rawPlan as PlanId)
-    ? (rawPlan as PlanId)
-    : 'starter'   // ← default to starter if anything unexpected
-
-  const rawStatus: string = subData?.status ?? 'active'
-  const VALID_STATUSES = ['trialing','active','cancelled','expired','grace'] as const
-  const status: SubStatus = VALID_STATUSES.includes(rawStatus as SubStatus)
-    ? (rawStatus as SubStatus)
-    : 'active'
-
+  const planId: PlanId    = safePlan(subData?.plan)
+  const status: SubStatus = safeStatus(subData?.status)
   const planDef           = PLANS[planId]
   const limits            = planDef.limits
 
-  const now           = new Date()
-  const trialEndsAt   = subData?.trial_ends_at ? new Date(subData.trial_ends_at) : null
-  const expiresAt     = subData?.expires_at    ? new Date(subData.expires_at)    : null
-  const graceEndsAt   = subData?.grace_ends_at ? new Date(subData.grace_ends_at) : null
+  const now = new Date()
 
-  const isTrialing    = status === 'trialing' && !!trialEndsAt && trialEndsAt > now
-  const inGrace       = status === 'grace'    && !!graceEndsAt && graceEndsAt > now
-  const isActive      = status === 'active' || isTrialing
-  const isExpired     = status === 'expired'  ||
-    (status === 'cancelled' && !!expiresAt && expiresAt < now)
+  const trialEndsAt = subData?.trial_ends_at
+    ? new Date(subData.trial_ends_at as string)
+    : null
 
-  // Days left
-  const relevantDate  = isTrialing ? trialEndsAt : expiresAt
-  const daysLeft      = relevantDate
+  const expiresAt = subData?.expires_at
+    ? new Date(subData.expires_at as string)
+    : null
+
+  const graceEndsAt = subData?.grace_ends_at
+    ? new Date(subData.grace_ends_at as string)
+    : null
+
+  // Computed booleans
+  const isTrialing = status === 'trialing' && trialEndsAt !== null && trialEndsAt > now
+  const inGrace    = status === 'grace'    && graceEndsAt !== null && graceEndsAt > now
+  const isActive   = status === 'active'   || isTrialing
+  const isExpired  = status === 'expired'  ||
+    (status === 'cancelled' && expiresAt !== null && expiresAt < now)
+
+  // Days left until trial/expiry
+  const relevantDate = isTrialing ? trialEndsAt : expiresAt
+  const daysLeft     = relevantDate
     ? Math.max(0, Math.ceil((relevantDate.getTime() - now.getTime()) / 86400000))
     : null
 
-  // Features accessible if active or in grace
+  // User has access if active OR in grace period
   const hasAccess = isActive || inGrace
 
-  // Usage
-  const ordersThisMonth = usageData?.orders_this_month ?? 0
-  const customersTotal  = usageData?.customers_total   ?? 0
-  const karigarCount    = usageData?.karigar_count      ?? 0
+  // Usage counters
+  const ordersThisMonth = Number(usageData?.orders_this_month ?? 0)
+  const customersTotal  = Number(usageData?.customers_total   ?? 0)
+  const karigarCount    = Number(usageData?.karigar_count      ?? 0)
 
   const upgrade = (targetPlan?: PlanId) => {
-    router.push(targetPlan ? `/billing/upgrade?plan=${targetPlan}` : '/billing/upgrade')
+    const dest = targetPlan
+      ? `/billing/upgrade?plan=${targetPlan}`
+      : '/billing/upgrade'
+    router.push(dest)
   }
 
   return {
@@ -149,7 +200,7 @@ export function usePlan(): PlanState {
     daysLeft,
     isTrial: isTrialing,
 
-    // Feature gates — only allow if plan supports it AND user has access
+    // Feature gates
     canAddKarigar:      hasAccess && limits.maxKarigar > 0,
     karigarLimit:       limits.maxKarigar,
     canUseTracking:     hasAccess && limits.hasTrackingUrl,
@@ -162,15 +213,21 @@ export function usePlan(): PlanState {
     // Usage
     ordersThisMonth,
     ordersLimit:          limits.maxOrdersPerMonth,
-    isAtOrderLimit:       limits.maxOrdersPerMonth !== null &&
-                          ordersThisMonth >= limits.maxOrdersPerMonth,
+    isAtOrderLimit:
+      limits.maxOrdersPerMonth !== null &&
+      ordersThisMonth >= limits.maxOrdersPerMonth,
+
     customersTotal,
     customersLimit:       limits.maxCustomers,
-    isAtCustomerLimit:    limits.maxCustomers !== null &&
-                          customersTotal >= limits.maxCustomers,
+    isAtCustomerLimit:
+      limits.maxCustomers !== null &&
+      customersTotal >= limits.maxCustomers,
+
     karigarCount,
-    isAtKarigarLimit:     limits.maxKarigar < 999 &&
-                          karigarCount >= limits.maxKarigar,
+    isAtKarigarLimit:
+      limits.maxKarigar !== 999 &&
+      limits.maxKarigar > 0 &&
+      karigarCount >= limits.maxKarigar,
 
     upgrade,
     isLoading,
