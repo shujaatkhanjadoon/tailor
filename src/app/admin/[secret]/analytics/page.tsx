@@ -3,12 +3,14 @@ import { notFound }   from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { AdminShell } from '@/components/admin/AdminShell'
 import { StatCard }   from '@/components/admin/StatCard'
+import { getRevenueAnalytics } from '@/lib/billing/admin'
 import {
   TrendingUp, Users, CreditCard,
   Package, BarChart2, Calendar,
 } from 'lucide-react'
 import { format, subMonths, startOfMonth } from 'date-fns'
 
+const data = await getRevenueAnalytics()
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
