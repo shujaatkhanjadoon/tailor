@@ -45,6 +45,8 @@ export function usePlan(): PlanState {
   const [subData,   setSubData]   = useState<any>(null)
   const [usageData, setUsageData] = useState<any>(null)
 
+  // src/hooks/usePlan.ts — replace fetchPlanData and derivation section
+
   const fetchPlanData = useCallback(async () => {
     if (!shopId) {
       setIsLoading(false)
@@ -52,7 +54,7 @@ export function usePlan(): PlanState {
     }
     setIsLoading(true)
     try {
-      const [{ data: sub }, { data: usage }] = await Promise.all([
+      const [subResult, usageResult] = await Promise.all([
         (supabase as any)
           .from('subscriptions')
           .select('*')
@@ -64,10 +66,17 @@ export function usePlan(): PlanState {
           .eq('shop_id', shopId)
           .maybeSingle(),
       ])
-      setSubData(sub)
-      setUsageData(usage)
+
+      // Log for debugging
+      console.log('[usePlan] subscription data:', subResult.data)
+      console.log('[usePlan] usage data:', usageResult.data)
+
+      setSubData(subResult.data)
+      setUsageData(usageResult.data)
     } catch (e) {
       console.error('[usePlan] fetch error:', e)
+      // Default to starter on error
+      setSubData({ plan: 'starter', status: 'active' })
     } finally {
       setIsLoading(false)
     }
@@ -79,13 +88,21 @@ export function usePlan(): PlanState {
 
   // ── Derive values ────────────────────────────────────────────────
 
-  // Default to starter if no subscription found
-  const rawPlan: PlanId  = (subData?.plan ?? 'starter') as PlanId
-  // Validate plan is one of the 3 known plans
-  const planId: PlanId   = ['starter','professional','business'].includes(rawPlan)
-    ? rawPlan : 'starter'
+  // If no subscription data at all, default to starter
+  const rawPlan: string = subData?.plan ?? 'starter'
 
-  const status: SubStatus = (subData?.status ?? 'active') as SubStatus
+  // Strict validation — only accept known plan IDs
+  const VALID_PLANS = ['starter', 'professional', 'business'] as const
+  const planId: PlanId = VALID_PLANS.includes(rawPlan as PlanId)
+    ? (rawPlan as PlanId)
+    : 'starter'   // ← default to starter if anything unexpected
+
+  const rawStatus: string = subData?.status ?? 'active'
+  const VALID_STATUSES = ['trialing','active','cancelled','expired','grace'] as const
+  const status: SubStatus = VALID_STATUSES.includes(rawStatus as SubStatus)
+    ? (rawStatus as SubStatus)
+    : 'active'
+
   const planDef           = PLANS[planId]
   const limits            = planDef.limits
 

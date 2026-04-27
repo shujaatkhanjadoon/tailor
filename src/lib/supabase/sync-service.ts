@@ -1,6 +1,6 @@
 // src/lib/supabase/sync-service.ts
-import { supabase } from './client'
-import { db }       from '@/lib/db/schema'
+import { supabase }        from './client'
+import { db }              from '@/lib/db/schema'
 import type {
   ShopRow, TeamMemberRow, CustomerRow,
   MeasurementRow, OrderRow, PaymentRow, StatusHistoryRow,
@@ -15,8 +15,7 @@ function shopToRow(r: any): ShopRow {
     shop_name:       r.shopName,
     whatsapp_number: r.whatsappNumber || undefined,
     city:            r.city           || undefined,
-    plan:            r.plan           || 'starter',
-    plan_expires_at: r.planExpiresAt  || undefined,
+    plan:            'starter',         // new shops always start as starter
     is_active:       true,
     created_at:      r.createdAt,
     updated_at:      r.updatedAt,
@@ -94,7 +93,7 @@ function orderToRow(r: any): OrderRow {
     total_price:          r.totalPrice          ?? 0,
     amount_paid:          r.amountPaid          ?? 0,
     is_urgent:            r.isUrgent === 1,
-    due_date:             r.dueDate             || today(),
+    due_date:             r.dueDate             || new Date().toISOString().split('T')[0],
     special_instructions: r.specialInstructions || undefined,
     fabric_photo_url:     r.fabricPhotoUrl      || undefined,
     style_photo_url:      r.stylePhotoUrl       || undefined,
@@ -130,19 +129,80 @@ function historyToRow(r: any): StatusHistoryRow {
   }
 }
 
-// ── Helper ───────────────────────────────────────────────────────
+// ── Type-safe upsert helper ───────────────────────────────────────
+// Casting through `as any` resolves the "never" TypeScript error
+// from Supabase generic inference on complex union types.
 
-const today = () => new Date().toISOString().split('T')[0]
-
-// Type-safe upsert — casts through any to avoid
-// the "never" error from Supabase generic inference
 async function upsertTable<T>(
   tableName: string,
-  rows: T[]
+  rows:      T[]
 ): Promise<{ error: any }> {
   return (supabase as any)
     .from(tableName)
-    .upsert(rows, { onConflict: 'id' })
+    .upsert(rows, { onConflict: 'id' }) as any
+}
+
+// ── Ensure subscription row exists for a shop ─────────────────────
+// Uses ignoreDuplicates so it never overwrites a paid subscription.
+// Only creates a starter row if none exists.
+
+async function ensureSubscriptionExists(shopId: string): Promise<void> {
+  try {
+    const { error } = await (supabase as any)
+      .from('subscriptions')
+      .upsert(
+        {
+          shop_id:       shopId,
+          plan:          'starter',
+          status:        'active',
+          trial_ends_at: null,
+          expires_at:    null,
+          billing_cycle: null,
+          amount_pkr:    null,
+          updated_at:    new Date().toISOString(),
+        },
+        {
+          onConflict:       'shop_id',
+          ignoreDuplicates: true,   // won't overwrite existing paid plan
+        }
+      )
+
+    if (error) {
+      // Log but don't throw — subscription may already exist correctly
+      console.warn('[Sync] ensureSubscription warning (non-fatal):', error.message)
+    } else {
+      console.log('[Sync] ✓ subscription ensured')
+    }
+  } catch (e) {
+    // Never fatal — the shop data still syncs even if this fails
+    console.warn('[Sync] ensureSubscription error (non-fatal):', String(e))
+  }
+}
+
+// ── Ensure shop_usage row exists ──────────────────────────────────
+
+async function ensureUsageExists(shopId: string): Promise<void> {
+  try {
+    await (supabase as any)
+      .from('shop_usage')
+      .upsert(
+        {
+          shop_id:           shopId,
+          orders_this_month: 0,
+          customers_total:   0,
+          karigar_count:     0,
+          storage_used_kb:   0,
+          month_year:        new Date().toISOString().slice(0, 7),
+          updated_at:        new Date().toISOString(),
+        },
+        {
+          onConflict:       'shop_id',
+          ignoreDuplicates: true,
+        }
+      )
+  } catch (e) {
+    console.warn('[Sync] ensureUsage non-fatal:', String(e))
+  }
 }
 
 // ── Main sync service ─────────────────────────────────────────────
@@ -153,11 +213,15 @@ export const syncService = {
     return typeof navigator !== 'undefined' && navigator.onLine
   },
 
+  // ── Push all unsynced Dexie records → Supabase ────────────────
   async pushAll(shopId: string): Promise<{ success: boolean; errors: string[] }> {
-    if (!syncService.isOnline()) return { success: false, errors: ['offline'] }
+    if (!syncService.isOnline()) {
+      return { success: false, errors: ['offline'] }
+    }
 
     const errors: string[] = []
 
+    // Generic push helper — maps rows, skips invalid, upserts, marks _synced
     const push = async <T>(
       tableName:  string,
       records:    any[],
@@ -175,7 +239,8 @@ export const syncService = {
           validRows.push(mapper(r))
           validIds.push(ids[i])
         } catch (e) {
-          console.warn(`[Sync] Skipping ${tableName}:`, String(e))
+          // Log and skip this record — don't fail the entire batch
+          console.warn(`[Sync] Skipping invalid ${tableName} record:`, String(e))
           // Mark as synced to prevent infinite retry of truly broken records
           dexieTable.update(ids[i], { _synced: 1 }).catch(() => {})
         }
@@ -185,95 +250,257 @@ export const syncService = {
 
       const { error } = await upsertTable<T>(tableName, validRows)
       if (error) {
-        console.error(`[Sync] ${tableName}:`, error.message)
+        console.error(`[Sync] ${tableName} error:`, error.message)
         errors.push(`${tableName}: ${error.message}`)
       } else {
         await Promise.all(validIds.map(id => dexieTable.update(id, { _synced: 1 })))
-        console.log(`[Sync] ✓ ${tableName} — ${validRows.length}`)
+        console.log(`[Sync] ✓ ${tableName} — ${validRows.length} records`)
       }
     }
 
     try {
-      // Run all pushes in strict dependency order
-      // Each awaits before the next — guarantees parents exist before children
 
-      // 1. Shop
+      // ── STEP 1: Shop ────────────────────────────────────────────
+      // Must succeed before anything else — all other tables FK to shops
       const shop = await db.shop.toCollection().first()
-      if (shop?._synced === 0) {
-        const { error } = await upsertTable<ShopRow>('shops', [shopToRow(shop)])
-        if (error) { errors.push(`shops: ${error.message}`); return { success: false, errors } }
+      if (shop && shop._synced === 0) {
+        const { error: shopError } = await upsertTable<ShopRow>(
+          'shops', [shopToRow(shop)]
+        )
+        if (shopError) {
+          console.error('[Sync] shops failed — aborting push:', shopError.message)
+          errors.push(`shops: ${shopError.message}`)
+          return { success: false, errors }
+        }
         await db.shop.update(shop.id, { _synced: 1 })
+        console.log('[Sync] ✓ shops')
+
+        // Ensure subscription + usage rows exist
+        // These are created server-side by trigger, but may be missing
+        // if the shop was created offline. ignoreDuplicates keeps paid plans safe.
+        await ensureSubscriptionExists(shop.id)
+        await ensureUsageExists(shop.id)
+      } else if (shop && shop._synced === 1) {
+        // Shop already synced — still ensure subscription exists
+        // in case it was lost or never created
+        await ensureSubscriptionExists(shop.id)
+        await ensureUsageExists(shop.id)
       }
 
-      // 2. Team members
-      const members = await db.teamMembers.where('shopId').equals(shopId)
-        .filter(m => m._synced === 0).toArray()
-      await push<TeamMemberRow>('team_members', members, memberToRow,
-        db.teamMembers, members.map(m => m.id))
+      // ── STEP 2: Team members ────────────────────────────────────
+      // Must come before orders (orders.assigned_to FKs to team_members)
+      const members = await db.teamMembers
+        .where('shopId').equals(shopId)
+        .filter(m => m._synced === 0)
+        .toArray()
+      await push<TeamMemberRow>(
+        'team_members', members, memberToRow,
+        db.teamMembers, members.map(m => m.id)
+      )
 
-      // 3. Customers
-      const customers = await db.customers.where('shopId').equals(shopId)
-        .filter(c => c._synced === 0).toArray()
-      await push<CustomerRow>('customers', customers, customerToRow,
-        db.customers, customers.map(c => c.id))
+      // If team_members failed, payments will also fail (recorded_by FK)
+      // but we continue — partial sync is better than none
+      const membersFailed = errors.some(e => e.startsWith('team_members'))
+      if (membersFailed) {
+        console.warn('[Sync] team_members had errors — payments may fail FK check')
+      }
 
-      // 4. Measurements (after customers)
-      const measurements = await db.measurements.where('shopId').equals(shopId)
-        .filter(m => m._synced === 0).toArray()
-      await push<MeasurementRow>('measurements', measurements, measurementToRow,
-        db.measurements, measurements.map(m => m.id))
+      // ── STEP 3: Customers ───────────────────────────────────────
+      // Must come before measurements + orders (both FK to customers)
+      const customers = await db.customers
+        .where('shopId').equals(shopId)
+        .filter(c => c._synced === 0)
+        .toArray()
+      await push<CustomerRow>(
+        'customers', customers, customerToRow,
+        db.customers, customers.map(c => c.id)
+      )
 
-      // 5. Orders (after customers)
-      const orders = await db.orders.where('shopId').equals(shopId)
-        .filter(o => o._synced === 0).toArray()
-      await push<OrderRow>('orders', orders, orderToRow,
-        db.orders, orders.map(o => o.id))
+      // ── STEP 4: Measurements ────────────────────────────────────
+      // Depends on customers — run after customers succeed
+      const measurements = await db.measurements
+        .where('shopId').equals(shopId)
+        .filter(m => m._synced === 0)
+        .toArray()
 
-      // 6. Payments (after orders + members)
-      const payments = await db.payments.where('shopId').equals(shopId)
-        .filter(p => p._synced === 0).toArray()
-      await push<PaymentRow>('payments', payments, paymentToRow,
-        db.payments, payments.map(p => p.id))
+      if (measurements.length > 0) {
+        // Filter out measurements whose customer hasn't synced yet
+        // to avoid FK violation
+        const { data: syncedCustomers } = await (supabase as any)
+          .from('customers')
+          .select('id')
+          .eq('shop_id', shopId)
 
-      // 7. Status history (after orders)
-      const history = await db.orderStatusHistory.where('shopId').equals(shopId)
-        .filter(h => h._synced === 0).toArray()
-      await push<StatusHistoryRow>('order_status_history', history, historyToRow,
-        db.orderStatusHistory, history.map(h => h.id))
+        const syncedCustomerIds = new Set(
+          (syncedCustomers ?? []).map((c: any) => c.id)
+        )
+
+        const safeMeasurements = measurements.filter(m =>
+          syncedCustomerIds.has(m.customerId)
+        )
+        const skippedMeasurements = measurements.filter(m =>
+          !syncedCustomerIds.has(m.customerId)
+        )
+
+        // Skip orphaned measurements — their customers haven't synced
+        skippedMeasurements.forEach(m => {
+          console.warn(`[Sync] Skipping measurement ${m.id} — customer not yet in Supabase`)
+        })
+
+        await push<MeasurementRow>(
+          'measurements', safeMeasurements, measurementToRow,
+          db.measurements, safeMeasurements.map(m => m.id)
+        )
+      }
+
+      // ── STEP 5: Orders ──────────────────────────────────────────
+      // Depends on customers — run after customers succeed
+      const orders = await db.orders
+        .where('shopId').equals(shopId)
+        .filter(o => o._synced === 0)
+        .toArray()
+
+      if (orders.length > 0) {
+        // Filter out orders whose customer hasn't synced yet
+        const { data: syncedCustomers } = await (supabase as any)
+          .from('customers')
+          .select('id')
+          .eq('shop_id', shopId)
+
+        const syncedCustomerIds = new Set(
+          (syncedCustomers ?? []).map((c: any) => c.id)
+        )
+
+        const safeOrders = orders.filter(o =>
+          o.customerId && syncedCustomerIds.has(o.customerId)
+        )
+        const skippedOrders = orders.filter(o =>
+          !o.customerId || !syncedCustomerIds.has(o.customerId)
+        )
+
+        skippedOrders.forEach(o => {
+          console.warn(`[Sync] Skipping order ${o.id} — customer ${o.customerId} not in Supabase`)
+          // Mark as synced to stop retrying with a missing customer
+          db.orders.update(o.id, { _synced: 1 }).catch(() => {})
+        })
+
+        await push<OrderRow>(
+          'orders', safeOrders, orderToRow,
+          db.orders, safeOrders.map(o => o.id)
+        )
+      }
+
+      // ── STEP 6: Payments ────────────────────────────────────────
+      // Depends on orders + team_members
+      const payments = await db.payments
+        .where('shopId').equals(shopId)
+        .filter(p => p._synced === 0)
+        .toArray()
+
+      if (payments.length > 0) {
+        // Verify order IDs exist in Supabase
+        const { data: syncedOrders } = await (supabase as any)
+          .from('orders')
+          .select('id')
+          .eq('shop_id', shopId)
+
+        const syncedOrderIds = new Set(
+          (syncedOrders ?? []).map((o: any) => o.id)
+        )
+
+        const safePayments = payments.filter(p =>
+          syncedOrderIds.has(p.orderId)
+        )
+        const skippedPayments = payments.filter(p =>
+          !syncedOrderIds.has(p.orderId)
+        )
+
+        skippedPayments.forEach(p => {
+          console.warn(`[Sync] Skipping payment ${p.id} — order ${p.orderId} not in Supabase`)
+        })
+
+        await push<PaymentRow>(
+          'payments', safePayments, paymentToRow,
+          db.payments, safePayments.map(p => p.id)
+        )
+      }
+
+      // ── STEP 7: Order status history ─────────────────────────────
+      // Depends on orders + team_members
+      const history = await db.orderStatusHistory
+        .where('shopId').equals(shopId)
+        .filter(h => h._synced === 0)
+        .toArray()
+
+      if (history.length > 0) {
+        // Verify order IDs exist
+        const { data: syncedOrders } = await (supabase as any)
+          .from('orders')
+          .select('id')
+          .eq('shop_id', shopId)
+
+        const syncedOrderIds = new Set(
+          (syncedOrders ?? []).map((o: any) => o.id)
+        )
+
+        const safeHistory = history.filter(h =>
+          syncedOrderIds.has(h.orderId)
+        )
+        const skippedHistory = history.filter(h =>
+          !syncedOrderIds.has(h.orderId)
+        )
+
+        skippedHistory.forEach(h => {
+          db.orderStatusHistory.update(h.id, { _synced: 1 }).catch(() => {})
+        })
+
+        await push<StatusHistoryRow>(
+          'order_status_history', safeHistory, historyToRow,
+          db.orderStatusHistory, safeHistory.map(h => h.id)
+        )
+      }
 
     } catch (e) {
-      errors.push(`Unexpected: ${String(e)}`)
-      console.error('[Sync]', e)
+      const msg = `Unexpected push error: ${String(e)}`
+      console.error('[Sync]', msg)
+      errors.push(msg)
     }
 
-    return { success: errors.length === 0, errors }
+    const success = errors.length === 0
+    console.log(`[Sync] pushAll complete — ${success ? 'success' : `${errors.length} errors`}`)
+    return { success, errors }
   },
 
-  // Pull Supabase → Dexie (for cross-device login)
+  // ── Pull Supabase → Dexie (for cross-device login) ────────────
   async pullAll(shopId: string): Promise<void> {
     if (!syncService.isOnline()) return
 
     try {
+      // Fetch all tables in parallel
       const [
         { data: orders },
         { data: customers },
         { data: payments },
         { data: measurements },
+        { data: members },
         { data: historyOrders },
       ] = await Promise.all([
-        (supabase as any).from('orders').select('*')
-          .eq('shop_id', shopId).is('deleted_at', null),
-        (supabase as any).from('customers').select('*')
-          .eq('shop_id', shopId).is('deleted_at', null),
-        (supabase as any).from('payments').select('*')
-          .eq('shop_id', shopId).is('deleted_at', null),
-        (supabase as any).from('measurements').select('*')
-          .eq('shop_id', shopId).is('deleted_at', null),
-        (supabase as any).from('orders').select('id')
-          .eq('shop_id', shopId),
+        (supabase as any).from('orders')
+          .select('*').eq('shop_id', shopId).is('deleted_at', null),
+        (supabase as any).from('customers')
+          .select('*').eq('shop_id', shopId).is('deleted_at', null),
+        (supabase as any).from('payments')
+          .select('*').eq('shop_id', shopId).is('deleted_at', null),
+        (supabase as any).from('measurements')
+          .select('*').eq('shop_id', shopId).is('deleted_at', null),
+        (supabase as any).from('team_members')
+          .select('*').eq('shop_id', shopId).eq('is_active', true),
+        (supabase as any).from('orders')
+          .select('id').eq('shop_id', shopId),
       ])
 
-      if (orders) {
+      // ── Orders ─────────────────────────────────────────────────
+      if (orders && orders.length > 0) {
         await db.orders.bulkPut(orders.map((o: any) => ({
           id:                  o.id,
           shopId:              o.shop_id,
@@ -300,9 +527,11 @@ export const syncService = {
           _synced:             1,
           _deleted:            0,
         })))
+        console.log(`[Sync] Pulled ${orders.length} orders`)
       }
 
-      if (customers) {
+      // ── Customers ──────────────────────────────────────────────
+      if (customers && customers.length > 0) {
         await db.customers.bulkPut(customers.map((c: any) => ({
           id:          c.id,
           shopId:      c.shop_id,
@@ -319,9 +548,11 @@ export const syncService = {
           _synced:     1,
           _deleted:    0,
         })))
+        console.log(`[Sync] Pulled ${customers.length} customers`)
       }
 
-      if (payments) {
+      // ── Payments ───────────────────────────────────────────────
+      if (payments && payments.length > 0) {
         await db.payments.bulkPut(payments.map((p: any) => ({
           id:          p.id,
           shopId:      p.shop_id,
@@ -334,9 +565,11 @@ export const syncService = {
           _synced:     1,
           _deleted:    0,
         })))
+        console.log(`[Sync] Pulled ${payments.length} payments`)
       }
 
-      if (measurements) {
+      // ── Measurements ───────────────────────────────────────────
+      if (measurements && measurements.length > 0) {
         await db.measurements.bulkPut(measurements.map((m: any) => ({
           id:          m.id,
           customerId:  m.customer_id,
@@ -348,83 +581,125 @@ export const syncService = {
           _synced:     1,
           _deleted:    0,
         })))
+        console.log(`[Sync] Pulled ${measurements.length} measurements`)
       }
 
-      // Pull history using the order IDs we already fetched
+      // ── Team members ───────────────────────────────────────────
+      if (members && members.length > 0) {
+        await db.teamMembers.bulkPut(members.map((m: any) => ({
+          id:          m.id,
+          shopId:      m.shop_id,
+          name:        m.name,
+          phone:       m.phone,
+          role:        m.role,
+          pin:         m.pin_hash,
+          speciality:  m.speciality    ?? undefined,
+          payRateType: m.pay_rate_type ?? undefined,
+          payRate:     m.pay_rate      ?? undefined,
+          isActive:    m.is_active ? 1 : 0,
+          joinedAt:    m.joined_at,
+          createdAt:   m.created_at,
+          _synced:     1,
+          _deleted:    0,
+        })))
+        console.log(`[Sync] Pulled ${members.length} team members`)
+      }
+
+      // ── Order status history ────────────────────────────────────
       if (historyOrders && historyOrders.length > 0) {
         const orderIds = historyOrders.map((o: any) => o.id)
 
-        const { data: history } = await (supabase as any)
-          .from('order_status_history')
-          .select('*')
-          .in('order_id', orderIds)
+        // Fetch in chunks of 100 to avoid URL length limits
+        const chunkSize = 100
+        for (let i = 0; i < orderIds.length; i += chunkSize) {
+          const chunk = orderIds.slice(i, i + chunkSize)
+          const { data: history } = await (supabase as any)
+            .from('order_status_history')
+            .select('*')
+            .in('order_id', chunk)
 
-        if (history) {
-          // Build orderId → shopId map for the shopId field
-          const orderShopMap = new Map<string, string>()
-          if (orders) {
-            orders.forEach((o: any) => orderShopMap.set(o.id, o.shop_id))
+          if (history && history.length > 0) {
+            // Build orderId → shopId map
+            const orderShopMap = new Map<string, string>()
+            if (orders) {
+              orders.forEach((o: any) => orderShopMap.set(o.id, o.shop_id))
+            }
+
+            await db.orderStatusHistory.bulkPut(
+              history.map((h: any) => ({
+                id:        h.id,
+                orderId:   h.order_id,
+                shopId:    orderShopMap.get(h.order_id) ?? shopId,
+                oldStatus: h.old_status ?? undefined,
+                newStatus: h.new_status,
+                changedBy: h.changed_by,
+                changedAt: h.changed_at,
+                _synced:   1 as const,
+              }))
+            )
           }
-
-          await db.orderStatusHistory.bulkPut(
-            history.map((h: any) => ({
-              id:        h.id,
-              orderId:   h.order_id,
-              shopId:    orderShopMap.get(h.order_id) ?? shopId,
-              oldStatus: h.old_status ?? undefined,
-              newStatus: h.new_status,
-              changedBy: h.changed_by,
-              changedAt: h.changed_at,
-              _synced:   1 as const,
-            }))
-          )
         }
       }
 
-      console.log('[Sync] ✓ Pull complete')
+      console.log('[Sync] ✓ pullAll complete')
+
     } catch (e) {
-      console.error('[Sync] Pull failed:', e)
+      console.error('[Sync] pullAll failed:', e)
     }
   },
 
-  // Public order tracking by tracking code (cross-device)
+  // ── Get order by tracking code (public — cross-device) ────────
   async getOrderByTrackingCode(code: string): Promise<any | null> {
-    const { data, error } = await (supabase as any)
-      .from('orders')
-      .select(`*, shops(shop_name, whatsapp_number, city)`)
-      .eq('tracking_code', code.toUpperCase())
-      .is('deleted_at', null)
-      .maybeSingle()
+    if (!syncService.isOnline()) return null
 
-    if (error || !data) return null
-    return data
+    try {
+      const { data, error } = await (supabase as any)
+        .from('orders')
+        .select(`*, shops(shop_name, whatsapp_number, city)`)
+        .eq('tracking_code', code.toUpperCase())
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (error || !data) return null
+      return data
+    } catch (e) {
+      console.error('[Sync] getOrderByTrackingCode error:', e)
+      return null
+    }
   },
 
-  // Legacy — kept for backward compatibility
+  // ── Get order by number (legacy fallback) ─────────────────────
   async getOrderByNumber(orderNumber: number): Promise<any | null> {
-    const { data, error } = await (supabase as any)
-      .from('orders')
-      .select(`*, shops(shop_name, whatsapp_number, city)`)
-      .eq('order_number', orderNumber)
-      .is('deleted_at', null)
-      .maybeSingle()
+    if (!syncService.isOnline()) return null
 
-    if (error || !data) return null
-    return data
+    try {
+      const { data, error } = await (supabase as any)
+        .from('orders')
+        .select(`*, shops(shop_name, whatsapp_number, city)`)
+        .eq('order_number', orderNumber)
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (error || !data) return null
+      return data
+    } catch (e) {
+      console.error('[Sync] getOrderByNumber error:', e)
+      return null
+    }
   },
 
-  // Auto-sync: push on reconnect + every 5 minutes
+  // ── Auto-sync: push on reconnect + every 60 seconds ───────────
   startAutoSync(shopId: string): () => void {
     if (typeof window === 'undefined') return () => {}
 
     const doSync = async () => {
       if (navigator.onLine) {
-        await syncService.pushAll(shopId)
+        await syncService.pushAll(shopId).catch(console.error)
       }
     }
 
     window.addEventListener('online', doSync)
-    const interval = setInterval(doSync, 5 * 60 * 1000)
+    const interval = setInterval(doSync, 60_000)
 
     return () => {
       window.removeEventListener('online', doSync)
