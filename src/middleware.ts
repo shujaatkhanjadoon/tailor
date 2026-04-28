@@ -12,9 +12,28 @@ export function middleware(req: NextRequest) {
   res.headers.set('Referrer-Policy',        'strict-origin-when-cross-origin')
   res.headers.set('X-XSS-Protection',       '1; mode=block')
 
-  // ── Admin login page — always accessible ─────────────────────────
-  if (pathname === '/admin/login' || pathname === '/admin/setup-totp') {
+ if (
+    pathname === '/admin/login'      ||
+    pathname === '/admin/setup-totp' ||
+    pathname === '/api/admin/login'  ||
+    pathname === '/api/admin/logout' ||
+    pathname === '/api/admin/verify'
+  ) {
     return res
+  }
+
+   // ── Admin TOTP URI — allow with secret header (no session needed) ─
+  if (pathname === '/api/admin/totp-uri') {
+    const secret = req.headers.get('x-admin-secret')
+    if (secret === process.env.ADMIN_SECRET) {
+      return res   // allow through — API route handles auth
+    }
+    // Also allow with valid session
+    const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
+    if (token && verifySessionToken(token)) {
+      return res
+    }
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   // ── Admin API routes — protected ─────────────────────────────────
