@@ -20,17 +20,24 @@ export default function SetupTOTPPage() {
     setError('')
     try {
       const res = await fetch('/api/admin/totp-uri', {
-        headers: { 'x-admin-secret': adminSecret.trim() },
+        method:  'GET',
+        headers: {
+          'x-admin-secret': adminSecret.trim(),   // ← send as header
+        },
       })
+      console.log('[Setup TOTP] Response status:', res.status)
       const data = await res.json()
+      console.log('[Setup TOTP] Response data:', data)
+
       if (!res.ok) {
-        setError(data.error ?? 'Secret galat hai')
+        setError(data.error ?? `Error ${res.status} — check ADMIN_SECRET`)
         return
       }
       setQrData(data.qrData)
       setUri(data.uri)
       setAuthorized(true)
-    } catch {
+    } catch (e) {
+      console.error('[Setup TOTP] Fetch error:', e)
       setError('Server se connect nahi ho saka')
     } finally {
       setLoading(false)

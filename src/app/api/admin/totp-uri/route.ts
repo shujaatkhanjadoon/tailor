@@ -1,23 +1,29 @@
-// src/app/api/admin/totp-uri/route.ts
-import { NextRequest, NextResponse }                   from 'next/server'
+// src/app/api/admin/totp-uri/route.ts — complete fix
+import { NextRequest, NextResponse }                          from 'next/server'
 import { verifySessionToken, getTOTPUri, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 import QRCode from 'qrcode'
 
 export async function GET(req: NextRequest) {
-  // Allow access with either valid session OR admin secret header
-  const token  = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
-  const secret = req.headers.get('x-admin-secret')
+  const token       = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
+  const headerSecret = req.headers.get('x-admin-secret')
+  const adminSecret  = process.env.ADMIN_SECRET
 
-  const ok = (token && verifySessionToken(token)) ||
-             (secret === process.env.ADMIN_SECRET)
+  console.log('[TOTP Setup] token:', !!token, 'header:', !!headerSecret, 'env:', !!adminSecret)
 
-  if (!ok) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const sessionOk = token && verifySessionToken(token)
+  const secretOk  = headerSecret && adminSecret && headerSecret === adminSecret
+
+  if (!sessionOk && !secretOk) {
+    console.error('[TOTP Setup] Unauthorized — neither session nor secret matched')
+    return NextResponse.json(
+      { error: 'Unauthorized — check ADMIN_SECRET env var' },
+      { status: 401 }
+    )
   }
 
   if (!process.env.ADMIN_TOTP_SECRET) {
     return NextResponse.json(
-      { error: 'ADMIN_TOTP_SECRET not set in environment variables' },
+      { error: 'ADMIN_TOTP_SECRET not set in .env.local' },
       { status: 500 }
     )
   }
@@ -27,11 +33,11 @@ export async function GET(req: NextRequest) {
     const qrData = await QRCode.toDataURL(uri, {
       width:  240,
       margin: 2,
-      color: { dark: '#1e293b', light: '#ffffff' },
+      color:  { dark: '#1e293b', light: '#ffffff' },
     })
-
     return NextResponse.json({ uri, qrData, hasSetup: true })
   } catch (e) {
+    console.error('[TOTP Setup] Error:', e)
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
 }

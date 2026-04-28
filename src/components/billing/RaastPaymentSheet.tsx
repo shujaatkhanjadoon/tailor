@@ -3,23 +3,23 @@
 
 import { useState, useEffect } from 'react'
 import { X, Copy, Check, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
-import { QRCodeSVG }    from 'qrcode.react'
-import { supabase }     from '@/lib/supabase/client'
-import { useAuth }      from '@/lib/auth/AuthContext'
-import { usePlan }      from '@/hooks/usePlan'
+import { QRCodeSVG } from 'qrcode.react'
+import { supabase } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth/AuthContext'
+import { usePlan } from '@/hooks/usePlan'
 import {
   RAAST_CONFIG, generatePaymentRef,
   buildRaastQRData, buildPaymentNote,
 } from '@/lib/billing/raast'
 import { PLANS, PlanId } from '@/lib/billing/plans'
-import { cn }            from '@/lib/utils'
+import { cn } from '@/lib/utils'
 
 interface RaastPaymentSheetProps {
-  planId:       PlanId
-  cycle:        'monthly' | 'yearly'
-  amountPkr:    number
-  onClose:      () => void
-  onSubmitted:  () => void
+  planId: PlanId
+  cycle: 'monthly' | 'yearly'
+  amountPkr: number
+  onClose: () => void
+  onSubmitted: () => void
 }
 
 type SheetStep = 'payment' | 'confirm' | 'submitted'
@@ -27,82 +27,92 @@ type SheetStep = 'payment' | 'confirm' | 'submitted'
 export function RaastPaymentSheet({
   planId, cycle, amountPkr, onClose, onSubmitted,
 }: RaastPaymentSheetProps) {
-  const { shopId }        = useAuth()
-  const plan              = usePlan()
-  const [step, setStep]   = useState<SheetStep>('payment')
-  const [txId,  setTxId]  = useState('')
+  const { shopId } = useAuth()
+  const plan = usePlan()
+  const [step, setStep] = useState<SheetStep>('payment')
   const [payerName, setPayerName] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [copied, setCopied] = useState<'id' | 'amount' | null>(null)
 
   const [paymentRef] = useState(() => generatePaymentRef(shopId ?? 'SHOP'))
-  const targetPlan   = PLANS[planId]
-  const qrData       = buildRaastQRData(RAAST_CONFIG, amountPkr, paymentRef)
-  const paymentNote  = buildPaymentNote(planId, cycle, paymentRef)
+  const targetPlan = PLANS[planId]
+  const qrData = buildRaastQRData(RAAST_CONFIG, amountPkr, paymentRef)
+  const paymentNote = buildPaymentNote(planId, cycle, paymentRef)
+  const [txIdMode, setTxIdMode] = useState<'ref' | 'bank'>('ref')
+  const [txId, setTxId] = useState(paymentRef) 
 
   const copyToClipboard = async (text: string, key: 'id' | 'amount') => {
-    await navigator.clipboard.writeText(text).catch(() => {})
+    await navigator.clipboard.writeText(text).catch(() => { })
     setCopied(key)
     setTimeout(() => setCopied(null), 2000)
   }
 
   const handleSubmit = async () => {
-    if (txId.trim().length < 6) {
-      setError('Transaction ID kam se kam 6 characters ka hona chahiye')
+    if (txId.trim().length < 4) {
+      setError('Transaction ID daalein')
       return
     }
-    if (!shopId) return
+    if (!shopId) {
+      setError('Shop ID missing — please refresh')
+      return
+    }
 
     setError('')
     setSubmitting(true)
 
     try {
-      // Save payment request to Supabase for manual verification
-      const { error: dbError } = await (supabase as any)
+      // First ensure subscription row exists (starter plan)
+      await (supabase as any)
+        .from('subscriptions')
+        .upsert({
+          shop_id: shopId,
+          plan: 'starter',
+          status: 'active',
+          trial_ends_at: null,
+          expires_at: null,
+          billing_cycle: null,
+          amount_pkr: null,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'shop_id',
+          ignoreDuplicates: true,
+        })
+
+      // Insert payment record
+      const { error: payErr } = await (supabase as any)
         .from('subscription_payments')
         .insert({
-          shop_id:       shopId,
-          plan:          planId,
+          shop_id: shopId,
+          plan: planId,
           billing_cycle: cycle,
-          amount_pkr:    amountPkr,
-          method:        'raast',
+          amount_pkr: amountPkr,
+          method: 'raast',
           gateway_tx_id: txId.trim(),
-          status:        'pending',
-          receipt_data:  {
-            payment_ref:  paymentRef,
-            payer_name:   payerName.trim(),
-            raast_id:     RAAST_CONFIG.raastId,
+          status: 'pending',
+          receipt_data: {
+            payment_ref: paymentRef,
+            payer_name: payerName.trim() || null,
+            raast_id: RAAST_CONFIG.raastId,
             submitted_at: new Date().toISOString(),
           },
         })
 
-      if (dbError) throw dbError
-
-      // Also create/update subscription to 'pending' status
-      // (will be activated by admin after verification)
-      await (supabase as any)
-        .from('subscriptions')
-        .upsert({
-          shop_id:       shopId,
-          plan:          planId,
-          billing_cycle: cycle,
-          status:        'trialing',  // keep trialing until verified
-          amount_pkr:    amountPkr,
-          gateway:       'raast',
-          gateway_sub_id: paymentRef,
-          updated_at:    new Date().toISOString(),
-        }, { onConflict: 'shop_id' })
+      if (payErr) {
+        console.error('[Payment] Insert error:', payErr)
+        setError(`Error: ${payErr.message}`)
+        return
+      }
 
       setStep('submitted')
       setTimeout(() => {
         onSubmitted()
         onClose()
-      }, 3000)
+      }, 2500)
 
     } catch (e) {
-      console.error('[Raast] Submit error:', e)
-      setError('Submit nahi hua. Dobara try karein.')
+      console.error('[Payment] Submit error:', e)
+      setError(`Submit fail: ${String(e)}`)
     } finally {
       setSubmitting(false)
     }
@@ -303,40 +313,78 @@ export function RaastPaymentSheet({
             </div>
           )}
 
-          {/* ── CONFIRMATION STEP ── */}
           {step === 'confirm' && (
-            <div className="space-y-5">
+            <div className="space-y-4">
+
               <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3">
                 <p className="text-sm font-bold text-green-800 mb-0.5">
-                  ✓ Payment kar li? Acha hai!
+                  ✓ Payment kar li? Bilkul sahi!
                 </p>
                 <p className="text-xs text-green-600">
-                  Ab apni Transaction ID daalein taake hum verify kar sakein.
+                  Ab neeche confirm karein.
                 </p>
               </div>
 
-              {/* Transaction ID input */}
+              {/* Reference mode toggle */}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Transaction ID / Reference Number *
+                  Transaction Confirm Karein
                 </label>
-                <input
-                  type="text"
-                  placeholder="Jaise: TXN123456789"
-                  value={txId}
-                  onChange={e => { setTxId(e.target.value); setError('') }}
-                  autoFocus
-                  className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-200
-                             rounded-2xl text-sm font-mono font-medium text-slate-800
-                             outline-none focus:border-blue-500 focus:bg-white
-                             transition-all placeholder:text-slate-400 placeholder:font-sans"
-                />
-                <p className="text-xs text-slate-400 mt-1.5 ml-1">
-                  Yeh ID aapki bank app ki payment history mein milegi
-                </p>
+                <div className="flex bg-slate-100 rounded-xl p-1 mb-3">
+                  <button
+                    onClick={() => { setTxIdMode('ref'); setTxId(paymentRef) }}
+                    className={cn(
+                      'flex-1 py-2 rounded-lg text-xs font-semibold transition-all',
+                      txIdMode === 'ref'
+                        ? 'bg-white text-slate-800 shadow-sm'
+                        : 'text-slate-500'
+                    )}
+                  >
+                    Reference Number Use Karein
+                  </button>
+                  <button
+                    onClick={() => { setTxIdMode('bank'); setTxId('') }}
+                    className={cn(
+                      'flex-1 py-2 rounded-lg text-xs font-semibold transition-all',
+                      txIdMode === 'bank'
+                        ? 'bg-white text-slate-800 shadow-sm'
+                        : 'text-slate-500'
+                    )}
+                  >
+                    Bank TxID Daalein
+                  </button>
+                </div>
+
+                {txIdMode === 'ref' ? (
+                  // Auto-populated with payment ref — read-only
+                  <div className="bg-slate-100 border-2 border-slate-200 rounded-2xl px-4 py-4">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">
+                      Payment Reference (Auto)
+                    </p>
+                    <p className="font-mono font-bold text-slate-800 text-lg tracking-wider">
+                      {paymentRef}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      ✓ Yeh reference automatic save ho jayega
+                    </p>
+                  </div>
+                ) : (
+                  // Manual bank TX ID entry
+                  <input
+                    type="text"
+                    placeholder="Bank app ka Transaction ID (e.g. TXN123456)"
+                    value={txId}
+                    onChange={e => { setTxId(e.target.value); setError('') }}
+                    autoFocus
+                    className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-200
+                       rounded-2xl text-sm font-mono font-medium text-slate-800
+                       outline-none focus:border-blue-500 focus:bg-white
+                       transition-all placeholder:text-slate-400 placeholder:font-sans"
+                  />
+                )}
               </div>
 
-              {/* Payer name (optional but helpful) */}
+              {/* Optional payer name */}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Aapka Naam (Optional)
@@ -346,25 +394,17 @@ export function RaastPaymentSheet({
                   placeholder="Jaise: Ahmed Khan"
                   value={payerName}
                   onChange={e => setPayerName(e.target.value)}
-                  className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-200
-                             rounded-2xl text-sm font-medium text-slate-800
-                             outline-none focus:border-blue-500 focus:bg-white
-                             transition-all placeholder:text-slate-400"
+                  className="w-full px-4 py-3.5 bg-slate-50 border-2 border-slate-200
+                     rounded-2xl text-sm text-slate-800 outline-none
+                     focus:border-blue-500 focus:bg-white transition-all
+                     placeholder:text-slate-400"
                 />
-              </div>
-
-              {/* Payment ref reminder */}
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
-                <p className="text-xs text-amber-700">
-                  📋 Aapka payment reference:{' '}
-                  <strong className="font-mono">{paymentRef}</strong>
-                </p>
               </div>
 
               {error && (
                 <div className="flex items-center gap-2 bg-red-50 border border-red-200
-                                rounded-xl px-4 py-3">
-                  <AlertCircle size={15} className="text-red-500 shrink-0" />
+                        rounded-xl px-3 py-3">
+                  <AlertCircle size={14} className="text-red-500 shrink-0" />
                   <p className="text-sm text-red-600">{error}</p>
                 </div>
               )}

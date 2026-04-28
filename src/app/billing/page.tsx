@@ -117,62 +117,81 @@ export default function BillingPage() {
             </div>
           )}
         </div>
-
         {/* Usage meters */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-4">
           <h3 className="font-bold text-slate-800 text-sm">Usage This Month</h3>
 
           {[
             {
-              label: "Orders",
-              used: plan.ordersThisMonth,
-              limit: plan.ordersLimit,
-              color: "bg-blue-500",
+              label:   'Orders',
+              used:    plan.ordersThisMonth,
+              limit:   plan.ordersLimit,         // null = unlimited
+              color:   'bg-blue-500',
             },
             {
-              label: "Customers",
-              used: plan.customersTotal,
-              limit: plan.customersLimit,
-              color: "bg-green-500",
+              label:   'Customers',
+              used:    plan.customersTotal,
+              limit:   plan.customersLimit,       // null = unlimited
+              color:   'bg-green-500',
             },
             {
-              label: "Karigar",
-              used: plan.karigarCount,
-              limit: plan.karigarLimit === 999 ? null : plan.karigarLimit,
-              color: "bg-purple-500",
+              label:   'Karigar',
+              used:    plan.karigarCount,
+              // For starter: maxKarigar = 0 (none allowed)
+              // For professional: maxKarigar = 3
+              // For business: maxKarigar = 999 (show as unlimited)
+              limit:   plan.karigarLimit >= 999 ? null : plan.karigarLimit,
+              color:   'bg-purple-500',
+              // Special case: starter has 0 karigar allowed
+              disallowed: plan.karigarLimit === 0,
             },
-          ].map((m) => {
-            const pct = m.limit
+          ].map(m => {
+            const pct        = m.limit && m.limit > 0
               ? Math.min(100, Math.round((m.used / m.limit) * 100))
-              : 0;
-            const isNearLimit = m.limit && pct >= 80;
+              : 0
+            const isNearLimit = m.limit && m.limit > 0 && pct >= 80
+            const valueText   = m.disallowed
+              ? 'Not allowed on this plan'
+              : m.limit === null
+              ? `${m.used} (unlimited)`
+              : `${m.used} / ${m.limit}`
+
             return (
               <div key={m.label}>
-                <div className="flex justify-between text-xs mb-1.5">
-                  <span className="font-medium text-slate-600">{m.label}</span>
-                  <span
-                    className={cn(
-                      "font-bold",
-                      isNearLimit ? "text-amber-600" : "text-slate-700",
-                    )}
-                  >
-                    {m.used}
-                    {m.limit ? ` / ${m.limit}` : " (unlimited)"}
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-sm font-medium text-slate-600">{m.label}</span>
+                  <span className={cn(
+                    'text-xs font-bold',
+                    m.disallowed      ? 'text-slate-400'  :
+                    isNearLimit       ? 'text-amber-600'  :
+                    m.limit === null  ? 'text-green-600'  :
+                                        'text-slate-700'
+                  )}>
+                    {valueText}
                   </span>
                 </div>
-                {m.limit && (
+
+                {/* Progress bar — only show if there's a real limit */}
+                {!m.disallowed && m.limit !== null && m.limit > 0 && (
                   <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                     <div
                       className={cn(
-                        "h-full rounded-full",
-                        isNearLimit ? "bg-amber-500" : m.color,
+                        'h-full rounded-full transition-all',
+                        isNearLimit ? 'bg-amber-500' : m.color
                       )}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
                 )}
+
+                {/* Upgrade nudge if disallowed */}
+                {m.disallowed && (
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full w-0" />
+                  </div>
+                )}
               </div>
-            );
+            )
           })}
         </div>
 

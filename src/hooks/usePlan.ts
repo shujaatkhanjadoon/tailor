@@ -179,6 +179,10 @@ export function usePlan(): PlanState {
   const customersTotal  = Number(usageData?.customers_total   ?? 0)
   const karigarCount    = Number(usageData?.karigar_count      ?? 0)
 
+  const karigarDisplayLimit = limits.maxKarigar === 0    ? 0
+    : limits.maxKarigar >= 999 ? 999   // keep 999 for internal use
+    : limits.maxKarigar
+
   const upgrade = (targetPlan?: PlanId) => {
     const dest = targetPlan
       ? `/billing/upgrade?plan=${targetPlan}`
@@ -202,7 +206,7 @@ export function usePlan(): PlanState {
 
     // Feature gates
     canAddKarigar:      hasAccess && limits.maxKarigar > 0,
-    karigarLimit:       limits.maxKarigar,
+    karigarLimit:       karigarDisplayLimit,   // 0, 3, or 999
     canUseTracking:     hasAccess && limits.hasTrackingUrl,
     canUseQR:           hasAccess && limits.hasQrCode,
     canUsePhotos:       hasAccess && limits.hasPhotos,

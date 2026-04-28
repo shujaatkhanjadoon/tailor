@@ -124,40 +124,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     pin:        string,
     ownerName?: string,
   ) => {
-    // ── Require internet ──────────────────────────────────────────
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       throw new Error('Naya account banane ke liye internet chahiye')
     }
 
-    // ── Prevent duplicate shops ───────────────────────────────────
+    // Prevent duplicate shops
     const existing = await db.shop.toCollection().first()
     if (existing) {
-      console.warn('[Auth] Shop already exists — aborting setup')
-      await reinitialize()
-      return
-    }
-
-    // ── Also check Supabase for existing phone ────────────────────
-    try {
-      const { data: supabaseExisting } = await (supabase as any)
-        .from('team_members')
-        .select('id')
-        .eq('phone', ownerPhone)
-        .eq('is_active', true)
-        .maybeSingle()
-
-      if (supabaseExisting) {
-        throw new Error('Yeh phone number pehle se registered hai')
-      }
-    } catch (e: any) {
-      if (e.message?.includes('registered')) throw e
-      // Other errors (network) — log and continue
-      console.warn('[Auth] Supabase check failed, proceeding:', e)
+      console.warn('[Auth] Shop exists — skipping')
+      return   // Don't call reinitialize — let auth page handle redirect
     }
 
     const shopId = await shopOps.setup(shopName, ownerPhone)
     const owner  = await teamOps.add(shopId, {
-      name:  ownerName || shopName + ' (Owner)',
+      name:  ownerName || shopName,
       phone: ownerPhone,
       role:  'owner',
       pin,
@@ -165,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     localStorage.setItem(SESSION_KEY, JSON.stringify({ memberId: owner.id }))
 
+    // Update state directly — don't call reinitialize (causes loop)
     setState({
       isLoading:   false,
       isSetupDone: true,
@@ -173,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isOwner:     true,
       isKarigar:   false,
     })
-  }, [reinitialize])
+  }, [])
 
   const clearAllData = useCallback(async () => {
     await Promise.all([

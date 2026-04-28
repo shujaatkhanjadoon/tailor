@@ -47,16 +47,22 @@ export default function AuthPage() {
   const [shopDisplay, setShopDisplay] = useState("");
 
   const isSubmittingRef = useRef(false);
+  const hasRedirected = useRef(false)
 
   // Already logged in → redirect
   useEffect(() => {
-    if (authLoading) return;
-    if (!currentUser) return;
+    if (authLoading) return
+    if (!currentUser) return
+    if (hasRedirected.current) return
 
-    // Use window.location instead of router.replace to avoid RSC conflict
-    const dest = currentUser.role === "karigar" ? "/karigar" : "/dashboard";
-    window.location.href = dest;
-  }, [currentUser, authLoading]);
+    hasRedirected.current = true
+    const dest = currentUser.role === 'karigar' ? '/karigar' : '/dashboard'
+
+    // Use timeout to let React finish rendering before navigating
+    setTimeout(() => {
+      window.location.replace(dest)
+    }, 100)
+  }, [currentUser, authLoading])
 
   // ── Step 1: Check phone ───────────────────────────────────────
 
