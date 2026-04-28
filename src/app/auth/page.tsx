@@ -190,7 +190,7 @@ export default function AuthPage() {
       setLoading(false);
 
       if (success) {
-        router.replace("/dashboard");
+        window.location.href = '/dashboard'
       } else {
         setPinError("Galat PIN! Dobara try karein.");
       }

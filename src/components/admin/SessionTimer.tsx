@@ -2,93 +2,73 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useRouter }    from 'next/navigation'
-import { Shield, Clock } from 'lucide-react'
-import { adminSession } from '@/lib/admin/session'
-import { cn }           from '@/lib/utils'
+import { Clock } from 'lucide-react'
+import { cn }    from '@/lib/utils'
 
-interface SessionTimerProps {
-  secret: string
-}
+const TIMEOUT_MS = 15 * 60 * 1000   // 15 minutes
+const WARN_MS    =  2 * 60 * 1000   //  2 minutes warning
 
-export function SessionTimer({ secret }: SessionTimerProps) {
-  const router              = useRouter()
-  const [msLeft, setMsLeft] = useState(() => adminSession.msUntilTimeout())
-  const [showWarning, setShowWarning] = useState(false)
+export function SessionTimer({ onExpired }: { onExpired: () => void }) {
+  const [msLeft,   setMsLeft]   = useState(TIMEOUT_MS)
+  const [lastActivity, setLastActivity] = useState(Date.now())
 
-  // Logout handler
-  const handleLogout = useCallback(() => {
-    adminSession.clear()
-    router.replace(`/admin/${secret}/locked`)
-  }, [router, secret])
-
-  // Countdown tick
-  useEffect(() => {
-    adminSession.init()
-
-    const interval = setInterval(() => {
-      const remaining = adminSession.msUntilTimeout()
-      setMsLeft(remaining)
-      setShowWarning(remaining < 2 * 60 * 1000)   // warn at 2 min
-
-      if (remaining <= 0) {
-        clearInterval(interval)
-        handleLogout()
-      }
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [handleLogout])
-
-  // Reset on user activity
-  useEffect(() => {
-    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart']
-    const touch  = () => {
-      adminSession.touch()
-      setShowWarning(false)
-    }
-    events.forEach(e => window.addEventListener(e, touch, { passive: true }))
-    return () => events.forEach(e => window.removeEventListener(e, touch))
+  const resetTimer = useCallback(() => {
+    setLastActivity(Date.now())
   }, [])
+
+  useEffect(() => {
+    const events = ['mousedown','keydown','scroll','touchstart','click']
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }))
+    return () => events.forEach(e => window.removeEventListener(e, resetTimer))
+  }, [resetTimer])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const remaining = TIMEOUT_MS - (Date.now() - lastActivity)
+      setMsLeft(Math.max(0, remaining))
+      if (remaining <= 0) onExpired()
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [lastActivity, onExpired])
 
   const minutes = Math.floor(msLeft / 60000)
   const seconds = Math.floor((msLeft % 60000) / 1000)
-  const pct     = (msLeft / (15 * 60 * 1000)) * 100
+  const isWarn  = msLeft < WARN_MS && msLeft > 0
 
   return (
     <>
-      {/* Timer pill */}
       <div className={cn(
-        'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono font-bold',
-        'border transition-colors',
-        showWarning
-          ? 'bg-red-900/50 border-red-600 text-red-300'
-          : 'bg-slate-800 border-slate-600 text-slate-400'
+        'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full',
+        'text-xs font-mono font-bold border transition-colors',
+        isWarn
+          ? 'bg-red-900/50 border-red-700 text-red-300'
+          : 'bg-slate-800 border-slate-700 text-slate-400'
       )}>
-        <Clock size={11} className={showWarning ? 'text-red-400' : 'text-slate-500'} />
+        <Clock size={11} className={isWarn ? 'text-red-400' : 'text-slate-500'} />
         {String(minutes).padStart(2,'0')}:{String(seconds).padStart(2,'0')}
       </div>
 
-      {/* Warning overlay at 2 minutes */}
-      {showWarning && (
+      {/* Warning toast */}
+      {isWarn && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50
-                        bg-red-900 border border-red-600 rounded-2xl px-5 py-4
-                        shadow-2xl flex items-center gap-4 max-w-md">
-          <Shield size={20} className="text-red-400 shrink-0" />
-          <div>
+                        bg-red-900 border border-red-700 rounded-2xl
+                        px-4 py-3 shadow-2xl flex items-center gap-3
+                        max-w-[calc(100vw-2rem)] w-full sm:max-w-sm">
+          <Clock size={16} className="text-red-400 shrink-0" />
+          <div className="flex-1 min-w-0">
             <p className="font-bold text-red-300 text-sm">
-              Session {minutes}:{String(seconds).padStart(2,'0')} mein expire hogi
+              Session {minutes}m {seconds}s mein expire hogi
             </p>
-            <p className="text-red-400/70 text-xs mt-0.5">
-              Kuch bhi karein to session reset ho jayega
+            <p className="text-red-400/70 text-xs">
+              Kuch bhi karein to extend ho jayegi
             </p>
           </div>
           <button
-            onClick={() => { adminSession.touch(); setShowWarning(false) }}
+            onClick={resetTimer}
             className="shrink-0 bg-red-700 hover:bg-red-600 text-red-200
-                       font-bold text-xs px-4 py-2 rounded-xl transition-colors"
+                       font-bold text-xs px-3 py-2 rounded-xl transition-colors"
           >
-            Continue
+            Extend
           </button>
         </div>
       )}

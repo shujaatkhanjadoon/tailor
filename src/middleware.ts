@@ -1,35 +1,51 @@
-// src/middleware.ts — replace entirely
+// src/middleware.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { verifySessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
-  const res          = NextResponse.next()
 
-  // ── Security headers (all responses) ─────────────────────────────
-  res.headers.set('X-Frame-Options',          'DENY')
-  res.headers.set('X-Content-Type-Options',   'nosniff')
-  res.headers.set('Referrer-Policy',          'strict-origin-when-cross-origin')
-  res.headers.set('Permissions-Policy',       'camera=self, microphone=()')
-  res.headers.set('X-XSS-Protection',         '1; mode=block')
+  // ── Security headers on all responses ────────────────────────────
+  const res = NextResponse.next()
+  res.headers.set('X-Frame-Options',        'DENY')
+  res.headers.set('X-Content-Type-Options', 'nosniff')
+  res.headers.set('Referrer-Policy',        'strict-origin-when-cross-origin')
+  res.headers.set('X-XSS-Protection',       '1; mode=block')
 
-  // ── Admin route protection ────────────────────────────────────────
-  if (pathname.startsWith('/admin')) {
-    const secret    = process.env.ADMIN_SECRET
-    const segments  = pathname.split('/')
-    const urlSecret = segments[2]
-
-    if (!secret || urlSecret !== secret) {
-      // Return 404 — don't reveal admin exists
-      return NextResponse.rewrite(new URL('/not-found', req.url))
-    }
+  // ── Admin login page — always accessible ─────────────────────────
+  if (pathname === '/admin/login' || pathname === '/admin/setup-totp') {
+    return res
   }
 
-  // ── Cron endpoint protection ──────────────────────────────────────
-  if (pathname.startsWith('/api/cron')) {
-    const authHeader = req.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  // ── Admin API routes — protected ─────────────────────────────────
+  if (pathname.startsWith('/api/admin') &&
+      pathname !== '/api/admin/login' &&
+      pathname !== '/api/admin/verify') {
+    const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
+    if (!token || !verifySessionToken(token)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    return res
+  }
+
+  // ── Admin dashboard pages — require session ───────────────────────
+  if (pathname.startsWith('/admin/dashboard')) {
+    const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
+    if (!token || !verifySessionToken(token)) {
+      const loginUrl = new URL('/admin/login', req.url)
+      loginUrl.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+    return res
+  }
+
+  // ── Cron routes — require cron secret ────────────────────────────
+  if (pathname.startsWith('/api/cron')) {
+    const auth = req.headers.get('authorization')
+    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return res
   }
 
   return res
@@ -38,7 +54,8 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     '/admin/:path*',
+    '/api/admin/:path*',
     '/api/cron/:path*',
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icons).*)',
   ],
 }

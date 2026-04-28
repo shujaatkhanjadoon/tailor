@@ -1,115 +1,164 @@
 // src/components/admin/AdminShell.tsx
 'use client'
 
-import { useRouter, usePathname } from 'next/navigation'
+import { useState, useEffect, useCallback, ReactNode } from 'react'
+import { useRouter, usePathname }  from 'next/navigation'
 import {
   Scissors, LayoutDashboard, CreditCard,
   Store, BarChart2, ScrollText, LogOut,
-  Shield,
+  Shield, Menu, X, ChevronRight,
 } from 'lucide-react'
-import { SessionTimer }  from './SessionTimer'
-import { adminSession }  from '@/lib/admin/session'
-import { cn }            from '@/lib/utils'
+import { SessionTimer } from './SessionTimer'
+import { cn }           from '@/lib/utils'
 
-interface AdminShellProps {
-  secret:   string
-  children: React.ReactNode
-}
+const NAV_ITEMS = [
+  { href: '/admin/dashboard',           label: 'Dashboard',  icon: LayoutDashboard },
+  { href: '/admin/dashboard/payments',  label: 'Payments',   icon: CreditCard      },
+  { href: '/admin/dashboard/shops',     label: 'All Shops',  icon: Store           },
+  { href: '/admin/dashboard/analytics', label: 'Analytics',  icon: BarChart2       },
+  { href: '/admin/dashboard/logs',      label: 'Audit Log',  icon: ScrollText      },
+]
 
-export function AdminShell({ secret, children }: AdminShellProps) {
-  const router   = useRouter()
-  const pathname = usePathname()
+export function AdminShell({ children }: { children: ReactNode }) {
+  const router        = useRouter()
+  const pathname      = usePathname()
+  const [sideOpen, setSideOpen] = useState(false)
 
-  const base = `/admin/${secret}`
+  const handleLogout = useCallback(async () => {
+    await fetch('/api/admin/logout', { method: 'POST' })
+    window.location.href = '/admin/login'
+  }, [])
 
-  const navItems = [
-    { href: base,                label: 'Dashboard',   icon: LayoutDashboard },
-    { href: `${base}/payments`,  label: 'Payments',    icon: CreditCard      },
-    { href: `${base}/shops`,     label: 'All Shops',   icon: Store           },
-    { href: `${base}/analytics`, label: 'Analytics',   icon: BarChart2       },
-    { href: `${base}/logs`,      label: 'Audit Log',   icon: ScrollText      },
-  ]
+  // Close sidebar on route change (mobile)
+  useEffect(() => { setSideOpen(false) }, [pathname])
 
-  const handleLogout = () => {
-    adminSession.clear()
-    router.replace('/')
-  }
+  const NavContent = () => (
+    <div className="flex flex-col h-full">
+      {/* Logo */}
+      <div className="px-5 py-5 border-b border-slate-800 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center
+                          justify-center shrink-0">
+            <Scissors size={16} className="text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-white text-sm leading-tight">My Darzi</p>
+            <p className="text-slate-500 text-[10px]">Super Admin</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 mt-3">
+          <Shield size={10} className="text-green-500" />
+          <span className="text-[10px] text-green-500 font-semibold">Secure Session</span>
+        </div>
+      </div>
+
+      {/* Nav links */}
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        {NAV_ITEMS.map(item => {
+          const isActive = pathname === item.href ||
+            (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
+          return (
+            <button
+              key={item.href}
+              onClick={() => router.push(item.href)}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-3 rounded-xl',
+                'text-sm font-medium transition-colors text-left',
+                isActive
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              )}
+            >
+              <item.icon size={16} className="shrink-0" />
+              {item.label}
+              {isActive && <ChevronRight size={13} className="ml-auto opacity-60" />}
+            </button>
+          )
+        })}
+      </nav>
+
+      {/* Footer */}
+      <div className="px-3 py-4 border-t border-slate-800 shrink-0">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl
+                     text-sm font-medium text-red-400 hover:bg-red-900/30
+                     transition-colors"
+        >
+          <LogOut size={16} />
+          Logout
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-slate-950 flex">
 
-      {/* ── Sidebar ── */}
-      <aside className="w-60 shrink-0 bg-slate-900 border-r border-slate-800
-                        flex flex-col fixed inset-y-0 z-20">
-
-        {/* Logo */}
-        <div className="px-5 py-5 border-b border-slate-800">
-          <div className="flex items-center gap-2.5 mb-1">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
-              <Scissors size={16} className="text-white" />
-            </div>
-            <div>
-              <p className="font-bold text-white text-sm">Darzi Manager</p>
-              <p className="text-slate-500 text-[10px]">Super Admin</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 mt-3">
-            <Shield size={10} className="text-green-500" />
-            <span className="text-[10px] text-green-500 font-semibold">Secure Session</span>
-          </div>
-        </div>
-
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map(item => {
-            const isActive = pathname === item.href ||
-              (item.href !== base && pathname.startsWith(item.href))
-            return (
-              <button
-                key={item.href}
-                onClick={() => router.push(item.href)}
-                className={cn(
-                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl',
-                  'text-sm font-medium transition-colors text-left',
-                  isActive
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                )}
-              >
-                <item.icon size={16} className="shrink-0" />
-                {item.label}
-              </button>
-            )
-          })}
-        </nav>
-
-        {/* Footer */}
-        <div className="px-3 py-4 border-t border-slate-800 space-y-2">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-                       text-sm font-medium text-red-400 hover:bg-red-900/30 transition-colors"
-          >
-            <LogOut size={16} />
-            Logout
-          </button>
-        </div>
+      {/* ── Desktop sidebar ── */}
+      <aside className="hidden lg:flex flex-col w-60 shrink-0
+                        bg-slate-900 border-r border-slate-800 fixed inset-y-0 z-30">
+        <NavContent />
       </aside>
 
-      {/* ── Main content ── */}
-      <div className="flex-1 ml-60 flex flex-col min-h-screen">
+      {/* ── Mobile sidebar overlay ── */}
+      {sideOpen && (
+        <div
+          className="fixed inset-0 z-40 lg:hidden"
+          onClick={() => setSideOpen(false)}
+        >
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        </div>
+      )}
+
+      {/* ── Mobile sidebar drawer ── */}
+      <aside className={cn(
+        'fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 border-r border-slate-800',
+        'transform transition-transform duration-300 ease-in-out lg:hidden',
+        sideOpen ? 'translate-x-0' : '-translate-x-full'
+      )}>
+        {/* Close button */}
+        <button
+          onClick={() => setSideOpen(false)}
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center
+                     rounded-full bg-slate-800 text-slate-400"
+        >
+          <X size={16} />
+        </button>
+        <NavContent />
+      </aside>
+
+      {/* ── Main content area ── */}
+      <div className="flex-1 lg:ml-60 flex flex-col min-h-screen">
 
         {/* Top bar */}
-        <header className="bg-slate-900 border-b border-slate-800 px-6 py-3
-                           flex items-center justify-between sticky top-0 z-10">
-          <p className="text-slate-400 text-sm font-mono">
-            {pathname.replace(`/admin/${secret}`, '') || '/dashboard'}
-          </p>
-          <SessionTimer secret={secret} />
+        <header className="bg-slate-900 border-b border-slate-800 px-4 lg:px-6 py-3
+                           flex items-center justify-between sticky top-0 z-20">
+          <div className="flex items-center gap-3">
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setSideOpen(true)}
+              className="lg:hidden w-9 h-9 flex items-center justify-center
+                         rounded-xl bg-slate-800 text-slate-400"
+            >
+              <Menu size={18} />
+            </button>
+
+            {/* Breadcrumb */}
+            <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500">
+              <span>Admin</span>
+              <ChevronRight size={12} />
+              <span className="text-slate-300 font-medium capitalize">
+                {pathname.split('/').pop() ?? 'Dashboard'}
+              </span>
+            </div>
+          </div>
+
+          <SessionTimer onExpired={() => window.location.href = '/admin/login'} />
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 lg:p-6 overflow-x-hidden">
           {children}
         </main>
       </div>
