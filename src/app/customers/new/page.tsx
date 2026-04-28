@@ -16,6 +16,8 @@ import { customerOps } from "@/lib/db/operations";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { usePlan } from "@/hooks/usePlan";
+import { AccessNotice } from "@/components/billing/AccessNotice";
 
 type Gender = "male" | "female" | "child";
 
@@ -31,8 +33,42 @@ const GENDER_OPTIONS: {
 ];
 
 export default function NewCustomerPage() {
+  const { shopId, isLoading: authLoading, currentUser } = useAuth();
+  const plan = usePlan();
+
+  if (authLoading || plan.isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 size={24} className="animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (currentUser?.role === "karigar") {
+    return (
+      <AccessNotice
+        icon="role"
+        title="Owner access required"
+        message="Naya customer sirf owner add kar sakta hai. Karigar apne assigned orders par kaam kar sakte hain."
+      />
+    );
+  }
+
+  if (plan.isAtCustomerLimit) {
+    return (
+      <AccessNotice
+        title="Customer limit reached"
+        message={`Starter plan mein ${plan.customersLimit} customers allowed hain. Aur customers add karne ke liye Professional plan pe upgrade karein.`}
+        requiredPlan="professional"
+      />
+    );
+  }
+
+  return <NewCustomerForm shopId={shopId} />;
+}
+
+function NewCustomerForm({ shopId }: { shopId: string | null }) {
   const router = useRouter();
-  const { shopId, isLoading: authLoading } = useAuth();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -99,14 +135,6 @@ export default function NewCustomerPage() {
   };
 
   // ── Loading auth ────────────────────────────────────────────────
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 size={24} className="animate-spin text-blue-600" />
-      </div>
-    );
-  }
-
   // ── No shopId — setup not done ──────────────────────────────────
   if (!shopId) {
     return (

@@ -13,6 +13,12 @@ const PUBLIC_ROUTES = [
   '/admin',    // admin handles its own auth
 ]
 
+function isPublicPath(pathname: string) {
+  return PUBLIC_ROUTES.some(route =>
+    pathname === route || pathname.startsWith(`${route}/`)
+  )
+}
+
 export function AuthGuard({ children }: { children: ReactNode }) {
   const { isLoading, currentUser } = useAuth()
   const pathname = usePathname()
@@ -20,13 +26,14 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading) return
 
-    const isPublic    = PUBLIC_ROUTES.some(r => pathname.startsWith(r))
+    const isPublic    = isPublicPath(pathname)
     const isMarketing = pathname === '/'
     if (isMarketing || isPublic) return
 
     if (!currentUser) {
       // Full page navigation avoids RSC conflict
-      window.location.href = `/auth?redirect=${encodeURIComponent(pathname)}`
+      const currentPath = `${window.location.pathname}${window.location.search}`
+      window.location.replace(`/auth?redirect=${encodeURIComponent(currentPath)}`)
       return
     }
 

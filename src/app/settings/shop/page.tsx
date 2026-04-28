@@ -7,6 +7,7 @@ import { ArrowLeft, Store, Phone, MapPin, MessageCircle, CheckCircle2 } from 'lu
 import { db } from '@/lib/db/schema'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { cn } from '@/lib/utils'
+import { AccessNotice } from '@/components/billing/AccessNotice'
 
 const PAKISTAN_CITIES = [
   'Karachi','Lahore','Islamabad','Rawalpindi','Faisalabad',
@@ -16,7 +17,17 @@ const PAKISTAN_CITIES = [
 
 export default function ShopSettingsPage() {
   const router     = useRouter()
-  const { shopId } = useAuth()
+  const { isOwner } = useAuth()
+
+  if (!isOwner) {
+    return (
+      <AccessNotice
+        icon="role"
+        title="Owner access required"
+        message="Dukaan ki settings sirf owner update kar sakta hai."
+      />
+    )
+  }
 
   const [shopName,   setShopName]   = useState('')
   const [whatsapp,   setWhatsapp]   = useState('')

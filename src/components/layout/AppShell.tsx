@@ -2,18 +2,34 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { usePathname }       from 'next/navigation'
 import { BottomNav }         from './BottomNav'
 import { SideNav }           from './SideNav'
 import { OfflineBanner }     from './OfflineBanner'
 import { AuthGuard }         from '@/components/auth/AuthGuard'
 import { PWAInstallPrompt }  from './PWAInstallPrompt'
 import { useAuth }           from '@/lib/auth/AuthContext'
+import { usePlan }           from '@/hooks/usePlan'
 import { syncService }       from '@/lib/supabase/sync-service'
 import { subscribeToShop }   from '@/lib/supabase/realtime'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, shopId } = useAuth()
+  const plan = usePlan()
+  const pathname = usePathname()
   const isKarigar = currentUser?.role === 'karigar'
+  const isPlainRoute =
+    pathname === '/' ||
+    pathname === '/auth' ||
+    pathname === '/login' ||
+    pathname === '/setup' ||
+    pathname.startsWith('/track') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/pricing') ||
+    pathname.startsWith('/about') ||
+    pathname.startsWith('/privacy-policy') ||
+    pathname.startsWith('/terms-of-service') ||
+    pathname.startsWith('/contact')
 
   // Use ref to store cleanup function — avoids stale closure issues
   const cleanupRef = useRef<(() => void) | null>(null)
@@ -25,7 +41,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       cleanupRef.current = null
     }
 
-    if (!shopId) return
+    if (!shopId || isPlainRoute || plan.isLoading || !plan.canSyncCloud) return
 
     console.log('[AppShell] Initialising sync + realtime for:', shopId)
 
@@ -82,7 +98,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         cleanupRef.current = null
       }
     }
-  }, [shopId])   // Re-runs when shopId changes (login/logout)
+  }, [shopId, isPlainRoute, plan.isLoading, plan.canSyncCloud])   // Re-runs when shopId changes (login/logout)
+
+  if (isPlainRoute) {
+    return <>{children}</>
+  }
 
   return (
     <AuthGuard>

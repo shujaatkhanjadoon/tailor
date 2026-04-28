@@ -1,5 +1,4 @@
-// src/app/admin/[secret]/logs/page.tsx
-import { notFound }    from 'next/navigation'
+// src/app/admin/dashboard/logs/page.tsx
 import { getAuditLog } from '@/lib/admin/audit'
 import { ScrollText, CheckCircle2, XCircle, Settings, Bell } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
@@ -16,12 +15,7 @@ const ACTION_CONFIG: Record<string, { label: string; icon: any; color: string }>
   admin_login:           { label: 'Admin Login',    icon: Settings,     color: 'text-slate-400'  },
 }
 
-export default async function AuditLogPage({
-  params,
-}: { params: Promise<{ secret: string }> }) {
-  const { secret } = await params
-  if (secret !== process.env.ADMIN_SECRET) notFound()
-
+export default async function AuditLogPage() {
   const logs = await getAuditLog(200)
 
   return (

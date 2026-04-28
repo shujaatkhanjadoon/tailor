@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { FeatureGate } from "@/components/billing/FeatureGate";
 import { ReportSkeleton } from "@/components/ui/Skeleton";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { AccessNotice } from "@/components/billing/AccessNotice";
+import { usePlan } from "@/hooks/usePlan";
 import dynamic from "next/dynamic";
 
 const PERIODS: { key: ReportPeriod; label: string }[] = [
@@ -44,6 +46,46 @@ function exportCSV(data: object[], filename: string) {
 
 export default function ReportsPage() {
   const { shopId, isOwner } = useAuth();
+  const plan = usePlan();
+
+  if (!isOwner) {
+    return (
+      <AccessNotice
+        icon="role"
+        title="Owner access required"
+        message="Reports sirf dukaan ke owner ke liye hain. Karigar apne assigned orders /karigar page par dekh sakte hain."
+      />
+    );
+  }
+
+  if (plan.isLoading) {
+    return (
+      <div className="px-4 pt-4 min-h-100">
+        <ReportSkeleton />
+      </div>
+    );
+  }
+
+  if (!plan.canUseAnalytics) {
+    return (
+      <AccessNotice
+        title="Reports locked"
+        message="Reports aur analytics Professional plan se unlock hotay hain. Starter plan mein basic orders, customers, measurements aur payments available hain."
+        requiredPlan="professional"
+      />
+    );
+  }
+
+  return <ReportsContent shopId={shopId} showPayReports={plan.plan === "business" && plan.isActive} />;
+}
+
+function ReportsContent({
+  shopId,
+  showPayReports,
+}: {
+  shopId: string | null
+  showPayReports: boolean
+}) {
   const [activeTab, setActiveTab] = useState<"overview" | "customers" | "team">(
     "overview",
   );
@@ -101,16 +143,6 @@ export default function ReportsPage() {
       "darzi-customers-report",
     );
   };
-
-  if (!isOwner) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-slate-500 text-sm">
-          Reports sirf Owner ke liye hain.
-        </p>
-      </div>
-    );
-  }
 
   if (isLoading) {
     return (
@@ -438,6 +470,7 @@ export default function ReportsPage() {
                     garments={garmentBreakdown}
                     karigars={karigarStats}
                     totalOrders={summary.totalOrders}
+                    showPayReports={showPayReports}
                   />
                 )}
               </div>

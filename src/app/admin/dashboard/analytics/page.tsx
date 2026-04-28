@@ -1,15 +1,12 @@
-// src/app/admin/[secret]/analytics/page.tsx
-import { notFound }   from 'next/navigation'
+// src/app/admin/dashboard/analytics/page.tsx
 import { createClient } from '@supabase/supabase-js'
 import { StatCard }   from '@/components/admin/StatCard'
-import { getRevenueAnalytics } from '@/lib/billing/admin'
 import {
   TrendingUp, Users, CreditCard,
   Package, BarChart2, Calendar,
 } from 'lucide-react'
 import { format, subMonths, startOfMonth } from 'date-fns'
 
-const data = await getRevenueAnalytics()
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -98,12 +95,7 @@ async function getAnalytics() {
   }
 }
 
-export default async function AnalyticsPage({
-  params,
-}: { params: Promise<{ secret: string }> }) {
-  const { secret } = await params
-  if (secret !== process.env.ADMIN_SECRET) notFound()
-
+export default async function AnalyticsPage() {
   const data = await getAnalytics()
   const maxRevenue = Math.max(...data.monthlyRevenue.map(m => m.revenue), 1)
 

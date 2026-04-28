@@ -7,6 +7,7 @@ import { TeamMemberRecord } from '@/lib/db/schema'
 import { teamOps } from '@/lib/db/operations'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { cn } from '@/lib/utils'
+import { usePlan } from '@/hooks/usePlan'
 
 const SPECIALITIES = [
   'Shalwar Kameez', 'Shirt', 'Trouser', 'Sherwani', 'Coat', 'Sab Kuch',
@@ -20,6 +21,8 @@ const PAY_TYPES = [
 
 export function TeamManager() {
   const { shopId } = useAuth()
+  const plan = usePlan()
+  const canUsePayReports = plan.plan === 'business' && plan.isActive
   const [members,     setMembers]     = useState<TeamMemberRecord[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [saving,      setSaving]      = useState(false)
@@ -54,8 +57,8 @@ export function TeamManager() {
         role:        'karigar',
         pin:         form.pin,
         speciality:  form.speciality,
-        payRateType: form.payRateType,
-        payRate:     Number(form.payRate) || 0,
+        payRateType: canUsePayReports ? form.payRateType : undefined,
+        payRate:     canUsePayReports ? Number(form.payRate) || 0 : 0,
       })
       setMembers(prev => [...prev, member])
       setShowAddForm(false)
@@ -156,36 +159,38 @@ export function TeamManager() {
           </div>
 
           {/* Pay rate */}
-          <div>
-            <p className="text-xs font-medium text-slate-500 mb-1.5">Pay tarika (optional):</p>
-            <div className="flex gap-2 mb-2">
-              {PAY_TYPES.map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setForm(f => ({ ...f, payRateType: key }))}
-                  className={cn(
-                    'flex-1 py-2 text-xs font-semibold rounded-xl border transition-colors',
-                    form.payRateType === key
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-slate-600 border-slate-200'
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
+          {canUsePayReports && (
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-1.5">Pay tarika (optional):</p>
+              <div className="flex gap-2 mb-2">
+                {PAY_TYPES.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setForm(f => ({ ...f, payRateType: key }))}
+                    className={cn(
+                      'flex-1 py-2 text-xs font-semibold rounded-xl border transition-colors',
+                      form.payRateType === key
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-slate-600 border-slate-200'
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3">
+                <span className="text-slate-400 text-sm">Rs.</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Amount"
+                  value={form.payRate}
+                  onChange={e => setForm(f => ({ ...f, payRate: e.target.value }))}
+                  className="flex-1 text-sm outline-none"
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3">
-              <span className="text-slate-400 text-sm">Rs.</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                placeholder="Amount"
-                value={form.payRate}
-                onChange={e => setForm(f => ({ ...f, payRate: e.target.value }))}
-                className="flex-1 text-sm outline-none"
-              />
-            </div>
-          </div>
+          )}
 
           <button
             onClick={handleAdd}
@@ -232,7 +237,7 @@ export function TeamManager() {
                 {member.speciality && (
                   <p className="text-xs text-blue-600 mt-0.5">✂️ {member.speciality}</p>
                 )}
-                {member.payRate && member.payRate > 0 && (
+                {canUsePayReports && member.payRate && member.payRate > 0 && (
                   <p className="text-xs text-green-600">
                     Rs. {member.payRate.toLocaleString()} / {member.payRateType === 'per_order' ? 'order' : member.payRateType}
                   </p>

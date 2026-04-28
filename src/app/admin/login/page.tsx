@@ -10,6 +10,29 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+function getSafeAdminRedirect(value: string | null) {
+  if (!value) return '/admin/dashboard'
+  if (typeof window === 'undefined') return '/admin/dashboard'
+
+  try {
+    const parsed = new URL(value, window.location.origin)
+    const target = `${parsed.pathname}${parsed.search}${parsed.hash}`
+
+    if (
+      parsed.origin !== window.location.origin ||
+      parsed.pathname === '/admin/login' ||
+      parsed.pathname.startsWith('/api/') ||
+      !parsed.pathname.startsWith('/admin/dashboard')
+    ) {
+      return '/admin/dashboard'
+    }
+
+    return target
+  } catch {
+    return '/admin/dashboard'
+  }
+}
+
 // TOTP digits display — shows current code from phone
 function TOTPInput({
   value,
@@ -120,7 +143,7 @@ function TOTPTimer() {
 function LoginContent() {
   const router       = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo   = searchParams.get('redirect') ?? '/admin/dashboard'
+  const redirectTo   = getSafeAdminRedirect(searchParams.get('redirect'))
 
   const [step,        setStep]        = useState<'secret' | 'totp'>('secret')
   const [secret,      setSecret]      = useState('')
@@ -134,9 +157,9 @@ function LoginContent() {
   useEffect(() => {
     fetch('/api/admin/verify')
       .then(r => r.json())
-      .then(d => { if (d.valid) window.location.href = redirectTo })
+      .then(d => { if (d.valid) router.replace(redirectTo) })
       .catch(() => {})
-  }, [redirectTo])
+  }, [redirectTo, router])
 
   const handleSecretSubmit = async () => {
     if (!secret.trim() || loading) return
@@ -155,7 +178,7 @@ function LoginContent() {
         setRequiresTOTP(true)
         setStep('totp')
       } else if (data.success) {
-        window.location.href = redirectTo
+        router.replace(redirectTo)
       } else {
         setError(data.error ?? 'Secret galat hai')
       }
@@ -180,7 +203,7 @@ function LoginContent() {
       const data = await res.json()
 
       if (data.success) {
-        window.location.href = redirectTo
+        router.replace(redirectTo)
       } else {
         setError(data.error ?? 'Code galat hai')
         setTotpCode('')

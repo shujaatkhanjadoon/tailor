@@ -5,9 +5,22 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { TeamManager } from "@/components/team/TeamManager";
 import { FeatureGate } from "@/components/billing/FeatureGate";
+import { AccessNotice } from "@/components/billing/AccessNotice";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 export default function TeamSettingsPage() {
   const router = useRouter();
+  const { isOwner } = useAuth();
+
+  if (!isOwner) {
+    return (
+      <AccessNotice
+        icon="role"
+        title="Owner access required"
+        message="Team management sirf owner ke liye hai. Karigar apna PIN settings se change kar sakte hain."
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 pb-8">

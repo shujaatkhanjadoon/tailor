@@ -13,6 +13,8 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { orderOps, paymentOps } from "@/lib/db/operations";
 import { db } from "@/lib/db/schema";
 import { toast } from "sonner";
+import { usePlan } from "@/hooks/usePlan";
+import { AccessNotice } from "@/components/billing/AccessNotice";
 
 // ── UUID helper ──────────────────────────────────────────────────
 const uuid = (): string => {
@@ -47,8 +49,44 @@ interface WizardData {
 const STEPS = ["Gahak Chunein", "Kapra & Nap", "Qeemat & Tarikh"];
 
 export default function NewOrderPage() {
-  const router = useRouter();
   const { shopId, currentUser } = useAuth();
+  const plan = usePlan();
+
+  if (currentUser?.role === "karigar") {
+    return (
+      <AccessNotice
+        icon="role"
+        title="Owner access required"
+        message="Naya order sirf owner create kar sakta hai. Karigar apne assigned orders dekh aur update kar sakte hain."
+      />
+    );
+  }
+
+  if (plan.isLoading) {
+    return <div className="min-h-screen bg-white" />;
+  }
+
+  if (plan.isAtOrderLimit) {
+    return (
+      <AccessNotice
+        title="Monthly order limit reached"
+        message={`Starter plan mein ${plan.ordersLimit} orders per month allowed hain. Aur orders add karne ke liye Professional plan pe upgrade karein.`}
+        requiredPlan="professional"
+      />
+    );
+  }
+
+  return <NewOrderWizard shopId={shopId} currentUser={currentUser} />;
+}
+
+function NewOrderWizard({
+  shopId,
+  currentUser,
+}: {
+  shopId: string | null
+  currentUser: { id: string; role?: string } | null
+}) {
+  const router = useRouter();
   const isSubmittingRef = useRef(false);
 
   // ── Page-level state ─────────────────────────────────────────

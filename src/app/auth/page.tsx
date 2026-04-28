@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
   Scissors,
   Phone,
@@ -27,7 +26,6 @@ type Step =
   | "setup_confirm";
 
 export default function AuthPage() {
-  const router = useRouter();
   const {
     login,
     setupShop,
@@ -49,6 +47,32 @@ export default function AuthPage() {
   const isSubmittingRef = useRef(false);
   const hasRedirected = useRef(false)
 
+  const getRedirectTarget = useCallback((fallback: string) => {
+    if (typeof window === "undefined") return fallback;
+
+    const requested = new URLSearchParams(window.location.search).get("redirect");
+    if (!requested) return fallback;
+
+    try {
+      const parsed = new URL(requested, window.location.origin);
+      const target = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+
+      if (
+        parsed.origin !== window.location.origin ||
+        parsed.pathname === "/auth" ||
+        parsed.pathname === "/login" ||
+        parsed.pathname === "/setup" ||
+        parsed.pathname.startsWith("/admin")
+      ) {
+        return fallback;
+      }
+
+      return target;
+    } catch {
+      return fallback;
+    }
+  }, []);
+
   // Already logged in → redirect
   useEffect(() => {
     if (authLoading) return
@@ -56,13 +80,14 @@ export default function AuthPage() {
     if (hasRedirected.current) return
 
     hasRedirected.current = true
-    const dest = currentUser.role === 'karigar' ? '/karigar' : '/dashboard'
+    const fallback = currentUser.role === 'karigar' ? '/karigar' : '/dashboard'
+    const dest = getRedirectTarget(fallback)
 
     // Use timeout to let React finish rendering before navigating
     setTimeout(() => {
       window.location.replace(dest)
     }, 100)
-  }, [currentUser, authLoading])
+  }, [currentUser, authLoading, getRedirectTarget])
 
   // ── Step 1: Check phone ───────────────────────────────────────
 
@@ -196,12 +221,12 @@ export default function AuthPage() {
       setLoading(false);
 
       if (success) {
-        window.location.href = '/dashboard'
+        window.location.replace(getRedirectTarget("/dashboard"))
       } else {
         setPinError("Galat PIN! Dobara try karein.");
       }
     },
-    [phone, login, loading, router],
+    [phone, login, loading, getRedirectTarget],
   );
 
   // ── Step 2b: New user setup ───────────────────────────────────
@@ -274,7 +299,7 @@ export default function AuthPage() {
 
       try {
         await setupShop(shopName.trim(), cleaned, pin, ownerName.trim());
-        window.location.href = "/dashboard";
+        window.location.replace(getRedirectTarget("/dashboard"));
       } catch (e) {
         console.error("[Auth] Setup error:", e);
         setPinError("Setup fail ho gaya. Dobara try karein.");

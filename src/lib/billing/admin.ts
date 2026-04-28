@@ -227,8 +227,6 @@ export async function activateSubscription(
       trial_ends_at:    null,
       cancelled_at:     null,
       amount_pkr:       amountPkr,
-      last_payment_at:  new Date().toISOString(),
-      next_payment_at:  expiresAtISO,
       updated_at:       new Date().toISOString(),
     }, 'shop_id')
 

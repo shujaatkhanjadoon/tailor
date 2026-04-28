@@ -28,6 +28,7 @@ interface Props {
   garments: GarmentItem[]
   karigars: KarigarItem[]
   totalOrders: number
+  showPayReports?: boolean
 }
 
 const METHOD_COLORS: Record<string, string> = {
@@ -38,7 +39,7 @@ const METHOD_COLORS: Record<string, string> = {
   other:      '#94a3b8',
 }
 
-export function GarmentBreakdown({ garments, karigars, totalOrders }: Props) {
+export function GarmentBreakdown({ garments, karigars, totalOrders, showPayReports = false }: Props) {
   const maxCount = Math.max(...garments.map(g => g.count), 1)
 
   return (
@@ -166,7 +167,7 @@ export function GarmentBreakdown({ garments, karigars, totalOrders }: Props) {
                 </div>
 
                 {/* Pay rate */}
-                {k.payRate && k.payRate > 0 && (
+                {showPayReports && k.payRate && k.payRate > 0 && (
                   <p className="text-xs text-slate-400">
                     💰 Rs. {k.payRate.toLocaleString()}/
                     {k.payRateType === 'per_order' ? 'order'

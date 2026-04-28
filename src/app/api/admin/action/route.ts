@@ -142,8 +142,6 @@ export async function POST(req: NextRequest) {
           cancelled_at:     null,
           trial_ends_at:    null,
           amount_pkr:       amountPkr,
-          last_payment_at:  now,
-          next_payment_at:  expiresAt,
           updated_at:       now,
         }, 'shop_id')
 

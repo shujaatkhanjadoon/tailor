@@ -1,8 +1,8 @@
-// src/middleware.ts
+// src/proxy.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { verifySessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   // ── Security headers on all responses ────────────────────────────
@@ -52,7 +52,7 @@ export function middleware(req: NextRequest) {
     const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
     if (!token || !verifySessionToken(token)) {
       const loginUrl = new URL('/admin/login', req.url)
-      loginUrl.searchParams.set('redirect', pathname)
+      loginUrl.searchParams.set('redirect', `${pathname}${req.nextUrl.search}`)
       return NextResponse.redirect(loginUrl)
     }
     return res
