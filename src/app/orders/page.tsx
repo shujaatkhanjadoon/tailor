@@ -14,6 +14,7 @@ import { OrderRecord }                from '@/lib/db/schema'
 import { ORDER_STATUS_CONFIG, OrderStatus } from '@/types'
 import { cn }                         from '@/lib/utils'
 import { OrderCardSkeleton }          from '@/components/ui/Skeleton'
+import { usePlan }                    from '@/hooks/usePlan'
 
 const QUICK_FILTERS: { key: OrderFilter; label: string; emoji: string }[] = [
   { key: 'all',        label: 'Sab',         emoji: '📋' },
@@ -37,6 +38,7 @@ const STATUS_OPTIONS: { key: OrderStatus | 'all'; label: string }[] = [
 function OrdersContent() {
   const router      = useRouter()
   const { shopId, isOwner, isKarigar, currentUser } = useAuth()
+  const plan = usePlan()
 
   const [statusSheet, setStatusSheet]         = useState<OrderRecord | null>(null)
   const [assignSheet, setAssignSheet]         = useState<OrderRecord | null>(null)
@@ -281,13 +283,26 @@ function OrdersContent() {
         {/* Order list */}
         {!isLoading && orders.length > 0 && (
           <div className="space-y-3">
+            {isOwner && !plan.canAddKarigar && (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3">
+                <p className="text-sm font-semibold text-blue-800">
+                  Karigar assignment Professional plan mein available hai.
+                </p>
+                <button
+                  onClick={() => plan.upgrade('professional')}
+                  className="text-xs font-bold text-blue-700 underline mt-1"
+                >
+                  Upgrade karein
+                </button>
+              </div>
+            )}
             {orders.map(order => (
               <OrderListCard
                 key={order.id}
                 order={order}
                 isOwner={isOwner}
                 onStatusTap={o => setStatusSheet(o)}
-                onAssignTap={isOwner ? o => setAssignSheet(o) : undefined}
+                onAssignTap={isOwner && plan.canAddKarigar ? o => setAssignSheet(o) : undefined}
               />
             ))}
 

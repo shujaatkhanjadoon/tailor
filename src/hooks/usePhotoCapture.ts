@@ -4,6 +4,7 @@ import { compressImage, base64ToKB }     from '@/lib/photos/compress'
 import { uploadToCloudinary, deleteFromCloudinary, cloudinaryEnabled } from '@/lib/photos/cloudinary'
 import { db, PhotoRecord }               from '@/lib/db/schema'
 import { useAuth }                       from '@/lib/auth/AuthContext'
+import { usePlan }                       from '@/hooks/usePlan'
 
 interface UsePhotoCaptureOptions {
   orderId:  string
@@ -19,6 +20,8 @@ export interface PhotoUploadState {
 
 export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
   const { shopId }   = useAuth()
+  const plan         = usePlan()
+  const canSyncImages = plan.plan === 'business' && plan.isActive
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [state, setState] = useState<PhotoUploadState>({ phase: 'idle' })
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -55,7 +58,7 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
       await db.photos.add(photo)
 
       // ── 3. Upload to Cloudinary in background ────────────────
-      if (cloudinaryEnabled && navigator.onLine) {
+      if (canSyncImages && cloudinaryEnabled && navigator.onLine) {
         setState(s => ({ ...s, phase: 'uploading' }))
 
         const uploaded = await uploadToCloudinary(
@@ -86,7 +89,7 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
       setTimeout(() => setState({ phase: 'idle' }), 4000)
       return null
     }
-  }, [shopId, orderId, type])
+  }, [shopId, orderId, type, canSyncImages])
 
   const openCamera = useCallback(() => {
     if (!fileInputRef.current) return
@@ -115,7 +118,7 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
     setDeletingId(photo.id)
     try {
       // Delete from Cloudinary if uploaded
-      if (photo.publicId) {
+      if (canSyncImages && photo.publicId) {
         await deleteFromCloudinary(photo.publicId)
       }
       // Delete from IndexedDB
@@ -125,7 +128,7 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
     } finally {
       setDeletingId(null)
     }
-  }, [])
+  }, [canSyncImages])
 
   return {
     fileInputRef,
@@ -135,7 +138,7 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
     openGallery,
     handleFileChange,
     deletePhoto,
-    cloudEnabled:  cloudinaryEnabled,
+    cloudEnabled:  canSyncImages && cloudinaryEnabled,
     isProcessing:  state.phase !== 'idle' && state.phase !== 'done' && state.phase !== 'error',
   }
 }

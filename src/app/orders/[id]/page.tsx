@@ -19,6 +19,7 @@ import { OrderPhotoSection } from '@/components/photos/OrderPhotoSection'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { FeatureGate } from '@/components/billing/FeatureGate'
+import { usePlan } from '@/hooks/usePlan'
 
 const PAYMENT_METHODS = [
   { key: 'cash', label: 'Cash', emoji: '💵' },
@@ -31,6 +32,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const { id } = use(params)
   const router = useRouter()
   const { isOwner, currentUser } = useAuth()
+  const plan = usePlan()
   const { order, payments, history, balance } = useOrder(id)
 
   const [showStatusSheet, setShowStatusSheet] = useState(false)
@@ -335,7 +337,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           ))}
 
           {/* Assign button */}
-          {isOwner && !isTerminal && (
+          {isOwner && !isTerminal && plan.canAddKarigar && (
             <button
               onClick={() => setShowAssignSheet(true)}
               className="w-full flex items-center justify-between bg-blue-50 border
@@ -346,6 +348,19 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               </span>
               <ChevronRight size={16} className="text-blue-400" />
             </button>
+          )}
+          {isOwner && !isTerminal && !plan.canAddKarigar && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mt-1">
+              <p className="text-sm font-semibold text-blue-800">
+                Karigar assignment Professional plan mein available hai.
+              </p>
+              <button
+                onClick={() => plan.upgrade('professional')}
+                className="text-xs font-bold text-blue-700 underline mt-1"
+              >
+                Upgrade karein
+              </button>
+            </div>
           )}
 
           {/* Special instructions */}

@@ -9,13 +9,11 @@ import { OfflineBanner }     from './OfflineBanner'
 import { AuthGuard }         from '@/components/auth/AuthGuard'
 import { PWAInstallPrompt }  from './PWAInstallPrompt'
 import { useAuth }           from '@/lib/auth/AuthContext'
-import { usePlan }           from '@/hooks/usePlan'
 import { syncService }       from '@/lib/supabase/sync-service'
 import { subscribeToShop }   from '@/lib/supabase/realtime'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, shopId } = useAuth()
-  const plan = usePlan()
   const pathname = usePathname()
   const isKarigar = currentUser?.role === 'karigar'
   const isPlainRoute =
@@ -41,7 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       cleanupRef.current = null
     }
 
-    if (!shopId || isPlainRoute || plan.isLoading || !plan.canSyncCloud) return
+    if (!shopId || isPlainRoute) return
 
     console.log('[AppShell] Initialising sync + realtime for:', shopId)
 
@@ -98,7 +96,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         cleanupRef.current = null
       }
     }
-  }, [shopId, isPlainRoute, plan.isLoading, plan.canSyncCloud])   // Re-runs when shopId changes (login/logout)
+  }, [shopId, isPlainRoute])   // Re-runs when shopId changes (login/logout)
 
   if (isPlainRoute) {
     return <>{children}</>

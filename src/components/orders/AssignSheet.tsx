@@ -2,11 +2,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Check, Scissors, UserX } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { X, Check, Scissors, UserX, Plus } from 'lucide-react'
 import { TeamMemberRecord } from '@/lib/db/schema'
 import { teamOps, orderOps } from '@/lib/db/operations'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { cn } from '@/lib/utils'
+import { usePlan } from '@/hooks/usePlan'
 
 interface AssignSheetProps {
   orderId:         string
@@ -16,7 +18,9 @@ interface AssignSheetProps {
 }
 
 export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: AssignSheetProps) {
+  const router = useRouter()
   const { shopId } = useAuth()
+  const plan = usePlan()
   const [members,  setMembers]  = useState<TeamMemberRecord[]>([])
   const [selected, setSelected] = useState<string | null>(currentAssignee ?? null)
   const [saving,   setSaving]   = useState(false)
@@ -73,7 +77,20 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
           <div className="text-center py-8">
             <Scissors size={32} className="text-slate-200 mx-auto mb-3" />
             <p className="text-slate-500 text-sm font-medium">Koi karigar nahi</p>
-            <p className="text-slate-400 text-xs mt-1">Settings mein karigar add karein</p>
+            <p className="text-slate-400 text-xs mt-1">
+              Pehle karigar add karein, phir order assign ho sake ga.
+            </p>
+            <button
+              onClick={() => {
+                onClose()
+                router.push('/settings/team')
+              }}
+              className="mt-4 inline-flex items-center gap-2 bg-blue-600 text-white
+                         text-sm font-bold px-4 py-2.5 rounded-xl"
+            >
+              <Plus size={14} />
+              Naya Karigar Add Karein
+            </button>
           </div>
         ) : (
           <>
@@ -127,7 +144,7 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
                             ✂️ {m.speciality}
                           </span>
                         )}
-                        {m.payRate && m.payRate > 0 && (
+                        {plan.plan === 'business' && plan.isActive && m.payRate && m.payRate > 0 && (
                           <span className="text-[10px] text-green-600">
                             Rs.{m.payRate}/{m.payRateType === 'per_order' ? 'order' : m.payRateType}
                           </span>

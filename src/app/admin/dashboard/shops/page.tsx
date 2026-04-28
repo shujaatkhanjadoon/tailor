@@ -65,6 +65,12 @@ function ShopCard({
   const handlePlanSelect = async (value: string) => {
     if (!value) return
     const [planId, cycle] = value.split('|')
+    const ok = confirm(
+      `Change ${shop.shop_name} from ${plan} to ${planId} (${cycle})?\n\n` +
+      'This will immediately update their subscription access.'
+    )
+    if (!ok) return
+
     setChanging(true)
     setError('')
     setSuccess(false)

@@ -83,10 +83,7 @@ export default function AuthPage() {
     const fallback = currentUser.role === 'karigar' ? '/karigar' : '/dashboard'
     const dest = getRedirectTarget(fallback)
 
-    // Use timeout to let React finish rendering before navigating
-    setTimeout(() => {
-      window.location.replace(dest)
-    }, 100)
+    window.location.replace(dest)
   }, [currentUser, authLoading, getRedirectTarget])
 
   // ── Step 1: Check phone ───────────────────────────────────────
