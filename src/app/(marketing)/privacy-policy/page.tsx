@@ -1,4 +1,4 @@
-// src/app/(marketing)/privacy-policy/page.tsx
+﻿// src/app/(marketing)/privacy-policy/page.tsx
 import Link from 'next/link'
 import { Scissors } from 'lucide-react'
 
@@ -9,7 +9,7 @@ const sections = [
   },
   {
     title: '2. How We Use Your Information',
-    content: `We use your information solely to provide and improve the Darzi Manager service. Your data is used to sync your orders, customers, and measurements across devices, send you service notifications, and provide customer support. We do not sell your personal information to third parties.`
+    content: `We use your information solely to provide and improve the DarziHub service. Your data is used to sync your orders, customers, and measurements across devices, send you service notifications, and provide customer support. We do not sell your personal information to third parties.`
   },
   {
     title: '3. Data Storage & Security',
@@ -46,7 +46,7 @@ export default function PrivacyPolicyPage() {
           <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
             <Scissors size={13} className="text-white" />
           </div>
-          <span className="font-bold text-slate-700">Darzi Manager</span>
+          <span className="font-bold text-slate-700">DarziHub</span>
         </Link>
       </nav>
 
@@ -58,7 +58,7 @@ export default function PrivacyPolicyPage() {
         </div>
 
         <p className="text-slate-600 leading-relaxed mb-8">
-          At Darzi Manager, we take your privacy seriously. This policy explains what information
+          At DarziHub, we take your privacy seriously. This policy explains what information
           we collect, how we use it, and your rights regarding your data.
         </p>
 

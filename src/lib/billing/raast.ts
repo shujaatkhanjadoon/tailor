@@ -1,6 +1,6 @@
-// src/lib/billing/raast.ts
-// Raast payment configuration for Darzi Manager subscriptions
-// No API key needed — purely display-based manual flow
+﻿// src/lib/billing/raast.ts
+// Raast payment configuration for DarziHub subscriptions
+// No API key needed â€” purely display-based manual flow
 
 export interface RaastConfig {
   raastId:       string      // Your Raast ID (IBAN or alias)
@@ -9,11 +9,11 @@ export interface RaastConfig {
   instructions:  string[]    // Step-by-step for customer
 }
 
-// ── YOUR RAAST DETAILS — update these with real values ───────────
+// â”€â”€ YOUR RAAST DETAILS â€” update these with real values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const RAAST_CONFIG: RaastConfig = {
-  raastId:      '03XXXXXXXXX',         // ← your Raast ID (usually mobile number)
-  accountTitle: 'Darzi Manager',
-  bankName:     'Your Bank Name',
+  raastId:      '03135931459',         // â† your Raast ID (usually mobile number)
+  accountTitle: 'Shujaat Khan',
+  bankName:     'Bank Alfalah',
   instructions: [
     'Apni bank app ya Easypaisa/JazzCash kholein',
     'Raast ya "Send Money" option chunein',
@@ -43,18 +43,18 @@ export function generatePaymentRef(shopId: string): string {
 // Build the UPI/Raast deep link for QR code
 // Note: Raast QR format follows ISO 20022 standard
 export function buildRaastQRData(config: RaastConfig, amount: number, ref: string): string {
-  // Standard Raast QR format
+  // Plain payment details. Custom raast:// deep links are rejected by many bank scanners.
   return [
-    `raast://pay`,
-    `?id=${config.raastId}`,
-    `&name=${encodeURIComponent(config.accountTitle)}`,
-    `&amount=${amount}`,
-    `&ref=${ref}`,
-    `&purpose=Darzi Manager Subscription`,
-  ].join('')
+    'DarziHub subscription payment',
+    `Raast ID: ${config.raastId}`,
+    `Account: ${config.accountTitle}`,
+    `Bank: ${config.bankName}`,
+    `Amount: PKR ${amount}`,
+    `Reference: ${ref}`,
+  ].join('\n')
 }
 
 // Format amount with note for payment description
 export function buildPaymentNote(planId: string, cycle: string, ref: string): string {
-  return `DarziManager ${planId} ${cycle} ${ref}`
+  return `DarziHub ${planId} ${cycle} ${ref}`
 }

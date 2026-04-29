@@ -1,4 +1,4 @@
-// src/lib/billing/whatsapp-notify.ts
+﻿// src/lib/billing/whatsapp-notify.ts
 // Builds WhatsApp click-to-chat links for admin to send manually
 // or programmatically via WhatsApp Business API in future
 
@@ -21,7 +21,7 @@ export function buildActivationWhatsApp(
 
   const message = encodeURIComponent(
     `Assalam o Alaikum! 🎉\n\n` +
-    `*Darzi Manager — Payment Confirm!*\n\n` +
+    `*DarziHub — Payment Confirm!*\n\n` +
     `Aapki payment successfully verify ho gayi.\n\n` +
     `✅ Plan: *${planName}*\n` +
     `🔄 Billing: ${cycle}${expiryText}\n\n` +
@@ -41,7 +41,7 @@ export function buildRejectionWhatsApp(
 
   const message = encodeURIComponent(
     `Assalam o Alaikum,\n\n` +
-    `*Darzi Manager — Payment Verification*\n\n` +
+    `*DarziHub — Payment Verification*\n\n` +
     `Aapki payment verify nahi ho saki.\n\n` +
     `❌ Reason: ${reason}\n\n` +
     `Kripaya dobara try karein ya support se contact karein:\n` +
@@ -62,7 +62,7 @@ export function buildExpiryReminderWhatsApp(
 
   const message = encodeURIComponent(
     `Assalam o Alaikum ${shopName}! ⏰\n\n` +
-    `*Darzi Manager — Plan Reminder*\n\n` +
+    `*DarziHub — Plan Reminder*\n\n` +
     `Aapka *${planName}* plan ${daysLeft} din mein expire ho raha hai.\n\n` +
     `Renew karne ke liye:\n` +
     `${APP_URL}/billing/upgrade\n\n` +

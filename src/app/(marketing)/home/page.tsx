@@ -1,4 +1,4 @@
-// src/app/(marketing)/home/page.tsx
+﻿// src/app/(marketing)/home/page.tsx
 import Link from 'next/link'
 import {
   Scissors, CheckCircle, BarChart3, Smartphone,
@@ -11,13 +11,13 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white font-sans">
 
-      {/* ── NAVBAR ── */}
+      {/* â”€â”€ NAVBAR â”€â”€ */}
       <nav className="border-b border-slate-200 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <Scissors size={16} className="text-white" />
           </div>
-          <span className="font-bold text-slate-800 text-lg">Darzi Manager</span>
+          <span className="font-bold text-slate-800 text-lg">DarziHub</span>
         </div>
         <div className="hidden md:flex items-center gap-8">
           {['Features', 'Pricing', 'About', 'Contact'].map(item => (
@@ -44,20 +44,20 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* ── HERO ── */}
+      {/* â”€â”€ HERO â”€â”€ */}
       <section className="max-w-7xl mx-auto px-6 py-20 text-center">
         <div className="inline-flex items-center gap-2 bg-blue-50 border border-blue-200
                         text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
           <Zap size={12} />
-          Built for Pakistani Tailors — Works Offline
+          Built for Pakistani Tailors â€” Works Offline
         </div>
         <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-6 leading-tight">
           Run Your Tailor Shop<br />
           <span className="text-blue-600">Smarter, Not Harder</span>
         </h1>
         <p className="text-lg text-slate-500 max-w-2xl mx-auto mb-10 leading-relaxed">
-          Darzi Manager helps Pakistani tailors track orders, measurements, payments,
-          and customers — all from your phone, even without internet.
+          DarziHub helps Pakistani tailors track orders, measurements, payments,
+          and customers â€” all from your phone, even without internet.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link
@@ -65,7 +65,7 @@ export default function LandingPage() {
             className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700
                        text-white font-bold px-8 py-4 rounded-2xl text-base transition-colors"
           >
-            Start Free — No Credit Card
+            Start Free â€” No Credit Card
             <ArrowRight size={18} />
           </Link>
           <Link
@@ -76,10 +76,10 @@ export default function LandingPage() {
             View Pricing
           </Link>
         </div>
-        <p className="text-slate-400 text-sm mt-4">Free forever plan available · No setup fees</p>
+        <p className="text-slate-400 text-sm mt-4">Free forever plan available Â· No setup fees</p>
       </section>
 
-      {/* ── FEATURES ── */}
+      {/* â”€â”€ FEATURES â”€â”€ */}
       <section id="features" className="bg-slate-50 py-20">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-14">
@@ -118,7 +118,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── PRICING PREVIEW ── */}
+      {/* â”€â”€ PRICING PREVIEW â”€â”€ */}
       <section className="py-20 max-w-7xl mx-auto px-6 text-center">
         <h2 className="text-3xl font-bold text-slate-900 mb-3">Simple, Honest Pricing</h2>
         <p className="text-slate-500 mb-10">Start free. Upgrade when you need more.</p>
@@ -166,14 +166,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
+      {/* â”€â”€ FOOTER â”€â”€ */}
       <footer className="border-t border-slate-200 py-12 bg-slate-50">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
               <Scissors size={13} className="text-white" />
             </div>
-            <span className="font-bold text-slate-700">Darzi Manager</span>
+            <span className="font-bold text-slate-700">DarziHub</span>
           </div>
           <div className="flex gap-6 text-sm text-slate-500">
             {['Privacy Policy','Terms of Service','Contact','About'].map(l => (
@@ -183,7 +183,7 @@ export default function LandingPage() {
               </Link>
             ))}
           </div>
-          <p className="text-sm text-slate-400">© 2026 Darzi Manager · Made for Pakistan 🇵🇰</p>
+          <p className="text-sm text-slate-400">© {new Date().getFullYear()} DarziHub • Made with ❤️ for Pakistan 🇵🇰</p>
         </div>
       </footer>
     </div>

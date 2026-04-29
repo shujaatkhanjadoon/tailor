@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
@@ -86,7 +86,7 @@ export default function SettingsPage() {
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 pb-20 lg:pb-8">
 
-      {/* ── HEADER ── */}
+      {/* â”€â”€ HEADER â”€â”€ */}
       <header className="bg-white border-b border-slate-100 px-5 pt-12 lg:pt-6 pb-5">
         <h1 className="text-xl font-bold text-slate-800">Settings</h1>
         <p className="text-xs text-slate-400 mt-0.5">App aur account manage karein</p>
@@ -94,8 +94,8 @@ export default function SettingsPage() {
 
       <div className="flex-1 px-4 pt-5 space-y-4">
 
-        {/* ── PROFILE CARD ── */}
-        <div className="bg-gradient-to-br from-blue-700 to-blue-600 rounded-2xl p-5">
+        {/* â”€â”€ PROFILE CARD â”€â”€ */}
+        <div className="bg-linear-to-br from-blue-700 to-blue-600 rounded-2xl p-5">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-white/20 rounded-full flex items-center
                             justify-center font-bold text-xl text-white border border-white/30">
@@ -103,7 +103,7 @@ export default function SettingsPage() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-white text-base truncate">
-                {currentUser?.name ?? '—'}
+                {currentUser?.name ?? 'â€”'}
               </p>
               <p className="text-blue-200 text-xs mt-0.5">{currentUser?.phone}</p>
               <div className="flex items-center gap-2 mt-1.5">
@@ -113,7 +113,7 @@ export default function SettingsPage() {
                     ? 'bg-white/25 text-white'
                     : 'bg-green-400/30 text-green-100'
                 )}>
-                  {currentUser?.role === 'owner' ? '⭐ Ustad / Owner' : '✂️ Karigar'}
+                  {currentUser?.role === 'owner' ? 'â­ Ustad / Owner' : 'âœ‚ï¸ Karigar'}
                 </span>
                 <span className={cn(
                   'text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1',
@@ -135,7 +135,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* ── DUKAAN (Shop) — owner only ── */}
+        {/* â”€â”€ DUKAAN (Shop) â€” owner only â”€â”€ */}
         {isOwner && (
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-4 pt-3 pb-2">
@@ -164,7 +164,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* ── ACCOUNT ── */}
+        {/* â”€â”€ ACCOUNT â”€â”€ */}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-4 pt-3 pb-2">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -182,7 +182,7 @@ export default function SettingsPage() {
           />
         </div>
 
-        {/* ── Photos Uploaded ── */}
+        {/* â”€â”€ Photos Uploaded â”€â”€ */}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-4 pt-3 pb-2">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -199,13 +199,13 @@ export default function SettingsPage() {
               ? photoStats.totalKB > 1024
                 ? `${(photoStats.totalKB / 1024).toFixed(1)} MB`
                 : `${photoStats.totalKB} KB`
-              : '—'
+              : 'â€”'
             }
             last
           />
         </div>
 
-        {/* ── SYNC STATUS ── */}
+        {/* â”€â”€ SYNC STATUS â”€â”€ */}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-4 pt-3 pb-2">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -216,9 +216,9 @@ export default function SettingsPage() {
             icon={isOnline ? Wifi : WifiOff}
             iconBg={isOnline ? 'bg-green-100' : 'bg-slate-100'}
             iconColor={isOnline ? 'text-green-600' : 'text-slate-400'}
-            label={isOnline ? 'Online — Connected' : 'Offline Mode'}
-            sublabel={isOnline ? 'Data sync ho raha hai' : 'Internet nahi — data local hai'}
-            value={pendingSync > 0 ? `${pendingSync} pending` : 'Sab synced ✓'}
+            label={isOnline ? 'Online â€” Connected' : 'Offline Mode'}
+            sublabel={isOnline ? 'Data sync ho raha hai' : 'Internet nahi â€” data local hai'}
+            value={pendingSync > 0 ? `${pendingSync} pending` : 'Sab synced âœ“'}
           />
           {isOwner && (
             <button
@@ -239,7 +239,7 @@ export default function SettingsPage() {
             iconBg="bg-slate-100"
             iconColor="text-slate-500"
             label="App Info"
-            sublabel="Darzi Manager v0.1.0 Beta"
+            sublabel="DarziHub v0.1.0 Beta"
             value={`${orderCount} orders`}
             last
           />
@@ -254,7 +254,7 @@ export default function SettingsPage() {
 
         </div>
 
-        {/* ── DANGER ZONE — owner only ── */}
+        {/* â”€â”€ DANGER ZONE â€” owner only â”€â”€ */}
         {isOwner && (
           <div className="bg-white rounded-2xl border border-red-200 overflow-hidden">
             <div className="px-4 pt-3 pb-2">
@@ -266,7 +266,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* ── LOGOUT ── */}
+        {/* â”€â”€ LOGOUT â”€â”€ */}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           {!showLogoutConfirm ? (
             <button
@@ -306,7 +306,7 @@ export default function SettingsPage() {
 
         {/* Footer */}
         <p className="text-center text-xs text-slate-400 pb-2">
-          Darzi Manager • Made with ❤️ for Pakistan 🇵🇰
+          © {new Date().getFullYear()} DarziHub • Made with ❤️ for Pakistan 🇵🇰
         </p>
       </div>
 

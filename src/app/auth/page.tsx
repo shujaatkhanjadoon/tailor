@@ -10,6 +10,7 @@ import {
   Store,
   Loader2,
   AlertCircle,
+  MessageCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { syncService } from "@/lib/supabase/sync-service";
@@ -24,6 +25,13 @@ type Step =
   | "setup_name"
   | "setup_pin"
   | "setup_confirm";
+
+const OWNER_DEACTIVATED_MESSAGE =
+  "The shop account associated with this number has been deactivated.";
+const KARIGAR_DEACTIVATED_MESSAGE =
+  "This shop has been deactivated. Please contact your shop admin or support.";
+const ADMIN_WHATSAPP =
+  process.env.NEXT_PUBLIC_ADMIN_WHATSAPP?.replace(/\D/g, "") || "923135931459";
 
 export default function AuthPage() {
   const {
@@ -42,10 +50,17 @@ export default function AuthPage() {
   const [pinError, setPinError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [blockedWhatsapp, setBlockedWhatsapp] = useState(false);
   const [shopDisplay, setShopDisplay] = useState("");
 
   const isSubmittingRef = useRef(false);
   const hasRedirected = useRef(false)
+
+  const redirectOnce = useCallback((target: string) => {
+    if (hasRedirected.current) return
+    hasRedirected.current = true
+    window.location.replace(target)
+  }, [])
 
   const getRedirectTarget = useCallback((fallback: string) => {
     if (typeof window === "undefined") return fallback;
@@ -73,20 +88,19 @@ export default function AuthPage() {
     }
   }, []);
 
-  // Already logged in → redirect
+  // Already logged in -> redirect
   useEffect(() => {
     if (authLoading) return
     if (!currentUser) return
     if (hasRedirected.current) return
 
-    hasRedirected.current = true
     const fallback = currentUser.role === 'karigar' ? '/karigar' : '/dashboard'
     const dest = getRedirectTarget(fallback)
 
-    window.location.replace(dest)
-  }, [currentUser, authLoading, getRedirectTarget])
+    redirectOnce(dest)
+  }, [currentUser, authLoading, getRedirectTarget, redirectOnce])
 
-  // ── Step 1: Check phone ───────────────────────────────────────
+  // Step 1: Check phone
 
   const handlePhoneSubmit = useCallback(async () => {
     if (loading) return;
@@ -96,7 +110,7 @@ export default function AuthPage() {
       return;
     }
 
-    // ── REQUIRE INTERNET for all auth operations ──────────────────
+    // Require internet for all auth operations.
     // This prevents duplicate accounts on multiple devices
     if (!navigator.onLine) {
       setError(
@@ -107,9 +121,10 @@ export default function AuthPage() {
 
     setLoading(true);
     setError("");
+    setBlockedWhatsapp(false);
 
     try {
-      // ── ALWAYS check Supabase first (source of truth) ────────────
+      // Always check Supabase first (source of truth).
       // Never trust local IndexedDB alone for account existence
       const { data: remoteMembers, error: fetchError } = await (supabase as any)
         .from("team_members")
@@ -125,15 +140,32 @@ export default function AuthPage() {
       }
 
       if (remoteMembers && remoteMembers.length > 0) {
-        // ── EXISTING USER: pull data and show PIN screen ──────────
+        // Existing user: pull data and show PIN screen.
         const remoteMember = remoteMembers[0];
 
         // Get shop details
-        const { data: shopRow } = await (supabase as any)
+        const { data: shopRow, error: shopError } = await (supabase as any)
           .from("shops")
           .select("*")
           .eq("id", remoteMember.shop_id)
           .single();
+
+        if (shopError || !shopRow) {
+          setError("Shop record nahi mila. Support se contact karein.");
+          setLoading(false);
+          return;
+        }
+
+        if (shopRow.is_active === false) {
+          setError(
+            remoteMember.role === "owner"
+              ? OWNER_DEACTIVATED_MESSAGE
+              : KARIGAR_DEACTIVATED_MESSAGE,
+          );
+          setBlockedWhatsapp(remoteMember.role === "owner");
+          setLoading(false);
+          return;
+        }
 
         if (shopRow) {
           setShopDisplay(shopRow.shop_name);
@@ -145,6 +177,7 @@ export default function AuthPage() {
             ownerPhone: shopRow.owner_phone,
             whatsappNumber: shopRow.whatsapp_number ?? undefined,
             city: shopRow.city ?? undefined,
+            isActive: shopRow.is_active === false ? 0 : 1,
             createdAt: shopRow.created_at,
             updatedAt: shopRow.updated_at,
             _synced: 1,
@@ -193,8 +226,7 @@ export default function AuthPage() {
         await reinitialize();
         setStep("pin_login");
       } else {
-        // ── NEW USER: go to setup ────────────────────────────────
-        // Phone does not exist anywhere — safe to create new account
+        // New user: phone does not exist anywhere, safe to create a new account.
         setStep("setup_name");
       }
     } catch (e) {
@@ -205,7 +237,7 @@ export default function AuthPage() {
     }
   }, [phone, loading, reinitialize]);
 
-  // ── Step 2a: PIN login ────────────────────────────────────────
+  // Step 2a: PIN login
   const handlePinLogin = useCallback(
     async (enteredPin: string) => {
       if (loading) return;
@@ -218,15 +250,15 @@ export default function AuthPage() {
       setLoading(false);
 
       if (success) {
-        window.location.replace(getRedirectTarget("/dashboard"))
+        redirectOnce(getRedirectTarget("/dashboard"))
       } else {
         setPinError("Galat PIN! Dobara try karein.");
       }
     },
-    [phone, login, loading, getRedirectTarget],
+    [phone, login, loading, getRedirectTarget, redirectOnce],
   );
 
-  // ── Step 2b: New user setup ───────────────────────────────────
+  // Step 2b: New user setup
   const handleSetupNameNext = useCallback(() => {
     if (shopName.trim().length < 2) {
       setError("Dukaan ka naam daalein");
@@ -246,13 +278,11 @@ export default function AuthPage() {
     setStep("setup_confirm");
   }, []);
 
-  // src/app/auth/page.tsx — replace handleSetupConfirm
-
   const handleSetupConfirm = useCallback(
     async (enteredConfirm: string) => {
       if (isSubmittingRef.current) return;
 
-      // ── Require internet for account creation ─────────────────────
+      // Require internet for account creation.
       if (!navigator.onLine) {
         setPinError("Naya account banane ke liye internet chahiye.");
         return;
@@ -265,7 +295,7 @@ export default function AuthPage() {
         return;
       }
 
-      // ── Final duplicate check before creating ─────────────────────
+      // Final duplicate check before creating.
       // Prevents race condition where two devices hit setup simultaneously
       const cleaned = phone.replace(/\D/g, "");
       try {
@@ -296,7 +326,7 @@ export default function AuthPage() {
 
       try {
         await setupShop(shopName.trim(), cleaned, pin, ownerName.trim());
-        window.location.replace(getRedirectTarget("/dashboard"));
+        redirectOnce(getRedirectTarget("/dashboard"));
       } catch (e) {
         console.error("[Auth] Setup error:", e);
         setPinError("Setup fail ho gaya. Dobara try karein.");
@@ -306,7 +336,7 @@ export default function AuthPage() {
         setLoading(false);
       }
     },
-    [pin, shopName, ownerName, phone, setupShop],
+    [pin, shopName, ownerName, phone, setupShop, getRedirectTarget, redirectOnce],
   );
 
   const goBack = useCallback(() => {
@@ -318,7 +348,7 @@ export default function AuthPage() {
     if (step === "setup_confirm") setStep("setup_pin");
   }, [step]);
 
-  // ── Loading while auth context initializes ────────────────────
+  // Loading while auth context initializes.
   if (authLoading) {
     return (
       <div
@@ -348,18 +378,6 @@ export default function AuthPage() {
       className="min-h-screen bg-linear-to-br from-slate-900 via-blue-950 to-slate-900
                     flex flex-col"
     >
-      {/* Decorative blobs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div
-          className="absolute -top-32 -right-32 w-96 h-96 bg-blue-500/10
-                        rounded-full blur-3xl"
-        />
-        <div
-          className="absolute -bottom-32 -left-32 w-96 h-96 bg-indigo-500/10
-                        rounded-full blur-3xl"
-        />
-      </div>
-
       {/* Brand header */}
       <div className="relative shrink-0 pt-14 pb-6 px-6 text-center">
         <div
@@ -368,7 +386,7 @@ export default function AuthPage() {
         >
           <Scissors size={28} className="text-white" strokeWidth={1.5} />
         </div>
-        <h1 className="text-2xl font-bold text-white">Darzi Manager</h1>
+        <h1 className="text-2xl font-bold text-white">DarziHub</h1>
         <p className="text-blue-300 text-sm mt-1">
           {isSetup ? "Naya account banayein" : "Apne account mein jayein"}
         </p>
@@ -377,8 +395,9 @@ export default function AuthPage() {
       {/* Main card */}
       <div className="relative flex-1 flex flex-col min-h-0">
         <div
-          className="flex-1 bg-white rounded-t-3xl px-6 pt-7 pb-10
-                        overflow-y-auto shadow-2xl"
+          className="flex-1 bg-white rounded-t-3xl px-5 pt-7 pb-10
+                        overflow-y-auto shadow-2xl sm:mx-auto sm:mb-10
+                        sm:w-full sm:max-w-md sm:rounded-3xl sm:px-6"
         >
           {/* Back button */}
           {step !== "phone" && (
@@ -392,14 +411,14 @@ export default function AuthPage() {
             </button>
           )}
 
-          {/* ── PHONE ENTRY ── */}
+          {/* Phone entry */}
           {step === "phone" && (
             <div>
               <h2 className="text-xl font-bold text-slate-800 mb-1">
                 Phone Number Daalein
               </h2>
               <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-                Existing account mein login karein ya naya account banayein —
+                Existing account mein login karein ya naya account banayein -
                 sab kuch automatic hai.
               </p>
 
@@ -425,6 +444,7 @@ export default function AuthPage() {
                   onChange={(e) => {
                     setPhone(e.target.value.replace(/\D/g, "").slice(0, 11));
                     setError("");
+                    setBlockedWhatsapp(false);
                   }}
                   onKeyDown={(e) => e.key === "Enter" && handlePhoneSubmit()}
                   autoFocus
@@ -437,9 +457,24 @@ export default function AuthPage() {
               </div>
 
               {error && (
-                <div className="flex items-center gap-2 mb-3 px-1">
-                  <AlertCircle size={13} className="text-red-500 shrink-0" />
-                  <p className="text-red-500 text-xs">{error}</p>
+                <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle size={15} className="text-red-500 shrink-0 mt-0.5" />
+                    <p className="text-red-600 text-xs font-semibold leading-relaxed">
+                      {error}
+                    </p>
+                  </div>
+                  {blockedWhatsapp && (
+                    <a
+                      href={`https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent("Assalam o Alaikum, my shop account has been deactivated. Please help.")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-green-700"
+                    >
+                      <MessageCircle size={16} />
+                      Contact Super Admin on WhatsApp
+                    </a>
+                  )}
                 </div>
               )}
 
@@ -451,7 +486,7 @@ export default function AuthPage() {
                 >
                   <span className="text-amber-600 text-sm">📡</span>
                   <p className="text-amber-700 text-xs font-medium">
-                    Internet nahi hai — account create karne ke liye internet
+                    Internet nahi hai - account create karne ke liye internet
                     chahiye
                   </p>
                 </div>
@@ -486,7 +521,7 @@ export default function AuthPage() {
             </div>
           )}
 
-          {/* ── PIN LOGIN ── */}
+          {/* PIN login */}
           {step === "pin_login" && (
             <div className="flex flex-col items-center">
               {/* Shop + phone badge */}
@@ -542,7 +577,7 @@ export default function AuthPage() {
             </div>
           )}
 
-          {/* ── SETUP: SHOP NAME ── */}
+          {/* Setup: shop name */}
           {step === "setup_name" && (
             <div>
               {/* Progress */}
@@ -638,12 +673,12 @@ export default function AuthPage() {
                 className="w-full bg-blue-600 disabled:bg-slate-300 text-white font-bold
                            py-4 rounded-2xl text-base transition-all active:scale-[0.98]"
               >
-                PIN Set Karein →
+                PIN Set Karein
               </button>
             </div>
           )}
 
-          {/* ── SETUP: SET PIN ── */}
+          {/* Setup: set PIN */}
           {step === "setup_pin" && (
             <div className="flex flex-col items-center">
               <div className="flex gap-2 mb-6 w-full">
@@ -675,7 +710,7 @@ export default function AuthPage() {
                 Apna PIN Banayein
               </h2>
               <p className="text-slate-400 text-sm mb-7 text-center">
-                4 numbers ka secret code — yaad rakhein!
+                4 numbers ka secret code - yaad rakhein!
               </p>
 
               <PinPad
@@ -688,7 +723,7 @@ export default function AuthPage() {
             </div>
           )}
 
-          {/* ── SETUP: CONFIRM PIN ── */}
+          {/* Setup: confirm PIN */}
           {step === "setup_confirm" && (
             <div className="flex flex-col items-center">
               <div className="flex gap-2 mb-6 w-full">
@@ -703,7 +738,7 @@ export default function AuthPage() {
                         i === 2 ? "text-blue-600" : "text-green-600",
                       )}
                     >
-                      {i === 2 ? label : "✓"}
+                      {i === 2 ? label : "Done"}
                     </p>
                   </div>
                 ))}

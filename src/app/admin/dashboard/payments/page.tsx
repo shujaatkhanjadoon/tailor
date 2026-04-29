@@ -1,4 +1,4 @@
-// src/app/admin/dashboard/payments/page.tsx
+﻿// src/app/admin/dashboard/payments/page.tsx
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -86,7 +86,7 @@ function PaymentCard({
         </div>
         {shop?.owner_phone && (
           <a
-            href={`https://wa.me/92${shop.owner_phone.replace(/^0/,'').replace(/\D/g,'')}?text=${encodeURIComponent(`Assalam o Alaikum! Aapka ${payment.plan} plan activate ho gaya. My Darzi kholein aur use karein!`)}`}
+            href={`https://wa.me/92${shop.owner_phone.replace(/^0/,'').replace(/\D/g,'')}?text=${encodeURIComponent(`Assalam o Alaikum! Aapka ${payment.plan} plan activate ho gaya. DarziHub kholein aur use karein!`)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="ml-auto flex items-center gap-1.5 bg-green-800 text-green-200

@@ -1,4 +1,4 @@
-// src/lib/notifications/scheduler.ts
+﻿// src/lib/notifications/scheduler.ts
 import { db } from '@/lib/db/schema'
 import { notifPermission } from './permission'
 
@@ -11,8 +11,8 @@ export interface NotifSettings {
   overdueAlerts:     boolean
   dueTodayAlerts:    boolean
   dueTomorrowAlerts: boolean
-  morningTime:       string   // HH:MM — e.g. "09:00"
-  eveningTime:       string   // HH:MM — e.g. "18:00"
+  morningTime:       string   // HH:MM â€” e.g. "09:00"
+  eveningTime:       string   // HH:MM â€” e.g. "18:00"
 }
 
 export const DEFAULT_SETTINGS: NotifSettings = {
@@ -41,11 +41,11 @@ export const notifSettings = {
   },
 }
 
-// ── Main scheduler ────────────────────────────────────────────────
+// â”€â”€ Main scheduler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const notifScheduler = {
 
-  // Called once on app load — checks if we should fire notifications
+  // Called once on app load â€” checks if we should fire notifications
   async run(shopId: string) {
     if (typeof window === 'undefined') return
     if (notifPermission.current() !== 'granted') return
@@ -80,7 +80,7 @@ export const notifScheduler = {
     const dueToday  = activeOrders.filter(o => o.dueDate === today)
     const dueTomrow = activeOrders.filter(o => o.dueDate === tomorrow)
 
-    // ── Fire notifications ────────────────────────────────────────
+    // â”€â”€ Fire notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     if (settings.overdueAlerts && overdue.length > 0) {
       notifPermission.fire(
@@ -152,11 +152,11 @@ export const notifScheduler = {
     return () => timers.forEach(clearTimeout)
   },
 
-  // Test notification — fire immediately
+  // Test notification â€” fire immediately
   async test() {
     if (notifPermission.current() !== 'granted') return false
     notifPermission.fire(
-      '✅ Darzi Manager',
+      '✅ DarziHub',
       'Notifications kaam kar rahi hain! Aap ko due orders ki yaad dilayi jayegi.',
       'darzi-test'
     )

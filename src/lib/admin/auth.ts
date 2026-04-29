@@ -1,7 +1,7 @@
-// src/lib/admin/auth.ts
+﻿// src/lib/admin/auth.ts
 import { createHmac, createHmac as _createHmac, randomBytes, timingSafeEqual } from 'crypto'
 
-// ── Base32 helpers ────────────────────────────────────────────────
+// â”€â”€ Base32 helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
 
 export function generateTOTPSecret(): string {
@@ -43,7 +43,7 @@ function base32Decode(encoded: string): Buffer {
   return Buffer.from(bytes)
 }
 
-// ── HOTP (counter-based OTP per RFC 4226) ─────────────────────────
+// â”€â”€ HOTP (counter-based OTP per RFC 4226) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function hotp(secretBase32: string, counter: number): string {
   const key = base32Decode(secretBase32)
 
@@ -68,7 +68,7 @@ function hotp(secretBase32: string, counter: number): string {
   return code.toString().padStart(6, '0')
 }
 
-// ── TOTP (time-based OTP per RFC 6238) ────────────────────────────
+// â”€â”€ TOTP (time-based OTP per RFC 6238) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const STEP_SECONDS = 30
 
 function getTimeCounter(): number {
@@ -79,7 +79,7 @@ export function generateTOTP(secret: string): string {
   return hotp(secret, getTimeCounter())
 }
 
-// Verify with ±1 window for clock drift
+// Verify with Â±1 window for clock drift
 export function verifyTOTP(token: string, secret?: string): boolean {
   const s = secret ?? process.env.ADMIN_TOTP_SECRET
   if (!s) {
@@ -108,11 +108,11 @@ export function verifyTOTP(token: string, secret?: string): boolean {
   return false
 }
 
-// ── TOTP URI for QR code (otpauth:// format) ──────────────────────
+// â”€â”€ TOTP URI for QR code (otpauth:// format) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function getTOTPUri(): string {
   const secret  = process.env.ADMIN_TOTP_SECRET
   if (!secret) throw new Error('ADMIN_TOTP_SECRET not set')
-  const issuer  = 'My Darzi Admin'
+  const issuer  = 'DarziHub Admin'
   const account = 'admin'
   return (
     `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(account)}` +
@@ -124,7 +124,7 @@ export function getTOTPUri(): string {
   )
 }
 
-// ── Session token (HMAC-signed, 15-min expiry) ─────────────────────
+// â”€â”€ Session token (HMAC-signed, 15-min expiry) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const SESSION_DURATION_MS = 15 * 60 * 1000
 
 export function generateSessionToken(): string {

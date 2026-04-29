@@ -30,6 +30,19 @@ type AuthContextType = AuthState & AuthActions
 const AuthContext = createContext<AuthContextType | null>(null)
 const SESSION_KEY = 'darzi_session'
 
+async function isRemoteShopActive(shopId: string): Promise<boolean> {
+  if (typeof navigator === 'undefined' || !navigator.onLine) return true
+
+  const { data, error } = await (supabase as any)
+    .from('shops')
+    .select('is_active')
+    .eq('id', shopId)
+    .maybeSingle()
+
+  if (error || !data) return true
+  return data.is_active !== false
+}
+
 // ── Core: read current auth state from IndexedDB ──────────────────
 async function readStateFromDB(): Promise<Partial<AuthState>> {
   try {
@@ -43,6 +56,13 @@ async function readStateFromDB(): Promise<Partial<AuthState>> {
       const { memberId } = JSON.parse(sessionRaw)
       const member = await db.teamMembers.get(memberId)
       if (member?.isActive) {
+        const activeShop = await isRemoteShopActive(member.shopId)
+        if (!activeShop) {
+          localStorage.removeItem(SESSION_KEY)
+          await db.shop.update(member.shopId, { isActive: 0 }).catch(() => {})
+          return { isSetupDone: true, shopId, currentUser: null }
+        }
+
         return {
           isSetupDone: true,
           shopId,
@@ -93,6 +113,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (phone: string, pin: string): Promise<boolean> => {
     const member = await teamOps.getByPhone(phone)
     if (!member || member.pin !== pin || !member.isActive) return false
+
+    const activeShop = await isRemoteShopActive(member.shopId)
+    if (!activeShop) {
+      localStorage.removeItem(SESSION_KEY)
+      await db.shop.update(member.shopId, { isActive: 0 }).catch(() => {})
+      return false
+    }
 
     localStorage.setItem(SESSION_KEY, JSON.stringify({ memberId: member.id }))
     const shopId = await shopOps.getShopId()

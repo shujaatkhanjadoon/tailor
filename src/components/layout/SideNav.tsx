@@ -1,4 +1,4 @@
-// src/components/layout/SideNav.tsx
+﻿// src/components/layout/SideNav.tsx
 'use client'
 
 import Link from 'next/link'
@@ -26,11 +26,11 @@ export function SideNav() {
 
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-6 border-b border-slate-700">
-        <div className="w-9 h-9 bg-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
+        <div className="w-9 h-9 bg-blue-500 rounded-xl flex items-center justify-center shrink-0">
           <Scissors size={18} className="text-white" strokeWidth={2} />
         </div>
         <div>
-          <p className="font-bold text-sm leading-tight">Darzi Manager</p>
+          <p className="font-bold text-sm leading-tight">DarziHub</p>
           <p className="text-slate-400 text-[11px]">Tailor App</p>
         </div>
       </div>

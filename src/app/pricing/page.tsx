@@ -1,4 +1,4 @@
-// src/app/pricing/page.tsx
+﻿// src/app/pricing/page.tsx
 'use client'
 
 import { useState } from 'react'
@@ -43,7 +43,7 @@ export default function PricingPage() {
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <Scissors size={16} className="text-white" />
           </div>
-          <span className="font-bold text-slate-800 text-lg">Darzi Manager</span>
+          <span className="font-bold text-slate-800 text-lg">DarziHub</span>
         </Link>
         <div className="flex items-center gap-3">
           <Link href="/auth" className="text-sm font-semibold text-slate-600 hover:text-slate-800">
@@ -256,7 +256,7 @@ export default function PricingPage() {
         <h2 className="text-3xl font-bold text-white mb-3">
           Aaj Hi Shuru Karein
         </h2>
-        <p className="text-blue-200 mb-8">14 din ka free Professional trial — no card required</p>
+        <p className="text-blue-200 mb-8">14 din ka free Professional trial â€” no card required</p>
         <Link
           href="/auth"
           className="inline-flex items-center gap-2 bg-white text-blue-600
@@ -268,7 +268,7 @@ export default function PricingPage() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 py-8 text-center text-sm text-slate-400">
-        © 2025 Darzi Manager · Made for Pakistan 🇵🇰
+        © {new Date().getFullYear()} DarziHub • Made with ❤️ for Pakistan 🇵🇰
       </footer>
     </div>
   )

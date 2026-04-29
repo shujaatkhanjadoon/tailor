@@ -52,6 +52,7 @@ export const shopOps = {
       id,
       shopName,
       ownerPhone,
+      isActive: 1,
       createdAt: now(),
       updatedAt: now(),
       _synced:   0,

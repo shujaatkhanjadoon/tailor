@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -79,7 +79,7 @@ export default function SettingsPage() {
           .count();
         setOrderCount(orders);
 
-        // ── FIXED: count actual unsynced records, not syncQueue ──
+        // â”€â”€ FIXED: count actual unsynced records, not syncQueue â”€â”€
         const [
           unsyncedOrders,
           unsyncedCustomers,
@@ -164,7 +164,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 pb-20 lg:pb-8">
-      {/* ── HEADER ── */}
+      {/* â”€â”€ HEADER â”€â”€ */}
       <header className="bg-white border-b border-slate-100 px-5 pt-12 lg:pt-6 pb-5">
         <h1 className="text-xl font-bold text-slate-800">Settings</h1>
         <p className="text-xs text-slate-400 mt-0.5">
@@ -173,7 +173,7 @@ export default function SettingsPage() {
       </header>
 
       <div className="flex-1 px-4 pt-5 space-y-4">
-        {/* ── PROFILE CARD ── */}
+        {/* â”€â”€ PROFILE CARD â”€â”€ */}
         <div className="bg-linear-to-br from-blue-700 to-blue-600 rounded-2xl p-5">
           <div className="flex items-center gap-4">
             <div
@@ -233,7 +233,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* ── DUKAAN (Shop) — owner only ── */}
+        {/* â”€â”€ DUKAAN (Shop) â€” owner only â”€â”€ */}
         {isOwner && (
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-4 pt-3 pb-2">
@@ -262,7 +262,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* ── ACCOUNT ── */}
+        {/* â”€â”€ ACCOUNT â”€â”€ */}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-4 pt-3 pb-2">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -283,13 +283,13 @@ export default function SettingsPage() {
             iconBg="bg-blue-100"
             iconColor="text-blue-600"
             label="Billing & Plan"
-            sublabel={`${PLANS[myPlan.plan].name} · ${myPlan.isTrial ? `Trial: ${myPlan.daysLeft} din baaki` : myPlan.isActive ? "Active" : "Expired"}`}
+            sublabel={`${PLANS[myPlan.plan].name} Â· ${myPlan.isTrial ? `Trial: ${myPlan.daysLeft} din baaki` : myPlan.isActive ? "Active" : "Expired"}`}
             badge={myPlan.isTrial ? "Trial" : undefined}
             onClick={() => router.push("/billing")}
           />
         </div>
 
-        {/* ── Photos Uploaded ── */}
+        {/* â”€â”€ Photos Uploaded â”€â”€ */}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-4 pt-3 pb-2">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -307,13 +307,13 @@ export default function SettingsPage() {
                 ? photoStats.totalKB > 1024
                   ? `${(photoStats.totalKB / 1024).toFixed(1)} MB`
                   : `${photoStats.totalKB} KB`
-                : "—"
+                : "—”"
             }
             last
           />
         </div>
 
-        {/* ── SYNC STATUS ── */}
+        {/* â”€â”€ SYNC STATUS â”€â”€ */}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-4 pt-3 pb-2">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -379,7 +379,7 @@ export default function SettingsPage() {
             iconBg="bg-slate-100"
             iconColor="text-slate-500"
             label="App Info"
-            sublabel="Darzi Manager v0.1.0 Beta"
+            sublabel="DarziHub v0.1.0 Beta"
             value={`${orderCount} orders`}
             last
           />
@@ -399,7 +399,7 @@ export default function SettingsPage() {
             onClick={() => router.push("/settings/notifications")}
           />
         </div>
-        {/* ── DANGER ZONE — owner only ── */}
+        {/* â”€â”€ DANGER ZONE â€” owner only â”€â”€ */}
         {isOwner && (
           <div className="bg-white rounded-2xl border border-red-200 overflow-hidden">
             <div className="px-4 pt-3 pb-2">
@@ -411,7 +411,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* ── LOGOUT ── */}
+        {/* â”€â”€ LOGOUT â”€â”€ */}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           {!showLogoutConfirm ? (
             <button
@@ -451,7 +451,7 @@ export default function SettingsPage() {
 
         {/* Footer */}
         <p className="text-center text-xs text-slate-400 pb-2">
-          Darzi Manager • Made with ❤️ for Pakistan 🇵🇰
+          © {new Date().getFullYear()} DarziHub • Made with ❤️ for Pakistan 🇵🇰
         </p>
       </div>
 

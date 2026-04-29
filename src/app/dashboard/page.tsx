@@ -87,6 +87,10 @@ export default function DashboardPage() {
   }, [shopId]);
 
   const today = new Date().toISOString().split("T")[0];
+  const shop = useLiveQuery(async () => {
+    if (!shopId) return null
+    return db.shop.get(shopId)
+  }, [shopId])
 
   // ── LIVE QUERIES — all from IndexedDB ──────────────────────────
 
@@ -168,7 +172,7 @@ if (isLoading || !shopId) return <DashboardSkeleton />
         <div className="flex items-start justify-between">
           <div>
             <p className="text-blue-200 text-sm font-medium">{greeting} 👋</p>
-            <h1 className="text-2xl font-bold mt-0.5">DarziHub</h1>
+            <h1 className="text-2xl font-bold mt-0.5">{shop?.shopName || "DarziHub"}</h1>
             <p className="text-blue-300 text-xs mt-1">
               {todayStr || <span className="opacity-0">—</span>}
             </p>

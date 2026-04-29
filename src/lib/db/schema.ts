@@ -9,6 +9,7 @@ export interface ShopRecord {
   ownerPhone: string
   whatsappNumber?: string
   city?: string
+  isActive?: 0 | 1
   createdAt: string
   updatedAt: string
   _synced: 0 | 1        // 0 = needs sync, 1 = synced

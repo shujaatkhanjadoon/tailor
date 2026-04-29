@@ -16,7 +16,7 @@ function shopToRow(r: any): ShopRow {
     whatsapp_number: r.whatsappNumber || undefined,
     city:            r.city           || undefined,
     plan:            'starter',         // new shops always start as starter
-    is_active:       true,
+    is_active:       r.isActive !== 0,
     created_at:      r.createdAt,
     updated_at:      r.updatedAt,
   }

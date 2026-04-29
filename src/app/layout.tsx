@@ -1,4 +1,4 @@
-// src/app/layout.tsx
+﻿// src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
@@ -17,17 +17,17 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: {
-    default: "My Darzi",
-    template: "%s | My Darzi",
+    default: "DarziHub",
+    template: "%s | DarziHub",
   },
   description:
-    "Pakistan ka pehla tailor management app — orders, measurements, payments. Offline bhi kaam kare.",
+    "Pakistan ka pehla tailor management app â€” orders, measurements, payments. Offline bhi kaam kare.",
   keywords: ["tailor", "darzi", "pakistan", "order management", "kapra"],
   openGraph: {
-    title: "My Darzi",
+    title: "DarziHub",
     description: "Pakistan ka pehla tailor management app",
     url: "https://mydarzi.vercel.app",
-    siteName: "My Darzi",
+    siteName: "DarziHub",
     locale: "ur_PK",
     type: "website",
   },
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "My Darzi",
+    title: "DarziHub",
   },
   formatDetection: { telephone: false },
   icons: {
@@ -53,7 +53,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  viewportFit: "cover", // ← handles iPhone notch / Dynamic Island
+  viewportFit: "cover", // â† handles iPhone notch / Dynamic Island
 };
 
 export default function RootLayout({

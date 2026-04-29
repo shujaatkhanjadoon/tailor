@@ -1,4 +1,4 @@
-// src/components/billing/RaastPaymentSheet.tsx
+﻿// src/components/billing/RaastPaymentSheet.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -6,12 +6,11 @@ import { X, Copy, Check, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react
 import { QRCodeSVG }    from 'qrcode.react'
 import { supabase }     from '@/lib/supabase/client'
 import { useAuth }      from '@/lib/auth/AuthContext'
-import { usePlan }      from '@/hooks/usePlan'
-import { generatePaymentRef, buildPaymentNote } from '@/lib/billing/raast'
+import { generatePaymentRef } from '@/lib/billing/raast'
 import { PLANS, PlanId } from '@/lib/billing/plans'
 import { cn }            from '@/lib/utils'
 
-// ── Read Raast config from env ────────────────────────────────────
+// â”€â”€ Read Raast config from env â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Set NEXT_PUBLIC_RAAST_ID in .env.local
 const RAAST_ID       = process.env.NEXT_PUBLIC_RAAST_ID       ?? '03135931459'
 const RAAST_NAME     = process.env.NEXT_PUBLIC_RAAST_NAME      ?? 'Shujaat Khan'
@@ -31,7 +30,6 @@ export function RaastPaymentSheet({
   planId, cycle, amountPkr, onClose, onSubmitted,
 }: RaastPaymentSheetProps) {
   const { shopId }        = useAuth()
-  const plan              = usePlan()
   const [step, setStep]   = useState<SheetStep>('payment')
   const [txId,  setTxId]  = useState('')
   const [payerName, setPayerName] = useState('')
@@ -42,18 +40,16 @@ export function RaastPaymentSheet({
   const [paymentRef] = useState(() => generatePaymentRef(shopId ?? 'SHOP'))
   const targetPlan   = PLANS[planId]
 
-  // ── Build real Raast QR data (standard format) ─────────────────
-  // This format is recognized by all Pakistani banking apps
-  const raastQRData = [
-    `raast://pay`,
-    `?id=${RAAST_ID}`,
-    `&name=${encodeURIComponent(RAAST_NAME)}`,
-    `&amount=${amountPkr}`,
-    `&ref=${paymentRef}`,
-    `&desc=${encodeURIComponent(`My Darzi ${planId} ${cycle} ${paymentRef}`)}`,
-  ].join('')
-
-  // const raastQRData = RAAST_ID
+  // Banking apps reject custom deep links as invalid QR codes.
+  // This QR is intentionally a plain payment-details card for phone cameras.
+  const paymentDetailsQR = [
+    `DarziHub subscription payment`,
+    `Raast ID: ${RAAST_ID}`,
+    `Account: ${RAAST_NAME}`,
+    `Bank: ${RAAST_BANK}`,
+    `Amount: PKR ${amountPkr}`,
+    `Reference: ${paymentRef}`,
+  ].join('\n')
 
   const copy = async (text: string, key: 'id' | 'amount') => {
     try {
@@ -77,8 +73,12 @@ export function RaastPaymentSheet({
       setError('Transaction ID daalein (kam se kam 4 characters)')
       return
     }
+    if (payerName.trim().length < 2) {
+      setError('Apna naam daalein')
+      return
+    }
     if (!shopId) {
-      setError('Shop ID missing — please reload the page')
+      setError('Shop ID missing â€” please reload the page')
       return
     }
 
@@ -86,7 +86,7 @@ export function RaastPaymentSheet({
     setError('')
 
     try {
-      // ── Step 1: Get or create subscription row ─────────────────
+      // â”€â”€ Step 1: Get or create subscription row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       let subscriptionId: string | null = null
 
       const { data: existingSub } = await (supabase as any)
@@ -121,7 +121,7 @@ export function RaastPaymentSheet({
         }
       }
 
-      // ── Step 2: Insert payment record ──────────────────────────
+      // â”€â”€ Step 2: Insert payment record â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const paymentRecord: Record<string, any> = {
         shop_id:       shopId,
         plan:          planId,
@@ -155,7 +155,7 @@ export function RaastPaymentSheet({
         return
       }
 
-      // ── Step 3: Mark subscription as pending ───────────────────
+      // â”€â”€ Step 3: Mark subscription as pending â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       if (subscriptionId) {
         await (supabase as any)
           .from('subscriptions')
@@ -254,7 +254,7 @@ export function RaastPaymentSheet({
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
 
-          {/* ── SUCCESS ── */}
+          {/* â”€â”€ SUCCESS â”€â”€ */}
           {step === 'submitted' && (
             <div className="flex flex-col items-center py-10 text-center">
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center
@@ -278,7 +278,7 @@ export function RaastPaymentSheet({
             </div>
           )}
 
-          {/* ── STEP 1: Payment Details ── */}
+          {/* â”€â”€ STEP 1: Payment Details â”€â”€ */}
           {step === 'payment' && (
             <div className="space-y-5">
 
@@ -306,23 +306,23 @@ export function RaastPaymentSheet({
                 </p>
               </div>
 
-              {/* QR Code */}
-              <div className="flex flex-col items-center">
+          {/* Reference QR */}
+          <div className="flex flex-col items-center">
                 <p className="text-xs font-semibold text-slate-500 uppercase
                                tracking-wide mb-3">
-                  QR Scan Karein
+                  Payment Details QR
                 </p>
                 <div className="bg-white border-2 border-slate-200 rounded-2xl
                                 p-4 shadow-sm">
                   <QRCodeSVG
-                    value={raastQRData}
+                    value={paymentDetailsQR}
                     size={180}
                     level="M"
                     includeMargin={false}
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 mt-2 text-center">
-                  Bank app → Send Money → Scan QR
+                  Bank app mein Raast ID manually daalein. Custom QR banking apps mein invalid aa sakta hai.
                 </p>
               </div>
 
@@ -413,7 +413,7 @@ export function RaastPaymentSheet({
                 {[
                   'Apni bank app ya Easypaisa/JazzCash kholein',
                   'Raast → Send Money option chunein',
-                  'Upar wala QR scan karein ya Raast ID daalein',
+                  'Raast ID daalein',
                   `Exact amount: Rs. ${amountPkr.toLocaleString()} daalein`,
                   `Payment reference daalein: ${paymentRef}`,
                   'Payment karein aur Transaction ID note karein',
@@ -431,7 +431,7 @@ export function RaastPaymentSheet({
             </div>
           )}
 
-          {/* ── STEP 2: Confirm ── */}
+          {/* â”€â”€ STEP 2: Confirm â”€â”€ */}
           {step === 'confirm' && (
             <div className="space-y-5">
 
@@ -441,6 +441,23 @@ export function RaastPaymentSheet({
                 </p>
                 <p className="text-xs text-green-600">
                   Ab Transaction ID daalein
+                </p>
+              </div>
+
+              {/* Transaction ID */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Payment Reference
+                </label>
+                <input
+                  type="text"
+                  value={paymentRef}
+                  readOnly
+                  disabled
+                  className="w-full px-4 py-4 bg-slate-100 border-2 border-slate-200 rounded-2xl text-sm font-mono font-bold text-slate-500"
+                />
+                <p className="text-xs text-slate-400 mt-1.5 ml-1">
+                  Ye reference automatically generate hua hai.
                 </p>
               </div>
 
@@ -470,13 +487,13 @@ export function RaastPaymentSheet({
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Aapka Naam{' '}
-                  <span className="text-slate-400 font-normal">(Optional)</span>
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   placeholder="Jaise: Ahmed Khan"
                   value={payerName}
-                  onChange={e => setPayerName(e.target.value)}
+                  onChange={e => { setPayerName(e.target.value); setError('') }}
                   className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-200
                              rounded-2xl text-sm font-medium text-slate-800
                              outline-none focus:border-blue-500 focus:bg-white
@@ -525,7 +542,7 @@ export function RaastPaymentSheet({
               <>
                 <button
                   onClick={handleSubmit}
-                  disabled={txId.trim().length < 4 || saving}
+                  disabled={txId.trim().length < 4 || payerName.trim().length < 2 || saving}
                   className="w-full bg-green-600 disabled:bg-slate-300 text-white
                              font-bold py-4 rounded-2xl text-base transition-all
                              active:scale-[0.98] flex items-center justify-center gap-2"

@@ -1,7 +1,7 @@
-// src/app/admin/login/page.tsx
+﻿// src/app/admin/login/page.tsx
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams }    from 'next/navigation'
 import {
   Scissors, Shield, Eye, EyeOff,
@@ -152,6 +152,7 @@ function LoginContent() {
   const [loading,     setLoading]     = useState(false)
   const [error,       setError]       = useState('')
   const [requiresTOTP, setRequiresTOTP] = useState(false)
+  const submittedTOTPRef = useRef('')
 
   // Check if already logged in
   useEffect(() => {
@@ -189,8 +190,10 @@ function LoginContent() {
     }
   }
 
-  const handleTOTPSubmit = async () => {
+  const handleTOTPSubmit = useCallback(async () => {
     if (totpCode.length !== 6 || loading) return
+    if (submittedTOTPRef.current === totpCode) return
+    submittedTOTPRef.current = totpCode
     setLoading(true)
     setError('')
 
@@ -207,18 +210,20 @@ function LoginContent() {
       } else {
         setError(data.error ?? 'Code galat hai')
         setTotpCode('')
+        submittedTOTPRef.current = ''
       }
     } catch {
       setError('Server se connect nahi ho saka')
+      submittedTOTPRef.current = ''
     } finally {
       setLoading(false)
     }
-  }
+  }, [loading, redirectTo, router, secret, totpCode])
 
   // Auto-submit when 6 digits entered
   useEffect(() => {
     if (totpCode.length === 6) handleTOTPSubmit()
-  }, [totpCode])
+  }, [totpCode, handleTOTPSubmit])
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800
@@ -241,7 +246,7 @@ function LoginContent() {
                           justify-center mx-auto mb-4 shadow-xl shadow-blue-900/50">
             <Scissors size={28} className="text-white" strokeWidth={1.5} />
           </div>
-          <h1 className="text-2xl font-bold text-white">My Darzi</h1>
+          <h1 className="text-2xl font-bold text-white">DarziHub</h1>
           <p className="text-slate-400 text-sm mt-1">Super Admin Panel</p>
         </div>
 
@@ -278,7 +283,7 @@ function LoginContent() {
             </div>
           )}
 
-          {/* ── STEP 1: Secret ── */}
+          {/* â”€â”€ STEP 1: Secret â”€â”€ */}
           {step === 'secret' && (
             <div>
               <div className="flex items-center gap-3 mb-6">
@@ -352,7 +357,7 @@ function LoginContent() {
             </div>
           )}
 
-          {/* ── STEP 2: TOTP ── */}
+          {/* â”€â”€ STEP 2: TOTP â”€â”€ */}
           {step === 'totp' && (
             <div>
               <div className="flex items-center gap-3 mb-6">
@@ -411,7 +416,7 @@ function LoginContent() {
         </div>
 
         <p className="text-center text-slate-600 text-xs mt-6">
-          My Darzi · Super Admin · Secure Session
+          DarziHub · Super Admin · Secure Session
         </p>
       </div>
     </div>

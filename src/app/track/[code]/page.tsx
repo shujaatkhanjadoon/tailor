@@ -1,4 +1,4 @@
-// src/app/track/[code]/page.tsx
+﻿// src/app/track/[code]/page.tsx
 'use client'
 
 import { use, useEffect, useState } from 'react'
@@ -32,7 +32,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
     }
 
     try {
-      // ── 1. Try Supabase first (cross-device, authoritative) ──────
+      // â”€â”€ 1. Try Supabase first (cross-device, authoritative) â”€â”€â”€â”€â”€â”€
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         const remote = await syncService.getOrderByTrackingCode(normCode)
         if (remote) {
@@ -55,13 +55,13 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
             updatedAt:           remote.updated_at,
             _synced: 1, _deleted: 0,
           } as OrderRecord)
-          setShopName(remote.shops?.shop_name ?? 'Darzi Manager')
+          setShopName(remote.shops?.shop_name ?? 'DarziHub')
           setLoading(false)
           return
         }
       }
 
-      // ── 2. Fallback: local IndexedDB ─────────────────────────────
+      // â”€â”€ 2. Fallback: local IndexedDB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const local = await db.orders
         .where('trackingCode').equals(normCode)
         .filter(o => o._deleted === 0)
@@ -84,7 +84,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
 
   useEffect(() => { loadOrder() }, [normCode])
 
-  // ── Loading ──────────────────────────────────────────────────────
+  // â”€â”€ Loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -102,7 +102,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
     )
   }
 
-  // ── Invalid / Not found ──────────────────────────────────────────
+  // â”€â”€ Invalid / Not found â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (error || !order) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center
@@ -138,13 +138,13 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
           <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center">
             <Scissors size={12} className="text-white" />
           </div>
-          <span className="text-sm font-bold text-slate-600">Darzi Manager</span>
+          <span className="text-sm font-bold text-slate-600">DarziHub</span>
         </div>
       </div>
     )
   }
 
-  // ── Found ────────────────────────────────────────────────────────
+  // â”€â”€ Found â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const sc          = ORDER_STATUS_CONFIG[order.status as keyof typeof ORDER_STATUS_CONFIG]
   const gc          = GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS]
   const stepIdx     = STATUS_STEPS.indexOf(order.status as Step)
@@ -162,10 +162,10 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div className="min-h-screen bg-linear-to-b from-slate-50 to-white">
 
       {/* Header */}
-      <div className="bg-gradient-to-br from-blue-900 to-blue-700 px-5 pt-12 pb-10 text-center">
+      <div className="bg-linear-to-br from-blue-900 to-blue-700 px-5 pt-12 pb-10 text-center">
         <div className="w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center
                         mx-auto mb-4 border border-white/20 shadow-lg">
           <Scissors size={24} className="text-white" />
@@ -212,7 +212,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
 
                     return (
                       <div key={s} className="flex items-center flex-1 min-w-0">
-                        <div className="flex flex-col items-center flex-shrink-0">
+                        <div className="flex flex-col items-center shrink-0">
                           <div className={cn(
                             'w-9 h-9 rounded-full flex items-center justify-center',
                             'text-sm font-bold border-2 transition-all',
@@ -273,7 +273,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
                 : []),
             ].map(row => (
               <div key={row.label} className="flex items-start justify-between px-5 py-3.5 gap-4">
-                <p className="text-sm text-slate-400 font-medium flex-shrink-0">{row.label}</p>
+                <p className="text-sm text-slate-400 font-medium shrink-0">{row.label}</p>
                 <p className="text-sm text-slate-800 font-semibold text-right leading-snug">
                   {row.value}
                 </p>
@@ -284,7 +284,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
 
         {/* Ready celebration */}
         {order.status === 'ready' && (
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50
+          <div className="bg-linear-to-r from-green-50 to-emerald-50
                           border-2 border-green-300 rounded-2xl px-5 py-6 text-center
                           shadow-sm">
             <p className="text-4xl mb-3">🎉</p>
@@ -311,9 +311,9 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
             <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center">
               <Scissors size={12} className="text-white" />
             </div>
-            <span className="text-sm font-bold text-slate-700">Darzi Manager</span>
+            <span className="text-sm font-bold text-slate-700">DarziHub</span>
           </div>
-          <p className="text-xs text-slate-400">Powered by Darzi Manager · Pakistan 🇵🇰</p>
+          <p className="text-xs text-slate-400">Powered by DarziHub · Pakistan 🇵🇰</p>
         </div>
       </div>
     </div>

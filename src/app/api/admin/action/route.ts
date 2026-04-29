@@ -44,7 +44,7 @@ async function logAction(action: string, targetId: string, shopId: string, detai
   try {
     await sbPost('admin_audit_log', {
       action,
-      target_type:  'subscription',
+      target_type:  action.includes('shop_') ? 'shop' : 'subscription',
       target_id:    targetId,
       shop_id:      shopId,
       details,
@@ -54,6 +54,15 @@ async function logAction(action: string, targetId: string, shopId: string, detai
   } catch (e) {
     console.error('[Admin Action] Audit log failed (non-fatal):', e)
   }
+}
+
+function nextExpiry(cycle: string | undefined, planId = 'professional') {
+  if (planId === 'starter') return null
+  const d = new Date()
+  if (cycle === 'yearly') d.setFullYear(d.getFullYear() + 1)
+  else if (cycle === 'lifetime') d.setFullYear(d.getFullYear() + 100)
+  else d.setMonth(d.getMonth() + 1)
+  return d.toISOString()
 }
 
 export async function POST(req: NextRequest) {
@@ -78,14 +87,7 @@ export async function POST(req: NextRequest) {
 
         const now = new Date().toISOString()
 
-        const expiresAt = (() => {
-          if (planId === 'starter') return null
-          const d = new Date()
-          if (cycle === 'monthly')  d.setMonth(d.getMonth() + 1)
-          if (cycle === 'yearly')   d.setFullYear(d.getFullYear() + 1)
-          if (cycle === 'lifetime') d.setFullYear(d.getFullYear() + 100)
-          return d.toISOString()
-        })()
+        const expiresAt = nextExpiry(cycle, planId)
 
         // Update subscription
         await sbUpsert('subscriptions', {
@@ -100,7 +102,7 @@ export async function POST(req: NextRequest) {
           updated_at:    now,
         }, 'shop_id')
 
-        // Update shop.plan
+        // Update subscription plan only. Shop account activation is controlled separately.
         await sbPatch('shops', `id=eq.${shopId}`, {
           plan:       planId,
           updated_at: now,
@@ -111,7 +113,7 @@ export async function POST(req: NextRequest) {
           plan: planId, cycle, expires_at: expiresAt,
         })
 
-        console.log('[Admin Action] Plan changed:', shopId, '→', planId, cycle)
+        console.log('[Admin Action] Plan changed:', shopId, '->', planId, cycle)
         return NextResponse.json({ success: true })
       }
 
@@ -151,7 +153,7 @@ export async function POST(req: NextRequest) {
           paid_at: now,
         })
 
-        // Update shop plan
+        // Update subscription plan only. Shop account activation is controlled separately.
         await sbPatch('shops', `id=eq.${shopId}`, {
           plan: planId, updated_at: now,
         })
@@ -196,18 +198,27 @@ export async function POST(req: NextRequest) {
         const { shopId, reason } = body
         if (!shopId) return NextResponse.json({ error: 'shopId required' }, { status: 400 })
 
-        await sbUpsert('subscriptions', {
-          shop_id:    shopId,
-          plan:       'starter',
-          status:     'expired',
-          updated_at: new Date().toISOString(),
-        }, 'shop_id')
-
         await sbPatch('shops', `id=eq.${shopId}`, {
-          plan: 'starter', updated_at: new Date().toISOString(),
+          is_active: false,
+          updated_at: new Date().toISOString(),
         })
 
         await logAction('shop_deactivated', shopId, shopId, { reason })
+        return NextResponse.json({ success: true })
+      }
+
+      case 'activate_shop': {
+        const { shopId, reason } = body
+        if (!shopId) return NextResponse.json({ error: 'shopId required' }, { status: 400 })
+
+        const now = new Date().toISOString()
+
+        await sbPatch('shops', `id=eq.${shopId}`, {
+          is_active: true,
+          updated_at: now,
+        })
+
+        await logAction('shop_activated', shopId, shopId, { reason })
         return NextResponse.json({ success: true })
       }
 

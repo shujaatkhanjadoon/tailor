@@ -1,4 +1,4 @@
-// src/app/api/cron/send-reminders/route.ts
+﻿// src/app/api/cron/send-reminders/route.ts
 // Sends WhatsApp reminders for expiring subscriptions
 // Uses click-to-chat links stored in a reminders queue
 // (Full WhatsApp Business API can be added later)
@@ -25,7 +25,7 @@ function buildReminderMessage(
   if (isTrial) {
     return (
       `${urgency} Assalam o Alaikum *${shopName}*!\n\n` +
-      `Aapka *Darzi Manager* free trial sirf *${daysLeft} din* mein khatam ho raha hai.\n\n` +
+      `Aapka *DarziHub* free trial sirf *${daysLeft} din* mein khatam ho raha hai.\n\n` +
       `Trial ke baad *Starter* (free) plan par aa jayenge:\n` +
       `❌ Karigar accounts band\n` +
       `❌ Order tracking band\n` +

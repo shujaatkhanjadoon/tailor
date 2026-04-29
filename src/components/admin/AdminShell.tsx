@@ -1,4 +1,4 @@
-// src/components/admin/AdminShell.tsx
+﻿// src/components/admin/AdminShell.tsx
 'use client'
 
 import { useState, useEffect, useCallback, ReactNode } from 'react'
@@ -42,7 +42,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <Scissors size={16} className="text-white" />
           </div>
           <div>
-            <p className="font-bold text-white text-sm leading-tight">My Darzi</p>
+            <p className="font-bold text-white text-sm leading-tight">DarziHub</p>
             <p className="text-slate-500 text-[10px]">Super Admin</p>
           </div>
         </div>
@@ -95,13 +95,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-950 flex">
 
-      {/* ── Desktop sidebar ── */}
+      {/* â”€â”€ Desktop sidebar â”€â”€ */}
       <aside className="hidden lg:flex flex-col w-60 shrink-0
                         bg-slate-900 border-r border-slate-800 fixed inset-y-0 z-30">
         <NavContent />
       </aside>
 
-      {/* ── Mobile sidebar overlay ── */}
+      {/* â”€â”€ Mobile sidebar overlay â”€â”€ */}
       {sideOpen && (
         <div
           className="fixed inset-0 z-40 lg:hidden"
@@ -111,7 +111,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {/* ── Mobile sidebar drawer ── */}
+      {/* â”€â”€ Mobile sidebar drawer â”€â”€ */}
       <aside className={cn(
         'fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 border-r border-slate-800',
         'transform transition-transform duration-300 ease-in-out lg:hidden',
@@ -128,7 +128,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <NavContent />
       </aside>
 
-      {/* ── Main content area ── */}
+      {/* â”€â”€ Main content area â”€â”€ */}
       <div className="flex-1 lg:ml-60 flex flex-col min-h-screen">
 
         {/* Top bar */}
@@ -158,10 +158,32 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-x-hidden">
+        <main className="flex-1 p-4 pb-24 lg:p-6 overflow-x-hidden">
           {children}
         </main>
       </div>
+
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900 border-t border-slate-800 lg:hidden">
+        <div className="grid grid-cols-5 h-16">
+          {NAV_ITEMS.map(item => {
+            const isActive = pathname === item.href ||
+              (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
+            return (
+              <button
+                key={item.href}
+                onClick={() => router.push(item.href)}
+                className={cn(
+                  'flex flex-col items-center justify-center gap-1 text-[10px] font-medium',
+                  isActive ? 'text-blue-400' : 'text-slate-500'
+                )}
+              >
+                <item.icon size={19} strokeWidth={isActive ? 2.5 : 1.8} />
+                <span className="leading-none">{item.label.replace('All ', '').replace('Audit ', '')}</span>
+              </button>
+            )
+          })}
+        </div>
+      </nav>
     </div>
   )
 }

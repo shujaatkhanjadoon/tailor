@@ -1,4 +1,4 @@
-// src/app/(marketing)/contact/page.tsx
+﻿// src/app/(marketing)/contact/page.tsx
 'use client'
 
 import { useState } from 'react'
@@ -22,7 +22,7 @@ export default function ContactPage() {
           <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
             <Scissors size={13} className="text-white" />
           </div>
-          <span className="font-bold text-slate-700">Darzi Manager</span>
+          <span className="font-bold text-slate-700">DarziHub</span>
         </Link>
       </nav>
 
@@ -47,7 +47,7 @@ export default function ContactPage() {
                 { icon: MapPin,        label:'Location', value:'Lahore, Pakistan', color:'text-red-600', bg:'bg-red-50' },
               ].map(c => (
                 <div key={c.label} className="flex items-center gap-4">
-                  <div className={`w-11 h-11 ${c.bg} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                  <div className={`w-11 h-11 ${c.bg} rounded-xl flex items-center justify-center shrink-0`}>
                     <c.icon size={18} className={c.color} />
                   </div>
                   <div>
@@ -60,7 +60,7 @@ export default function ContactPage() {
 
             <div className="mt-8 bg-blue-50 border border-blue-200 rounded-2xl p-5">
               <h3 className="font-bold text-blue-800 mb-2">Support Hours</h3>
-              <p className="text-sm text-blue-700">Monday – Saturday: 9am – 6pm (PKT)</p>
+              <p className="text-sm text-blue-700">Monday â€“ Saturday: 9am â€“ 6pm (PKT)</p>
               <p className="text-sm text-blue-700 mt-1">WhatsApp support available 7 days/week</p>
             </div>
           </div>
@@ -113,7 +113,7 @@ export default function ContactPage() {
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold
                              py-4 rounded-2xl transition-colors"
                 >
-                  Send Message →
+                  Send Message â†’
                 </button>
               </form>
             )}
