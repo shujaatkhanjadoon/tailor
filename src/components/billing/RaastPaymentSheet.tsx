@@ -13,9 +13,9 @@ import { cn }            from '@/lib/utils'
 
 // ── Read Raast config from env ────────────────────────────────────
 // Set NEXT_PUBLIC_RAAST_ID in .env.local
-const RAAST_ID       = process.env.NEXT_PUBLIC_RAAST_ID       ?? '03XXXXXXXXX'
-const RAAST_NAME     = process.env.NEXT_PUBLIC_RAAST_NAME      ?? 'My Darzi'
-const RAAST_BANK     = process.env.NEXT_PUBLIC_RAAST_BANK      ?? 'Your Bank'
+const RAAST_ID       = process.env.NEXT_PUBLIC_RAAST_ID       ?? '03135931459'
+const RAAST_NAME     = process.env.NEXT_PUBLIC_RAAST_NAME      ?? 'Shujaat Khan'
+const RAAST_BANK     = process.env.NEXT_PUBLIC_RAAST_BANK      ?? 'Bank Alfalah'
 
 interface RaastPaymentSheetProps {
   planId:       PlanId
@@ -52,6 +52,8 @@ export function RaastPaymentSheet({
     `&ref=${paymentRef}`,
     `&desc=${encodeURIComponent(`My Darzi ${planId} ${cycle} ${paymentRef}`)}`,
   ].join('')
+
+  // const raastQRData = RAAST_ID
 
   const copy = async (text: string, key: 'id' | 'amount') => {
     try {
