@@ -110,6 +110,26 @@ export const teamOps = {
     syncQueue.push('update', 'teamMembers', memberId, { isActive: 0 })
   },
 
+  async update(memberId: string, data: Partial<AddTeamMemberData>): Promise<void> {
+    const updates: Partial<TeamMemberRecord> = {
+      name:        data.name,
+      phone:       data.phone,
+      pin:         data.pin,
+      speciality:  data.speciality,
+      payRateType: data.payRateType,
+      payRate:     data.payRate,
+      _synced:     0,
+    }
+
+    Object.keys(updates).forEach((key) => {
+      const typedKey = key as keyof typeof updates
+      if (updates[typedKey] === undefined) delete updates[typedKey]
+    })
+
+    await db.teamMembers.update(memberId, updates)
+    syncQueue.push('update', 'teamMembers', memberId, updates)
+  },
+
   async getByPhone(phone: string): Promise<TeamMemberRecord | undefined> {
     return db.teamMembers.where('phone').equals(phone).first()
   },
@@ -350,14 +370,35 @@ export const paymentOps = {
 
   async add(
     shopId: string,
-    data: Pick<PaymentRecord, 'orderId' | 'amount' | 'method' | 'recordedBy' | 'notes'>
+    data: Pick<PaymentRecord, 'orderId' | 'amount' | 'method' | 'recordedBy' | 'notes'> & {
+      kind?: PaymentRecord['kind']
+      appliedToBalance?: number
+    }
   ): Promise<PaymentRecord> {
+    const existingPayments = await db.payments
+      .where('orderId').equals(data.orderId)
+      .filter(p => p._deleted === 0)
+      .toArray()
+    const order = await db.orders.get(data.orderId)
+    const paidTowardBalance = existingPayments.reduce(
+      (sum, p) => sum + (p.appliedToBalance ?? p.amount),
+      0
+    )
+    const remainingBalance = order
+      ? Math.max(0, order.totalPrice - paidTowardBalance)
+      : data.amount
+    const kind = data.kind ?? 'order_payment'
+    const appliedToBalance = data.appliedToBalance ??
+      (kind === 'order_payment' ? Math.min(data.amount, remainingBalance) : 0)
+
     const payment: PaymentRecord = {
       id:       uuid(),
       shopId,
       paidAt:   now(),
       _synced:  0,
       _deleted: 0,
+      kind,
+      appliedToBalance,
       ...data,
     }
 
@@ -372,10 +413,10 @@ export const paymentOps = {
       // Sum includes the new payment — do NOT add data.amount again
       const totalPaid = allPayments
         .filter(p => p._deleted === 0)
-        .reduce((sum, p) => sum + p.amount, 0)
+        .reduce((sum, p) => sum + (p.appliedToBalance ?? p.amount), 0)
 
       await db.orders.update(data.orderId, {
-        amountPaid: totalPaid,
+        amountPaid: order ? Math.min(totalPaid, order.totalPrice) : totalPaid,
         updatedAt:  now(),
         _synced:    0 as const,
       })

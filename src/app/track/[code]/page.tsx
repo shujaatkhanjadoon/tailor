@@ -11,6 +11,11 @@ import { cn }                   from '@/lib/utils'
 
 const STATUS_STEPS = ['received','cutting','stitching','finishing','ready','delivered'] as const
 type Step = typeof STATUS_STEPS[number]
+type Branding = {
+  name: string
+  color: string
+  logoUrl: string
+}
 
 export default function TrackPage({ params }: { params: Promise<{ code: string }> }) {
   const { code }    = use(params)
@@ -18,6 +23,11 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
 
   const [order,     setOrder]    = useState<OrderRecord | null>(null)
   const [shopName,  setShopName] = useState('')
+  const [branding,  setBranding] = useState<Branding>({
+    name: '',
+    color: '#1d4ed8',
+    logoUrl: '',
+  })
   const [loading,   setLoading]  = useState(true)
   const [error,     setError]    = useState<'invalid' | 'not_found' | null>(null)
 
@@ -55,7 +65,13 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
             updatedAt:           remote.updated_at,
             _synced: 1, _deleted: 0,
           } as OrderRecord)
-          setShopName(remote.shops?.shop_name ?? 'DarziHub')
+          const remoteShop = remote.shops
+          setShopName(remoteShop?.brand_name ?? remoteShop?.shop_name ?? 'DarziHub')
+          setBranding({
+            name: remoteShop?.brand_name ?? remoteShop?.shop_name ?? 'DarziHub',
+            color: remoteShop?.brand_color ?? '#1d4ed8',
+            logoUrl: remoteShop?.brand_logo_url ?? '',
+          })
           setLoading(false)
           return
         }
@@ -70,7 +86,12 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
       if (local) {
         setOrder(local)
         const shop = await db.shop.toCollection().first()
-        setShopName(shop?.shopName ?? '')
+        setShopName(shop?.brandName ?? shop?.shopName ?? '')
+        setBranding({
+          name: shop?.brandName ?? shop?.shopName ?? 'DarziHub',
+          color: shop?.brandColor ?? '#1d4ed8',
+          logoUrl: shop?.brandLogoUrl ?? '',
+        })
       } else {
         setError('not_found')
       }
@@ -165,12 +186,20 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
     <div className="min-h-screen bg-linear-to-b from-slate-50 to-white">
 
       {/* Header */}
-      <div className="bg-linear-to-br from-blue-900 to-blue-700 px-5 pt-12 pb-10 text-center">
+      <div
+        className="px-5 pt-12 pb-10 text-center"
+        style={{ background: `linear-gradient(135deg, ${branding.color}, #0f172a)` }}
+      >
         <div className="w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center
-                        mx-auto mb-4 border border-white/20 shadow-lg">
-          <Scissors size={24} className="text-white" />
+                        mx-auto mb-4 border border-white/20 shadow-lg overflow-hidden">
+          {branding.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={branding.logoUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <Scissors size={24} className="text-white" />
+          )}
         </div>
-        <h1 className="text-lg font-bold text-white mb-0.5">{shopName}</h1>
+        <h1 className="text-lg font-bold text-white mb-0.5">{branding.name || shopName}</h1>
         <p className="text-blue-200 text-sm">Order Tracking</p>
         <code className="inline-block mt-2 bg-white/15 text-blue-100 text-xs
                          font-mono px-3 py-1 rounded-full border border-white/20">
@@ -309,9 +338,14 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
         <div className="text-center pt-2 pb-4">
           <div className="flex items-center justify-center gap-2 mb-1">
             <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center">
-              <Scissors size={12} className="text-white" />
+              {branding.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={branding.logoUrl} alt="" className="w-full h-full object-cover rounded-md" />
+              ) : (
+                <Scissors size={12} className="text-white" />
+              )}
             </div>
-            <span className="text-sm font-bold text-slate-700">DarziHub</span>
+            <span className="text-sm font-bold text-slate-700">{branding.name || 'DarziHub'}</span>
           </div>
           <p className="text-xs text-slate-400">Powered by DarziHub · Pakistan 🇵🇰</p>
         </div>

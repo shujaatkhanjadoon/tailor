@@ -62,8 +62,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Find subscriptions expiring in 1, 3, or 7 days
-    const reminderDays = [7, 3, 1]
+    // Find subscriptions expiring in 5, 3, or 1 days
+    const reminderDays = [5, 3, 1]
 
     for (const days of reminderDays) {
       const targetDate  = new Date(now)

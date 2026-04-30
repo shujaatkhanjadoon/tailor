@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { UserPlus, Trash2, Star, Scissors, Phone } from 'lucide-react'
+import { UserPlus, Trash2, Star, Scissors, Phone, Pencil, X } from 'lucide-react'
 import { TeamMemberRecord } from '@/lib/db/schema'
 import { teamOps } from '@/lib/db/operations'
 import { useAuth } from '@/lib/auth/AuthContext'
@@ -25,6 +25,7 @@ export function TeamManager() {
   const canUsePayReports = plan.plan === 'business' && plan.isActive
   const [members,     setMembers]     = useState<TeamMemberRecord[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
+  const [editingId,   setEditingId]   = useState<string | null>(null)
   const [saving,      setSaving]      = useState(false)
 
   const [form, setForm] = useState({
@@ -39,8 +40,21 @@ export function TeamManager() {
     teamOps.getAll(shopId).then(setMembers)
   }, [shopId])
 
+  const activeKarigars = members.filter(m => m.role === 'karigar').length
+  const isAtKarigarLimit = plan.karigarLimit !== 999 && activeKarigars >= plan.karigarLimit
+  const canAddKarigar = plan.canAddKarigar && !isAtKarigarLimit
+
+  const resetForm = () => {
+    setForm({ name: '', phone: '', pin: '', confirmPin: '', speciality: 'Sab Kuch', payRateType: 'per_order', payRate: '' })
+    setEditingId(null)
+  }
+
   const handleAdd = async () => {
     if (!shopId) return
+    if (!editingId && !canAddKarigar) {
+      alert(`Is plan mein ${plan.karigarLimit} karigar ki limit hai.`)
+      return
+    }
     if (form.pin !== form.confirmPin) {
       alert('PIN match nahi kiya!')
       return
@@ -51,7 +65,31 @@ export function TeamManager() {
     }
     setSaving(true)
     try {
-      const member = await teamOps.add(shopId, {
+      if (editingId) {
+        await teamOps.update(editingId, {
+          name:        form.name,
+          phone:       form.phone,
+          role:        'karigar',
+          pin:         form.pin,
+          speciality:  form.speciality,
+          payRateType: canUsePayReports ? form.payRateType : undefined,
+          payRate:     canUsePayReports ? Number(form.payRate) || 0 : 0,
+        })
+        setMembers(prev => prev.map(m => m.id === editingId
+          ? {
+              ...m,
+              name: form.name,
+              phone: form.phone,
+              pin: form.pin,
+              speciality: form.speciality,
+              payRateType: canUsePayReports ? form.payRateType : undefined,
+              payRate: canUsePayReports ? Number(form.payRate) || 0 : 0,
+              _synced: 0,
+            }
+          : m
+        ))
+      } else {
+        const member = await teamOps.add(shopId, {
         name:        form.name,
         phone:       form.phone,
         role:        'karigar',
@@ -59,13 +97,29 @@ export function TeamManager() {
         speciality:  form.speciality,
         payRateType: canUsePayReports ? form.payRateType : undefined,
         payRate:     canUsePayReports ? Number(form.payRate) || 0 : 0,
-      })
-      setMembers(prev => [...prev, member])
+        })
+        setMembers(prev => [...prev, member])
+      }
       setShowAddForm(false)
-      setForm({ name: '', phone: '', pin: '', confirmPin: '', speciality: 'Sab Kuch', payRateType: 'per_order', payRate: '' })
+      resetForm()
     } finally {
       setSaving(false)
     }
+  }
+
+  const startEdit = (member: TeamMemberRecord) => {
+    setEditingId(member.id)
+    setForm({
+      name: member.name,
+      phone: member.phone,
+      pin: member.pin,
+      confirmPin: member.pin,
+      speciality: member.speciality ?? 'Sab Kuch',
+      payRateType: member.payRateType ?? 'per_order',
+      payRate: member.payRate ? String(member.payRate) : '',
+    })
+    setShowAddForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleDeactivate = async (id: string) => {
@@ -79,18 +133,33 @@ export function TeamManager() {
 
       {/* Add karigar button */}
       <button
-        onClick={() => setShowAddForm(v => !v)}
-        className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white
+        onClick={() => {
+          if (!canAddKarigar && !showAddForm) return
+          if (showAddForm) resetForm()
+          setShowAddForm(v => !v)
+        }}
+        disabled={!canAddKarigar && !showAddForm}
+        className="w-full flex items-center justify-center gap-2 bg-blue-600 disabled:bg-slate-300 text-white
                    font-semibold py-3.5 rounded-2xl transition-colors active:scale-95"
       >
-        <UserPlus size={18} />
-        Naya Karigar Add Karein
+        {showAddForm ? <X size={18} /> : <UserPlus size={18} />}
+        {showAddForm ? 'Form Band Karein' : 'Naya Karigar Add Karein'}
       </button>
+
+      {!canAddKarigar && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {plan.karigarLimit === 0
+            ? 'Karigar accounts Professional plan se unlock hotay hain.'
+            : `Professional plan mein sirf ${plan.karigarLimit} karigar add ho sakte hain. Business plan mein unlimited karigar hain.`}
+        </div>
+      )}
 
       {/* Add form */}
       {showAddForm && (
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-          <p className="font-semibold text-slate-700">Karigar Ki Details</p>
+          <p className="font-semibold text-slate-700">
+            {editingId ? 'Karigar Edit Karein' : 'Karigar Ki Details'}
+          </p>
 
           <input
             placeholder="Naam *"
@@ -198,7 +267,7 @@ export function TeamManager() {
             className="w-full bg-green-600 disabled:bg-slate-300 text-white font-semibold
                        py-3 rounded-xl text-sm transition-colors"
           >
-            {saving ? 'Save ho raha hai...' : 'Karigar Save Karein ✓'}
+            {saving ? 'Save ho raha hai...' : editingId ? 'Changes Save Karein ✓' : 'Karigar Save Karein ✓'}
           </button>
         </div>
       )}
@@ -254,14 +323,24 @@ export function TeamManager() {
                   {member.role === 'owner' ? 'Ustad' : 'Karigar'}
                 </span>
                 {member.role !== 'owner' && (
-                  <button
-                    aria-label={`Remove ${member.name}`}
-                    onClick={() => handleDeactivate(member.id)}
-                    className="w-11 h-11 flex items-center justify-center rounded-full
-                               hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <>
+                    <button
+                      aria-label={`Edit ${member.name}`}
+                      onClick={() => startEdit(member)}
+                      className="w-11 h-11 flex items-center justify-center rounded-full
+                                 hover:bg-blue-50 text-slate-300 hover:text-blue-500 transition-colors"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      aria-label={`Remove ${member.name}`}
+                      onClick={() => handleDeactivate(member.id)}
+                      className="w-11 h-11 flex items-center justify-center rounded-full
+                                 hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </>
                 )}
               </div>
             </div>

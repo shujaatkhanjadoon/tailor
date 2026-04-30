@@ -37,6 +37,7 @@ interface WizardData {
   customerName: string;
   customerPhone: string;
   garmentType: GarmentType;
+  measurementId?: string;
   measurements: Record<string, string>;
   specialInstructions: string;
   isUrgent: boolean;
@@ -87,6 +88,7 @@ function NewOrderWizard({
   currentUser: { id: string; role?: string } | null
 }) {
   const router = useRouter();
+  const plan = usePlan();
   const isSubmittingRef = useRef(false);
 
   // ── Page-level state ─────────────────────────────────────────
@@ -145,6 +147,7 @@ function NewOrderWizard({
         customerName: data.customerName!,
         customerPhone: data.customerPhone!,
         garmentType: data.garmentType,
+        measurementId: data.measurementId,
         status: "received",
         dueDate: data.dueDate,
         totalPrice: data.totalPrice,
@@ -172,7 +175,7 @@ function NewOrderWizard({
         ),
       );
 
-      if (Object.keys(filled).length > 0) {
+      if (!data.measurementId && Object.keys(filled).length > 0) {
         const measurementId = uuid();
 
         // Save measurement record
@@ -217,6 +220,7 @@ function NewOrderWizard({
   // ────────────────────────────────────────────────────────────────
   if (pageStep === "success") {
     const trackUrl = `${window.location.origin}/track/${savedTrackingCode}`;
+    const canShareTracking = plan.canUseTracking;
 
     // Build WhatsApp link with customer's actual number
     const cleanPhone = data.customerPhone
@@ -227,7 +231,7 @@ function NewOrderWizard({
       ? encodeURIComponent(
           `Assalam o Alaikum ${data.customerName}!\n\n` +
             `Aapka order #${String(savedOrderNo).padStart(3, "0")} receive ho gaya hai.\n\n` +
-            `👉 Order track karein:\n${trackUrl}\n\n` +
+            (canShareTracking ? `👉 Order track karein:\n${trackUrl}\n\n` : '') +
             `Tayyar hone par aapko bata diya jayega. Shukriya! 🙏`,
         )
       : null;
@@ -246,17 +250,24 @@ function NewOrderWizard({
           Order #{String(savedOrderNo).padStart(3, "0")} · {data.customerName}
         </p>
 
-        {/* Tracking URL pill */}
-        <div className="bg-slate-100 rounded-2xl px-4 py-2 mb-6 max-w-xs w-full">
-          <p className="text-xs text-slate-500 font-mono truncate">
-            {trackUrl}
-          </p>
-        </div>
+        {canShareTracking ? (
+          <div className="bg-slate-100 rounded-2xl px-4 py-2 mb-6 max-w-xs w-full">
+            <p className="text-xs text-slate-500 font-mono truncate">
+              {trackUrl}
+            </p>
+          </div>
+        ) : (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-6 max-w-xs w-full">
+            <p className="text-xs text-amber-800">
+              Online tracking Professional plan se unlock hoti hai.
+            </p>
+          </div>
+        )}
 
         {/* Action buttons */}
         <div className="flex flex-col gap-3 w-full max-w-xs">
           {/* WhatsApp share — only shows if customer has phone */}
-          {cleanPhone && waMsg && (
+          {canShareTracking && cleanPhone && waMsg && (
             <a
               href={`https://wa.me/${cleanPhone}?text=${waMsg}`}
               target="_blank"

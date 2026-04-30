@@ -34,6 +34,7 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
     "cash" | "easypaisa" | "jazzcash" | "bank"
   >("cash");
   const [notes, setNotes] = useState("");
+  const [surplusKind, setSurplusKind] = useState<"tip" | "overpayment">("tip");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState("");
@@ -69,6 +70,8 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
   const balance = selectedOrder
     ? Math.max(0, selectedOrder.totalPrice - selectedOrder.amountPaid)
     : 0;
+  const enteredAmount = parseInt(amount || "0");
+  const surplus = selectedOrder ? Math.max(0, enteredAmount - balance) : 0;
 
   const handleSave = async () => {
     const amt = parseInt(amount);
@@ -80,7 +83,14 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
         amount: amt,
         method,
         recordedBy: currentUser.id,
-        notes: notes.trim() || undefined,
+        kind: surplus > 0 ? surplusKind : "order_payment",
+        appliedToBalance: surplus > 0 ? balance : Math.min(amt, balance),
+        notes: [
+          notes.trim(),
+          surplus > 0
+            ? `${surplusKind === "tip" ? "Tip" : "Overpayment"}: Rs. ${surplus.toLocaleString()}`
+            : "",
+        ].filter(Boolean).join(" · ") || undefined,
       });
       setSaved(true);
       toast.success("Payment Record Ho Gayi! 💰", {
@@ -330,6 +340,33 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
                       </button>
                     ))}
                 </div>
+                {surplus > 0 && (
+                  <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-xs font-semibold text-amber-800">
+                      Rs. {surplus.toLocaleString()} zyada receive hua. Isay mark karein:
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {[
+                        { key: "tip", label: "Tip" },
+                        { key: "overpayment", label: "Overpayment" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => setSurplusKind(opt.key as "tip" | "overpayment")}
+                          className={cn(
+                            "rounded-xl border py-2 text-xs font-bold",
+                            surplusKind === opt.key
+                              ? "border-amber-600 bg-amber-600 text-white"
+                              : "border-amber-200 bg-white text-amber-800",
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Payment method */}

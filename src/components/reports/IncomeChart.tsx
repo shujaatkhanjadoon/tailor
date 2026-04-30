@@ -42,7 +42,7 @@ export function IncomeChart({ monthly, weekly }: IncomeChartProps) {
   const [view, setView] = useState<'monthly' | 'weekly'>('monthly')
   const [breakdown, setBreakdown] = useState(false)
 
-  const data    = view === 'monthly' ? monthly : weekly
+  const data    = (view === 'monthly' ? monthly : weekly).map(item => ({ ...item }))
   const maxVal  = Math.max(...data.map(d => d.income), 1)
 
   return (

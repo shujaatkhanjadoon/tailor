@@ -14,7 +14,7 @@ type PinStep = 'verify' | 'new' | 'confirm' | 'done'
 
 export default function ChangePinPage() {
   const router             = useRouter()
-  const { currentUser }    = useAuth()
+  const { currentUser, reinitialize } = useAuth()
 
   const [step,      setStep]      = useState<PinStep>('verify')
   const [newPin,    setNewPin]    = useState('')
@@ -52,12 +52,13 @@ export default function ChangePinPage() {
     try {
       await db.teamMembers.update(currentUser.id, { pin, _synced: 0 })
       syncQueue.push('update', 'teamMembers', currentUser.id, { pin })
+      await reinitialize()
       setStep('done')
       setTimeout(() => router.back(), 1500)
     } finally {
       setSaving(false)
     }
-  }, [newPin, currentUser, router])
+  }, [newPin, currentUser, router, reinitialize])
 
   const STEP_CONFIG: Record<PinStep, {
     title: string; subtitle: string
@@ -165,6 +166,7 @@ export default function ChangePinPage() {
             <p className="text-slate-400 text-sm mb-8 text-center">{cfg.subtitle}</p>
 
             <PinPad
+              resetKey={step}
               onComplete={cfg.onComplete}
               error={error}
               onClear={() => setError('')}

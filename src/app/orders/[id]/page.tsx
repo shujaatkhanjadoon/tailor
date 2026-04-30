@@ -3,6 +3,7 @@
 
 import { use, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { QuickPaymentSheet } from '@/components/payments/QuickPaymentSheet'
 import { QRCodeDisplay } from '@/components/orders/QRCodeDisplay'
 import {
@@ -13,13 +14,13 @@ import {
 import { useOrder } from '@/hooks/useOrders'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { paymentOps } from '@/lib/db/operations'
+import { db } from '@/lib/db/schema'
 import { ORDER_STATUS_CONFIG, GARMENT_LABELS, OrderStatus } from '@/types'
 import { StatusUpdateSheet } from '@/components/orders/StatusUpdateSheet'
 import { AssignSheet } from '@/components/orders/AssignSheet'
 import { OrderPhotoSection } from '@/components/photos/OrderPhotoSection'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
-import { FeatureGate } from '@/components/billing/FeatureGate'
 import { usePlan } from '@/hooks/usePlan'
 
 const PAYMENT_METHODS = [
@@ -35,6 +36,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const { isOwner, currentUser } = useAuth()
   const plan = usePlan()
   const { order, payments, history, balance } = useOrder(id)
+  const shop = useLiveQuery(async () => db.shop.toCollection().first(), [])
 
   const [showStatusSheet, setShowStatusSheet] = useState(false)
   const [showAssignSheet, setShowAssignSheet] = useState(false)
@@ -101,17 +103,27 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         isOverdue ? 'bg-red-700' : 'bg-linear-to-br from-blue-900 to-blue-700'
       )}>
         <div className="flex items-center justify-between mb-5">
-          <FeatureGate feature="qr_code" mode="inline">
-          {/* QR Code button */}
-          <button
-            onClick={() => setShowQR(true)}
-            className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30
-               text-white text-sm font-semibold px-3 py-2 rounded-xl transition-colors"
-          >
-            <QrCode size={16} />
-            QR
-          </button>
-          </FeatureGate>
+          {plan.canUseQR ? (
+            <button
+              onClick={() => setShowQR(true)}
+              className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30
+                 text-white text-sm font-semibold px-3 py-2 rounded-xl transition-colors"
+            >
+              <QrCode size={16} />
+              QR
+            </button>
+          ) : (
+            <button
+              type="button"
+              title="Online order tracking aur QR code Professional plan se unlock hotay hain."
+              onClick={() => plan.upgrade('professional')}
+              className="flex items-center gap-1.5 bg-white/15 text-white/80
+                 text-sm font-semibold px-3 py-2 rounded-xl transition-colors"
+            >
+              <QrCode size={16} />
+              Upgrade
+            </button>
+          )}
           <button
             aria-label="Go back"
             onClick={() => router.back()}
@@ -296,12 +308,22 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         <p className="text-xs font-semibold text-slate-700 capitalize">{p.method}</p>
                         <p className="text-[10px] text-slate-400">
                           {format(new Date(p.paidAt), 'd MMM, h:mm a')}
+                          {p.kind && p.kind !== 'order_payment'
+                            ? ` · ${p.kind === 'tip' ? 'Tip' : 'Overpayment'}`
+                            : ''}
                         </p>
                       </div>
                     </div>
-                    <p className="font-bold text-green-700 text-sm">
-                      +Rs.{p.amount.toLocaleString()}
-                    </p>
+                    <div className="text-right">
+                      <p className="font-bold text-green-700 text-sm">
+                        +Rs.{p.amount.toLocaleString()}
+                      </p>
+                      {p.appliedToBalance !== undefined && p.appliedToBalance !== p.amount && (
+                        <p className="text-[10px] text-slate-400">
+                          Rs.{p.appliedToBalance.toLocaleString()} balance
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -444,12 +466,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       )}
 
-      {showQR && (
+      {showQR && plan.canUseQR && (
         <QRCodeDisplay
           orderNumber={order.orderNumber}
           customerName={order.customerName}
           customerPhone={order.customerPhone}
           trackingCode={order.trackingCode}
+          brandName={shop?.brandName ?? shop?.shopName}
+          brandColor={shop?.brandColor}
+          brandLogoUrl={shop?.brandLogoUrl}
           onClose={() => setShowQR(false)}
         />
       )}

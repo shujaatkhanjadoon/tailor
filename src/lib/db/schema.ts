@@ -9,6 +9,9 @@ export interface ShopRecord {
   ownerPhone: string
   whatsappNumber?: string
   city?: string
+  brandName?: string
+  brandColor?: string
+  brandLogoUrl?: string
   isActive?: 0 | 1
   createdAt: string
   updatedAt: string
@@ -94,6 +97,8 @@ export interface PaymentRecord {
   shopId: string
   orderId: string
   amount: number
+  appliedToBalance?: number
+  kind?: 'order_payment' | 'tip' | 'overpayment'
   method: 'cash' | 'easypaisa' | 'jazzcash' | 'bank' | 'other'
   recordedBy: string              // TeamMember.id (owner only)
   paidAt: string
@@ -143,6 +148,7 @@ export interface PhotoRecord {
   sizeKB:       number           // local compressed size
   takenAt:      string
   _synced:      0 | 1
+  _deleted?:    0 | 1
 }
 
 export class TailorDB extends Dexie {
@@ -159,17 +165,17 @@ export class TailorDB extends Dexie {
 
   constructor() {
     super('DarziManagerDB')
-    this.version(5).stores({
+    this.version(6).stores({
       shop: 'id, ownerPhone, _synced',
       teamMembers: 'id, shopId, phone, role, isActive, _synced, [shopId+isActive]',
       customers: 'id, shopId, phone, name, _synced, _deleted, lastOrderAt',
       measurements: 'id, customerId, shopId, garmentType, _synced',
       orders: 'id, shopId, orderNumber, trackingCode, customerId, status, assignedTo, dueDate, isUrgent, _synced, _deleted, createdAt',
-      payments: 'id, shopId, orderId, paidAt, _synced',
+      payments: 'id, shopId, orderId, paidAt, kind, _synced',
       orderStatusHistory: 'id, orderId, shopId, changedAt, _synced',
       syncQueue: '++id, table, recordId, createdAt, retries',
       appSettings: 'key',
-      photos: 'id, orderId, shopId, type, _synced',
+      photos: 'id, orderId, shopId, type, _synced, _deleted',
     })
   }
 }

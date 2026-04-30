@@ -55,7 +55,7 @@ export function PhotoCapture({
     async (): Promise<PhotoRecord[]> =>
       db.photos
         .where('orderId').equals(orderId)
-        .filter(p => p.type === type)
+        .filter(p => p.type === type && p._deleted !== 1)
         .sortBy('takenAt'),
     [orderId, type]
   ) ?? []

@@ -2,11 +2,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { AlertCircle, Loader2 } from 'lucide-react'
 import { GarmentType, GARMENT_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
 import { Camera } from 'lucide-react'
 import { compressImage } from '@/lib/photos/compress'
+import { db } from '@/lib/db/schema'
 
 // Measurement fields per garment type
 const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; unit: string }[]> = {
@@ -57,12 +59,15 @@ const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; unit
 interface Step2Props {
   data: {
     garmentType?: GarmentType
+    customerId?: string
+    measurementId?: string
     measurements?: Record<string, string>
     specialInstructions?: string
     isUrgent?: boolean
   }
   onUpdate: (d: Partial<{
     garmentType: GarmentType
+    measurementId: string | undefined
     measurements: Record<string, string>
     specialInstructions: string
     isUrgent: boolean
@@ -94,14 +99,27 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
 
   const selectedType = data.garmentType
   const fields = selectedType ? MEASUREMENT_FIELDS[selectedType] : []
+  const previousMeasurements = useLiveQuery(
+    async () => {
+      if (!data.customerId || !selectedType) return []
+      return db.measurements
+        .where('customerId').equals(data.customerId)
+        .filter(m => m._deleted === 0 && m.garmentType === selectedType)
+        .reverse()
+        .sortBy('takenAt')
+    },
+    [data.customerId, selectedType]
+  ) ?? []
+  const selectedPrevious = previousMeasurements.find(m => m.id === data.measurementId)
 
   const updateMeasurement = (key: string, value: string) => {
     const updated = { ...measurements, [key]: value }
     setMeasurements(updated)
-    onUpdate({ measurements: updated })
+    onUpdate({ measurements: updated, measurementId: undefined })
   }
 
-  const canProceed = !!selectedType
+  const filledCount = Object.values(measurements).filter(v => v && v !== '0').length
+  const canProceed = !!selectedType && (!!data.measurementId || filledCount > 0)
 
   return (
     <div className="space-y-6">
@@ -118,7 +136,10 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
               return (
                 <button
                   key={type}
-                  onClick={() => onUpdate({ garmentType: type })}
+                  onClick={() => {
+                    setMeasurements({})
+                    onUpdate({ garmentType: type, measurements: {}, measurementId: undefined })
+                  }}
                   className={cn(
                     'flex flex-col items-center gap-2 py-4 rounded-2xl border-2',
                     'transition-all active:scale-95',
@@ -168,8 +189,48 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
             Nap (Measurements)
           </p>
           <p className="text-xs text-slate-400 mb-3">
-            Sab fields optional hain — jo ho woh bharein
+            Naye customer/order ke liye nap zaroori hai. Purani nap use karein ya nayi nap bharein.
           </p>
+          {previousMeasurements.length > 0 && (
+            <div className="mb-4 space-y-2">
+              <p className="text-xs font-semibold text-slate-500">Purani nap</p>
+              {previousMeasurements.slice(0, 3).map((m, idx) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => {
+                    setMeasurements(m.values)
+                    onUpdate({ measurementId: m.id, measurements: m.values })
+                  }}
+                  className={cn(
+                    'w-full rounded-xl border px-3 py-2.5 text-left transition-colors',
+                    data.measurementId === m.id
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 bg-white'
+                  )}
+                >
+                  <span className="block text-xs font-bold text-slate-700">
+                    {idx === 0 ? 'Latest nap' : `Purani nap ${idx + 1}`}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] text-slate-400">
+                    {new Date(m.takenAt).toLocaleDateString('en-PK')} · {Object.values(m.values).filter(Boolean).length} fields
+                  </span>
+                </button>
+              ))}
+              {selectedPrevious && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMeasurements({})
+                    onUpdate({ measurementId: undefined, measurements: {} })
+                  }}
+                  className="text-xs font-semibold text-blue-600"
+                >
+                  Nayi nap likhein
+                </button>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             {fields.map(({ key, label, unit }) => (
               <div key={key} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
@@ -182,9 +243,10 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
                     inputMode="decimal"
                     placeholder="0"
                     value={measurements[key] || ''}
+                    disabled={!!selectedPrevious}
                     onChange={e => updateMeasurement(key, e.target.value)}
                     className="flex-1 w-full text-sm font-semibold text-slate-800
-                               bg-transparent outline-none"
+                               bg-transparent outline-none disabled:text-slate-500"
                   />
                   <span className="text-[10px] text-slate-400 shrink-0">{unit}</span>
                 </div>
@@ -267,7 +329,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
                      text-white font-bold py-4 rounded-2xl text-base
                      transition-colors active:scale-[0.98]"
         >
-          {canProceed ? 'Payment Details →' : 'Pehle Kapra Chunein'}
+          {canProceed ? 'Payment Details →' : selectedType ? 'Nap select ya fill karein' : 'Pehle Kapra Chunein'}
         </button>
       </div>
       <div className="h-24 lg:h-0" />

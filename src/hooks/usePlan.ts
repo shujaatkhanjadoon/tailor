@@ -139,8 +139,17 @@ export function usePlan(): PlanState {
 
   // ── Derive values safely ──────────────────────────────────────
 
-  const planId: PlanId    = safePlan(subData?.plan)
-  const status: SubStatus = safeStatus(subData?.status)
+  const rawPlanId: PlanId    = safePlan(subData?.plan)
+  const rawStatus: SubStatus = safeStatus(subData?.status)
+  const rawExpiresAt = subData?.expires_at
+    ? new Date(subData.expires_at as string)
+    : null
+  const isPaidPlanExpired = rawPlanId !== 'starter' &&
+    rawExpiresAt !== null &&
+    rawExpiresAt < new Date() &&
+    rawStatus !== 'trialing'
+  const planId: PlanId    = isPaidPlanExpired ? 'starter' : rawPlanId
+  const status: SubStatus = isPaidPlanExpired ? 'active' : rawStatus
   const planDef           = PLANS[planId]
   const limits            = planDef.limits
 
@@ -150,9 +159,7 @@ export function usePlan(): PlanState {
     ? new Date(subData.trial_ends_at as string)
     : null
 
-  const expiresAt = subData?.expires_at
-    ? new Date(subData.expires_at as string)
-    : null
+  const expiresAt = isPaidPlanExpired ? null : rawExpiresAt
 
   const graceEndsAt = subData?.grace_ends_at
     ? new Date(subData.grace_ends_at as string)

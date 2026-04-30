@@ -57,6 +57,18 @@ function formatCycle(value?: string | null) {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
+function buildExpiryWhatsApp(phone: string, shopName: string, daysLeft: number | null, expiryDate?: string | null) {
+  const cleanPhone = `92${phone.replace(/^0/,'').replace(/\D/g,'')}`
+  const dayText = daysLeft === 1 ? '1 din' : `${daysLeft} din`
+  const msg = encodeURIComponent(
+    `Assalam o Alaikum ${shopName}!\n\n` +
+    `Aapki DarziHub subscription ${daysLeft !== null ? `${dayText} mein` : 'jaldi'} expire ho rahi hai.` +
+    (expiryDate ? `\nExpiry: ${formatDate(expiryDate)}` : '') +
+    `\n\nService continue rakhne ke liye renewal payment bhej dein. Shukriya!`
+  )
+  return `https://wa.me/${cleanPhone}?text=${msg}`
+}
+
 function ShopCard({
   shop,
   onPlanChange,
@@ -79,13 +91,20 @@ function ShopCard({
     : null
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.active
   const Icon = isActiveShop ? cfg.icon : XCircle
+  const shouldWarnExpiry =
+    plan !== 'starter' &&
+    status === 'active' &&
+    daysLeft !== null &&
+    [5, 3, 1].includes(daysLeft)
 
   const [changing, setChanging] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
   const [expanded, setExpanded] = useState(false)
 
-  const waLink = `https://wa.me/92${shop.owner_phone.replace(/^0/,'').replace(/\D/g,'')}`
+  const waLink = shouldWarnExpiry
+    ? buildExpiryWhatsApp(shop.owner_phone, shop.shop_name, daysLeft, expiryDate)
+    : `https://wa.me/92${shop.owner_phone.replace(/^0/,'').replace(/\D/g,'')}`
 
   const handlePlanSelect = async (value: string) => {
     if (!value) return
@@ -183,6 +202,19 @@ function ShopCard({
             <div className="flex items-center gap-2 bg-red-900/30 border border-red-700 rounded-xl px-3 py-2.5">
               <AlertCircle size={14} className="text-red-400" />
               <p className="text-red-300 text-xs">{error}</p>
+            </div>
+          )}
+          {shouldWarnExpiry && (
+            <div className="flex items-start gap-2 bg-amber-900/30 border border-amber-700 rounded-xl px-3 py-2.5">
+              <AlertCircle size={14} className="text-amber-400 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-amber-300 text-xs font-semibold">
+                  Subscription {daysLeft === 1 ? 'kal' : `${daysLeft} din mein`} expire ho rahi hai.
+                </p>
+                <p className="text-amber-200/70 text-[11px] mt-0.5">
+                  WhatsApp button renewal reminder ke message ke sath ready hai.
+                </p>
+              </div>
             </div>
           )}
 

@@ -89,7 +89,7 @@ export function OrderStatusChart({ data, total }: OrderStatusChartProps) {
 
         {/* Legend list */}
         <div className="flex-1 w-full space-y-2">
-          {data
+          {[...data]
             .sort((a, b) => b.count - a.count)
             .map(item => {
               const cfg = ORDER_STATUS_CONFIG[item.status as keyof typeof ORDER_STATUS_CONFIG]

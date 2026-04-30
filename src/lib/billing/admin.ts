@@ -156,7 +156,7 @@ export async function getAllShops() {
   // Fetch in parallel
   const [shops, subscriptions, usages] = await Promise.all([
     sbSelect('shops',
-      'select=id,shop_name,owner_phone,city,plan,created_at,updated_at&order=created_at.desc'
+      'select=id,shop_name,owner_phone,city,plan,is_active,created_at,updated_at&order=created_at.desc'
     ),
     sbSelect('subscriptions',
       'select=shop_id,plan,status,billing_cycle,trial_ends_at,expires_at,grace_ends_at,amount_pkr,created_at,updated_at'

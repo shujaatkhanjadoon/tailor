@@ -164,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const shopId = await shopOps.setup(shopName, ownerPhone)
     const owner  = await teamOps.add(shopId, {
-      name:  ownerName || shopName,
+      name:  ownerName || shopName + ' (Owner)',
       phone: ownerPhone,
       role:  'owner',
       pin,
@@ -172,7 +172,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     localStorage.setItem(SESSION_KEY, JSON.stringify({ memberId: owner.id }))
 
-    // Update state directly — don't call reinitialize (causes loop)
     setState({
       isLoading:   false,
       isSetupDone: true,

@@ -4,7 +4,7 @@
 import { use, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft, Plus, Ruler, Copy, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Plus, Ruler, Copy, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
 import { db, MeasurementRecord } from '@/lib/db/schema'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { GarmentType, GARMENT_LABELS } from '@/types'
@@ -80,26 +80,43 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
   const [notes,         setNotes]         = useState('')
   const [saving,        setSaving]        = useState(false)
   const [expandedId,    setExpandedId]    = useState<string | null>(null)
+  const [editingId,     setEditingId]     = useState<string | null>(null)
+  const [categoryFilter,setCategoryFilter]= useState<GarmentType | 'all'>('all')
 
   const fields = MEASUREMENT_FIELDS[selectedType]
+  const visibleMeasurements = (measurements ?? []).filter(m =>
+    categoryFilter === 'all' || m.garmentType === categoryFilter
+  )
 
   const handleSave = async () => {
     if (!shopId) return
     setSaving(true)
     try {
       const record: MeasurementRecord = {
-        id: uuid(),
+        id: editingId ?? uuid(),
         customerId:  id,
         shopId,
         garmentType: selectedType,
         values,
         notes:       notes || undefined,
-        takenAt:     now(),
+        takenAt:     editingId
+          ? (measurements ?? []).find(m => m.id === editingId)?.takenAt ?? now()
+          : now(),
         _synced:     0,
         _deleted:    0,
       }
-      await db.measurements.add(record)
+      if (editingId) {
+        await db.measurements.update(editingId, {
+          garmentType: record.garmentType,
+          values: record.values,
+          notes: record.notes,
+          _synced: 0,
+        })
+      } else {
+        await db.measurements.add(record)
+      }
       setShowForm(false)
+      setEditingId(null)
       setValues({})
       setNotes('')
       setExpandedId(record.id)
@@ -110,8 +127,19 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
 
   // Copy previous measurements into form
   const copyFromPrevious = (m: MeasurementRecord) => {
+    setEditingId(null)
     setSelectedType(m.garmentType as GarmentType)
     setValues(m.values)
+    setNotes(m.notes ?? '')
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const editMeasurement = (m: MeasurementRecord) => {
+    setEditingId(m.id)
+    setSelectedType(m.garmentType as GarmentType)
+    setValues(m.values)
+    setNotes(m.notes ?? '')
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -140,7 +168,14 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
             </div>
           </div>
           <button
-            onClick={() => setShowForm(v => !v)}
+            onClick={() => {
+              if (showForm) {
+                setEditingId(null)
+                setValues({})
+                setNotes('')
+              }
+              setShowForm(v => !v)
+            }}
             className={cn(
               'flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-xl transition-colors',
               showForm ? 'bg-slate-200 text-slate-700' : 'bg-blue-600 text-white'
@@ -158,7 +193,7 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
         {showForm && (
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
             <div className="bg-blue-600 px-4 py-3">
-              <p className="text-white font-semibold text-sm">Naya Nap Daalo</p>
+              <p className="text-white font-semibold text-sm">{editingId ? 'Nap Edit Karein' : 'Naya Nap Daalo'}</p>
               <p className="text-blue-200 text-xs">Sab fields optional hain — jo ho woh bharein</p>
             </div>
 
@@ -245,7 +280,7 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
               {/* Buttons */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => { setShowForm(false); setValues({}) }}
+                  onClick={() => { setShowForm(false); setEditingId(null); setValues({}); setNotes('') }}
                   className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600
                              font-semibold text-sm"
                 >
@@ -257,7 +292,7 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
                   className="flex-1 py-3 rounded-xl bg-blue-600 disabled:bg-slate-300
                              text-white font-semibold text-sm"
                 >
-                  {saving ? 'Save...' : 'Nap Save Karein ✓'}
+                  {saving ? 'Save...' : editingId ? 'Changes Save Karein ✓' : 'Nap Save Karein ✓'}
                 </button>
               </div>
             </div>
@@ -265,6 +300,35 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
         )}
 
         {/* ── PREVIOUS MEASUREMENTS ── */}
+        {(measurements?.length ?? 0) > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            <button
+              onClick={() => setCategoryFilter('all')}
+              className={cn(
+                'shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold',
+                categoryFilter === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-600'
+              )}
+            >
+              Sab latest
+            </button>
+            {(Object.keys(MEASUREMENT_FIELDS) as GarmentType[]).map(type => {
+              const gc = GARMENT_LABELS[type]
+              return (
+                <button
+                  key={type}
+                  onClick={() => setCategoryFilter(type)}
+                  className={cn(
+                    'shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold',
+                    categoryFilter === type ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-600'
+                  )}
+                >
+                  {gc.emoji} {gc.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {(!measurements || measurements.length === 0) && !showForm ? (
           <div className="text-center py-16">
             <Ruler size={48} className="text-slate-200 mx-auto mb-4" />
@@ -273,7 +337,7 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
           </div>
         ) : (
           <div className="space-y-3">
-            {measurements?.map((m, idx) => {
+            {visibleMeasurements.map((m, idx) => {
               const gc       = GARMENT_LABELS[m.garmentType as GarmentType]
               const isExpanded = expandedId === m.id
               const mFields  = MEASUREMENT_FIELDS[m.garmentType as GarmentType] ?? []
@@ -316,6 +380,15 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
                                    bg-slate-100 hover:bg-blue-100 transition-colors"
                       >
                         <Copy size={13} className="text-slate-500" />
+                      </button>
+                      <button
+                        aria-label="Edit measurements"
+                        onClick={e => { e.stopPropagation(); editMeasurement(m) }}
+                        title="Edit nap"
+                        className="w-11 h-11 flex items-center justify-center rounded-full
+                                   bg-slate-100 hover:bg-blue-100 transition-colors"
+                      >
+                        <Pencil size={13} className="text-slate-500" />
                       </button>
                       {isExpanded
                         ? <ChevronUp size={16} className="text-slate-400" />

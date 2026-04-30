@@ -110,7 +110,7 @@ export default function AuthPage() {
       return;
     }
 
-    // Require internet for all auth operations.
+     // Require internet for all auth operations.
     // This prevents duplicate accounts on multiple devices
     if (!navigator.onLine) {
       setError(
@@ -177,6 +177,9 @@ export default function AuthPage() {
             ownerPhone: shopRow.owner_phone,
             whatsappNumber: shopRow.whatsapp_number ?? undefined,
             city: shopRow.city ?? undefined,
+            brandName: shopRow.brand_name ?? undefined,
+            brandColor: shopRow.brand_color ?? undefined,
+            brandLogoUrl: shopRow.brand_logo_url ?? undefined,
             isActive: shopRow.is_active === false ? 0 : 1,
             createdAt: shopRow.created_at,
             updatedAt: shopRow.updated_at,

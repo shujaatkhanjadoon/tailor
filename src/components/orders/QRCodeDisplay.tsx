@@ -11,6 +11,9 @@ interface QRCodeDisplayProps {
   customerName:  string
   customerPhone?: string
   trackingCode?: string    // preferred — globally unique
+  brandName?:     string
+  brandColor?:    string
+  brandLogoUrl?:  string
   onClose:       () => void
 }
 
@@ -19,6 +22,9 @@ export function QRCodeDisplay({
   customerName,
   customerPhone,
   trackingCode,
+  brandName,
+  brandColor = '#2563eb',
+  brandLogoUrl,
   onClose,
 }: QRCodeDisplayProps) {
   const [copied, setCopied] = useState(false)
@@ -101,11 +107,25 @@ export function QRCodeDisplay({
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div>
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className="w-11 h-11 rounded-2xl flex items-center justify-center text-white overflow-hidden shrink-0"
+              style={{ background: brandColor }}
+            >
+              {brandLogoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={brandLogoUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <QrCode size={18} />
+              )}
+            </div>
+            <div className="min-w-0">
+              {brandName && <p className="text-xs font-bold text-slate-500 truncate">{brandName}</p>}
             <h3 className="font-bold text-slate-800">Order Tracking</h3>
             <p className="text-xs text-slate-400 mt-0.5">
               #{String(orderNumber).padStart(3,'0')} · {customerName}
             </p>
+            </div>
           </div>
           <button
             aria-label="Close QR code"

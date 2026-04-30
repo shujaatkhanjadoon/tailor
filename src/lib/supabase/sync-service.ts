@@ -4,6 +4,7 @@ import { db }              from '@/lib/db/schema'
 import type {
   ShopRow, TeamMemberRow, CustomerRow,
   MeasurementRow, OrderRow, PaymentRow, StatusHistoryRow,
+  PhotoRow,
 } from './types'
 
 // ── Field mappers: Dexie camelCase → Supabase snake_case ─────────
@@ -15,6 +16,9 @@ function shopToRow(r: any): ShopRow {
     shop_name:       r.shopName,
     whatsapp_number: r.whatsappNumber || undefined,
     city:            r.city           || undefined,
+    brand_name:      r.brandName      || undefined,
+    brand_color:     r.brandColor     || undefined,
+    brand_logo_url:  r.brandLogoUrl   || undefined,
     plan:            'starter',         // new shops always start as starter
     is_active:       r.isActive !== 0,
     created_at:      r.createdAt,
@@ -110,11 +114,32 @@ function paymentToRow(r: any): PaymentRow {
     shop_id:     r.shopId,
     order_id:    r.orderId,
     amount:      r.amount,
+    applied_to_balance: r.appliedToBalance ?? r.amount,
+    kind:        r.kind ?? 'order_payment',
     method:      r.method,
     recorded_by: r.recordedBy,
     paid_at:     r.paidAt,
     notes:       r.notes   || undefined,
     deleted_at:  r._deleted === 1 ? new Date().toISOString() : undefined,
+  }
+}
+
+function photoToRow(r: any): PhotoRow {
+  if (!r.cloudUrl || !r.publicId) {
+    throw new Error(`Photo ${r.id} has no Cloudinary URL — skipping cloud sync`)
+  }
+
+  return {
+    id:             r.id,
+    order_id:       r.orderId,
+    shop_id:        r.shopId,
+    type:           r.type,
+    cloud_url:      r.cloudUrl,
+    public_id:      r.publicId,
+    cloud_size_kb:  r.cloudSizeKB,
+    size_kb:        r.sizeKB,
+    taken_at:       r.takenAt,
+    deleted_at:     r._deleted === 1 ? new Date().toISOString() : undefined,
   }
 }
 
@@ -460,6 +485,16 @@ export const syncService = {
         )
       }
 
+      // ── STEP 8: Cloudinary photo metadata ───────────────────────
+      const photos = await db.photos
+        .where('shopId').equals(shopId)
+        .filter(p => p._synced === 0 && !!p.cloudUrl && !!p.publicId)
+        .toArray()
+      await push<PhotoRow>(
+        'order_photos', photos, photoToRow,
+        db.photos, photos.map(p => p.id)
+      )
+
     } catch (e) {
       const msg = `Unexpected push error: ${String(e)}`
       console.error('[Sync]', msg)
@@ -558,6 +593,10 @@ export const syncService = {
           shopId:      p.shop_id,
           orderId:     p.order_id,
           amount:      Number(p.amount),
+          appliedToBalance: p.applied_to_balance === null || p.applied_to_balance === undefined
+            ? Number(p.amount)
+            : Number(p.applied_to_balance),
+          kind:        p.kind ?? 'order_payment',
           method:      p.method,
           recordedBy:  p.recorded_by,
           paidAt:      p.paid_at,
@@ -641,6 +680,30 @@ export const syncService = {
         }
       }
 
+      const { data: photos } = await (supabase as any)
+        .from('order_photos')
+        .select('*')
+        .eq('shop_id', shopId)
+        .is('deleted_at', null)
+
+      if (photos && photos.length > 0) {
+        await db.photos.bulkPut(photos.map((p: any) => ({
+          id:          p.id,
+          orderId:     p.order_id,
+          shopId:      p.shop_id,
+          type:        p.type,
+          base64:      '',
+          cloudUrl:    p.cloud_url,
+          publicId:    p.public_id,
+          cloudSizeKB: p.cloud_size_kb ?? undefined,
+          sizeKB:      p.size_kb ?? 0,
+          takenAt:     p.taken_at,
+          _synced:     1,
+          _deleted:    0,
+        })))
+        console.log(`[Sync] Pulled ${photos.length} photo records`)
+      }
+
       console.log('[Sync] ✓ pullAll complete')
 
     } catch (e) {
@@ -655,7 +718,7 @@ export const syncService = {
     try {
       const { data, error } = await (supabase as any)
         .from('orders')
-        .select(`*, shops(shop_name, whatsapp_number, city)`)
+        .select(`*, shops(shop_name, whatsapp_number, city, brand_name, brand_color, brand_logo_url)`)
         .eq('tracking_code', code.toUpperCase())
         .is('deleted_at', null)
         .maybeSingle()
@@ -675,7 +738,7 @@ export const syncService = {
     try {
       const { data, error } = await (supabase as any)
         .from('orders')
-        .select(`*, shops(shop_name, whatsapp_number, city)`)
+        .select(`*, shops(shop_name, whatsapp_number, city, brand_name, brand_color, brand_logo_url)`)
         .eq('order_number', orderNumber)
         .is('deleted_at', null)
         .maybeSingle()

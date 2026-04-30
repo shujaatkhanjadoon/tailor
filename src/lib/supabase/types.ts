@@ -34,6 +34,11 @@ export interface Database {
         Insert: PaymentRow
         Update: Partial<PaymentRow>
       }
+      order_photos: {
+        Row:    PhotoRow
+        Insert: PhotoRow
+        Update: Partial<PhotoRow>
+      }
       order_status_history: {
         Row:    StatusHistoryRow
         Insert: StatusHistoryRow
@@ -49,6 +54,9 @@ export interface ShopRow {
   shop_name:        string
   whatsapp_number?: string
   city?:            string
+  brand_name?:      string
+  brand_color?:     string
+  brand_logo_url?:  string
   plan:             'starter' | 'professional' | 'enterprise'
   plan_expires_at?: string
   is_active:        boolean
@@ -130,11 +138,26 @@ export interface PaymentRow {
   shop_id:      string
   order_id:     string
   amount:       number
+  applied_to_balance?: number
+  kind?:        'order_payment' | 'tip' | 'overpayment'
   method:       string
   recorded_by:  string
   paid_at:      string
   notes?:       string
   deleted_at?:  string
+}
+
+export interface PhotoRow {
+  id:            string
+  order_id:      string
+  shop_id:       string
+  type:          'fabric' | 'style' | 'reference'
+  cloud_url?:    string
+  public_id?:    string
+  cloud_size_kb?: number
+  size_kb:       number
+  taken_at:      string
+  deleted_at?:   string
 }
 
 export interface StatusHistoryRow {

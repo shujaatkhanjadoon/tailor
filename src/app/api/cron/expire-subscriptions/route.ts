@@ -43,18 +43,24 @@ export async function GET(req: NextRequest) {
   const results = { graceStarted: 0, graceLapsed: 0, expired: 0, errors: [] as string[] }
 
   try {
-    // 1. Active past expiry → grace period
-    const toGrace = await sbGet(
+    // 1. Active past expiry → Starter immediately
+    const expiredPaid = await sbGet(
       `subscriptions?status=eq.active&expires_at=lt.${now}&expires_at=not.is.null&select=id,shop_id,expires_at`
     )
-    for (const sub of toGrace) {
+    for (const sub of expiredPaid) {
       try {
-        const graceEnd = new Date(sub.expires_at)
-        graceEnd.setDate(graceEnd.getDate() + 7)
         await sbPatch(`subscriptions?id=eq.${sub.id}`, {
-          status: 'grace', grace_ends_at: graceEnd.toISOString(), updated_at: now,
+          status: 'active',
+          plan: 'starter',
+          billing_cycle: null,
+          expires_at: null,
+          grace_ends_at: null,
+          updated_at: now,
         })
-        results.graceStarted++
+        await sbPatch(`shops?id=eq.${sub.shop_id}`, {
+          plan: 'starter', updated_at: now,
+        })
+        results.expired++
       } catch (e) { results.errors.push(String(e)) }
     }
 
@@ -65,7 +71,7 @@ export async function GET(req: NextRequest) {
     for (const sub of toLapse) {
       try {
         await sbPatch(`subscriptions?id=eq.${sub.id}`, {
-          status: 'expired', updated_at: now,
+          status: 'active', plan: 'starter', billing_cycle: null, expires_at: null, updated_at: now,
         })
         await sbPatch(`shops?id=eq.${sub.shop_id}`, {
           plan: 'starter', updated_at: now,
@@ -81,7 +87,7 @@ export async function GET(req: NextRequest) {
     for (const sub of trialLapsed) {
       try {
         await sbPatch(`subscriptions?id=eq.${sub.id}`, {
-          status: 'expired', plan: 'starter', updated_at: now,
+          status: 'active', plan: 'starter', billing_cycle: null, expires_at: null, updated_at: now,
         })
         await sbPatch(`shops?id=eq.${sub.shop_id}`, {
           plan: 'starter', updated_at: now,

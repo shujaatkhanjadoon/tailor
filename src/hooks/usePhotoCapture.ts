@@ -73,7 +73,7 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
             cloudUrl:  uploaded.url,
             publicId:  uploaded.publicId,
             cloudSizeKB: Math.round(uploaded.bytes / 1024),
-            _synced:   1,
+            _synced:   0,
           })
           photo.cloudUrl = uploaded.url
         }
@@ -118,11 +118,14 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
     setDeletingId(photo.id)
     try {
       // Delete from Cloudinary if uploaded
-      if (canSyncImages && photo.publicId) {
+      if (photo.publicId) {
         await deleteFromCloudinary(photo.publicId)
       }
-      // Delete from IndexedDB
-      await db.photos.delete(photo.id)
+      if (photo.cloudUrl && photo.publicId) {
+        await db.photos.update(photo.id, { _deleted: 1, _synced: 0 })
+      } else {
+        await db.photos.delete(photo.id)
+      }
     } catch (e) {
       console.error('Delete failed:', e)
     } finally {

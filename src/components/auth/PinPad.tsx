@@ -13,6 +13,7 @@ interface PinPadProps {
   disabled?:    boolean
   label?:       string
   sublabel?:    string
+  resetKey?:    string | number
 }
 
 const KEYS = ['1','2','3','4','5','6','7','8','9','','0','⌫']
@@ -25,6 +26,7 @@ export function PinPad({
   disabled  = false,
   label     = 'PIN daalein',
   sublabel,
+  resetKey,
 }: PinPadProps) {
   const [pin,    setPin]    = useState('')
   const [shake,  setShake]  = useState(false)
@@ -38,6 +40,11 @@ export function PinPad({
       return () => clearTimeout(t)
     }
   }, [error])
+
+  useEffect(() => {
+    setPin('')
+    setShake(false)
+  }, [resetKey])
 
   // Auto-submit when full
   useEffect(() => {
