@@ -67,7 +67,7 @@ export interface DashboardStats {
 // Status display config — Roman Urdu labels + colors + emoji
 export const ORDER_STATUS_CONFIG: Record<
   OrderStatus,
-  { label: string; emoji: string; color: string; bg: string; border: string }
+  { label: string; emoji: string; color: string; bg: string; border: string}
 > = {
   received: {
     label: 'Kapra Mila',
