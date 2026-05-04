@@ -138,6 +138,14 @@ export async function GET(req: NextRequest) {
         })
       }
 
+      case 'pending_verifications': {
+  const verifications = await sbGet(
+    'shop_verification_requests?status=eq.pending&order=requested_at.desc&select=*'
+  )
+  const shopIds = verifications.map((v: any) => v.shop_id).join(',')
+  return NextResponse.json({ data: verifications})
+}
+
       default:
         return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
     }

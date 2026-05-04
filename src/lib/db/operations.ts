@@ -43,6 +43,27 @@ export const shopOps = {
     return setting ? JSON.parse(setting.value) : null
   },
 
+  async setupWithId(id: string, shopName: string, ownerPhone: string): Promise<string> {
+    const existing = await db.shop.toCollection().first()
+    if (existing) return existing.id
+
+    await db.shop.put({
+      id,
+      shopName,
+      ownerPhone,
+      isActive:  1,
+      createdAt: now(),
+      updatedAt: now(),
+      _synced:   1,    // ← already in Supabase, mark as synced
+      _deleted:  0,
+    })
+    await db.appSettings.put({
+      key:   'shopId',
+      value: JSON.stringify(id),
+    })
+    return id
+  },
+
   async setup(shopName: string, ownerPhone: string): Promise<string> {
     const existing = await db.shop.toCollection().first()
     if (existing) return existing.id
@@ -74,6 +95,30 @@ export const teamOps = {
       .where('shopId').equals(shopId)
       .filter(m => m.isActive === 1 && m._deleted === 0)
       .toArray()
+  },
+  // Add to teamOps in src/lib/db/operations.ts
+
+  // addWithId — use a pre-generated ID (from server)
+  async addWithId(shopId: string, id: string, data: AddTeamMemberData): Promise<TeamMemberRecord> {
+    const member: TeamMemberRecord = {
+      id,
+      shopId,
+      name:        data.name,
+      phone:       data.phone,
+      role:        data.role,
+      pin:         data.pin,
+      speciality:  data.speciality,
+      payRateType: data.payRateType,
+      payRate:     data.payRate,
+      isActive:    1,
+      joinedAt:    today(),
+      createdAt:   now(),
+      _synced:     1,    // ← already in Supabase
+      _deleted:    0,
+    }
+    // put (not add) so it overwrites if somehow already exists
+    await db.teamMembers.put(member)
+    return member
   },
 
   // Uses named AddTeamMemberData interface — TypeScript cannot

@@ -1,779 +1,1396 @@
 // src/app/auth/page.tsx
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Scissors,
   Phone,
-  CheckCircle2,
-  ArrowLeft,
+  User,
   Store,
+  Eye,
+  EyeOff,
   Loader2,
+  CheckCircle2,
+  Mail,
+  ShieldCheck,
   AlertCircle,
-  MessageCircle,
+  ArrowLeft,
+  MapPin,
+  Lock,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { supabase } from "@/lib/supabase/client";
 import { syncService } from "@/lib/supabase/sync-service";
-import { useAuth } from "@/lib/auth/AuthContext";
-import { PinPad } from "@/components/auth/PinPad";
 import { db } from "@/lib/db/schema";
+import { validatePakistaniPhone } from "@/lib/security/phone";
+import { validatePIN, getPINStrength } from "@/lib/security/pin";
+import { verifyPIN } from "@/lib/security/pin";
 import { cn } from "@/lib/utils";
 
+// ── Step Types ────────────────────────────────────────────────────
 type Step =
   | "phone"
   | "pin_login"
+  | "setup_email"
+  | "setup_otp"
   | "setup_name"
+  | "setup_shop"
   | "setup_pin"
-  | "setup_confirm";
+  | "setup_confirm_pin"
+  | "setup_verify_request";
 
-const OWNER_DEACTIVATED_MESSAGE =
-  "The shop account associated with this number has been deactivated.";
-const KARIGAR_DEACTIVATED_MESSAGE =
-  "This shop has been deactivated. Please contact your shop admin or support.";
-const ADMIN_WHATSAPP =
-  process.env.NEXT_PUBLIC_ADMIN_WHATSAPP?.replace(/\D/g, "") || "923135931459";
+// ── PIN Input Component ───────────────────────────────────────────
+function PINInput({
+  length = 8,
+  value,
+  onChange,
+  masked = true,
+  label,
+  error,
+  disabled = false,
+}: {
+  length?: number;
+  value: string;
+  onChange: (v: string) => void;
+  masked?: boolean;
+  label?: string;
+  error?: string;
+  disabled?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const chars = value.padEnd(length, "").split("").slice(0, length);
 
-export default function AuthPage() {
-  const {
-    login,
-    setupShop,
-    reinitialize,
-    currentUser,
-    isLoading: authLoading,
-  } = useAuth();
+  return (
+    <div>
+      {label && (
+        <label className="block text-sm font-semibold text-slate-700 mb-3">
+          {label}
+        </label>
+      )}
 
-  const [step, setStep] = useState<Step>("phone");
-  const [phone, setPhone] = useState("");
-  const [shopName, setShopName] = useState("");
-  const [ownerName, setOwnerName] = useState("");
-  const [pin, setPin] = useState("");
-  const [pinError, setPinError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [blockedWhatsapp, setBlockedWhatsapp] = useState(false);
-  const [shopDisplay, setShopDisplay] = useState("");
+      {/* Visual dots */}
+      <div
+        className="flex gap-2 justify-center mb-3 cursor-text"
+        onClick={() => inputRef.current?.focus()}
+      >
+        {Array.from({ length }).map((_, i) => {
+          const filled = i < value.length;
+          return (
+            <div
+              key={i}
+              className={cn(
+                "w-10 h-12 rounded-xl border-2 flex items-center justify-center",
+                "text-xl font-bold transition-all",
+                filled && !masked
+                  ? "border-blue-500 bg-blue-50 text-blue-800"
+                  : filled
+                    ? "border-blue-500 bg-blue-600"
+                    : value.length === i
+                      ? "border-blue-500 bg-white scale-105 shadow-sm"
+                      : "border-slate-200 bg-white",
+              )}
+            >
+              {filled && !masked ? (
+                chars[i]
+              ) : filled ? (
+                <div className="w-2.5 h-2.5 rounded-full bg-white" />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
 
-  const isSubmittingRef = useRef(false);
-  const hasRedirected = useRef(false)
+      {/* Hidden input */}
+      <input
+        ref={inputRef}
+        type="tel"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        maxLength={length}
+        value={value}
+        onChange={(e) =>
+          onChange(e.target.value.replace(/\D/g, "").slice(0, length))
+        }
+        disabled={disabled}
+        autoFocus
+        className="sr-only"
+      />
 
-  const redirectOnce = useCallback((target: string) => {
-    if (hasRedirected.current) return
-    hasRedirected.current = true
-    window.location.replace(target)
-  }, [])
+      {/* Tap area */}
+      <button
+        type="button"
+        onClick={() => inputRef.current?.focus()}
+        className={cn(
+          "w-full py-3 rounded-xl border-2 text-sm font-medium transition-colors",
+          disabled ? "opacity-50 cursor-not-allowed" : "cursor-text",
+          error
+            ? "border-red-300 bg-red-50 text-red-500"
+            : "border-slate-200 bg-slate-50 text-slate-400 hover:border-blue-400",
+        )}
+      >
+        {error ?? `Tap karein aur ${length}-digit PIN daalein`}
+      </button>
+    </div>
+  );
+}
 
-  const getRedirectTarget = useCallback((fallback: string) => {
-    if (typeof window === "undefined") return fallback;
+// ── OTP Input Component ───────────────────────────────────────────
+function OTPInput({
+  value,
+  onChange,
+  error,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  error?: string;
+  disabled?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
 
-    const requested = new URLSearchParams(window.location.search).get("redirect");
-    if (!requested) return fallback;
-
-    try {
-      const parsed = new URL(requested, window.location.origin);
-      const target = `${parsed.pathname}${parsed.search}${parsed.hash}`;
-
-      if (
-        parsed.origin !== window.location.origin ||
-        parsed.pathname === "/auth" ||
-        parsed.pathname === "/login" ||
-        parsed.pathname === "/setup" ||
-        parsed.pathname.startsWith("/admin")
-      ) {
-        return fallback;
-      }
-
-      return target;
-    } catch {
-      return fallback;
-    }
+  useEffect(() => {
+    setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
-  // Already logged in -> redirect
+  return (
+    <div>
+      <div
+        className="flex gap-2 justify-center mb-3 cursor-text"
+        onClick={() => inputRef.current?.focus()}
+      >
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className={cn(
+              "w-11 h-14 rounded-xl border-2 flex items-center justify-center",
+              "text-xl font-bold transition-all",
+              i < value.length
+                ? "border-blue-500 bg-blue-50 text-blue-800"
+                : value.length === i
+                  ? "border-blue-500 scale-105 shadow-sm bg-white"
+                  : "border-slate-200 bg-white text-slate-300",
+            )}
+          >
+            {value[i] ?? "·"}
+          </div>
+        ))}
+      </div>
+
+      <input
+        ref={inputRef}
+        type="tel"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        maxLength={6}
+        value={value}
+        onChange={(e) =>
+          onChange(e.target.value.replace(/\D/g, "").slice(0, 6))
+        }
+        disabled={disabled}
+        autoFocus
+        className="sr-only"
+      />
+
+      <button
+        type="button"
+        onClick={() => inputRef.current?.focus()}
+        className={cn(
+          "w-full py-3 rounded-xl border-2 text-sm font-medium transition-colors",
+          error
+            ? "border-red-300 bg-red-50 text-red-500"
+            : "border-slate-200 bg-slate-50 text-slate-400 hover:border-blue-400",
+        )}
+      >
+        {error ?? "Tap karein aur 6-digit code daalein"}
+      </button>
+    </div>
+  );
+}
+
+// ── Main Auth Content ─────────────────────────────────────────────
+function AuthContent() {
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") ?? "/dashboard";
+  const {
+    currentUser,
+    isLoading: authLoading,
+    setupShop,
+    reinitialize,
+  } = useAuth();
+
+  // ── Form state ─────────────────────────────────────────────────
+  const [step, setStep] = useState<Step>("phone");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [ownerName, setOwnerName] = useState("");
+  const [shopName, setShopName] = useState("");
+  const [city, setCity] = useState("");
+  const [showPin, setShowPin] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [maskedEmail, setMaskedEmail] = useState("");
+  const [shopDisplay, setShopDisplay] = useState("");
+  const [lockoutEnd, setLockoutEnd] = useState<Date | null>(null);
+  const [newShopId, setNewShopId] = useState("");
+  const isSubmittingRef = useRef(false);
+  const [isOnline, setIsOnline] = useState(true);
+
+  // Redirect if already logged in
   useEffect(() => {
-    if (authLoading) return
-    if (!currentUser) return
-    if (hasRedirected.current) return
+  if (authLoading) return
+  if (!currentUser) return
+  // Don't redirect during new account setup steps
+  if (['setup_email','setup_otp','setup_name','setup_shop',
+       'setup_pin','setup_confirm_pin','setup_verify_request'
+      ].includes(step)) return
+  window.location.href =
+    currentUser.role === 'karigar' ? '/karigar' : '/dashboard'
+}, [currentUser, authLoading, step])
 
-    const fallback = currentUser.role === 'karigar' ? '/karigar' : '/dashboard'
-    const dest = getRedirectTarget(fallback)
+useEffect(() => {
+      setIsOnline(navigator.onLine);
+      const onOnline = () => setIsOnline(true);
+      const onOffline = () => setIsOnline(false);
+      window.addEventListener("online", onOnline);
+      window.addEventListener("offline", onOffline);
+      return () => {
+        window.removeEventListener("online", onOnline);
+        window.removeEventListener("offline", onOffline);
+      };
+    }, []);
 
-    redirectOnce(dest)
-  }, [currentUser, authLoading, getRedirectTarget, redirectOnce])
+  // ── Lockout countdown ─────────────────────────────────────────
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+  useEffect(() => {
+    if (!lockoutEnd) return;
+    const interval = setInterval(() => {
+      const secs = Math.max(
+        0,
+        Math.ceil((lockoutEnd.getTime() - Date.now()) / 1000),
+      );
+      setLockoutSeconds(secs);
+      if (secs === 0) {
+        setLockoutEnd(null);
+        clearInterval(interval);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutEnd]);
 
-  // Step 1: Check phone
+  // ── Helper: log attempt ───────────────────────────────────────
+  const logAttempt = useCallback(
+    (success: boolean, reason?: string) => {
+      fetch("/api/auth/log-attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, success, failureReason: reason }),
+      }).catch(() => {});
+    },
+    [phone],
+  );
 
+  // ── STEP: Phone check ─────────────────────────────────────────
   const handlePhoneSubmit = useCallback(async () => {
     if (loading) return;
-    const cleaned = phone.replace(/\D/g, "");
-    if (cleaned.length < 10) {
-      setError("Sahi phone number daalein (10-11 digits)");
+    const result = validatePakistaniPhone(phone);
+    if (!result.valid) {
+      setError(result.error!);
       return;
     }
+    setLoading(true);
+    setError("");
 
-     // Require internet for all auth operations.
-    // This prevents duplicate accounts on multiple devices
-    if (!navigator.onLine) {
-      setError(
-        "Account ke liye internet zaroor hai. WiFi ya mobile data on karein.",
+    try {
+      // Check Supabase for existing account
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members` +
+          `?phone=eq.${result.cleaned}&is_active=eq.true&deleted_at=is.null` +
+          `&select=id,name,role,shop_id,pin_hash,locked_until,failed_attempts`,
+        {
+          headers: {
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+          },
+        },
       );
+      const members: any[] = await res.json();
+
+      if (members && members.length > 0) {
+        const member = members[0];
+
+        // Check lockout
+        if (member.locked_until && new Date(member.locked_until) > new Date()) {
+          const end = new Date(member.locked_until);
+          setLockoutEnd(end);
+          setError(
+            `Account lock hai. ${Math.ceil((end.getTime() - Date.now()) / 60000)} minute mein try karein.`,
+          );
+          setLoading(false);
+          return;
+        }
+
+        // Get shop name for display
+        if (member.shop_id) {
+          const shopRes = await fetch(
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/shops?id=eq.${member.shop_id}&select=shop_name`,
+            {
+              headers: {
+                apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+              },
+            },
+          );
+          const shops: any[] = await shopRes.json();
+          if (shops?.[0]) setShopDisplay(shops[0].shop_name);
+        }
+
+        setStep("pin_login");
+      } else {
+        // New user
+        setStep("setup_email");
+      }
+    } catch {
+      setError("Server se connect nahi ho saka. Dobara try karein.");
+    } finally {
+      setLoading(false);
+    }
+  }, [phone, loading]);
+
+  // ── STEP: PIN login ───────────────────────────────────────────
+  const handlePINLogin = useCallback(
+    async (enteredPin: string) => {
+      if (enteredPin.length !== 8 || loading) return;
+      setLoading(true);
+      setPinError("");
+
+      try {
+        // Get member with PIN hash
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members` +
+            `?phone=eq.${phone.replace(/\D/g, "")}&is_active=eq.true&deleted_at=is.null` +
+            `&select=*`,
+          {
+            headers: {
+              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+              Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+            },
+          },
+        );
+        const members: any[] = await res.json();
+        const member = members?.[0];
+
+        if (!member) {
+          setPinError("Account nahi mila.");
+          setLoading(false);
+          return;
+        }
+
+        // Verify PIN (supports both bcrypt and legacy plaintext)
+        const isValid = await verifyPIN(enteredPin, member.pin_hash);
+
+        if (!isValid) {
+          const newFailed = (member.failed_attempts ?? 0) + 1;
+          const lockout = newFailed >= 5;
+
+          // Update failed attempts in Supabase
+          const lockUntil = lockout
+            ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+            : null;
+
+          await fetch(
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members?id=eq.${member.id}`,
+            {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+                Prefer: "return=minimal",
+              },
+              body: JSON.stringify({
+                failed_attempts: newFailed,
+                ...(lockUntil ? { locked_until: lockUntil } : {}),
+              }),
+            },
+          );
+
+          logAttempt(false, `Wrong PIN (attempt ${newFailed})`);
+
+          if (lockout) {
+            const end = new Date(Date.now() + 15 * 60 * 1000);
+            setLockoutEnd(end);
+            setPinError(
+              "5 baar galat PIN. Account 15 minute ke liye lock ho gaya.",
+            );
+          } else {
+            setPinError(`PIN galat hai. ${5 - newFailed} mauqa baaki hai.`);
+          }
+          setPin("");
+          setLoading(false);
+          return;
+        }
+
+        // Reset failed attempts on success
+        await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members?id=eq.${member.id}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+              Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+              Prefer: "return=minimal",
+            },
+            body: JSON.stringify({
+              failed_attempts: 0,
+              locked_until: null,
+              last_login_at: new Date().toISOString(),
+            }),
+          },
+        );
+
+        logAttempt(true);
+
+        // Pull all data then initialize session
+        await syncService.pullAll(member.shop_id);
+        await reinitialize();
+
+        window.location.href =
+          member.role === "karigar" ? "/karigar" : redirectTo;
+      } catch (e) {
+        setPinError("Login fail ho gaya. Dobara try karein.");
+        console.error("[Auth] Login error:", e);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [phone, loading, logAttempt, reinitialize, redirectTo],
+  );
+
+  // Auto-submit PIN when 8 digits entered
+  useEffect(() => {
+    if (step === "pin_login" && pin.length === 8) {
+      handlePINLogin(pin);
+    }
+  }, [pin, step, handlePINLogin]);
+
+  // ── STEP: Send OTP ────────────────────────────────────────────
+  const handleSendOTP = useCallback(async () => {
+    if (loading) return;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Sahi email address daalein (jaise: name@gmail.com)");
       return;
     }
 
     setLoading(true);
     setError("");
-    setBlockedWhatsapp(false);
 
     try {
-      // Always check Supabase first (source of truth).
-      // Never trust local IndexedDB alone for account existence
-      const { data: remoteMembers, error: fetchError } = await (supabase as any)
-        .from("team_members")
-        .select("id, name, role, shop_id, pin_hash, phone")
-        .eq("phone", cleaned)
-        .eq("is_active", true)
-        .limit(1);
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: phone.replace(/\D/g, ""),
+          email: email.trim().toLowerCase(),
+          purpose: "signup",
+        }),
+      });
+      const data = await res.json();
 
-      if (fetchError) {
-        setError("Server se connect nahi ho saka. Dobara try karein.");
-        setLoading(false);
+      if (!res.ok) {
+        setError(data.error ?? "OTP send nahi ho saka. Dobara try karein.");
         return;
       }
 
-      if (remoteMembers && remoteMembers.length > 0) {
-        // Existing user: pull data and show PIN screen.
-        const remoteMember = remoteMembers[0];
-
-        // Get shop details
-        const { data: shopRow, error: shopError } = await (supabase as any)
-          .from("shops")
-          .select("*")
-          .eq("id", remoteMember.shop_id)
-          .single();
-
-        if (shopError || !shopRow) {
-          setError("Shop record nahi mila. Support se contact karein.");
-          setLoading(false);
-          return;
-        }
-
-        if (shopRow.is_active === false) {
-          setError(
-            remoteMember.role === "owner"
-              ? OWNER_DEACTIVATED_MESSAGE
-              : KARIGAR_DEACTIVATED_MESSAGE,
-          );
-          setBlockedWhatsapp(remoteMember.role === "owner");
-          setLoading(false);
-          return;
-        }
-
-        if (shopRow) {
-          setShopDisplay(shopRow.shop_name);
-
-          // Pull to local IndexedDB so offline works after login
-          await db.shop.put({
-            id: shopRow.id,
-            shopName: shopRow.shop_name,
-            ownerPhone: shopRow.owner_phone,
-            whatsappNumber: shopRow.whatsapp_number ?? undefined,
-            city: shopRow.city ?? undefined,
-            brandName: shopRow.brand_name ?? undefined,
-            brandColor: shopRow.brand_color ?? undefined,
-            brandLogoUrl: shopRow.brand_logo_url ?? undefined,
-            isActive: shopRow.is_active === false ? 0 : 1,
-            createdAt: shopRow.created_at,
-            updatedAt: shopRow.updated_at,
-            _synced: 1,
-            _deleted: 0,
-          });
-
-          await db.appSettings.put({
-            key: "shopId",
-            value: JSON.stringify(shopRow.id),
-          });
-        }
-
-        // Pull all team members for this shop
-        const { data: allMembers } = await (supabase as any)
-          .from("team_members")
-          .select("*")
-          .eq("shop_id", remoteMember.shop_id)
-          .eq("is_active", true);
-
-        if (allMembers) {
-          await db.teamMembers.bulkPut(
-            allMembers.map((m: any) => ({
-              id: m.id,
-              shopId: m.shop_id,
-              name: m.name,
-              phone: m.phone,
-              role: m.role,
-              pin: m.pin_hash,
-              speciality: m.speciality ?? undefined,
-              payRateType: m.pay_rate_type ?? undefined,
-              payRate: m.pay_rate ?? undefined,
-              isActive: m.is_active ? 1 : 0,
-              joinedAt: m.joined_at,
-              createdAt: m.created_at,
-              _synced: 1,
-              _deleted: 0,
-            })),
-          );
-        }
-
-        // Pull orders/customers in background
-        if (remoteMember.shop_id) {
-          syncService.pullAll(remoteMember.shop_id).catch(console.error);
-        }
-
-        await reinitialize();
-        setStep("pin_login");
-      } else {
-        // New user: phone does not exist anywhere, safe to create a new account.
-        setStep("setup_name");
-      }
-    } catch (e) {
-      console.error("[Auth] Phone check error:", e);
-      setError("Kuch masla hua. Internet check karein aur dobara try karein.");
+      setMaskedEmail(data.maskedEmail ?? email);
+      setStep("setup_otp");
+    } catch {
+      setError("Server error. Dobara try karein.");
     } finally {
       setLoading(false);
     }
-  }, [phone, loading, reinitialize]);
+  }, [email, phone, loading]);
 
-  // Step 2a: PIN login
-  const handlePinLogin = useCallback(
-    async (enteredPin: string) => {
-      if (loading) return;
+  // ── STEP: Verify OTP ──────────────────────────────────────────
+  const handleVerifyOTP = useCallback(
+    async (enteredOtp: string) => {
+      if (enteredOtp.length !== 6 || loading) return;
       setLoading(true);
-      setPinError("");
+      setError("");
 
-      const cleaned = phone.replace(/\D/g, "");
-      const success = await login(cleaned, enteredPin);
-
-      setLoading(false);
-
-      if (success) {
-        redirectOnce(getRedirectTarget("/dashboard"))
-      } else {
-        setPinError("Galat PIN! Dobara try karein.");
-      }
-    },
-    [phone, login, loading, getRedirectTarget, redirectOnce],
-  );
-
-  // Step 2b: New user setup
-  const handleSetupNameNext = useCallback(() => {
-    if (shopName.trim().length < 2) {
-      setError("Dukaan ka naam daalein");
-      return;
-    }
-    if (ownerName.trim().length < 2) {
-      setError("Apna naam daalein");
-      return;
-    }
-    setError("");
-    setStep("setup_pin");
-  }, [shopName, ownerName]);
-
-  const handleSetupPin = useCallback((enteredPin: string) => {
-    setPin(enteredPin);
-    setPinError("");
-    setStep("setup_confirm");
-  }, []);
-
-  const handleSetupConfirm = useCallback(
-    async (enteredConfirm: string) => {
-      if (isSubmittingRef.current) return;
-
-      // Require internet for account creation.
-      if (!navigator.onLine) {
-        setPinError("Naya account banane ke liye internet chahiye.");
-        return;
-      }
-
-      if (enteredConfirm !== pin) {
-        setPinError("PIN match nahi kiya! Dobara try karein.");
-        setStep("setup_pin");
-        setPin("");
-        return;
-      }
-
-      // Final duplicate check before creating.
-      // Prevents race condition where two devices hit setup simultaneously
-      const cleaned = phone.replace(/\D/g, "");
       try {
-        const { data: existing } = await (supabase as any)
-          .from("team_members")
-          .select("id")
-          .eq("phone", cleaned)
-          .eq("is_active", true)
-          .limit(1)
-          .maybeSingle();
+        const res = await fetch("/api/auth/verify-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone: phone.replace(/\D/g, ""),
+            otp: enteredOtp,
+          }),
+        });
+        const data = await res.json();
 
-        if (existing) {
-          // Account was just created on another device!
-          setPinError(
-            "Yeh phone number pehle se registered hai. Login karein.",
-          );
-          setStep("phone");
-          setPin("");
+        if (!res.ok) {
+          setError(data.error ?? "Code galat hai.");
+          setOtp("");
           return;
         }
-      } catch (e) {
-        // If check fails, still allow creation (better UX than blocking)
-        console.warn("[Auth] Duplicate check failed:", e);
+
+        setStep("setup_name");
+      } catch {
+        setError("Server error. Dobara try karein.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [phone, loading],
+  );
+
+  // Auto-submit OTP
+  useEffect(() => {
+    if (step === "setup_otp" && otp.length === 6) {
+      handleVerifyOTP(otp);
+    }
+  }, [otp, step, handleVerifyOTP]);
+
+  // ── STEP: Set PIN ─────────────────────────────────────────────
+  const handleSetPin = useCallback(() => {
+    if (pin.length !== 8) return;
+    const validation = validatePIN(pin);
+    if (!validation.valid) {
+      setPinError(validation.error!);
+      setPin("");
+      return;
+    }
+    setPinError("");
+    setStep("setup_confirm_pin");
+  }, [pin]);
+
+  useEffect(() => {
+    if (step === "setup_pin" && pin.length === 8) {
+      handleSetPin();
+    }
+  }, [pin, step, handleSetPin]);
+
+  // ── STEP: Confirm PIN & Create Shop ──────────────────────────
+  const handleConfirmPin = useCallback(
+    async (enteredConfirm: string) => {
+      if (enteredConfirm.length !== 8 || isSubmittingRef.current) return;
+
+      if (enteredConfirm !== pin) {
+        setPinError("PIN match nahi kiya! Pehla PIN dobara try karein.");
+        setStep("setup_pin");
+        setPin("");
+        setConfirmPin("");
+        return;
+      }
+
+      // Final duplicate check
+      const cleaned = phone.replace(/\D/g, "");
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members` +
+            `?phone=eq.${cleaned}&is_active=eq.true&deleted_at=is.null&select=id&limit=1`,
+          {
+            headers: {
+              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+              Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+            },
+          },
+        );
+        const existing: any[] = await res.json();
+        if (existing?.length > 0) {
+          setPinError("Yeh number pehle se registered hai. Login karein.");
+          setStep("phone");
+          return;
+        }
+      } catch {
+        // Network error — continue (will fail at setup if duplicate)
       }
 
       isSubmittingRef.current = true;
       setLoading(true);
+      setPinError("");
 
       try {
-        await setupShop(shopName.trim(), cleaned, pin, ownerName.trim());
-        redirectOnce(getRedirectTarget("/dashboard"));
+        const createdShopId = await setupShop(
+          shopName.trim(),
+          cleaned,
+          pin,
+          ownerName.trim(),
+          email.trim().toLowerCase(),
+          city.trim(),
+        );
+        setNewShopId(createdShopId);
+        setStep("setup_verify_request");
       } catch (e) {
         console.error("[Auth] Setup error:", e);
-        setPinError("Setup fail ho gaya. Dobara try karein.");
-        setStep("setup_pin");
+        setPinError(
+          e instanceof Error ? e.message : "Setup fail. Dobara try karein.",
+        );
         isSubmittingRef.current = false;
       } finally {
         setLoading(false);
       }
     },
-    [pin, shopName, ownerName, phone, setupShop, getRedirectTarget, redirectOnce],
+    [pin, phone, shopName, ownerName, email, city, setupShop],
   );
 
-  const goBack = useCallback(() => {
-    setPinError("");
-    setError("");
-    if (step === "pin_login") setStep("phone");
-    if (step === "setup_name") setStep("phone");
-    if (step === "setup_pin") setStep("setup_name");
-    if (step === "setup_confirm") setStep("setup_pin");
-  }, [step]);
+  // Auto-submit confirm PIN
+  useEffect(() => {
+    if (step === "setup_confirm_pin" && confirmPin.length === 8) {
+      handleConfirmPin(confirmPin);
+    }
+  }, [confirmPin, step, handleConfirmPin]);
 
-  // Loading while auth context initializes.
-  if (authLoading) {
-    return (
-      <div
-        className="min-h-screen bg-linear-to-br from-slate-900 to-blue-950
-                      flex items-center justify-center"
-      >
-        <div className="flex flex-col items-center gap-4">
-          <div
-            className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center
-                          justify-center shadow-xl shadow-blue-900/50"
-          >
-            <Scissors size={26} className="text-white" strokeWidth={1.5} />
-          </div>
-          <div
-            className="w-6 h-6 border-2 border-blue-400 border-t-transparent
-                          rounded-full animate-spin"
-          />
-        </div>
-      </div>
-    );
+  // ── STEP: Submit verification request ────────────────────────
+const handleVerifyRequest = useCallback(async () => {
+  setLoading(true)
+  try {
+    // Verification already submitted during setupShop server call
+    // Just redirect to dashboard
+    await fetch('/api/auth/shop-verify-request', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        shopId:     newShopId,
+        shopName:   shopName.trim(),
+        ownerName:  ownerName.trim(),
+        ownerPhone: phone.replace(/\D/g, ''),
+        ownerEmail: email.trim(),
+        city:       city.trim(),
+      }),
+    }).catch(console.error)   // non-blocking
+  } finally {
+    setLoading(false)
+    window.location.href = '/dashboard'  // ← always /dashboard
   }
+}, [newShopId, shopName, ownerName, phone, email, city])
 
-  const isSetup = step.startsWith("setup");
+  // ── PIN strength indicator ────────────────────────────────────
+  const pinStrength = getPINStrength(pin);
 
+  // ── Render ────────────────────────────────────────────────────
   return (
     <div
-      className="min-h-screen bg-linear-to-br from-slate-900 via-blue-950 to-slate-900
-                    flex flex-col"
+      className="min-h-screen bg-linear-to-br from-slate-900 via-blue-950
+                    to-slate-900 flex flex-col items-center justify-center p-4"
     >
-      {/* Brand header */}
-      <div className="relative shrink-0 pt-14 pb-6 px-6 text-center">
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
-          className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center
-                        mx-auto mb-4 shadow-xl shadow-blue-900/50 border border-blue-500/30"
-        >
-          <Scissors size={28} className="text-white" strokeWidth={1.5} />
-        </div>
-        <h1 className="text-2xl font-bold text-white">DarziHub</h1>
-        <p className="text-blue-300 text-sm mt-1">
-          {isSetup ? "Naya account banayein" : "Apne account mein jayein"}
-        </p>
+          className="absolute top-20 right-10 w-64 h-64 bg-blue-500/5
+                        rounded-full blur-3xl"
+        />
+        <div
+          className="absolute bottom-20 left-10 w-64 h-64 bg-indigo-500/5
+                        rounded-full blur-3xl"
+        />
       </div>
 
-      {/* Main card */}
-      <div className="relative flex-1 flex flex-col min-h-0">
-        <div
-          className="flex-1 bg-white rounded-t-3xl px-5 pt-7 pb-10
-                        overflow-y-auto shadow-2xl sm:mx-auto sm:mb-10
-                        sm:w-full sm:max-w-md sm:rounded-3xl sm:px-6"
-        >
-          {/* Back button */}
-          {step !== "phone" && (
-            <button
-              onClick={goBack}
-              className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700
-                         text-sm font-medium mb-6 transition-colors active:scale-95"
-            >
-              <ArrowLeft size={15} />
-              Wapas
-            </button>
-          )}
+      {/* Card */}
+      <div className="relative w-full max-w-sm">
+        {/* Logo */}
+        <div className="text-center mb-6">
+          <div
+            className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center
+                          justify-center mx-auto mb-4 shadow-xl shadow-blue-900/50"
+          >
+            <Scissors size={28} className="text-white" strokeWidth={1.5} />
+          </div>
+          <h1 className="text-2xl font-bold text-white">My Darzi</h1>
+          <p className="text-slate-400 text-sm mt-1">
+            Pakistan ka Tailor Management App
+          </p>
+        </div>
 
-          {/* Phone entry */}
+        <div className="bg-white rounded-3xl p-6 shadow-2xl shadow-black/30">
+          {/* ── PHONE STEP ── */}
           {step === "phone" && (
             <div>
-              <h2 className="text-xl font-bold text-slate-800 mb-1">
-                Phone Number Daalein
+              <h2 className="text-lg font-bold text-slate-800 mb-1">
+                Shuru Karein
               </h2>
-              <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-                Existing account mein login karein ya naya account banayein -
-                sab kuch automatic hai.
+              <p className="text-slate-400 text-sm mb-5">
+                Apna Pakistani mobile number daalein
               </p>
+
+              {!isOnline && (
+                <div
+                  className="flex items-center gap-2 bg-amber-50 border border-amber-200
+                  rounded-2xl px-4 py-3 mb-4"
+                >
+                  <AlertCircle size={14} className="text-amber-600 shrink-0" />
+                  <p className="text-amber-700 text-xs">
+                    Internet nahi hai — sirf login kar sakte hain
+                  </p>
+                </div>
+              )}
 
               <div
                 className={cn(
-                  "flex items-center gap-2 border-2 rounded-2xl px-4 py-4 mb-2",
-                  "transition-all duration-200",
+                  "flex items-center gap-2 border-2 rounded-2xl px-4 py-3.5 mb-4",
+                  "transition-all",
                   error
                     ? "border-red-400 bg-red-50"
                     : "border-slate-200 bg-slate-50 focus-within:border-blue-500 focus-within:bg-white",
                 )}
               >
-                <span className="text-xl shrink-0">🇵🇰</span>
-                <span className="text-slate-400 font-semibold text-sm shrink-0">
-                  +92
-                </span>
-                <div className="w-px h-5 bg-slate-300 shrink-0" />
+                <Phone size={17} className="text-slate-400 shrink-0" />
                 <input
                   type="tel"
                   inputMode="numeric"
-                  placeholder="03XX-XXXXXXX"
+                  placeholder="0300 1234567"
                   value={phone}
                   onChange={(e) => {
-                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 11));
+                    const val = e.target.value.replace(/\D/g, "").slice(0, 11);
+                    setPhone(val);
                     setError("");
-                    setBlockedWhatsapp(false);
                   }}
+                  maxLength={11}
                   onKeyDown={(e) => e.key === "Enter" && handlePhoneSubmit()}
                   autoFocus
-                  className="flex-1 text-xl font-bold text-slate-800 bg-transparent
-                             outline-none placeholder:text-slate-300 font-mono tracking-wider"
+                  className="flex-1 text-sm bg-transparent outline-none
+                             text-slate-800 placeholder:text-slate-400"
                 />
-                {phone.replace(/\D/g, "").length >= 10 && (
-                  <CheckCircle2 size={20} className="text-green-500 shrink-0" />
-                )}
               </div>
 
               {error && (
-                <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle size={15} className="text-red-500 shrink-0 mt-0.5" />
-                    <p className="text-red-600 text-xs font-semibold leading-relaxed">
-                      {error}
-                    </p>
-                  </div>
-                  {blockedWhatsapp && (
-                    <a
-                      href={`https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent("Assalam o Alaikum, my shop account has been deactivated. Please help.")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-green-700"
-                    >
-                      <MessageCircle size={16} />
-                      Contact Super Admin on WhatsApp
-                    </a>
-                  )}
-                </div>
-              )}
-
-              {/* Offline warning */}
-              {typeof window !== "undefined" && !navigator.onLine && (
                 <div
-                  className="flex items-center gap-2 bg-amber-50 border border-amber-200
-                    rounded-2xl px-4 py-3 mb-3"
+                  className="flex items-center gap-2 bg-red-50 border border-red-200
+                                rounded-xl px-3 py-2.5 mb-4"
                 >
-                  <span className="text-amber-600 text-sm">📡</span>
-                  <p className="text-amber-700 text-xs font-medium">
-                    Internet nahi hai - account create karne ke liye internet
-                    chahiye
-                  </p>
+                  <AlertCircle size={13} className="text-red-500 shrink-0" />
+                  <p className="text-red-600 text-xs">{error}</p>
                 </div>
               )}
 
               <button
                 onClick={handlePhoneSubmit}
                 disabled={loading || phone.replace(/\D/g, "").length < 10}
-                className="w-full bg-blue-600 disabled:bg-slate-300 text-white font-bold
-                           py-4 rounded-2xl text-base transition-all active:scale-[0.98]
-                           flex items-center justify-center gap-2 mt-2
-                           shadow-lg shadow-blue-200 disabled:shadow-none"
+                className="w-full bg-blue-600 disabled:bg-slate-300 text-white
+                           font-bold py-4 rounded-2xl transition-all active:scale-[0.98]
+                           flex items-center justify-center gap-2"
               >
                 {loading ? (
-                  <Loader2 size={20} className="animate-spin" />
-                ) : (
                   <>
-                    <Phone size={18} />
-                    Aage Barein
+                    <Loader2 size={18} className="animate-spin" /> Check ho raha
+                    hai...
                   </>
+                ) : (
+                  "Continue →"
                 )}
               </button>
-
-              {/* Info */}
-              <div className="mt-6 bg-slate-50 border border-slate-200 rounded-2xl p-4">
-                <p className="text-xs text-slate-500 leading-relaxed text-center">
-                  Pehli baar? <strong>Naya account</strong> automatic ban
-                  jayega. Wapas aa rahe hain? <strong>PIN se login</strong> ho
-                  jayega.
-                </p>
-              </div>
             </div>
           )}
 
-          {/* PIN login */}
+          {/* ── PIN LOGIN STEP ── */}
           {step === "pin_login" && (
-            <div className="flex flex-col items-center">
-              {/* Shop + phone badge */}
-              <div
-                className="flex items-center gap-3 bg-blue-50 border border-blue-200
-                              rounded-2xl px-4 py-3 mb-7 w-full"
+            <div>
+              <button
+                onClick={() => {
+                  setStep("phone");
+                  setPin("");
+                  setPinError("");
+                }}
+                className="flex items-center gap-1.5 text-slate-400 text-sm mb-4
+                           hover:text-slate-600 transition-colors"
               >
+                <ArrowLeft size={14} /> Wapas
+              </button>
+
+              <div className="flex items-center gap-3 mb-5">
                 <div
-                  className="w-10 h-10 bg-blue-600 rounded-xl flex items-center
+                  className="w-10 h-10 bg-blue-100 rounded-2xl flex items-center
                                 justify-center shrink-0"
                 >
-                  <Store size={18} className="text-white" />
+                  <Store size={18} className="text-blue-600" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-slate-800 text-sm truncate">
-                    {shopDisplay}
+                <div>
+                  <p className="font-bold text-slate-800 text-sm">
+                    {shopDisplay || "Aapki Dukaan"}
                   </p>
-                  <p className="text-xs text-slate-500 font-mono">
-                    +92{phone.replace(/^0/, "")}
-                  </p>
+                  <p className="text-slate-400 text-xs">{phone}</p>
                 </div>
-                <button
-                  onClick={() => setStep("phone")}
-                  className="text-xs text-blue-600 font-semibold shrink-0"
-                >
-                  Badlein
-                </button>
               </div>
 
-              <h2 className="text-xl font-bold text-slate-800 mb-1 text-center">
-                PIN Daalein
-              </h2>
-              <p className="text-slate-400 text-sm mb-7 text-center">
-                Apna 4-digit PIN enter karein
-              </p>
+              {lockoutEnd && lockoutSeconds > 0 ? (
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-center">
+                  <Lock size={24} className="text-red-500 mx-auto mb-2" />
+                  <p className="font-bold text-red-700">Account Lock Hai</p>
+                  <p className="text-red-500 text-sm mt-1">
+                    {Math.floor(lockoutSeconds / 60)}m {lockoutSeconds % 60}s
+                    baad try karein
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <PINInput
+                    value={pin}
+                    onChange={(v) => {
+                      setPin(v);
+                      setPinError("");
+                    }}
+                    label="8-Digit PIN Daalein"
+                    error={pinError || undefined}
+                    disabled={loading}
+                  />
 
-              <PinPad
-                onComplete={handlePinLogin}
-                disabled={loading}
-                error={pinError}
-                onClear={() => setPinError("")}
-                label="4-digit PIN"
-              />
-
-              {loading && (
-                <div className="flex items-center gap-2 mt-5 text-blue-600">
-                  <Loader2 size={16} className="animate-spin" />
-                  <span className="text-sm font-medium">
-                    Login ho raha hai...
-                  </span>
+                  {loading && (
+                    <div className="flex items-center justify-center gap-2 mt-3 text-blue-600">
+                      <Loader2 size={16} className="animate-spin" />
+                      <span className="text-sm">Verify ho raha hai...</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* Setup: shop name */}
-          {step === "setup_name" && (
+          {/* ── SETUP: EMAIL ── */}
+          {step === "setup_email" && (
             <div>
-              {/* Progress */}
-              <div className="flex gap-2 mb-6">
-                {["Dukaan", "PIN", "Confirm"].map((label, i) => (
-                  <div key={label} className="flex-1">
-                    <div
-                      className={cn(
-                        "h-1.5 rounded-full mb-1.5",
-                        i === 0 ? "bg-blue-600" : "bg-slate-200",
-                      )}
-                    />
-                    <p
-                      className={cn(
-                        "text-[10px] font-semibold text-center",
-                        i === 0 ? "text-blue-600" : "text-slate-400",
-                      )}
-                    >
-                      {label}
-                    </p>
-                  </div>
-                ))}
+              <button
+                onClick={() => {
+                  setStep("phone");
+                  setError("");
+                }}
+                className="flex items-center gap-1.5 text-slate-400 text-sm mb-4"
+              >
+                <ArrowLeft size={14} /> Wapas
+              </button>
+
+              <div className="flex items-center gap-3 mb-2">
+                <div
+                  className="w-10 h-10 bg-blue-100 rounded-2xl flex items-center
+                                justify-center shrink-0"
+                >
+                  <Mail size={18} className="text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-slate-800">Email Address</h2>
+                  <p className="text-slate-400 text-xs">
+                    OTP yahan bheja jayega
+                  </p>
+                </div>
               </div>
 
-              <h2 className="text-xl font-bold text-slate-800 mb-1">
-                Naya Account
-              </h2>
-              <p className="text-slate-400 text-sm mb-6">
-                <span className="font-mono text-slate-600">
-                  +92{phone.replace(/^0/, "")}
-                </span>{" "}
-                se naya account ban raha hai
+              <p className="text-slate-500 text-sm mb-4 leading-relaxed">
+                Account verify karne ke liye OTP code aapki email par bheja
+                jayega.
               </p>
 
-              <div className="space-y-3 mb-6">
-                <div>
-                  <label
-                    className="block text-xs font-semibold text-slate-500
-                                    uppercase tracking-wide mb-2"
-                  >
-                    Dukaan Ka Naam *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Jaise: Ahmed Tailor House"
-                    value={shopName}
-                    onChange={(e) => {
-                      setShopName(e.target.value);
-                      setError("");
-                    }}
-                    autoFocus
-                    className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-200
-                               rounded-2xl text-sm font-medium text-slate-800 outline-none
-                               focus:border-blue-500 focus:bg-white transition-all
-                               placeholder:text-slate-400"
-                  />
-                </div>
-                <div>
-                  <label
-                    className="block text-xs font-semibold text-slate-500
-                                    uppercase tracking-wide mb-2"
-                  >
-                    Aapka Naam *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Jaise: Ahmed Bhai"
-                    value={ownerName}
-                    onChange={(e) => {
-                      setOwnerName(e.target.value);
-                      setError("");
-                    }}
-                    className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-200
-                               rounded-2xl text-sm font-medium text-slate-800 outline-none
-                               focus:border-blue-500 focus:bg-white transition-all
-                               placeholder:text-slate-400"
-                  />
-                </div>
+              <div
+                className={cn(
+                  "flex items-center gap-2 border-2 rounded-2xl px-4 py-3.5 mb-4",
+                  error
+                    ? "border-red-400 bg-red-50"
+                    : "border-slate-200 bg-slate-50 focus-within:border-blue-500 focus-within:bg-white",
+                )}
+              >
+                <Mail size={16} className="text-slate-400 shrink-0" />
+                <input
+                  type="email"
+                  inputMode="email"
+                  placeholder="aapki@email.com"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError("");
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleSendOTP()}
+                  autoFocus
+                  className="flex-1 text-sm bg-transparent outline-none text-slate-800
+                             placeholder:text-slate-400"
+                />
               </div>
 
               {error && (
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertCircle size={13} className="text-red-500" />
-                  <p className="text-red-500 text-xs">{error}</p>
+                <div
+                  className="flex items-center gap-2 bg-red-50 border border-red-200
+                                rounded-xl px-3 py-2.5 mb-4"
+                >
+                  <AlertCircle size={13} className="text-red-500 shrink-0" />
+                  <p className="text-red-600 text-xs">{error}</p>
                 </div>
               )}
 
               <button
-                onClick={handleSetupNameNext}
-                disabled={
-                  shopName.trim().length < 2 || ownerName.trim().length < 2
-                }
-                className="w-full bg-blue-600 disabled:bg-slate-300 text-white font-bold
-                           py-4 rounded-2xl text-base transition-all active:scale-[0.98]"
+                onClick={handleSendOTP}
+                disabled={loading || !email.includes("@")}
+                className="w-full bg-blue-600 disabled:bg-slate-300 text-white
+                           font-bold py-4 rounded-2xl flex items-center justify-center gap-2"
               >
-                PIN Set Karein
+                {loading ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" /> Bhej raha
+                    hai...
+                  </>
+                ) : (
+                  "OTP Bhejein →"
+                )}
               </button>
             </div>
           )}
 
-          {/* Setup: set PIN */}
-          {step === "setup_pin" && (
-            <div className="flex flex-col items-center">
-              <div className="flex gap-2 mb-6 w-full">
-                {["Dukaan", "PIN", "Confirm"].map((label, i) => (
-                  <div key={label} className="flex-1">
-                    <div
-                      className={cn(
-                        "h-1.5 rounded-full mb-1.5",
-                        i <= 1 ? "bg-blue-600" : "bg-slate-200",
-                      )}
-                    />
-                    <p
-                      className={cn(
-                        "text-[10px] font-semibold text-center",
-                        i === 1
-                          ? "text-blue-600"
-                          : i < 1
-                            ? "text-green-600"
-                            : "text-slate-400",
-                      )}
-                    >
-                      {label}
-                    </p>
-                  </div>
-                ))}
+          {/* ── SETUP: OTP ── */}
+          {step === "setup_otp" && (
+            <div>
+              <button
+                onClick={() => {
+                  setStep("setup_email");
+                  setOtp("");
+                  setError("");
+                }}
+                className="flex items-center gap-1.5 text-slate-400 text-sm mb-4"
+              >
+                <ArrowLeft size={14} /> Wapas
+              </button>
+
+              <div className="flex items-center gap-3 mb-5">
+                <div
+                  className="w-10 h-10 bg-green-100 rounded-2xl flex items-center
+                                justify-center shrink-0"
+                >
+                  <ShieldCheck size={18} className="text-green-600" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-slate-800">OTP Code</h2>
+                  <p className="text-slate-400 text-xs">
+                    {maskedEmail} par bheja
+                  </p>
+                </div>
               </div>
 
-              <h2 className="text-xl font-bold text-slate-800 mb-1 text-center">
-                Apna PIN Banayein
-              </h2>
-              <p className="text-slate-400 text-sm mb-7 text-center">
-                4 numbers ka secret code - yaad rakhein!
+              <p className="text-slate-500 text-sm mb-4">
+                Aapki email par 6-digit code bheja gaya hai. Spam folder bhi
+                check karein.
               </p>
 
-              <PinPad
-                onComplete={handleSetupPin}
-                error={pinError}
-                onClear={() => setPinError("")}
-                label="Naya 4-digit PIN"
-                sublabel="Koi bhi 4 numbers"
-              />
-            </div>
-          )}
-
-          {/* Setup: confirm PIN */}
-          {step === "setup_confirm" && (
-            <div className="flex flex-col items-center">
-              <div className="flex gap-2 mb-6 w-full">
-                {["Dukaan", "PIN", "Confirm"].map((label, i) => (
-                  <div key={label} className="flex-1">
-                    <div
-                      className={cn("h-1.5 rounded-full mb-1.5", "bg-blue-600")}
-                    />
-                    <p
-                      className={cn(
-                        "text-[10px] font-semibold text-center",
-                        i === 2 ? "text-blue-600" : "text-green-600",
-                      )}
-                    >
-                      {i === 2 ? label : "Done"}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <h2 className="text-xl font-bold text-slate-800 mb-1 text-center">
-                PIN Confirm Karein
-              </h2>
-              <p className="text-slate-400 text-sm mb-7 text-center">
-                Wahi PIN dobara daalein
-              </p>
-
-              <PinPad
-                onComplete={handleSetupConfirm}
+              <OTPInput
+                value={otp}
+                onChange={(v) => {
+                  setOtp(v);
+                  setError("");
+                }}
+                error={error || undefined}
                 disabled={loading}
-                error={pinError}
-                onClear={() => setPinError("")}
-                label="PIN dobara daalein"
               />
 
               {loading && (
-                <div className="flex items-center gap-2 mt-5 text-blue-600">
+                <div className="flex items-center justify-center gap-2 mt-3 text-blue-600">
                   <Loader2 size={16} className="animate-spin" />
-                  <span className="text-sm font-medium">
-                    Account ban raha hai...
-                  </span>
+                  <span className="text-sm">Verify ho raha hai...</span>
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setOtp("");
+                  handleSendOTP();
+                }}
+                className="w-full text-center text-blue-600 text-sm font-semibold mt-4"
+              >
+                Code nahi aaya? Dobara bhejein
+              </button>
+            </div>
+          )}
+
+          {/* ── SETUP: NAME ── */}
+          {step === "setup_name" && (
+            <div>
+              <div className="flex items-center gap-3 mb-5">
+                <div
+                  className="w-10 h-10 bg-blue-100 rounded-2xl flex items-center
+                                justify-center shrink-0"
+                >
+                  <User size={18} className="text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-slate-800">Aapka Naam</h2>
+                  <p className="text-slate-400 text-xs">Owner ka naam</p>
+                </div>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Jaise: Ahmed Khan"
+                value={ownerName}
+                onChange={(e) => {
+                  setOwnerName(e.target.value);
+                  setError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && ownerName.trim().length >= 2) {
+                    setStep("setup_shop");
+                  }
+                }}
+                autoFocus
+                className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-200
+                           rounded-2xl text-sm font-medium text-slate-800
+                           outline-none focus:border-blue-500 focus:bg-white
+                           transition-all placeholder:text-slate-400"
+              />
+
+              {error && <p className="text-red-500 text-xs mt-2">{error}</p>}
+
+              <button
+                onClick={() => {
+                  if (ownerName.trim().length < 2) {
+                    setError("Naam kam se kam 2 letters ka hona chahiye");
+                    return;
+                  }
+                  setError("");
+                  setStep("setup_shop");
+                }}
+                disabled={ownerName.trim().length < 2}
+                className="w-full bg-blue-600 disabled:bg-slate-300 text-white
+                           font-bold py-4 rounded-2xl mt-4 transition-all"
+              >
+                Continue →
+              </button>
+            </div>
+          )}
+
+          {/* ── SETUP: SHOP ── */}
+          {step === "setup_shop" && (
+            <div>
+              <button
+                onClick={() => setStep("setup_name")}
+                className="flex items-center gap-1.5 text-slate-400 text-sm mb-4"
+              >
+                <ArrowLeft size={14} /> Wapas
+              </button>
+
+              <div className="flex items-center gap-3 mb-5">
+                <div
+                  className="w-10 h-10 bg-purple-100 rounded-2xl flex items-center
+                                justify-center shrink-0"
+                >
+                  <Store size={18} className="text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-slate-800">Dukaan Ka Naam</h2>
+                  <p className="text-slate-400 text-xs">
+                    Gahak ko yahi naam dikhega
+                  </p>
+                </div>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Jaise: Ahmed Tailor Gujranwala"
+                value={shopName}
+                onChange={(e) => {
+                  setShopName(e.target.value);
+                  setError("");
+                }}
+                autoFocus
+                className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-200
+                           rounded-2xl text-sm font-medium text-slate-800
+                           outline-none focus:border-blue-500 focus:bg-white
+                           transition-all placeholder:text-slate-400 mb-3"
+              />
+
+              <div
+                className="flex items-center gap-2 border-2 border-slate-200
+                              bg-slate-50 rounded-2xl px-4 py-3.5 mb-4
+                              focus-within:border-blue-500 focus-within:bg-white transition-all"
+              >
+                <MapPin size={16} className="text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Shehar (Optional) — Lahore, Karachi..."
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="flex-1 text-sm bg-transparent outline-none text-slate-800
+                             placeholder:text-slate-400"
+                />
+              </div>
+
+              {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
+
+              <button
+                onClick={() => {
+                  if (shopName.trim().length < 3) {
+                    setError(
+                      "Dukaan ka naam kam se kam 3 letters ka hona chahiye",
+                    );
+                    return;
+                  }
+                  setError("");
+                  setStep("setup_pin");
+                }}
+                disabled={shopName.trim().length < 3}
+                className="w-full bg-blue-600 disabled:bg-slate-300 text-white
+                           font-bold py-4 rounded-2xl transition-all"
+              >
+                Continue →
+              </button>
+            </div>
+          )}
+
+          {/* ── SETUP: PIN ── */}
+          {step === "setup_pin" && (
+            <div>
+              <button
+                onClick={() => {
+                  setStep("setup_shop");
+                  setPin("");
+                  setPinError("");
+                }}
+                className="flex items-center gap-1.5 text-slate-400 text-sm mb-4"
+              >
+                <ArrowLeft size={14} /> Wapas
+              </button>
+
+              <div className="flex items-center gap-3 mb-3">
+                <div
+                  className="w-10 h-10 bg-green-100 rounded-2xl flex items-center
+                                justify-center shrink-0"
+                >
+                  <Lock size={18} className="text-green-600" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-slate-800">
+                    8-Digit PIN Banayein
+                  </h2>
+                  <p className="text-slate-400 text-xs">
+                    Login ke liye use hoga — yaad rakhein
+                  </p>
+                </div>
+              </div>
+
+              <div
+                className="bg-blue-50 border border-blue-200 rounded-2xl
+                              px-4 py-3 mb-4"
+              >
+                <p className="text-blue-700 text-xs leading-relaxed">
+                  💡 <strong>Mazboot PIN ke liye:</strong> Alag alag numbers use
+                  karein. Date of birth ya phone number use mat karein.
+                </p>
+              </div>
+
+              <PINInput
+                value={pin}
+                onChange={(v) => {
+                  setPin(v);
+                  setPinError("");
+                }}
+                masked={!showPin}
+                label="Naya PIN"
+                error={pinError || undefined}
+                disabled={loading}
+              />
+
+              {/* PIN strength */}
+              {pin.length === 8 && pinStrength.score > 0 && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-slate-500">PIN Strength</span>
+                    <span
+                      className={cn(
+                        "text-xs font-bold",
+                        pinStrength.score >= 4
+                          ? "text-green-600"
+                          : pinStrength.score >= 3
+                            ? "text-amber-600"
+                            : "text-red-500",
+                      )}
+                    >
+                      {pinStrength.label}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        pinStrength.color,
+                      )}
+                      style={{ width: `${(pinStrength.score / 4) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => setShowPin((v) => !v)}
+                className="flex items-center gap-1.5 text-slate-400 text-xs mt-3"
+              >
+                {showPin ? <EyeOff size={12} /> : <Eye size={12} />}
+                {showPin ? "PIN chupayein" : "PIN dikhayein"}
+              </button>
+            </div>
+          )}
+
+          {/* ── SETUP: CONFIRM PIN ── */}
+          {step === "setup_confirm_pin" && (
+            <div>
+              <div className="flex items-center gap-3 mb-5">
+                <div
+                  className="w-10 h-10 bg-green-100 rounded-2xl flex items-center
+                                justify-center shrink-0"
+                >
+                  <ShieldCheck size={18} className="text-green-600" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-slate-800">
+                    PIN Confirm Karein
+                  </h2>
+                  <p className="text-slate-400 text-xs">
+                    Dobara wahi PIN daalein
+                  </p>
+                </div>
+              </div>
+
+              <PINInput
+                value={confirmPin}
+                onChange={(v) => {
+                  setConfirmPin(v);
+                  setPinError("");
+                }}
+                label="PIN Dobara Daalein"
+                error={pinError || undefined}
+                disabled={loading}
+              />
+
+              {loading && (
+                <div className="flex items-center justify-center gap-2 mt-4 text-blue-600">
+                  <Loader2 size={16} className="animate-spin" />
+                  <span className="text-sm">Account ban raha hai...</span>
                 </div>
               )}
             </div>
           )}
+
+          {/* ── SETUP: VERIFICATION REQUEST ── */}
+          {step === "setup_verify_request" && (
+            <div className="text-center">
+              <div
+                className="w-16 h-16 bg-amber-100 rounded-full flex items-center
+                              justify-center mx-auto mb-4"
+              >
+                <ShieldCheck size={32} className="text-amber-600" />
+              </div>
+
+              <h2 className="text-xl font-bold text-slate-800 mb-2">
+                Account Ban Gaya! 🎉
+              </h2>
+              <p className="text-slate-500 text-sm leading-relaxed mb-5">
+                Aapka account successfully create ho gaya. Hum aapka account
+                verify karenge — aapko email ya WhatsApp par bataya jayega.
+              </p>
+
+              <div
+                className="bg-blue-50 border border-blue-200 rounded-2xl
+                              px-4 py-4 mb-5 text-left space-y-2"
+              >
+                {[
+                  { label: "Shop", value: shopName },
+                  { label: "Owner", value: ownerName },
+                  { label: "Phone", value: phone },
+                  { label: "Email", value: email },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex justify-between text-sm">
+                    <span className="text-slate-500">{label}</span>
+                    <span className="font-semibold text-slate-800">
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div
+                className="bg-amber-50 border border-amber-200 rounded-2xl
+                              px-4 py-3 mb-5"
+              >
+                <p className="text-amber-700 text-xs leading-relaxed">
+                  ⏱️ Verification 24 ghante mein ho jati hai. Tab tak aap app
+                  use kar sakte hain.
+                </p>
+              </div>
+
+              <button
+                onClick={handleVerifyRequest}
+                disabled={loading}
+                className="w-full bg-blue-600 disabled:bg-slate-300 text-white
+                           font-bold py-4 rounded-2xl mb-3 flex items-center
+                           justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" /> Bhej raha
+                    hai...
+                  </>
+                ) : (
+                  "✓ Theek Hai — App Kholein"
+                )}
+              </button>
+
+              <p className="text-slate-400 text-xs">
+                Verification ke liye {email} check karein
+              </p>
+            </div>
+          )}
+
+          {/* ── Step progress ── */}
+          {!["phone", "pin_login", "setup_verify_request"].includes(step) && (
+            <div className="flex items-center gap-1 mt-5">
+              {[
+                "setup_email",
+                "setup_otp",
+                "setup_name",
+                "setup_shop",
+                "setup_pin",
+                "setup_confirm_pin",
+              ].map((s, i) => {
+                const steps = [
+                  "setup_email",
+                  "setup_otp",
+                  "setup_name",
+                  "setup_shop",
+                  "setup_pin",
+                  "setup_confirm_pin",
+                ];
+                const current = steps.indexOf(step);
+                return (
+                  <div
+                    key={s}
+                    className={cn(
+                      "h-1 flex-1 rounded-full transition-all",
+                      i <= current ? "bg-blue-600" : "bg-slate-200",
+                    )}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
+
+        {/* Footer */}
+        <p className="text-center text-slate-600 text-xs mt-5">
+          My Darzi · Secure & Verified ✓
+        </p>
       </div>
     </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+          <Loader2 size={32} className="text-blue-500 animate-spin" />
+        </div>
+      }
+    >
+      <AuthContent />
+    </Suspense>
   );
 }

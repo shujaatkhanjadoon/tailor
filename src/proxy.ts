@@ -1,45 +1,63 @@
 // src/proxy.ts
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse }    from 'next/server'
 import { verifySessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 
-export function proxy(req: NextRequest) {
+// ── Security headers ──────────────────────────────────────────────
+function addSecurityHeaders(res: NextResponse): NextResponse {
+  res.headers.set('X-Frame-Options',           'DENY')
+  res.headers.set('X-Content-Type-Options',    'nosniff')
+  res.headers.set('Referrer-Policy',           'strict-origin-when-cross-origin')
+  res.headers.set('X-XSS-Protection',          '1; mode=block')
+  res.headers.set('Permissions-Policy',        'camera=self, microphone=()')
+  res.headers.set(
+    'Strict-Transport-Security',
+    'max-age=31536000; includeSubDomains'
+  )
+  return res
+}
+
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
+  const res          = NextResponse.next()
+  addSecurityHeaders(res)
 
-  // ── Security headers on all responses ────────────────────────────
-  const res = NextResponse.next()
-  res.headers.set('X-Frame-Options',        'DENY')
-  res.headers.set('X-Content-Type-Options', 'nosniff')
-  res.headers.set('Referrer-Policy',        'strict-origin-when-cross-origin')
-  res.headers.set('X-XSS-Protection',       '1; mode=block')
-
- if (
-    pathname === '/admin/login'      ||
-    pathname === '/admin/setup-totp' ||
-    pathname === '/api/admin/login'  ||
-    pathname === '/api/admin/logout' ||
-    pathname === '/api/admin/verify'
-  ) {
+  // ── Public admin routes ───────────────────────────────────────
+  const adminPublic = [
+    '/admin/login',
+    '/admin/setup-totp',
+    '/api/admin/login',
+    '/api/admin/logout',
+    '/api/admin/verify',
+  ]
+  if (adminPublic.some(p => pathname === p || pathname.startsWith(p))) {
     return res
   }
 
-   // ── Admin TOTP URI — allow with secret header (no session needed) ─
+  // ── Admin TOTP URI ─────────────────────────────────────────────
   if (pathname === '/api/admin/totp-uri') {
-    const secret = req.headers.get('x-admin-secret')
-    if (secret === process.env.ADMIN_SECRET) {
-      return res   // allow through — API route handles auth
+    const secret      = req.headers.get('x-admin-secret')
+    const token       = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
+    const secretOk    = secret === process.env.ADMIN_SECRET
+    const sessionOk   = token  && verifySessionToken(token)
+    if (!secretOk && !sessionOk) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    // Also allow with valid session
-    const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
-    if (token && verifySessionToken(token)) {
-      return res
-    }
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return res
   }
 
-  // ── Admin API routes — protected ─────────────────────────────────
-  if (pathname.startsWith('/api/admin') &&
-      pathname !== '/api/admin/login' &&
-      pathname !== '/api/admin/verify') {
+  // ── Admin dashboard pages ──────────────────────────────────────
+  if (pathname.startsWith('/admin/dashboard')) {
+    const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
+    if (!token || !verifySessionToken(token)) {
+      const url = new URL('/admin/login', req.url)
+      url.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(url)
+    }
+    return res
+  }
+
+  // ── Admin API routes ───────────────────────────────────────────
+  if (pathname.startsWith('/api/admin')) {
     const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
     if (!token || !verifySessionToken(token)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -47,24 +65,24 @@ export function proxy(req: NextRequest) {
     return res
   }
 
-  // ── Admin dashboard pages — require session ───────────────────────
-  if (pathname.startsWith('/admin/dashboard')) {
-    const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
-    if (!token || !verifySessionToken(token)) {
-      const loginUrl = new URL('/admin/login', req.url)
-      loginUrl.searchParams.set('redirect', `${pathname}${req.nextUrl.search}`)
-      return NextResponse.redirect(loginUrl)
-    }
-    return res
-  }
-
-  // ── Cron routes — require cron secret ────────────────────────────
+  // ── Cron routes ────────────────────────────────────────────────
   if (pathname.startsWith('/api/cron')) {
     const auth = req.headers.get('authorization')
     if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     return res
+  }
+
+  // ── Request size limit on API routes ──────────────────────────
+  if (pathname.startsWith('/api/')) {
+    const contentLength = req.headers.get('content-length')
+    if (contentLength && parseInt(contentLength) > 5 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: 'Request too large (max 5MB)' },
+        { status: 413 }
+      )
+    }
   }
 
   return res
