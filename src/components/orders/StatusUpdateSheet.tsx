@@ -2,7 +2,7 @@
 'use client'
 
 import { useState } from 'react'
-import { X, ArrowRight } from 'lucide-react'
+import { X, ArrowRight, AlertCircle } from 'lucide-react'
 import { OrderRecord } from '@/lib/db/schema'
 import { orderOps } from '@/lib/db/operations'
 import { ORDER_STATUS_CONFIG, OrderStatus } from '@/types'
@@ -12,18 +12,18 @@ import { toast } from "sonner"
 
 // Valid next statuses from current
 const NEXT_STATUSES: Record<OrderStatus, OrderStatus[]> = {
-  received:  ['cutting',  'cancelled'],
-  cutting:   ['stitching','received', 'cancelled'],
-  stitching: ['finishing','cutting',  'cancelled'],
-  finishing: ['ready',    'stitching','cancelled'],
-  ready:     ['delivered','finishing'],
+  received: ['cutting', 'cancelled'],
+  cutting: ['stitching', 'received', 'cancelled'],
+  stitching: ['finishing', 'cutting', 'cancelled'],
+  finishing: ['ready', 'stitching', 'cancelled'],
+  ready: ['delivered', 'finishing'],
   delivered: [],
   cancelled: [],
 }
 
 interface StatusUpdateSheetProps {
-  order:    OrderRecord
-  onClose:  () => void
+  order: OrderRecord
+  onClose: () => void
   onUpdate: () => void
 }
 
@@ -35,17 +35,38 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
   const currentConfig = ORDER_STATUS_CONFIG[order.status as OrderStatus]
 
   const handleUpdate = async (newStatus: OrderStatus) => {
-    if (!currentUser) return
+
+    if (!currentUser || !order) return
+
+    // ── Warn if marking delivered with unpaid balance ─────────────
+    if (newStatus === 'delivered') {
+      const unpaidBalance = Math.max(0, order.totalPrice - order.amountPaid)
+
+      if (unpaidBalance > 0) {
+        const confirmed = confirm(
+          `⚠️ Baaki Payment Alert!\n\n` +
+          `Order Total: Rs. ${order.totalPrice.toLocaleString()}\n` +
+          `Diya Gaya:   Rs. ${order.amountPaid.toLocaleString()}\n` +
+          `Baaki:       Rs. ${unpaidBalance.toLocaleString()}\n\n` +
+          `Bina baaki payment ke deliver karna chahte hain?\n` +
+          `(Payment baad mein bhi record ki ja sakti hai)`
+        )
+        if (!confirmed) return
+      }
+    }
+
     setSaving(newStatus)
     try {
       await orderOps.updateStatus(order.id, newStatus, currentUser.id)
       onUpdate()
       onClose()
+    } catch (e) {
+      console.error('[StatusUpdate] Error:', e)
     } finally {
       setSaving(null)
       toast.success('Status Update Ho Gaya', {
-      description: `${status} → ${newStatus}`,
-    })
+        description: `${status} → ${newStatus}`,
+      })
     }
   }
 
@@ -70,7 +91,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
         <div className="flex items-center justify-between mb-5">
           <div>
             <p className="text-xs text-slate-400 font-medium">
-              Order #{String(order.orderNumber).padStart(3,'0')}
+              Order #{String(order.orderNumber).padStart(3, '0')}
             </p>
             <h3 className="text-base font-bold text-slate-800">Status Update Karein</h3>
           </div>
@@ -109,56 +130,77 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
               Aage kiya karna hai?
             </p>
             {nextStatuses.map(status => {
-              const cfg     = ORDER_STATUS_CONFIG[status]
+              const cfg = ORDER_STATUS_CONFIG[status]
               const isSaving = saving === status
-              const isBack  = NEXT_STATUSES[order.status as OrderStatus].indexOf(status) > 0
-                              && status !== 'cancelled'
+              const isBack = NEXT_STATUSES[order.status as OrderStatus].indexOf(status) > 0
+                && status !== 'cancelled'
 
               return (
-                <button
-                  key={status}
-                  onClick={() => handleUpdate(status)}
-                  disabled={!!saving}
-                  className={cn(
-                    'w-full flex items-center gap-4 px-4 py-4 rounded-2xl border-2',
-                    'transition-all active:scale-[0.98] text-left',
-                    status === 'cancelled'
-                      ? 'border-red-200 bg-red-50 hover:border-red-400'
-                      : isBack
-                      ? 'border-slate-200 bg-slate-50 hover:border-slate-300'
-                      : `${cfg.border} ${cfg.bg} hover:border-opacity-80`,
-                    saving ? 'opacity-60' : ''
-                  )}
-                >
-                  <span className="text-2xl shrink-0">
-                    {isSaving ? '⏳' : cfg.emoji}
-                  </span>
-                  <div className="flex-1">
-                    <p className={cn(
-                      'font-bold text-sm',
-                      status === 'cancelled' ? 'text-red-700'
-                      : isBack ? 'text-slate-600'
-                      : cfg.color
-                    )}>
-                      {isSaving ? 'Update ho raha hai...' : cfg.label}
-                    </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {status === 'delivered'  && 'Gahak ne le liya'}
-                      {status === 'ready'      && 'Tayyar — gahak ko batao'}
-                      {status === 'finishing'  && 'Aakhri kaam ho raha hai'}
-                      {status === 'stitching'  && 'Silai shuru'}
-                      {status === 'cutting'    && 'Katai shuru'}
-                      {status === 'received'   && 'Wapas received par'}
-                      {status === 'cancelled'  && 'Order band karo'}
-                    </p>
-                  </div>
-                  {!isSaving && (
-                    <ArrowRight size={16} className={cn(
-                      'shrink-0',
-                      status === 'cancelled' ? 'text-red-400' : 'text-slate-300'
-                    )} />
-                  )}
-                </button>
+                <>
+                  {/* Unpaid balance warning */}
+                  {(() => {
+                    const unpaid = Math.max(0, order.totalPrice - order.amountPaid)
+                    if (unpaid <= 0) return null
+                    return (
+                      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200
+                    rounded-2xl px-4 py-3 mb-4">
+                        <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-amber-800 font-semibold text-sm">
+                            Rs. {unpaid.toLocaleString()} baaki hai
+                          </p>
+                          <p className="text-amber-600 text-xs mt-0.5">
+                            Order deliver karne se pehle payment le lein
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                  <button
+                    key={status}
+                    onClick={() => handleUpdate(status)}
+                    disabled={!!saving}
+                    className={cn(
+                      'w-full flex items-center gap-4 px-4 py-4 rounded-2xl border-2',
+                      'transition-all active:scale-[0.98] text-left',
+                      status === 'cancelled'
+                        ? 'border-red-200 bg-red-50 hover:border-red-400'
+                        : isBack
+                          ? 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                          : `${cfg.border} ${cfg.bg} hover:border-opacity-80`,
+                      saving ? 'opacity-60' : ''
+                    )}
+                  >
+                    <span className="text-2xl shrink-0">
+                      {isSaving ? '⏳' : cfg.emoji}
+                    </span>
+                    <div className="flex-1">
+                      <p className={cn(
+                        'font-bold text-sm',
+                        status === 'cancelled' ? 'text-red-700'
+                          : isBack ? 'text-slate-600'
+                            : cfg.color
+                      )}>
+                        {isSaving ? 'Update ho raha hai...' : cfg.label}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {status === 'delivered' && 'Gahak ne le liya'}
+                        {status === 'ready' && 'Tayyar — gahak ko batao'}
+                        {status === 'finishing' && 'Aakhri kaam ho raha hai'}
+                        {status === 'stitching' && 'Silai shuru'}
+                        {status === 'cutting' && 'Katai shuru'}
+                        {status === 'received' && 'Wapas received par'}
+                        {status === 'cancelled' && 'Order band karo'}
+                      </p>
+                    </div>
+                    {!isSaving && (
+                      <ArrowRight size={16} className={cn(
+                        'shrink-0',
+                        status === 'cancelled' ? 'text-red-400' : 'text-slate-300'
+                      )} />
+                    )}
+                  </button>
+                </>
               )
             })}
           </div>

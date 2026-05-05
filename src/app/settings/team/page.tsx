@@ -1,16 +1,16 @@
 // src/app/settings/team/page.tsx
-"use client";
+'use client'
 
-import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { TeamManager } from "@/components/team/TeamManager";
-import { FeatureGate } from "@/components/billing/FeatureGate";
-import { AccessNotice } from "@/components/billing/AccessNotice";
-import { useAuth } from "@/lib/auth/AuthContext";
+import { useRouter } from 'next/navigation'
+import { ArrowLeft }  from 'lucide-react'
+import { TeamManager } from '@/components/team/TeamManager'
+import { FeatureGate } from '@/components/billing/FeatureGate'
+import { AccessNotice } from '@/components/billing/AccessNotice'
+import { useAuth }     from '@/lib/auth/AuthContext'
 
 export default function TeamSettingsPage() {
-  const router = useRouter();
-  const { isOwner } = useAuth();
+  const router   = useRouter()
+  const { isOwner } = useAuth()
 
   if (!isOwner) {
     return (
@@ -19,12 +19,13 @@ export default function TeamSettingsPage() {
         title="Owner access required"
         message="Team management sirf owner ke liye hai. Karigar apna PIN settings se change kar sakte hain."
       />
-    );
+    )
   }
 
   return (
     <div className="min-h-screen bg-slate-50 pb-8">
-      <header className="bg-white border-b border-slate-100 px-4 pt-12 lg:pt-6 pb-4 flex items-center gap-3">
+      <header className="bg-white border-b border-slate-100 px-4 pt-12 lg:pt-6 pb-4
+                         flex items-center gap-3">
         <button
           aria-label="Go back"
           onClick={() => router.back()}
@@ -38,11 +39,11 @@ export default function TeamSettingsPage() {
         </div>
       </header>
 
-      {/* PIN reminder banner */}
+      {/* PIN reminder */}
       <div className="mx-4 mt-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
-        <p className="text-xs text-amber-700 font-medium">
-          💡 Har karigar ka 4-digit PIN hota hai login ke liye. Unhein bata
-          dein.
+        <p className="text-xs text-amber-700 font-medium leading-relaxed">
+          💡 Har karigar ka <strong>8-digit PIN</strong> hota hai login ke liye.
+          PIN set karne ke baad karigar ko batayein — woh sirf unhe pata hona chahiye.
         </p>
       </div>
 
@@ -52,5 +53,5 @@ export default function TeamSettingsPage() {
         </FeatureGate>
       </div>
     </div>
-  );
+  )
 }
