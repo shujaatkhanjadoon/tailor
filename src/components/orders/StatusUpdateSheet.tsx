@@ -136,7 +136,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
                 && status !== 'cancelled'
 
               return (
-                <>
+                <div key={status}>
                   {/* Unpaid balance warning */}
                   {(() => {
                     const unpaid = Math.max(0, order.totalPrice - order.amountPaid)
@@ -200,7 +200,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
                       )} />
                     )}
                   </button>
-                </>
+                </div>
               )
             })}
           </div>
