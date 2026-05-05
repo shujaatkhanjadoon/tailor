@@ -2,15 +2,16 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { usePathname }       from 'next/navigation'
-import { BottomNav }         from './BottomNav'
-import { SideNav }           from './SideNav'
-import { OfflineBanner }     from './OfflineBanner'
-import { AuthGuard }         from '@/components/auth/AuthGuard'
-import { PWAInstallPrompt }  from './PWAInstallPrompt'
-import { useAuth }           from '@/lib/auth/AuthContext'
-import { syncService }       from '@/lib/supabase/sync-service'
-import { subscribeToShop }   from '@/lib/supabase/realtime'
+import { usePathname } from 'next/navigation'
+import { BottomNav } from './BottomNav'
+import { SideNav } from './SideNav'
+import { OfflineBanner } from './OfflineBanner'
+import { AuthGuard } from '@/components/auth/AuthGuard'
+import { PWAInstallPrompt } from './PWAInstallPrompt'
+import { useAuth } from '@/lib/auth/AuthContext'
+import { syncService } from '@/lib/supabase/sync-service'
+import { subscribeToShop } from '@/lib/supabase/realtime'
+import { VerificationBanner } from './VerificationBanner'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, shopId } = useAuth()
@@ -120,6 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {/* Mobile layout */}
           <div className="lg:hidden min-h-screen max-w-107.5 mx-auto
                           bg-white shadow-xl relative overflow-hidden">
+            <VerificationBanner />
             <OfflineBanner />
             {children}
             {!isKarigar && <BottomNav />}
@@ -127,6 +129,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           {/* Desktop layout */}
           <div className="hidden lg:block min-h-screen bg-white">
+            <VerificationBanner />
             <OfflineBanner />
             <div className="max-w-6xl mx-auto px-8 py-8">
               {children}

@@ -211,12 +211,20 @@ function OTPInput({
 // ── Main Auth Content ─────────────────────────────────────────────
 function AuthContent() {
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") ?? "/dashboard";
+  const rawRedirect = searchParams.get("redirect") ?? "/dashboard";
+
+  const redirectTo = (
+  rawRedirect.startsWith('/auth') ||
+  rawRedirect.startsWith('/login') ||
+  rawRedirect.startsWith('/setup') ||
+  rawRedirect.startsWith('/admin') ||
+  rawRedirect === '/'
+) ? '/dashboard' : rawRedirect
+
   const {
     currentUser,
     isLoading: authLoading,
     setupShop,
-    reinitialize,
   } = useAuth();
 
   // ── Form state ─────────────────────────────────────────────────
@@ -239,30 +247,41 @@ function AuthContent() {
   const [newShopId, setNewShopId] = useState("");
   const isSubmittingRef = useRef(false);
   const [isOnline, setIsOnline] = useState(true);
+  // ── Constants (put near top of file) ─────────────────────────────
+  const SESSION_KEY = 'md_session_v2'
+  const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
+
+  // ── Helper (put near top, inside component or outside) ───────────
+  function saveSessionLocally(memberId: string) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      memberId,
+      expiresAt: Date.now() + SESSION_TTL_MS,
+    }))
+  }
 
   // Redirect if already logged in
   useEffect(() => {
-  if (authLoading) return
-  if (!currentUser) return
-  // Don't redirect during new account setup steps
-  if (['setup_email','setup_otp','setup_name','setup_shop',
-       'setup_pin','setup_confirm_pin','setup_verify_request'
-      ].includes(step)) return
-  window.location.href =
-    currentUser.role === 'karigar' ? '/karigar' : '/dashboard'
-}, [currentUser, authLoading, step])
+    if (authLoading) return
+    if (!currentUser) return
+    // Don't redirect during new account setup steps
+    if (['setup_email', 'setup_otp', 'setup_name', 'setup_shop',
+      'setup_pin', 'setup_confirm_pin', 'setup_verify_request'
+    ].includes(step)) return
+    window.location.href =
+      currentUser.role === 'karigar' ? '/karigar' : '/dashboard'
+  }, [currentUser, authLoading, step])
 
-useEffect(() => {
-      setIsOnline(navigator.onLine);
-      const onOnline = () => setIsOnline(true);
-      const onOffline = () => setIsOnline(false);
-      window.addEventListener("online", onOnline);
-      window.addEventListener("offline", onOffline);
-      return () => {
-        window.removeEventListener("online", onOnline);
-        window.removeEventListener("offline", onOffline);
-      };
-    }, []);
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
 
   // ── Lockout countdown ─────────────────────────────────────────
   const [lockoutSeconds, setLockoutSeconds] = useState(0);
@@ -289,7 +308,7 @@ useEffect(() => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, success, failureReason: reason }),
-      }).catch(() => {});
+      }).catch(() => { });
     },
     [phone],
   );
@@ -309,8 +328,8 @@ useEffect(() => {
       // Check Supabase for existing account
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members` +
-          `?phone=eq.${result.cleaned}&is_active=eq.true&deleted_at=is.null` +
-          `&select=id,name,role,shop_id,pin_hash,locked_until,failed_attempts`,
+        `?phone=eq.${result.cleaned}&is_active=eq.true&deleted_at=is.null` +
+        `&select=id,name,role,shop_id,pin_hash,locked_until,failed_attempts`,
         {
           headers: {
             apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -361,116 +380,207 @@ useEffect(() => {
     }
   }, [phone, loading]);
 
-  // ── STEP: PIN login ───────────────────────────────────────────
-  const handlePINLogin = useCallback(
-    async (enteredPin: string) => {
-      if (enteredPin.length !== 8 || loading) return;
-      setLoading(true);
-      setPinError("");
+  // ── Replace handlePINLogin ────────────────────────────────────────
+  const handlePINLogin = useCallback(async (enteredPin: string) => {
+    if (enteredPin.length !== 8 || loading) return
+    setLoading(true)
+    setPinError('')
 
-      try {
-        // Get member with PIN hash
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members` +
-            `?phone=eq.${phone.replace(/\D/g, "")}&is_active=eq.true&deleted_at=is.null` +
-            `&select=*`,
-          {
-            headers: {
-              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-              Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-            },
+    const cleaned = phone.replace(/\D/g, '')
+
+    try {
+      // ── 1. Fetch member from Supabase (fresh data) ──────────────
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members` +
+        `?phone=eq.${cleaned}&is_active=eq.true&select=*&limit=1`,
+        {
+          headers: {
+            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
           },
-        );
-        const members: any[] = await res.json();
-        const member = members?.[0];
-
-        if (!member) {
-          setPinError("Account nahi mila.");
-          setLoading(false);
-          return;
         }
+      )
+      const members: any[] = await res.json()
+      const member = members?.[0]
 
-        // Verify PIN (supports both bcrypt and legacy plaintext)
-        const isValid = await verifyPIN(enteredPin, member.pin_hash);
+      if (!member) {
+        setPinError('Account nahi mila. Phone number check karein.')
+        setLoading(false)
+        return
+      }
 
-        if (!isValid) {
-          const newFailed = (member.failed_attempts ?? 0) + 1;
-          const lockout = newFailed >= 5;
+      // ── 2. Check account lockout ─────────────────────────────────
+      if (member.locked_until && new Date(member.locked_until) > new Date()) {
+        const minsLeft = Math.ceil(
+          (new Date(member.locked_until).getTime() - Date.now()) / 60000
+        )
+        setPinError(`Account lock hai. ${minsLeft} minute mein dobara try karein.`)
+        setLockoutEnd(new Date(member.locked_until))
+        setPin('')
+        setLoading(false)
+        return
+      }
 
-          // Update failed attempts in Supabase
-          const lockUntil = lockout
-            ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
-            : null;
+      // ── 3. Verify PIN (supports bcrypt + legacy plaintext) ───────
+      const { verifyPIN } = await import('@/lib/security/pin')
+      const isValid = await verifyPIN(enteredPin, member.pin_hash)
 
-          await fetch(
-            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members?id=eq.${member.id}`,
-            {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-                apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-                Prefer: "return=minimal",
-              },
-              body: JSON.stringify({
-                failed_attempts: newFailed,
-                ...(lockUntil ? { locked_until: lockUntil } : {}),
-              }),
-            },
-          );
+      if (!isValid) {
+        const newFailed = (member.failed_attempts ?? 0) + 1
+        const shouldLock = newFailed >= 5
+        const lockUntil = shouldLock
+          ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+          : null
 
-          logAttempt(false, `Wrong PIN (attempt ${newFailed})`);
-
-          if (lockout) {
-            const end = new Date(Date.now() + 15 * 60 * 1000);
-            setLockoutEnd(end);
-            setPinError(
-              "5 baar galat PIN. Account 15 minute ke liye lock ho gaya.",
-            );
-          } else {
-            setPinError(`PIN galat hai. ${5 - newFailed} mauqa baaki hai.`);
-          }
-          setPin("");
-          setLoading(false);
-          return;
-        }
-
-        // Reset failed attempts on success
-        await fetch(
+        // Update failed attempts in Supabase (non-blocking)
+        fetch(
           `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members?id=eq.${member.id}`,
           {
-            method: "PATCH",
+            method: 'PATCH',
             headers: {
-              "Content-Type": "application/json",
-              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-              Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-              Prefer: "return=minimal",
+              'Content-Type': 'application/json',
+              'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+              'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+              'Prefer': 'return=minimal',
             },
             body: JSON.stringify({
-              failed_attempts: 0,
-              locked_until: null,
-              last_login_at: new Date().toISOString(),
+              failed_attempts: newFailed,
+              ...(lockUntil ? { locked_until: lockUntil } : {}),
             }),
-          },
-        );
+          }
+        ).catch(console.error)
 
-        logAttempt(true);
+        // Log failed attempt
+        fetch('/api/auth/log-attempt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: cleaned,
+            success: false,
+            failureReason: `Wrong PIN (attempt ${newFailed})`,
+          }),
+        }).catch(console.error)
 
-        // Pull all data then initialize session
-        await syncService.pullAll(member.shop_id);
-        await reinitialize();
-
-        window.location.href =
-          member.role === "karigar" ? "/karigar" : redirectTo;
-      } catch (e) {
-        setPinError("Login fail ho gaya. Dobara try karein.");
-        console.error("[Auth] Login error:", e);
-      } finally {
-        setLoading(false);
+        if (shouldLock) {
+          const end = new Date(Date.now() + 15 * 60 * 1000)
+          setLockoutEnd(end)
+          setPinError('5 baar galat PIN. Account 15 minute ke liye lock ho gaya.')
+        } else {
+          setPinError(`PIN galat hai. ${5 - newFailed} mauqa baaki hai.`)
+        }
+        setPin('')
+        setLoading(false)
+        return
       }
-    },
-    [phone, loading, logAttempt, reinitialize, redirectTo],
-  );
+
+      // ── 4. PIN correct — reset failed attempts ───────────────────
+      fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members?id=eq.${member.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({
+            failed_attempts: 0,
+            locked_until: null,
+            last_login_at: new Date().toISOString(),
+          }),
+        }
+      ).catch(console.error)
+
+      // ── 5. Log successful attempt ────────────────────────────────
+      fetch('/api/auth/log-attempt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleaned, success: true }),
+      }).catch(console.error)
+
+      // ── 6. Save session to localStorage ─────────────────────────
+      // THIS IS THE CRITICAL MISSING STEP — without this,
+      // AuthGuard sees currentUser=null and redirects back to /auth
+      saveSessionLocally(member.id)
+
+      // ── 7. Pull data to IndexedDB (background) ───────────────────
+      // Don't await — let it sync in background
+      syncService.pullAll(member.shop_id).catch(console.error)
+
+      // ── 8. Save shop + member to IndexedDB for offline use ───────
+      try {
+        // Fetch shop details
+        const shopRes = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/shops` +
+          `?id=eq.${member.shop_id}&select=*&limit=1`,
+          {
+            headers: {
+              'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+              'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+            },
+          }
+        )
+        const shops: any[] = await shopRes.json()
+        const shop = shops?.[0]
+
+        if (shop) {
+          const { db } = await import('@/lib/db/schema')
+
+          await db.shop.put({
+            id: shop.id,
+            shopName: shop.shop_name,
+            ownerPhone: shop.owner_phone,
+            whatsappNumber: shop.whatsapp_number ?? undefined,
+            city: shop.city ?? undefined,
+            isActive: shop.is_active !== false ? 1 : 0,
+            createdAt: shop.created_at,
+            updatedAt: shop.updated_at,
+            _synced: 1,
+            _deleted: 0,
+          })
+
+          await db.appSettings.put({
+            key: 'shopId',
+            value: JSON.stringify(shop.id),
+          })
+
+          // Save the member record
+          await db.teamMembers.put({
+            id: member.id,
+            shopId: member.shop_id,
+            name: member.name,
+            phone: member.phone,
+            role: member.role,
+            pin: member.pin_hash,
+            isActive: member.is_active ? 1 : 0,
+            joinedAt: member.joined_at,
+            createdAt: member.created_at,
+            _synced: 1,
+            _deleted: 0,
+          })
+        }
+      } catch (dbErr) {
+        console.warn('[Login] IndexedDB save failed (non-fatal):', dbErr)
+      }
+
+      // ── 9. Redirect ──────────────────────────────────────────────
+      const dest = member.role === 'karigar'
+        ? '/karigar'
+        : redirectTo === '/auth' || redirectTo.startsWith('/auth')
+          ? '/dashboard'
+          : redirectTo
+
+      window.location.href = dest
+
+    } catch (e) {
+      console.error('[Login] Error:', e)
+      setPinError('Login fail ho gaya. Dobara try karein.')
+      setPin('')
+    } finally {
+      setLoading(false)
+    }
+  }, [phone, loading, redirectTo])
 
   // Auto-submit PIN when 8 digits entered
   useEffect(() => {
@@ -595,7 +705,7 @@ useEffect(() => {
       try {
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members` +
-            `?phone=eq.${cleaned}&is_active=eq.true&deleted_at=is.null&select=id&limit=1`,
+          `?phone=eq.${cleaned}&is_active=eq.true&deleted_at=is.null&select=id&limit=1`,
           {
             headers: {
               apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -649,28 +759,28 @@ useEffect(() => {
   }, [confirmPin, step, handleConfirmPin]);
 
   // ── STEP: Submit verification request ────────────────────────
-const handleVerifyRequest = useCallback(async () => {
-  setLoading(true)
-  try {
-    // Verification already submitted during setupShop server call
-    // Just redirect to dashboard
-    await fetch('/api/auth/shop-verify-request', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        shopId:     newShopId,
-        shopName:   shopName.trim(),
-        ownerName:  ownerName.trim(),
-        ownerPhone: phone.replace(/\D/g, ''),
-        ownerEmail: email.trim(),
-        city:       city.trim(),
-      }),
-    }).catch(console.error)   // non-blocking
-  } finally {
-    setLoading(false)
-    window.location.href = '/dashboard'  // ← always /dashboard
-  }
-}, [newShopId, shopName, ownerName, phone, email, city])
+  const handleVerifyRequest = useCallback(async () => {
+    setLoading(true)
+    try {
+      // Verification already submitted during setupShop server call
+      // Just redirect to dashboard
+      await fetch('/api/auth/shop-verify-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopId: newShopId,
+          shopName: shopName.trim(),
+          ownerName: ownerName.trim(),
+          ownerPhone: phone.replace(/\D/g, ''),
+          ownerEmail: email.trim(),
+          city: city.trim(),
+        }),
+      }).catch(console.error)   // non-blocking
+    } finally {
+      setLoading(false)
+      window.location.href = '/dashboard'  // ← always /dashboard
+    }
+  }, [newShopId, shopName, ownerName, phone, email, city])
 
   // ── PIN strength indicator ────────────────────────────────────
   const pinStrength = getPINStrength(pin);
@@ -1390,6 +1500,7 @@ export default function AuthPage() {
         </div>
       }
     >
+      
       <AuthContent />
     </Suspense>
   );
