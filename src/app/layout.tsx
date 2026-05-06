@@ -53,7 +53,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  viewportFit: "cover", // â† handles iPhone notch / Dynamic Island
+  viewportFit: "cover", // I† handles iPhone notch / Dynamic Island
 };
 
 export default function RootLayout({

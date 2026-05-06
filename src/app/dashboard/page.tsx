@@ -163,11 +163,11 @@ export default function DashboardPage() {
   }
 if (isLoading || !shopId) return <DashboardSkeleton />
   return (
-    <div className="pb-20 lg:pb-0">
+    <div className="pb-20 lg:pb-0 overflow-x-hidden">
       {/* HEADER */}
       <header
         className="bg-linear-to-br from-blue-900 to-blue-700 text-white
-                         px-5 pt-12 pb-6 lg:rounded-2xl lg:mb-6 lg:pt-8"
+                   px-5 pt-12 pb-6 lg:rounded-2xl lg:mb-6 lg:pt-8"
       >
         <div className="flex items-start justify-between">
           <div>
@@ -188,6 +188,7 @@ if (isLoading || !shopId) return <DashboardSkeleton />
         <TrialBanner />
         <ExpiryReminderBanner />
         <NotificationPermissionCard />
+
         {/* STATS GRID */}
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatsCard
@@ -218,9 +219,7 @@ if (isLoading || !shopId) return <DashboardSkeleton />
             icon={AlertCircle}
             label="Deri Wale"
             value={stats.overdueOrders}
-            subLabel={
-              stats.overdueOrders > 0 ? "turant dhyan dein" : "sab theek hai"
-            }
+            subLabel={stats.overdueOrders > 0 ? "turant dhyan dein" : "sab theek hai"}
             variant={stats.overdueOrders > 0 ? "danger" : "default"}
             onClick={() => router.push("/orders?filter=overdue")}
           />
@@ -251,11 +250,11 @@ if (isLoading || !shopId) return <DashboardSkeleton />
 
             <DueOrdersAlert orders={overdueOrders} />
 
-            {/* Quick actions */}
-            <div className="flex gap-3">
+            {/* Quick actions — responsive wrap */}
+            <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => router.push("/orders/new")}
-                className="flex-1 flex items-center justify-center gap-2 bg-blue-600
+                className="flex-1 min-w-35 flex items-center justify-center gap-2 bg-blue-600
                            text-white font-semibold py-4 rounded-2xl
                            transition-colors active:scale-95 shadow-md shadow-blue-200"
               >
@@ -265,7 +264,7 @@ if (isLoading || !shopId) return <DashboardSkeleton />
               {isOwner && (
                 <button
                   onClick={() => router.push("/customers/new")}
-                  className="flex-1 flex items-center justify-center gap-2 bg-white
+                  className="flex-1 min-w-35 flex items-center justify-center gap-2 bg-white
                              border-2 border-slate-200 text-slate-700 font-semibold
                              py-4 rounded-2xl transition-colors active:scale-95"
                 >

@@ -1,20 +1,19 @@
 // src/components/billing/ExpiryReminderBanner.tsx
-'use client'
+'use client';
 
-import { useState }  from 'react'
-import { X, Zap }    from 'lucide-react'
-import { usePlan }   from '@/hooks/usePlan'
-import { cn }        from '@/lib/utils'
+import { useState } from 'react';
+import { X, Zap } from 'lucide-react';
+import { usePlan } from '@/hooks/usePlan';
+import { cn } from '@/lib/utils';
 
 export function ExpiryReminderBanner() {
-  const plan = usePlan()
-  const [dismissed, setDismissed] = useState(false)
+  const plan = usePlan();
+  const [dismissed, setDismissed] = useState(false);
 
-  // Don't show if plan is fine
-  if (dismissed) return null
-  if (plan.isLoading) return null
-  if (!plan.isTrial && !plan.inGrace && !plan.isExpired) return null
-  if (plan.isTrial && (plan.daysLeft ?? 99) > 7) return null
+  if (dismissed) return null;
+  if (plan.isLoading) return null;
+  if (!plan.isTrial && !plan.inGrace && !plan.isExpired) return null;
+  if (plan.isTrial && (plan.daysLeft ?? 99) > 7) return null;
 
   const config = plan.isExpired ? {
     bg:     'bg-red-600',
@@ -36,11 +35,11 @@ export function ExpiryReminderBanner() {
     text:   `Trial: ${plan.daysLeft} din baaki`,
     sub:    'Upgrade kar ke sab features rakhhein',
     urgent: false,
-  }
+  };
 
   return (
     <div className={cn(
-      'flex items-center gap-3 px-4 py-3 mx-4 rounded-2xl mb-1',
+      'flex flex-wrap sm:flex-nowrap items-center gap-3 px-4 py-3 mx-4 rounded-2xl mb-1',
       config.bg
     )}>
       <Zap size={16} className="text-white shrink-0" />
@@ -53,7 +52,7 @@ export function ExpiryReminderBanner() {
       <button
         onClick={() => plan.upgrade()}
         className="shrink-0 bg-white text-blue-700 font-bold text-xs
-                   px-3 py-2 rounded-xl transition-colors hover:bg-blue-50 active:scale-95"
+                   px-3 py-2 rounded-xl transition-colors hover:bg-blue-50 active:scale-95 whitespace-nowrap"
       >
         Upgrade →
       </button>
@@ -68,5 +67,5 @@ export function ExpiryReminderBanner() {
         </button>
       )}
     </div>
-  )
+  );
 }

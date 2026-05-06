@@ -28,7 +28,7 @@ export function NotificationPermissionCard() {
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-3">
       <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center
-                      justify-center flex-shrink-0 mt-0.5">
+                      justify-center shrink-0 mt-0.5">
         <Bell size={18} className="text-white" />
       </div>
 
@@ -58,7 +58,7 @@ export function NotificationPermissionCard() {
         </div>
       </div>
 
-      <button onClick={handleDismiss} className="flex-shrink-0 mt-0.5">
+      <button onClick={handleDismiss} className="shrink-0 mt-0.5">
         <X size={15} className="text-blue-400" />
       </button>
     </div>

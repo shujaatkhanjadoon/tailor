@@ -1,50 +1,49 @@
 // src/components/dashboard/RecentOrderCard.tsx
-'use client'
+'use client';
 
-import { useRouter } from 'next/navigation'
-import { MessageCircle, Clock } from 'lucide-react'
-import { OrderRecord } from '@/lib/db/schema'          // ← use OrderRecord
-import { ORDER_STATUS_CONFIG, GARMENT_LABELS } from '@/types'
-import { cn } from '@/lib/utils'
-import { formatDistanceToNow } from 'date-fns'
+import { useRouter } from 'next/navigation';
+import { MessageCircle, Clock } from 'lucide-react';
+import { OrderRecord } from '@/lib/db/schema';
+import { ORDER_STATUS_CONFIG, GARMENT_LABELS } from '@/types';
+import { cn } from '@/lib/utils';
+import { formatDistanceToNow } from 'date-fns';
 
 interface RecentOrderCardProps {
-  order: OrderRecord                                    // ← was Order
+  order: OrderRecord;
 }
 
 function buildWhatsAppLink(order: OrderRecord): string {
-  const phone = `92${order.customerPhone.replace(/^0/, '').replace(/\D/g, '')}`
-  const balance = order.totalPrice - order.amountPaid
+  const phone = `92${order.customerPhone.replace(/^0/, '').replace(/\D/g, '')}`;
+  const balance = order.totalPrice - order.amountPaid;
   const msg = encodeURIComponent(
     `Assalam o Alaikum ${order.customerName}! 🎉\n\n` +
     `Aapka order #${order.orderNumber} tayyar ho gaya hai!\n` +
     `${balance > 0 ? `Baaki raqam: Rs. ${balance.toLocaleString()}\n\n` : '\n'}` +
     `Jaldi tashreef laaein. Shukriya! 🙏`
-  )
-  return `https://wa.me/${phone}?text=${msg}`
+  );
+  return `https://wa.me/${phone}?text=${msg}`;
 }
 
 export function RecentOrderCard({ order }: RecentOrderCardProps) {
-  const router = useRouter()
+  const router = useRouter();
 
-  // Safe lookups — garmentType is string in DB, cast for display
-  const statusConfig  = ORDER_STATUS_CONFIG[order.status  as keyof typeof ORDER_STATUS_CONFIG]
-  const garmentConfig = GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS]
+  const statusConfig = ORDER_STATUS_CONFIG[order.status as keyof typeof ORDER_STATUS_CONFIG];
+  const garmentConfig = GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS];
 
-  const balance         = order.totalPrice - order.amountPaid
-  const isOverdue       = order.dueDate < new Date().toISOString().split('T')[0]
-    && !['delivered', 'cancelled'].includes(order.status)
+  const balance = order.totalPrice - order.amountPaid;
+  const isOverdue = order.dueDate < new Date().toISOString().split('T')[0] &&
+    !['delivered', 'cancelled'].includes(order.status);
   const paymentProgress = order.totalPrice > 0
     ? Math.round((order.amountPaid / order.totalPrice) * 100)
-    : 0
+    : 0;
 
-  if (!statusConfig) return null   // guard against unexpected status values
+  if (!statusConfig) return null;
 
   return (
     <div
       className={cn(
         'bg-white border rounded-2xl p-4 transition-transform active:scale-[0.98]',
-        isOverdue         ? 'border-red-200 bg-red-50/30'     : 'border-slate-200',
+        isOverdue ? 'border-red-200 bg-red-50/30' : 'border-slate-200',
         order.isUrgent === 1 && !isOverdue ? 'border-orange-200 bg-orange-50/20' : ''
       )}
     >
@@ -112,14 +111,14 @@ export function RecentOrderCard({ order }: RecentOrderCardProps) {
         </div>
       </div>
 
-      {/* Bottom row */}
+      {/* Bottom row — responsive shrink */}
       <div className="flex items-center justify-between">
         <div className={cn(
-          'flex items-center gap-1 text-xs',
+          'flex items-center gap-1 text-xs min-w-0',
           isOverdue ? 'text-red-600 font-semibold' : 'text-slate-400'
         )}>
-          <Clock size={11} />
-          <span>
+          <Clock size={11} className="shrink-0" />
+          <span className="truncate">
             {isOverdue
               ? `${formatDistanceToNow(new Date(order.dueDate))} late`
               : `Due: ${new Date(order.dueDate).toLocaleDateString('en-PK', {
@@ -137,7 +136,7 @@ export function RecentOrderCard({ order }: RecentOrderCardProps) {
             onClick={e => e.stopPropagation()}
             className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600
                        text-white text-xs font-semibold px-3 py-1.5 rounded-full
-                       transition-colors active:scale-95"
+                       transition-colors active:scale-95 shrink-0"
           >
             <MessageCircle size={12} />
             WhatsApp
@@ -145,5 +144,5 @@ export function RecentOrderCard({ order }: RecentOrderCardProps) {
         )}
       </div>
     </div>
-  )
+  );
 }
