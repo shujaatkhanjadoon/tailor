@@ -10,8 +10,48 @@ const HEADERS = {
   'Authorization': `Bearer ${SB_KEY}`,
 }
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+function isRetryableFetchError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  const cause = (error as { cause?: { code?: string } })?.cause
+  return (
+    message.includes('fetch failed') ||
+    message.includes('Connect Timeout') ||
+    cause?.code === 'UND_ERR_CONNECT_TIMEOUT'
+  )
+}
+
+async function sbFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  let lastError: unknown
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
+        ...init,
+        signal: AbortSignal.timeout(30000),
+      })
+
+      if (res.status >= 500 && attempt < 3) {
+        await sleep(500 * attempt)
+        continue
+      }
+
+      return res
+    } catch (error) {
+      lastError = error
+      if (attempt >= 3 || !isRetryableFetchError(error)) break
+      await sleep(700 * attempt)
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Supabase request failed')
+}
+
 async function sbPost(table: string, data: object): Promise<any> {
-  const res = await fetch(`${SB_URL}/rest/v1/${table}`, {
+  const res = await sbFetch(table, {
     method:  'POST',
     headers: { ...HEADERS, 'Prefer': 'return=representation' },
     body:    JSON.stringify(data),
@@ -26,7 +66,7 @@ async function sbPost(table: string, data: object): Promise<any> {
 
 async function sbUpsertById(table: string, data: object): Promise<void> {
   // Always conflict on 'id' — every table has this unique constraint
-  const res = await fetch(`${SB_URL}/rest/v1/${table}?on_conflict=id`, {
+  const res = await sbFetch(`${table}?on_conflict=id`, {
     method:  'POST',
     headers: { ...HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
     body:    JSON.stringify(data),
@@ -39,7 +79,7 @@ async function sbUpsertById(table: string, data: object): Promise<void> {
 
 async function sbUpsertByShopId(table: string, data: object): Promise<void> {
   // For tables with unique constraint on shop_id
-  const res = await fetch(`${SB_URL}/rest/v1/${table}?on_conflict=shop_id`, {
+  const res = await sbFetch(`${table}?on_conflict=shop_id`, {
     method:  'POST',
     headers: { ...HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
     body:    JSON.stringify(data),
@@ -51,10 +91,13 @@ async function sbUpsertByShopId(table: string, data: object): Promise<void> {
 }
 
 async function sbGet(path: string): Promise<any[]> {
-  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
+  const res = await sbFetch(path, {
     headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` },
   })
-  if (!res.ok) return []
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`SELECT failed (${res.status}): ${err}`)
+  }
   return res.json()
 }
 
@@ -83,19 +126,50 @@ export async function POST(req: NextRequest) {
     const existing = await sbGet(
       `team_members?phone=eq.${ownerPhone}&is_active=eq.true&select=id,shop_id&limit=1`
     )
-    if (existing.length > 0) {
+    const existingMember = existing[0]
+    if (existingMember && existingMember.shop_id !== shopId) {
       return NextResponse.json(
         { error: 'Yeh phone number pehle se registered hai. Login karein.' },
         { status: 409 }
       )
     }
+    const memberId = existingMember?.id ?? crypto.randomUUID()
 
     // ── 2. Upsert shop (conflict on id) ───────────────────────────
+    const normalizedEmail = email ? String(email).toLowerCase().trim() : ''
+
+    if (normalizedEmail) {
+      const existingEmail = await sbGet(
+        `team_members?email=eq.${encodeURIComponent(normalizedEmail)}` +
+        `&is_active=eq.true&select=id,shop_id&limit=1`
+      )
+      const emailMember = existingEmail[0]
+      if (emailMember && emailMember.shop_id !== shopId) {
+        return NextResponse.json(
+          { error: 'Yeh email pehle se registered hai. Dusri email use karein ya login karein.' },
+          { status: 409 }
+        )
+      }
+
+      const verifiedEmail = await sbGet(
+        `email_verifications?phone=eq.${ownerPhone}` +
+        `&email=eq.${encodeURIComponent(normalizedEmail)}` +
+        `&verified_at=not.is.null&select=id&order=verified_at.desc&limit=1`
+      )
+
+      if (verifiedEmail.length === 0) {
+        return NextResponse.json(
+          { error: 'Email verify nahi hui. Pehle OTP verify karein.' },
+          { status: 403 }
+        )
+      }
+    }
+
     await sbUpsertById('shops', {
       id:                  shopId,
       shop_name:           shopName,
       owner_phone:         ownerPhone,
-      owner_email:         email  ?? null,
+      owner_email:         normalizedEmail || null,
       city:                city   ?? null,
       plan:                'starter',
       is_active:           true,
@@ -106,8 +180,6 @@ export async function POST(req: NextRequest) {
 
     // ── 3. Insert owner team member (conflict on id) ──────────────
     // Use a fixed ID so we can upsert safely
-    const memberId = crypto.randomUUID()
-
     await sbUpsertById('team_members', {
       id:             memberId,
       shop_id:        shopId,
@@ -115,8 +187,8 @@ export async function POST(req: NextRequest) {
       phone:          ownerPhone,
       role:           'owner',
       pin_hash:       pinHash,
-      email:          email ?? null,
-      email_verified: email ? true : false,
+      email:          normalizedEmail || null,
+      email_verified: normalizedEmail ? true : false,
       is_active:      true,
       failed_attempts: 0,
       joined_at:      new Date().toISOString().split('T')[0],
@@ -153,7 +225,7 @@ export async function POST(req: NextRequest) {
         shop_id:      shopId,
         owner_name:   ownerName ?? shopName,
         owner_phone:  ownerPhone,
-        owner_email:  email ?? null,
+        owner_email:  normalizedEmail || null,
         city:         city  ?? null,
         status:       'pending',
         requested_at: new Date().toISOString(),
@@ -168,12 +240,12 @@ export async function POST(req: NextRequest) {
     const adminWA  = process.env.ADMIN_WHATSAPP
 
     // Email notification
-    if (email) {
+    if (normalizedEmail) {
       sendShopVerificationAlert({
         shopName,
         ownerName:  ownerName ?? shopName,
         ownerPhone,
-        ownerEmail: email,
+        ownerEmail: normalizedEmail,
         city,
         shopId,
       }).catch(console.error)
@@ -212,6 +284,15 @@ export async function POST(req: NextRequest) {
 
   } catch (e) {
     console.error('[create-shop] error:', e)
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    if (isRetryableFetchError(e)) {
+      return NextResponse.json(
+        { error: 'Supabase se connect nahi ho saka. Dobara try karein.' },
+        { status: 502 }
+      )
+    }
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : String(e) },
+      { status: 500 }
+    )
   }
 }

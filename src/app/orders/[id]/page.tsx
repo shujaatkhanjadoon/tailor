@@ -9,6 +9,7 @@ import { QRCodeDisplay } from '@/components/orders/QRCodeDisplay'
 import {
   ArrowLeft, MessageCircle, Clock, Wallet,
   User2, QrCode, ChevronRight, Plus,
+  Ruler, Image as ImageIcon, StickyNote, Phone,
 } from 'lucide-react'
 import { useOrder } from '@/hooks/useOrders'
 import { useAuth } from '@/lib/auth/AuthContext'
@@ -21,6 +22,7 @@ import { OrderPhotoSection } from '@/components/photos/OrderPhotoSection'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { usePlan } from '@/hooks/usePlan'
+import { AccessNotice } from '@/components/billing/AccessNotice'
 
 const PAYMENT_METHODS = [
   { key: 'cash', label: 'Cash', emoji: '💵' },
@@ -36,6 +38,35 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const plan = usePlan()
   const { order, payments, history, balance } = useOrder(id)
   const shop = useLiveQuery(async () => db.shop.toCollection().first(), [])
+  const customer = useLiveQuery(
+    async () => order?.customerId ? db.customers.get(order.customerId) : undefined,
+    [order?.customerId]
+  )
+  const measurement = useLiveQuery(
+    async () => {
+      if (!order) return undefined
+      if (order.measurementId) {
+        const linked = await db.measurements.get(order.measurementId)
+        if (linked) return linked
+      }
+
+      const matches = await db.measurements
+        .where('customerId').equals(order.customerId)
+        .filter(m => m._deleted === 0 && m.garmentType === order.garmentType)
+        .reverse()
+        .sortBy('takenAt')
+
+      return matches[0]
+    },
+    [order?.id, order?.measurementId, order?.customerId, order?.garmentType]
+  )
+  const photos = useLiveQuery(
+    async () => db.photos
+      .where('orderId').equals(id)
+      .filter(p => p._deleted !== 1)
+      .sortBy('takenAt'),
+    [id]
+  ) ?? []
 
   const [showStatusSheet, setShowStatusSheet] = useState(false)
   const [showAssignSheet, setShowAssignSheet] = useState(false)
@@ -51,6 +82,16 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
       </div>
+    )
+  }
+
+  if (currentUser?.role === 'karigar' && order.assignedTo !== currentUser.id) {
+    return (
+      <AccessNotice
+        icon="role"
+        title="Order assigned nahi hai"
+        message="Karigar sirf apne assigned orders ki complete details dekh sakta hai."
+      />
     )
   }
 
@@ -183,7 +224,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 <Wallet size={15} className="text-blue-600" />
                 Payment
               </h2>
-              {isOwner && !isTerminal && (
+              {isOwner && order.status !== 'cancelled' && balance > 0 && (
                 <button
                   onClick={() => setShowPaySheet(true)}
                   className="text-xs font-semibold text-blue-600 flex items-center gap-1"
@@ -380,6 +421,105 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </div>
           )}
         </div>
+
+        {/* CUSTOMER DETAILS */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
+          <h2 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <User2 size={15} className="text-blue-600" />
+            Customer Details
+          </h2>
+
+          {[
+            { icon: User2, label: 'Naam', value: customer?.name ?? order.customerName },
+            { icon: Phone, label: 'Phone', value: customer?.phone ?? order.customerPhone },
+            customer?.whatsapp ? { icon: MessageCircle, label: 'WhatsApp', value: customer.whatsapp } : null,
+            customer?.gender ? { icon: User2, label: 'Type', value: customer.gender } : null,
+          ].filter(Boolean).map((item) => {
+            const detail = item as { icon: typeof User2; label: string; value: string }
+            return (
+              <div key={detail.label} className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center shrink-0">
+                  <detail.icon size={14} className="text-slate-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-slate-400">{detail.label}</p>
+                  <p className="text-sm text-slate-700 wrap-break-word">{detail.value}</p>
+                </div>
+              </div>
+            )
+          })}
+
+          {customer?.notes && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+              <p className="text-xs font-semibold text-amber-700 mb-1 flex items-center gap-1">
+                <StickyNote size={12} />
+                Customer Notes
+              </p>
+              <p className="text-sm text-amber-800">{customer.notes}</p>
+            </div>
+          )}
+        </div>
+
+        {/* MEASUREMENTS */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
+          <h2 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <Ruler size={15} className="text-blue-600" />
+            Nap / Measurements
+          </h2>
+
+          {measurement && Object.keys(measurement.values).length > 0 ? (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(measurement.values).map(([key, value]) => (
+                  <div key={key} className="bg-slate-50 rounded-xl px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                      {key.replace(/_/g, ' ')}
+                    </p>
+                    <p className="text-sm font-bold text-slate-800">{value}</p>
+                  </div>
+                ))}
+              </div>
+              {measurement.notes && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  <p className="text-xs font-semibold text-amber-700 mb-1">Measurement Notes</p>
+                  <p className="text-sm text-amber-800">{measurement.notes}</p>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-slate-400">Is order ke saath nap record attach nahi hai.</p>
+          )}
+        </div>
+
+        {/* UPLOADED IMAGES */}
+        {photos.length > 0 && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
+            <h2 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <ImageIcon size={15} className="text-blue-600" />
+              Uploaded Images
+            </h2>
+            <div className="grid grid-cols-2 gap-3">
+              {photos.map(photo => (
+                <a
+                  key={photo.id}
+                  href={photo.cloudUrl ?? photo.base64}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                >
+                  <img
+                    src={photo.cloudUrl ?? photo.base64}
+                    alt={`${photo.type} photo`}
+                    className="h-36 w-full object-cover"
+                  />
+                  <p className="px-3 py-2 text-xs font-semibold capitalize text-slate-600">
+                    {photo.type}
+                  </p>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* STATUS HISTORY */}
         {history.length > 0 && (

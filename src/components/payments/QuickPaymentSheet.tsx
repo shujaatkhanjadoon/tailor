@@ -42,7 +42,8 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
     preOrder ? "amount" : "pick",
   );
 
-  // Orders with pending balance
+  // Orders with pending balance, including delivered orders.
+  // Completed orders can still have receivable balance if the owner delivered with a warning.
   const pendingOrders = useLiveQuery(async (): Promise<OrderRecord[]> => {
     if (!shopId) return [];
     return db.orders
@@ -51,7 +52,7 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
       .filter(
         (o) =>
           o._deleted === 0 &&
-          !["delivered", "cancelled"].includes(o.status) &&
+          o.status !== "cancelled" &&
           o.totalPrice > o.amountPaid,
       )
       .reverse()

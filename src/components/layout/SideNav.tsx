@@ -3,11 +3,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Home, ClipboardList, Users, Wallet,
   Settings, Scissors, Plus, BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { db } from '@/lib/db/schema'
+import { useAuth } from '@/lib/auth/AuthContext'
 
 const navItems = [
   { href: '/dashboard', icon: Home,          label: 'Dashboard'  },
@@ -20,6 +23,11 @@ const navItems = [
 
 export function SideNav() {
   const pathname = usePathname()
+  const { shopId } = useAuth()
+  const shop = useLiveQuery(
+    async () => shopId ? db.shop.get(shopId) : undefined,
+    [shopId]
+  )
 
   return (
     <div className="flex flex-col h-full bg-slate-900 text-white">
@@ -30,7 +38,7 @@ export function SideNav() {
           <Scissors size={18} className="text-white" strokeWidth={2} />
         </div>
         <div>
-          <p className="font-bold text-sm leading-tight">DarziHub</p>
+          <p className="font-bold text-sm leading-tight">{shop?.shopName ?? 'DarziHub'}</p>
           <p className="text-slate-400 text-[11px]">Tailor App</p>
         </div>
       </div>

@@ -30,6 +30,7 @@ interface StatusUpdateSheetProps {
 export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateSheetProps) {
   const { currentUser } = useAuth()
   const [saving, setSaving] = useState<OrderStatus | null>(null)
+  const [deliveryWarningAccepted, setDeliveryWarningAccepted] = useState(false)
 
   const nextStatuses = NEXT_STATUSES[order.status as OrderStatus]
   const currentConfig = ORDER_STATUS_CONFIG[order.status as OrderStatus]
@@ -42,9 +43,10 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
     if (newStatus === 'delivered') {
       const unpaidBalance = Math.max(0, order.totalPrice - order.amountPaid)
 
-      if (unpaidBalance > 0) {
-        toast.error('Payment abhi baaki hai', {
-          description: `Delivery se pehle Rs. ${unpaidBalance.toLocaleString()} receive karein.`,
+      if (unpaidBalance > 0 && !deliveryWarningAccepted) {
+        setDeliveryWarningAccepted(true)
+        toast.warning('Payment abhi baaki hai', {
+          description: `Rs. ${unpaidBalance.toLocaleString()} baaki hai. Dobara Deliver dabayein agar phir bhi dena hai.`,
         })
         return
       }
@@ -56,6 +58,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
       toast.success('Status Update Ho Gaya', {
         description: `${order.status} -> ${newStatus}`,
       })
+      setDeliveryWarningAccepted(false)
       onUpdate()
       onClose()
     } catch (e) {
@@ -138,7 +141,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
                   {/* Unpaid balance warning */}
                   {(() => {
                     const unpaid = Math.max(0, order.totalPrice - order.amountPaid)
-                    if (unpaid <= 0) return null
+                    if (unpaid <= 0 || status !== 'delivered') return null
                     return (
                       <div className="flex items-start gap-2 bg-amber-50 border border-amber-200
                     rounded-2xl px-4 py-3 mb-4">
@@ -148,7 +151,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
                             Rs. {unpaid.toLocaleString()} baaki hai
                           </p>
                           <p className="text-amber-600 text-xs mt-0.5">
-                            Order deliver karne se pehle payment le lein
+                            Delivery allow hai. Pehli tap warning accept karegi, doosri tap deliver karegi.
                           </p>
                         </div>
                       </div>

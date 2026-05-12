@@ -1,6 +1,8 @@
 // next.config.ts
 import type { NextConfig } from 'next'
 
+process.env.TIMEZ = process.env.TIMEZ ?? 'Asia/Karachi'
+
 const withPWA = require('next-pwa')({
   dest:        'public',
   register:    true,

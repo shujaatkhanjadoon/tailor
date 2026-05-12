@@ -161,13 +161,49 @@ function NewOrderWizard({
     setSaving(true);
 
     try {
+      const filledMeasurements = Object.fromEntries(
+        Object.entries(data.measurements ?? {}).filter(
+          ([, v]) => v && v !== "0",
+        ),
+      );
+
+      let measurementId = data.measurementId;
+      if (!measurementId && Object.keys(filledMeasurements).length > 0) {
+        measurementId = uuid();
+
+        await db.measurements.add({
+          id: measurementId,
+          customerId: data.customerId!,
+          shopId,
+          garmentType: data.garmentType!,
+          values: filledMeasurements,
+          takenAt: new Date().toISOString(),
+          _synced: 0,
+          _deleted: 0,
+        });
+      }
+
+      if (!measurementId) {
+        const latestMeasurement = await db.measurements
+          .where("customerId")
+          .equals(data.customerId!)
+          .filter(
+            (m) =>
+              m._deleted === 0 &&
+              m.garmentType === data.garmentType,
+          )
+          .reverse()
+          .sortBy("takenAt");
+
+        measurementId = latestMeasurement[0]?.id;
+      }
       // ── 1. Create the order (amountPaid starts at 0) ───────────
       const order = await orderOps.add(shopId, {
         customerId: data.customerId,
         customerName: data.customerName!,
         customerPhone: data.customerPhone!,
         garmentType: data.garmentType,
-        measurementId: data.measurementId,
+        measurementId,
         status: "received",
         dueDate: data.dueDate,
         totalPrice: data.totalPrice,
@@ -179,43 +215,21 @@ function NewOrderWizard({
 
       // ── 2. Record advance payment (paymentOps sets amountPaid correctly) ──
       if (data.advancePaid && data.advancePaid > 0) {
+        const advanceAmount = Math.min(data.advancePaid, data.totalPrice);
         await paymentOps.add(shopId, {
           orderId: order.id,
-          amount: data.advancePaid,
+          amount: advanceAmount,
           method: data.paymentMethod ?? "cash",
           recordedBy: currentUser.id,
-          notes: undefined,
+          appliedToBalance: advanceAmount,
+          notes:
+            data.advancePaid > data.totalPrice
+              ? `Advance Rs. ${data.advancePaid.toLocaleString()} tha; order balance par Rs. ${advanceAmount.toLocaleString()} apply hua.`
+              : undefined,
         });
       }
 
       // ── 3. Save measurements if any fields were filled ─────────
-      const filled = Object.fromEntries(
-        Object.entries(data.measurements ?? {}).filter(
-          ([, v]) => v && v !== "0",
-        ),
-      );
-
-      if (!data.measurementId && Object.keys(filled).length > 0) {
-        const measurementId = uuid();
-
-        // Save measurement record
-        await db.measurements.add({
-          id: measurementId,
-          customerId: data.customerId!,
-          shopId,
-          garmentType: data.garmentType!,
-          values: filled,
-          takenAt: new Date().toISOString(),
-          _synced: 0,
-          _deleted: 0,
-        });
-
-        await db.orders.update(order.id, {
-          measurementId,
-          _synced: 0,
-        });
-      }
-
       await syncService.pushAll(shopId).catch(console.error);
 
       // ── 4. Store the saved order info for the success screen ───

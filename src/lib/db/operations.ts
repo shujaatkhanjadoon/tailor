@@ -117,9 +117,6 @@ export const shopOps = {
   },
 
   async setupWithId(id: string, shopName: string, ownerPhone: string): Promise<string> {
-    const existing = await db.shop.toCollection().first()
-    if (existing) return existing.id
-
     await db.shop.put({
       id,
       shopName,
@@ -454,10 +451,6 @@ export const orderOps = {
   ): Promise<void> {
     const order = await db.orders.get(orderId)
     if (!order) return
-
-    if (newStatus === 'delivered' && order.amountPaid < order.totalPrice) {
-      throw new Error('Order deliver karne se pehle full payment complete karein.')
-    }
 
     const updates: Partial<OrderRecord> = {
       status:    newStatus,

@@ -198,14 +198,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Naya account banane ke liye internet chahiye')
     }
 
-    // Check for existing local shop
-    const existing = await db.shop.toCollection().first()
-    if (existing) {
-      console.warn('[Auth] Local shop already exists')
-      await reinitialize()
-      return existing.id
-    }
-
     // Generate IDs
     const shopId = crypto.randomUUID()
 

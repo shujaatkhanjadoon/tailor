@@ -31,7 +31,6 @@ export default function SettingsPage() {
   const { currentUser, shopId, logout, isOwner } = useAuth();
   const myPlan = usePlan();
 
-  const [shopName, setShopName] = useState("");
   const [memberCount, setMemberCount] = useState(0);
   const [orderCount, setOrderCount] = useState(0);
   const [pendingSync, setPendingSync] = useState(0);
@@ -47,6 +46,11 @@ export default function SettingsPage() {
     const totalKB = photos.reduce((s, p) => s + p.sizeKB, 0);
     return { count: photos.length, totalKB };
   }, [shopId]);
+  const shop = useLiveQuery(
+    async () => shopId ? db.shop.get(shopId) : undefined,
+    [shopId]
+  );
+  const shopName = shop?.shopName ?? "";
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -61,9 +65,6 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const load = async () => {
-      const shop = await db.shop.toCollection().first();
-      if (shop) setShopName(shop.shopName);
-
       if (shopId) {
         // Count members
         const members = await db.teamMembers

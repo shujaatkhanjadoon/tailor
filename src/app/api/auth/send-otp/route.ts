@@ -41,6 +41,24 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     )
   }
+  const normalizedEmail = String(email).toLowerCase().trim()
+
+  if (purpose === 'signup') {
+    const emailOwnerRes = await fetch(
+      `${SB_URL}/rest/v1/team_members` +
+      `?email=eq.${encodeURIComponent(normalizedEmail)}` +
+      `&is_active=eq.true&select=id&limit=1`,
+      { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } }
+    )
+    const emailOwners = emailOwnerRes.ok ? await emailOwnerRes.json() : []
+
+    if (emailOwners.length > 0) {
+      return NextResponse.json(
+        { error: 'Yeh email pehle se registered hai. Dusri email use karein ya login karein.' },
+        { status: 409 }
+      )
+    }
+  }
 
   // ── Rate limit by phone ───────────────────────────────────────
   const phoneLimiter = getOTPRatelimiter()
@@ -75,7 +93,7 @@ export async function POST(req: NextRequest) {
       headers: { ...HEADERS, 'Prefer': 'return=minimal' },
       body:    JSON.stringify({
         phone:      phoneResult.cleaned,
-        email:      email.toLowerCase().trim(),
+        email:      normalizedEmail,
         otp_hash:   otpHash,
         expires_at: expiresAt,
       }),
@@ -88,7 +106,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Send OTP email ────────────────────────────────────────────
-  const emailResult = await sendOTPEmail(email.toLowerCase().trim(), otp, purpose)
+  const emailResult = await sendOTPEmail(normalizedEmail, otp, purpose)
   if (!emailResult.success) {
     return NextResponse.json(
       { error: 'Email nahi aayi. Email address check karein.' },
@@ -100,7 +118,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     success:    true,
-    maskedEmail: `${email.slice(0, 2)}***@${email.split('@')[1]}`,
+    maskedEmail: `${normalizedEmail.slice(0, 2)}***@${normalizedEmail.split('@')[1]}`,
     expiresAt,
   })
 }

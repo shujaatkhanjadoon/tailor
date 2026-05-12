@@ -1,4 +1,7 @@
 {
+  "env": {
+    "TIMEZ": "Asia/Karachi"
+  },
   "crons": [
     {
       "path": "/api/cron/expire-subscriptions",

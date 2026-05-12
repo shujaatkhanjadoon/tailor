@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   UserPlus, Trash2, Star, Scissors, Phone,
   Pencil, X, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2,
-  ShieldAlert,
+  ShieldAlert, ArrowUpRight,
 } from 'lucide-react'
 import { TeamMemberRecord }    from '@/lib/db/schema'
 import { teamOps }             from '@/lib/db/operations'
@@ -414,12 +414,22 @@ export function TeamManager() {
       {/* Plan limit info */}
       {!canAddKarigar && !showAddForm && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
           <p className="text-xs text-amber-800 font-medium">
             {karigarLimit === 0
               ? '💡 Karigar accounts Professional plan se unlock hotay hain.'
               : `📊 ${plan.plan === 'professional' ? 'Professional' : 'Business'} plan mein ${karigarLimit} karigar limit. Business plan mein unlimited hain.`
             }
           </p>
+          <button
+            type="button"
+            onClick={() => plan.upgrade(karigarLimit === 0 ? 'professional' : 'business')}
+            className="shrink-0 inline-flex items-center gap-1 rounded-xl bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-sm active:scale-95"
+          >
+            Upgrade Plan
+            <ArrowUpRight size={12} />
+          </button>
+          </div>
         </div>
       )}
 

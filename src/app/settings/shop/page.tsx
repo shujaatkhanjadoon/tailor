@@ -3,6 +3,7 @@
 
 import { useState, useEffect, type ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
+import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ArrowLeft, Store, MapPin, MessageCircle, CheckCircle2,
   Image as ImageIcon, Upload, Palette, Sparkles,
@@ -12,6 +13,7 @@ import { useAuth } from '@/lib/auth/AuthContext'
 import { cn } from '@/lib/utils'
 import { AccessNotice } from '@/components/billing/AccessNotice'
 import { usePlan } from '@/hooks/usePlan'
+import { syncService } from '@/lib/supabase/sync-service'
 
 const PAKISTAN_CITIES = [
   'Karachi','Lahore','Islamabad','Rawalpindi','Faisalabad',
@@ -21,7 +23,7 @@ const PAKISTAN_CITIES = [
 
 export default function ShopSettingsPage() {
   const router     = useRouter()
-  const { isOwner } = useAuth()
+  const { isOwner, shopId } = useAuth()
   const plan = usePlan()
 
   const [shopName,   setShopName]   = useState('')
@@ -35,8 +37,12 @@ export default function ShopSettingsPage() {
   const [saved,      setSaved]      = useState(false)
   const [showCities, setShowCities] = useState(false)
 
+  const shop = useLiveQuery(
+    async () => shopId ? db.shop.get(shopId) : undefined,
+    [shopId]
+  )
+
   useEffect(() => {
-    db.shop.toCollection().first().then(shop => {
       if (!shop) return
       setShopName(shop.shopName   ?? '')
       setWhatsapp(shop.whatsappNumber ?? '')
@@ -44,8 +50,7 @@ export default function ShopSettingsPage() {
       setBrandName(shop.brandName ?? '')
       setBrandColor(shop.brandColor ?? '#2563eb')
       setBrandLogoUrl(shop.brandLogoUrl ?? '')
-    })
-  }, [])
+  }, [shop])
 
   const isBusiness = plan.plan === 'business' && plan.isActive
 
@@ -83,12 +88,12 @@ export default function ShopSettingsPage() {
   }
 
   const handleSave = async () => {
-    if (!shopName.trim()) return
+    if (!shopName.trim() || !shopId) return
     setSaving(true)
     try {
-      const shop = await db.shop.toCollection().first()
-      if (shop) {
-        await db.shop.update(shop.id, {
+      const currentShop = await db.shop.get(shopId)
+      if (currentShop) {
+        await db.shop.update(currentShop.id, {
           shopName:       shopName.trim(),
           whatsappNumber: whatsapp || undefined,
           city:           city     || undefined,
@@ -98,6 +103,7 @@ export default function ShopSettingsPage() {
           updatedAt:      new Date().toISOString(),
           _synced:        0,
         })
+        await syncService.pushAll(currentShop.id).catch(console.error)
       }
       setSaved(true)
       setTimeout(() => { setSaved(false); router.back() }, 1200)

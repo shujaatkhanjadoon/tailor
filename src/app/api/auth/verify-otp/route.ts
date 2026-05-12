@@ -11,6 +11,46 @@ const HEADERS = {
   'Authorization': `Bearer ${SB_KEY}`,
 }
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+function isRetryableFetchError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  const cause = (error as { cause?: { code?: string } })?.cause
+  return (
+    message.includes('fetch failed') ||
+    message.includes('Connect Timeout') ||
+    cause?.code === 'UND_ERR_CONNECT_TIMEOUT'
+  )
+}
+
+async function sbFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  let lastError: unknown
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
+        ...init,
+        signal: AbortSignal.timeout(30000),
+      })
+
+      if (res.status >= 500 && attempt < 3) {
+        await sleep(500 * attempt)
+        continue
+      }
+
+      return res
+    } catch (error) {
+      lastError = error
+      if (attempt >= 3 || !isRetryableFetchError(error)) break
+      await sleep(700 * attempt)
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Supabase request failed')
+}
+
 export async function POST(req: NextRequest) {
   const ip = getClientIP(req)
 
@@ -31,14 +71,23 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Find latest valid OTP ─────────────────────────────────────
-  const res = await fetch(
-    `${SB_URL}/rest/v1/email_verifications` +
+  try {
+  const res = await sbFetch(
+    `email_verifications` +
     `?phone=eq.${encodeURIComponent(phone)}` +
     `&verified_at=is.null` +
-    `&expires_at=gt.${new Date().toISOString()}` +
+    `&expires_at=gt.${encodeURIComponent(new Date().toISOString())}` +
     `&order=created_at.desc&limit=1`,
     { headers: HEADERS }
   )
+  if (!res.ok) {
+    const err = await res.text()
+    console.error('[verify-otp] lookup failed:', err)
+    return NextResponse.json(
+      { error: 'OTP verify nahi ho saka. Dobara try karein.' },
+      { status: 502 }
+    )
+  }
   const rows: any[] = await res.json()
   const record = rows?.[0]
 
@@ -58,8 +107,8 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Increment attempt count ───────────────────────────────────
-  await fetch(
-    `${SB_URL}/rest/v1/email_verifications?id=eq.${record.id}`,
+  await sbFetch(
+    `email_verifications?id=eq.${record.id}`,
     {
       method:  'PATCH',
       headers: { ...HEADERS, 'Prefer': 'return=minimal' },
@@ -81,8 +130,8 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Mark as verified ──────────────────────────────────────────
-  await fetch(
-    `${SB_URL}/rest/v1/email_verifications?id=eq.${record.id}`,
+  await sbFetch(
+    `email_verifications?id=eq.${record.id}`,
     {
       method:  'PATCH',
       headers: { ...HEADERS, 'Prefer': 'return=minimal' },
@@ -95,4 +144,11 @@ export async function POST(req: NextRequest) {
     email:   record.email,
     phone,
   })
+  } catch (e) {
+    console.error('[verify-otp] error:', e)
+    return NextResponse.json(
+      { error: 'Supabase se connect nahi ho saka. Dobara try karein.' },
+      { status: 502 }
+    )
+  }
 }
