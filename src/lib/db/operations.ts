@@ -2,6 +2,7 @@
 import { db, OrderRecord, CustomerRecord, TeamMemberRecord, PaymentRecord } from './schema'
 import { syncQueue } from './sync'
 import { generateTrackingCode } from '../tracking'
+import { supabase } from '@/lib/supabase/client'
 
 // ── Utility ──────────────────────────────────────────────────────
 
@@ -21,6 +22,78 @@ const uuid = (): string => {
 
 const now   = () => new Date().toISOString()
 const today = () => new Date().toISOString().split('T')[0]
+const isBrowserOnline = () =>
+  typeof navigator === 'undefined' || navigator.onLine
+
+async function upsertRemote(table: string, row: Record<string, unknown>): Promise<void> {
+  if (!isBrowserOnline()) return
+  const { error } = await (supabase as any)
+    .from(table)
+    .upsert(row, { onConflict: 'id' })
+  if (error) throw new Error(error.message)
+}
+
+function orderToRemoteRow(order: OrderRecord) {
+  return {
+    id:                   order.id,
+    shop_id:              order.shopId,
+    order_number:         order.orderNumber,
+    tracking_code:        order.trackingCode,
+    customer_id:          order.customerId,
+    customer_name:        order.customerName,
+    customer_phone:       order.customerPhone,
+    measurement_id:       order.measurementId ?? null,
+    garment_type:         order.garmentType,
+    status:               order.status,
+    assigned_to:          order.assignedTo ?? null,
+    assigned_to_name:     order.assignedToName ?? null,
+    total_price:          order.totalPrice,
+    amount_paid:          order.amountPaid,
+    is_urgent:            order.isUrgent === 1,
+    due_date:             order.dueDate,
+    special_instructions: order.specialInstructions ?? null,
+    fabric_photo_url:     order.fabricPhotoUrl ?? null,
+    style_photo_url:      order.stylePhotoUrl ?? null,
+    created_at:           order.createdAt,
+    updated_at:           order.updatedAt,
+    delivered_at:         order.deliveredAt ?? null,
+    deleted_at:           order._deleted === 1 ? now() : null,
+  }
+}
+
+function paymentToRemoteRow(payment: PaymentRecord) {
+  return {
+    id:                 payment.id,
+    shop_id:            payment.shopId,
+    order_id:           payment.orderId,
+    amount:             payment.amount,
+    applied_to_balance: payment.appliedToBalance ?? payment.amount,
+    kind:               payment.kind ?? 'order_payment',
+    method:             payment.method,
+    recorded_by:        payment.recordedBy,
+    paid_at:            payment.paidAt,
+    notes:              payment.notes ?? null,
+    deleted_at:         payment._deleted === 1 ? now() : null,
+  }
+}
+
+function customerToRemoteRow(customer: CustomerRecord) {
+  return {
+    id:            customer.id,
+    shop_id:       customer.shopId,
+    name:          customer.name,
+    phone:         customer.phone,
+    whatsapp:      customer.whatsapp ?? null,
+    gender:        customer.gender,
+    notes:         customer.notes ?? null,
+    photo_url:     customer.photoUrl ?? null,
+    total_orders:  customer.totalOrders ?? 0,
+    created_at:    customer.createdAt,
+    updated_at:    customer.updatedAt,
+    last_order_at: customer.lastOrderAt ?? null,
+    deleted_at:    customer._deleted === 1 ? now() : null,
+  }
+}
 
 // ── Standalone interface for teamOps.add ─────────────────────────
 // Must be a named interface — prevents TypeScript inferring it
@@ -219,6 +292,12 @@ export const customerOps = {
     }
     await db.customers.add(customer)
     syncQueue.push('create', 'customers', customer.id, customer)
+    try {
+      await upsertRemote('customers', customerToRemoteRow(customer))
+      await db.customers.update(customer.id, { _synced: 1 })
+    } catch (e) {
+      console.warn('[customerOps.add] Supabase write failed; left unsynced:', e)
+    }
     return customer
   },
 
@@ -234,6 +313,15 @@ export const customerOps = {
     }
     await db.customers.update(id, updates)
     syncQueue.push('update', 'customers', id, updates)
+    const customer = await db.customers.get(id)
+    if (customer) {
+      try {
+        await upsertRemote('customers', customerToRemoteRow(customer))
+        await db.customers.update(id, { _synced: 1 })
+      } catch (e) {
+        console.warn('[customerOps.update] Supabase write failed; left unsynced:', e)
+      }
+    }
   },
 
   async softDelete(id: string): Promise<void> {
@@ -335,14 +423,27 @@ export const orderOps = {
     // Update customer stats
     const customer = await db.customers.get(order.customerId)
     if (customer) {
-      await db.customers.update(order.customerId, {
+      const customerUpdates = {
         lastOrderAt: now(),
         totalOrders: (customer.totalOrders || 0) + 1,
-        _synced:     0,
-      })
+        _synced:     0 as const,
+      }
+      await db.customers.update(order.customerId, customerUpdates)
+      try {
+        await upsertRemote('customers', customerToRemoteRow({ ...customer, ...customerUpdates }))
+        await db.customers.update(order.customerId, { _synced: 1 })
+      } catch (e) {
+        console.warn('[orderOps.add] Customer Supabase update failed; left unsynced:', e)
+      }
     }
 
     syncQueue.push('create', 'orders', order.id, order)
+    try {
+      await upsertRemote('orders', orderToRemoteRow(order))
+      await db.orders.update(order.id, { _synced: 1 })
+    } catch (e) {
+      console.warn('[orderOps.add] Supabase write failed; left unsynced:', e)
+    }
     return order
   },
 
@@ -353,6 +454,10 @@ export const orderOps = {
   ): Promise<void> {
     const order = await db.orders.get(orderId)
     if (!order) return
+
+    if (newStatus === 'delivered' && order.amountPaid < order.totalPrice) {
+      throw new Error('Order deliver karne se pehle full payment complete karein.')
+    }
 
     const updates: Partial<OrderRecord> = {
       status:    newStatus,
@@ -375,6 +480,12 @@ export const orderOps = {
     })
 
     syncQueue.push('update', 'orders', orderId, updates)
+    try {
+      await upsertRemote('orders', orderToRemoteRow({ ...order, ...updates }))
+      await db.orders.update(orderId, { _synced: 1 })
+    } catch (e) {
+      console.warn('[orderOps.updateStatus] Supabase write failed; left unsynced:', e)
+    }
   },
 
   async assign(orderId: string, memberId: string, memberName: string): Promise<void> {
@@ -386,6 +497,15 @@ export const orderOps = {
     }
     await db.orders.update(orderId, updates)
     syncQueue.push('update', 'orders', orderId, updates)
+    const order = await db.orders.get(orderId)
+    if (order) {
+      try {
+        await upsertRemote('orders', orderToRemoteRow(order))
+        await db.orders.update(orderId, { _synced: 1 })
+      } catch (e) {
+        console.warn('[orderOps.assign] Supabase write failed; left unsynced:', e)
+      }
+    }
   },
 
   async softDelete(orderId: string): Promise<void> {
@@ -460,14 +580,24 @@ export const paymentOps = {
         .filter(p => p._deleted === 0)
         .reduce((sum, p) => sum + (p.appliedToBalance ?? p.amount), 0)
 
+      const amountPaid = order ? Math.min(totalPaid, order.totalPrice) : totalPaid
       await db.orders.update(data.orderId, {
-        amountPaid: order ? Math.min(totalPaid, order.totalPrice) : totalPaid,
+        amountPaid,
         updatedAt:  now(),
         _synced:    0 as const,
       })
     })
 
     syncQueue.push('create', 'payments', payment.id, payment)
+    try {
+      await upsertRemote('payments', paymentToRemoteRow(payment))
+      const updatedOrder = await db.orders.get(data.orderId)
+      if (updatedOrder) await upsertRemote('orders', orderToRemoteRow(updatedOrder))
+      await db.payments.update(payment.id, { _synced: 1 })
+      await db.orders.update(data.orderId, { _synced: 1 })
+    } catch (e) {
+      console.warn('[paymentOps.add] Supabase write failed; left unsynced:', e)
+    }
     return payment
   },
 }

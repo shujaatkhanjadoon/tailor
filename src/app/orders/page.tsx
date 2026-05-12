@@ -302,7 +302,7 @@ function OrdersContent() {
                 order={order}
                 isOwner={isOwner}
                 onStatusTap={o => setStatusSheet(o)}
-                onAssignTap={isOwner && plan.canAddKarigar ? o => setAssignSheet(o) : undefined}
+                onAssignTap={isOwner ? o => setAssignSheet(o) : undefined}
               />
             ))}
 

@@ -57,7 +57,7 @@ export interface ShopRow {
   brand_name?:      string
   brand_color?:     string
   brand_logo_url?:  string
-  plan:             'starter' | 'professional' | 'enterprise'
+  plan:             'starter' | 'professional' | 'business'
   plan_expires_at?: string
   is_active:        boolean
   created_at:       string

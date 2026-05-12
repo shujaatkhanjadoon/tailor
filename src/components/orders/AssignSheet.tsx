@@ -9,6 +9,7 @@ import { teamOps, orderOps } from '@/lib/db/operations'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { cn } from '@/lib/utils'
 import { usePlan } from '@/hooks/usePlan'
+import { getKarigarLimitMessage, getSelectableKarigarIds } from '@/lib/team/karigar-limits'
 
 interface AssignSheetProps {
   orderId:         string
@@ -27,14 +28,25 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
 
   useEffect(() => {
     if (shopId) {
-      teamOps.getAll(shopId).then(all =>
-        setMembers(all.filter(m => m.role === 'karigar'))
-      )
+      teamOps.getAll(shopId).then(all => {
+        const karigars = all
+          .filter(m => m.role === 'karigar')
+          .sort((a, b) => {
+            const joined = a.joinedAt.localeCompare(b.joinedAt)
+            if (joined !== 0) return joined
+            return a.createdAt.localeCompare(b.createdAt)
+          })
+        setMembers(karigars)
+      })
     }
   }, [shopId])
 
+  const selectableIds = getSelectableKarigarIds(members, plan.karigarLimit)
+  const selectedIsDisabled = selected !== null && !selectableIds.has(selected)
+
   const handleSave = async () => {
     if (selected === currentAssignee) { onClose(); return }
+    if (selectedIsDisabled) return
     setSaving(true)
     try {
       if (selected) {
@@ -117,13 +129,19 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
               {/* Team members */}
               {members.map(m => {
                 const isSelected = selected === m.id
+                const canSelect = selectableIds.has(m.id)
                 return (
                   <button
                     key={m.id}
-                    onClick={() => setSelected(m.id)}
+                    onClick={() => {
+                      if (canSelect) setSelected(m.id)
+                    }}
+                    disabled={!canSelect}
                     className={cn(
                       'w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border-2 transition-all text-left',
-                      isSelected
+                      !canSelect
+                        ? 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'
+                        : isSelected
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-slate-200 bg-white hover:border-slate-300'
                     )}
@@ -131,7 +149,9 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
                     {/* Avatar */}
                     <div className={cn(
                       'w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0',
-                      isSelected ? 'bg-blue-600 text-white' : 'bg-green-100 text-green-700'
+                      !canSelect
+                        ? 'bg-slate-200 text-slate-400'
+                        : isSelected ? 'bg-blue-600 text-white' : 'bg-green-100 text-green-700'
                     )}>
                       {isSelected ? <Check size={16} /> : m.name.charAt(0).toUpperCase()}
                     </div>
@@ -139,6 +159,11 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-slate-800 text-sm truncate">{m.name}</p>
                       <div className="flex items-center gap-2 mt-0.5">
+                        {!canSelect && (
+                          <span className="text-[10px] text-slate-500 font-semibold">
+                            Plan limit
+                          </span>
+                        )}
                         {m.speciality && (
                           <span className="text-[10px] text-blue-600 font-medium">
                             ✂️ {m.speciality}
@@ -158,11 +183,13 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
 
             <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || selectedIsDisabled}
               className="w-full bg-blue-600 disabled:bg-slate-300 text-white font-bold
                          py-4 rounded-2xl transition-colors active:scale-[0.98]"
             >
-              {saving ? 'Assign ho raha hai...' : 'Assign Karein ✓'}
+              {selectedIsDisabled
+                ? getKarigarLimitMessage(plan.karigarLimit)
+                : saving ? 'Assign ho raha hai...' : 'Assign Karein ✓'}
             </button>
           </>
         )}

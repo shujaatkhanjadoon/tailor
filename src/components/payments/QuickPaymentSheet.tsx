@@ -34,7 +34,7 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
     "cash" | "easypaisa" | "jazzcash" | "bank"
   >("cash");
   const [notes, setNotes] = useState("");
-  const [surplusKind, setSurplusKind] = useState<"tip" | "overpayment">("tip");
+  const [surplusKind, setSurplusKind] = useState<"tip" | "overpayment" | "auto_transfer">("auto_transfer");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState("");
@@ -72,18 +72,84 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
     : 0;
   const enteredAmount = parseInt(amount || "0");
   const surplus = selectedOrder ? Math.max(0, enteredAmount - balance) : 0;
+  const transferTargets = (pendingOrders ?? [])
+    .filter((o) =>
+      selectedOrder &&
+      o.id !== selectedOrder.id &&
+      o.customerId === selectedOrder.customerId &&
+      o.totalPrice > o.amountPaid
+    )
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
   const handleSave = async () => {
     const amt = parseInt(amount);
     if (!amt || amt <= 0 || !selectedOrder || !currentUser || !shopId) return;
     setSaving(true);
     try {
-      await paymentOps.add(shopId, {
+      const shouldTransfer = surplus > 0 && surplusKind === "auto_transfer";
+      const primaryAmount = shouldTransfer ? Math.min(amt, balance) : amt;
+
+      if (shouldTransfer && primaryAmount > 0) {
+        await paymentOps.add(shopId, {
+          orderId: selectedOrder.id,
+          amount: primaryAmount,
+          method,
+          recordedBy: currentUser.id,
+          kind: "order_payment",
+          appliedToBalance: Math.min(primaryAmount, balance),
+          notes: [
+            notes.trim(),
+            `Received Rs. ${amt.toLocaleString()}; extra auto-adjusted to other pending orders.`,
+          ].filter(Boolean).join(" · ") || undefined,
+        });
+      }
+
+      if (shouldTransfer) {
+        let remaining = surplus;
+        for (const target of transferTargets) {
+          if (remaining <= 0) break;
+          const targetBalance = Math.max(0, target.totalPrice - target.amountPaid);
+          const applied = Math.min(remaining, targetBalance);
+          if (applied <= 0) continue;
+
+          await paymentOps.add(shopId, {
+            orderId: target.id,
+            amount: applied,
+            method,
+            recordedBy: currentUser.id,
+            kind: "order_payment",
+            appliedToBalance: applied,
+            notes: [
+              notes.trim(),
+              `Auto-adjusted from order #${String(selectedOrder.orderNumber).padStart(3, "0")}.`,
+            ].filter(Boolean).join(" · "),
+          });
+          remaining -= applied;
+        }
+
+        if (remaining > 0) {
+          await paymentOps.add(shopId, {
+            orderId: selectedOrder.id,
+            amount: remaining,
+            method,
+            recordedBy: currentUser.id,
+            kind: "overpayment",
+            appliedToBalance: 0,
+            notes: [
+              notes.trim(),
+              `Unallocated overpayment after auto-adjust: Rs. ${remaining.toLocaleString()}.`,
+            ].filter(Boolean).join(" · "),
+          });
+        }
+      } else if (!shouldTransfer) {
+        await paymentOps.add(shopId, {
         orderId: selectedOrder.id,
         amount: amt,
         method,
         recordedBy: currentUser.id,
-        kind: surplus > 0 ? surplusKind : "order_payment",
+        kind: surplus > 0
+          ? (surplusKind === "auto_transfer" ? "overpayment" : surplusKind)
+          : "order_payment",
         appliedToBalance: surplus > 0 ? balance : Math.min(amt, balance),
         notes: [
           notes.trim(),
@@ -92,6 +158,7 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
             : "",
         ].filter(Boolean).join(" · ") || undefined,
       });
+      }
       setSaved(true);
       toast.success("Payment Record Ho Gayi! 💰", {
         description: `Rs. ${parseInt(amount).toLocaleString()} save ho gaya`,
@@ -343,17 +410,21 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
                 {surplus > 0 && (
                   <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3">
                     <p className="text-xs font-semibold text-amber-800">
-                      Rs. {surplus.toLocaleString()} zyada receive hua. Isay mark karein:
+                      Rs. {surplus.toLocaleString()} zyada receive hua. Isay adjust karein:
                     </p>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="mt-2 grid grid-cols-3 gap-2">
                       {[
+                        {
+                          key: "auto_transfer",
+                          label: transferTargets.length > 0 ? "Auto adjust" : "Keep extra",
+                        },
+                        { key: "overpayment", label: "Overpay" },
                         { key: "tip", label: "Tip" },
-                        { key: "overpayment", label: "Overpayment" },
                       ].map((opt) => (
                         <button
                           key={opt.key}
                           type="button"
-                          onClick={() => setSurplusKind(opt.key as "tip" | "overpayment")}
+                          onClick={() => setSurplusKind(opt.key as "tip" | "overpayment" | "auto_transfer")}
                           className={cn(
                             "rounded-xl border py-2 text-xs font-bold",
                             surplusKind === opt.key
@@ -365,6 +436,11 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
                         </button>
                       ))}
                     </div>
+                    {surplusKind === "auto_transfer" && transferTargets.length > 0 && (
+                      <p className="mt-2 text-[10px] text-amber-700">
+                        Extra amount isi customer ke purane pending orders par due-date order mein lag jayegi.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

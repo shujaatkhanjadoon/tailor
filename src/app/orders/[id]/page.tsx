@@ -9,7 +9,6 @@ import { QRCodeDisplay } from '@/components/orders/QRCodeDisplay'
 import {
   ArrowLeft, MessageCircle, Clock, Wallet,
   User2, QrCode, ChevronRight, Plus,
-  X,
 } from 'lucide-react'
 import { useOrder } from '@/hooks/useOrders'
 import { useAuth } from '@/lib/auth/AuthContext'
@@ -46,7 +45,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [savingPay, setSavingPay] = useState(false)
   const [showPaySheet, setShowPaySheet] = useState(false)
   const [showQR, setShowQR] = useState(false)
-  const [showKarigarUpgrade, setShowKarigarUpgrade] = useState(false)
 
   if (!order) {
     return (
@@ -361,7 +359,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           ))}
 
           {/* Assign button */}
-          {isOwner && !isTerminal && plan.canAddKarigar && (
+          {isOwner && !isTerminal && (
             <button
               onClick={() => setShowAssignSheet(true)}
               className="w-full flex items-center justify-between bg-blue-50 border
@@ -370,15 +368,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <span className="text-sm font-semibold text-blue-700">
                 {order.assignedToName ? 'Karigar Badlein' : 'Karigar Assign Karein'}
               </span>
-              <ChevronRight size={16} className="text-blue-400" />
-            </button>
-          )}
-          {isOwner && !isTerminal && !plan.canAddKarigar && (
-            <button
-              onClick={() => setShowKarigarUpgrade(true)}
-              className="w-full flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mt-1 text-left active:scale-[0.98] transition-transform"
-            >
-              <span className="text-sm font-semibold text-blue-700">Karigar Assign Karein</span>
               <ChevronRight size={16} className="text-blue-400" />
             </button>
           )}
@@ -439,31 +428,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           onClose={() => setShowAssignSheet(false)}
           onAssigned={() => setShowAssignSheet(false)}
         />
-      )}
-
-      {showKarigarUpgrade && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowKarigarUpgrade(false)} />
-          <div className="relative w-full max-w-md bg-white rounded-t-3xl lg:rounded-2xl p-5 shadow-2xl">
-            <button
-              aria-label="Close"
-              onClick={() => setShowKarigarUpgrade(false)}
-              className="absolute right-4 top-4 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center"
-            >
-              <X size={15} className="text-slate-500" />
-            </button>
-            <h3 className="text-lg font-bold text-slate-800 pr-8">Karigar assignment Professional plan mein hai</h3>
-            <p className="text-sm text-slate-500 mt-2 leading-relaxed">
-              Starter plan mein single-user workflow available hai. Karigar ko orders assign karne ke liye Professional ya Business plan use karein.
-            </p>
-            <button
-              onClick={() => plan.upgrade('professional')}
-              className="mt-5 w-full bg-blue-600 text-white font-bold py-3.5 rounded-2xl"
-            >
-              Upgrade to Professional
-            </button>
-          </div>
-        </div>
       )}
 
       {showQR && plan.canUseQR && (

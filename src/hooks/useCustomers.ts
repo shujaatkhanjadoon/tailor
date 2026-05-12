@@ -83,7 +83,7 @@ export function useCustomer(id: string) {
 
   const pendingBalance = useMemo(
     () => safeOrders
-      .filter(o => !['delivered', 'cancelled'].includes(o.status))
+      .filter(o => o.status !== 'cancelled')
       .reduce((sum, o) => sum + Math.max(0, o.totalPrice - o.amountPaid), 0),
     [safeOrders]
   )

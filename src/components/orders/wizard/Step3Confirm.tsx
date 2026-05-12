@@ -2,10 +2,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, Wallet, CheckCircle2 } from 'lucide-react'
+import { Calendar, Wallet, CheckCircle2, Scissors } from 'lucide-react'
 import { PaymentMethod, GARMENT_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
 import { addDays, format } from 'date-fns'
+import type { TeamMemberRecord } from '@/lib/db/schema'
 
 const QUICK_DATES = [
   { label: '3 Din', days: 3 },
@@ -29,18 +30,31 @@ interface Step3Props {
     advancePaid?: number
     dueDate?: string
     paymentMethod?: PaymentMethod
+    assignedTo?: string
+    assignedToName?: string
   }
   onUpdate: (d: Partial<{
     totalPrice: number
     advancePaid: number
     dueDate: string
     paymentMethod: PaymentMethod
+    assignedTo?: string
+    assignedToName?: string
   }>) => void
   onSubmit: () => void
+  karigars?: TeamMemberRecord[]
+  selectableKarigarIds?: Set<string>
   saving?: boolean
 }
 
-export function Step3Confirm({ data, onUpdate, onSubmit, saving }: Step3Props) {
+export function Step3Confirm({
+  data,
+  onUpdate,
+  onSubmit,
+  karigars = [],
+  selectableKarigarIds = new Set(),
+  saving,
+}: Step3Props) {
   const [submitted, setSubmitted] = useState(false)
 
   const totalPrice = data.totalPrice || 0
@@ -88,6 +102,70 @@ export function Step3Confirm({ data, onUpdate, onSubmit, saving }: Step3Props) {
           </p>
         )}
       </div>
+
+      {/* Karigar assignment */}
+      {karigars.length > 0 && (
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">
+            Karigar Assign Karein — Optional
+          </label>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => onUpdate({ assignedTo: undefined, assignedToName: undefined })}
+              className={cn(
+                'w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 text-left transition-all',
+                !data.assignedTo
+                  ? 'border-slate-400 bg-slate-50'
+                  : 'border-slate-200 bg-white'
+              )}
+            >
+              <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center">
+                <Scissors size={15} className="text-slate-500" />
+              </div>
+              <p className="text-sm font-semibold text-slate-700">Baad mein assign karein</p>
+            </button>
+
+            {karigars.map((m) => {
+              const canSelect = selectableKarigarIds.has(m.id)
+              const selected = data.assignedTo === m.id
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  disabled={!canSelect}
+                  onClick={() => {
+                    if (canSelect) onUpdate({ assignedTo: m.id, assignedToName: m.name })
+                  }}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 text-left transition-all',
+                    !canSelect
+                      ? 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'
+                      : selected
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-slate-200 bg-white'
+                  )}
+                >
+                  <div className={cn(
+                    'w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold',
+                    !canSelect
+                      ? 'bg-slate-200 text-slate-400'
+                      : selected ? 'bg-blue-600 text-white' : 'bg-green-100 text-green-700'
+                  )}>
+                    {selected ? '✓' : m.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 truncate">{m.name}</p>
+                    <p className="text-[10px] text-slate-400">
+                      {canSelect ? m.speciality ?? 'Karigar' : 'Plan limit'}
+                    </p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Total price input */}
       <div>

@@ -38,35 +38,33 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
 
     if (!currentUser || !order) return
 
-    // ── Warn if marking delivered with unpaid balance ─────────────
+    // ── Block delivery until this order is fully paid ─────────────
     if (newStatus === 'delivered') {
       const unpaidBalance = Math.max(0, order.totalPrice - order.amountPaid)
 
       if (unpaidBalance > 0) {
-        const confirmed = confirm(
-          `⚠️ Baaki Payment Alert!\n\n` +
-          `Order Total: Rs. ${order.totalPrice.toLocaleString()}\n` +
-          `Diya Gaya:   Rs. ${order.amountPaid.toLocaleString()}\n` +
-          `Baaki:       Rs. ${unpaidBalance.toLocaleString()}\n\n` +
-          `Bina baaki payment ke deliver karna chahte hain?\n` +
-          `(Payment baad mein bhi record ki ja sakti hai)`
-        )
-        if (!confirmed) return
+        toast.error('Payment abhi baaki hai', {
+          description: `Delivery se pehle Rs. ${unpaidBalance.toLocaleString()} receive karein.`,
+        })
+        return
       }
     }
 
     setSaving(newStatus)
     try {
       await orderOps.updateStatus(order.id, newStatus, currentUser.id)
+      toast.success('Status Update Ho Gaya', {
+        description: `${order.status} -> ${newStatus}`,
+      })
       onUpdate()
       onClose()
     } catch (e) {
       console.error('[StatusUpdate] Error:', e)
+      toast.error('Status update nahi hua', {
+        description: e instanceof Error ? e.message : String(e),
+      })
     } finally {
       setSaving(null)
-      toast.success('Status Update Ho Gaya', {
-        description: `${status} → ${newStatus}`,
-      })
     }
   }
 

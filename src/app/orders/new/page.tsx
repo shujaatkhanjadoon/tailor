@@ -1,7 +1,7 @@
 // src/app/orders/new/page.tsx
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, MessageCircle } from "lucide-react";
 import { GarmentType, PaymentMethod } from "@/types";
@@ -10,11 +10,13 @@ import { Step1Customer } from "@/components/orders/wizard/Step1Customer";
 import { Step2Garment } from "@/components/orders/wizard/Step2Garment";
 import { Step3Confirm } from "@/components/orders/wizard/Step3Confirm";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { orderOps, paymentOps } from "@/lib/db/operations";
-import { db } from "@/lib/db/schema";
+import { orderOps, paymentOps, teamOps } from "@/lib/db/operations";
+import { db, TeamMemberRecord } from "@/lib/db/schema";
 import { toast } from "sonner";
 import { usePlan } from "@/hooks/usePlan";
 import { AccessNotice } from "@/components/billing/AccessNotice";
+import { getSelectableKarigarIds } from "@/lib/team/karigar-limits";
+import { syncService } from "@/lib/supabase/sync-service";
 
 // ── UUID helper ──────────────────────────────────────────────────
 const uuid = (): string => {
@@ -45,6 +47,8 @@ interface WizardData {
   advancePaid: number;
   dueDate: string;
   paymentMethod: PaymentMethod;
+  assignedTo?: string;
+  assignedToName?: string;
 }
 
 const STEPS = ["Gahak Chunein", "Kapra & Nap", "Qeemat & Tarikh"];
@@ -99,6 +103,7 @@ function NewOrderWizard({
   const [savedOrderId, setSavedOrderId] = useState<string>("");
   const [savedOrderNo, setSavedOrderNo] = useState<number>(0);
   const [savedTrackingCode, setSavedTrackingCode] = useState("");
+  const [karigars, setKarigars] = useState<TeamMemberRecord[]>([]);
 
   // ── Form data ─────────────────────────────────────────────────
   const [data, setData] = useState<Partial<WizardData>>({
@@ -109,6 +114,21 @@ function NewOrderWizard({
 
   const update = (updates: Partial<WizardData>) =>
     setData((prev) => ({ ...prev, ...updates }));
+
+  useEffect(() => {
+    if (!shopId) return;
+    teamOps.getAll(shopId).then((all) => {
+      setKarigars(
+        all
+          .filter((m) => m.role === "karigar")
+          .sort((a, b) => {
+            const joined = a.joinedAt.localeCompare(b.joinedAt);
+            if (joined !== 0) return joined;
+            return a.createdAt.localeCompare(b.createdAt);
+          }),
+      );
+    });
+  }, [shopId]);
 
   // ── Navigation ────────────────────────────────────────────────
   const handleBack = () => {
@@ -153,8 +173,8 @@ function NewOrderWizard({
         totalPrice: data.totalPrice,
         isUrgent: data.isUrgent ? 1 : 0,
         specialInstructions: data.specialInstructions || undefined,
-        assignedTo: undefined,
-        assignedToName: undefined,
+        assignedTo: data.assignedTo,
+        assignedToName: data.assignedToName,
       });
 
       // ── 2. Record advance payment (paymentOps sets amountPaid correctly) ──
@@ -195,6 +215,8 @@ function NewOrderWizard({
           _synced: 0,
         });
       }
+
+      await syncService.pushAll(shopId).catch(console.error);
 
       // ── 4. Store the saved order info for the success screen ───
       setSavedOrderId(order.id);
@@ -335,6 +357,8 @@ function NewOrderWizard({
           <Step3Confirm
             data={data}
             onUpdate={update}
+            karigars={karigars}
+            selectableKarigarIds={getSelectableKarigarIds(karigars, plan.karigarLimit)}
             saving={saving}
             onSubmit={handleFinalSubmit}
           />
