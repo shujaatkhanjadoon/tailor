@@ -87,7 +87,7 @@ export function Step3Confirm({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 mb-16 lg:mb-0">
 
       {/* Order summary card */}
       <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
@@ -311,11 +311,11 @@ export function Step3Confirm({
 
       {/* Submit */}
       <div className="fixed inset-x-0 bottom-0 w-full bg-white border-t border-slate-100 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]
-                      lg:static lg:max-w-none lg:pb-4">
+                      lg:static lg:max-w-none lg:pb-4 mb-16 lg:mb-0">
         <button
           onClick={onSubmit}
           disabled={!canSubmit || saving}
-          className="w-full bg-green-600 disabled:bg-slate-300 ..."
+          className="text-white w-full bg-green-600 disabled:bg-slate-300 ... pb-4 rounded-2xl"
         >
           {saving ? (
             <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Order Save Ho Raha Hai...</>

@@ -10,12 +10,12 @@ import { generatePaymentRef } from '@/lib/billing/raast'
 import { PLANS, PlanId } from '@/lib/billing/plans'
 import { cn }            from '@/lib/utils'
 
-// â”€â”€ Read Raast config from env â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Read Raast config from env 
 // Set NEXT_PUBLIC_RAAST_ID in .env.local
 const RAAST_ID       = process.env.NEXT_PUBLIC_RAAST_ID       ?? '03135931459'
 const RAAST_NAME     = process.env.NEXT_PUBLIC_RAAST_NAME      ?? 'Shujaat Khan'
 const RAAST_BANK     = process.env.NEXT_PUBLIC_RAAST_BANK      ?? 'Bank Alfalah'
-const ADMIN_WA       = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP  ?? ''
+const ADMIN_WA       = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP  ?? '03135931459'
 
 interface RaastPaymentSheetProps {
   planId:       PlanId
@@ -93,7 +93,7 @@ export function RaastPaymentSheet({
     setError('')
 
     try {
-      // â”€â”€ Step 1: Get or create subscription row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Step 1: Get or create subscription row
       let subscriptionId: string | null = null
 
       const { data: existingSub } = await (supabase as any)
@@ -128,7 +128,7 @@ export function RaastPaymentSheet({
         }
       }
 
-      // â”€â”€ Step 2: Insert payment record â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Step 2: Insert payment record 
       const paymentRecord: Record<string, any> = {
         shop_id:       shopId,
         plan:          planId,
@@ -162,7 +162,7 @@ export function RaastPaymentSheet({
         return
       }
 
-      // â”€â”€ Step 3: Mark subscription as pending â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Step 3: Mark subscription as pending
       if (subscriptionId) {
         await (supabase as any)
           .from('subscriptions')
@@ -260,7 +260,7 @@ export function RaastPaymentSheet({
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
 
-          {/* â”€â”€ SUCCESS â”€â”€ */}
+          {/* SUCCESS */}
           {step === 'submitted' && (
             <div className="flex flex-col items-center py-10 text-center">
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center
@@ -300,7 +300,7 @@ export function RaastPaymentSheet({
             </div>
           )}
 
-          {/* â”€â”€ STEP 1: Payment Details â”€â”€ */}
+          {/* STEP 1: Payment Details */}
           {step === 'payment' && (
             <div className="space-y-5">
 
@@ -342,6 +342,7 @@ export function RaastPaymentSheet({
                     level="M"
                     includeMargin={false}
                   />
+                  {/* <img src="/payment/qr/pro-monthly.jpeg" /> */}
                 </div>
                 <p className="text-[10px] text-slate-400 mt-2 text-center">
                   Bank app mein Raast ID manually daalein. Custom QR banking apps mein invalid aa sakta hai.
@@ -453,7 +454,7 @@ export function RaastPaymentSheet({
             </div>
           )}
 
-          {/* â”€â”€ STEP 2: Confirm â”€â”€ */}
+          {/* STEP 2: Confirm*/}
           {step === 'confirm' && (
             <div className="space-y-5">
 

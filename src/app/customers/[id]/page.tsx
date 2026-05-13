@@ -52,7 +52,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-8">
+    <div className="min-h-screen bg-slate-50 pb-8 mb-16 lg:mb-0">
 
       {/* ── TOP HEADER ── */}
       <div className="bg-linear-to-br from-blue-900 to-blue-700 px-4 pt-12 pb-6">

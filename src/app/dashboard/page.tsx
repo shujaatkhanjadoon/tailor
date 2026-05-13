@@ -189,7 +189,7 @@ if (isLoading || !shopId) return <DashboardSkeleton />
         <NotificationPermissionCard />
 
         {/* STATS GRID */}
-        <section className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 xl:grid-cols-4">
+        <section className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 xl:grid-cols-4 mt-3">
           <StatsCard
             icon={ClipboardList}
             label="Aaj Ke Orders"

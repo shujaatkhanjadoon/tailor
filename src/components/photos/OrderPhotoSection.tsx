@@ -74,7 +74,7 @@ export function OrderPhotoSection({ orderId }: OrderPhotoSectionProps) {
   if (!plan.canUsePhotos) return <LockedPhotoPrompt />
 
   return (
-    <div className="mx-4 mt-4 lg:mx-0 bg-white border border-slate-200 rounded-2xl p-4 space-y-5">
+    <div className="mt-4 lg:mx-0 bg-white border border-slate-200 rounded-2xl p-4 space-y-5">
       <div className="space-y-3">
         <h2 className="font-bold text-slate-800 text-sm flex items-center gap-2">
           <Image size={15} className="text-blue-600" />

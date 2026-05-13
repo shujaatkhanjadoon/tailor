@@ -122,7 +122,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
   const canProceed = !!selectedType && (!!data.measurementId || filledCount > 0)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mb-16 lg:mb-0">
 
       {/* Garment type picker — big icon buttons */}
       <div>
@@ -320,7 +320,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
 
       {/* Next button */}
       <div className="fixed inset-x-0 bottom-0 w-full bg-white border-t border-slate-100 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]
-                      lg:static lg:max-w-none lg:pb-4">
+                      lg:static lg:max-w-none lg:pb-4 mb-16 lg:mb-0">
         <button
           onClick={onNext}
           disabled={!canProceed}

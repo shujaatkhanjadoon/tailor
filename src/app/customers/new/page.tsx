@@ -413,7 +413,7 @@ function NewCustomerForm({ shopId }: { shopId: string | null }) {
       </div>
 
       {/* Save button */}
-      <div className="px-4 pt-4">
+      <div className="px-4 pt-4 mb-16 lg:mb-0">
         <button
           onClick={handleSave}
           disabled={saving || !name.trim() || phone.length < 10}

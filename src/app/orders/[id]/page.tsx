@@ -138,7 +138,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-8">
+    <div className="min-h-screen bg-slate-50 pb-20 lg:pb-4">
 
       {/* Header */}
       <div className={cn(
@@ -564,9 +564,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         )}
 
+        <OrderPhotoSection orderId={id} />
+
       </div>
 
-      <OrderPhotoSection orderId={id} />
+      
 
       {/* Sheets */}
       {showStatusSheet && (
