@@ -1,6 +1,6 @@
 // src/lib/supabase/sync-service.ts
 import { supabase }        from './client'
-import { db }              from '@/lib/db/schema'
+import { db, type ShopRecord } from '@/lib/db/schema'
 import type {
   ShopRow, TeamMemberRow, CustomerRow,
   MeasurementRow, OrderRow, PaymentRow, StatusHistoryRow,
@@ -167,6 +167,25 @@ async function upsertTable<T>(
     .upsert(rows, { onConflict: 'id' }) as any
 }
 
+async function ensureRemoteShopExists(shop: ShopRecord): Promise<boolean> {
+  const { data, error } = await (supabase as any)
+    .from('shops')
+    .select('id')
+    .eq('id', shop.id)
+    .maybeSingle()
+
+  if (!error && data?.id) return true
+
+  const { error: upsertError } = await upsertTable<ShopRow>('shops', [shopToRow(shop)])
+  if (upsertError) {
+    console.error('[Sync] shops repair failed:', upsertError.message)
+    return false
+  }
+
+  await db.shop.update(shop.id, { _synced: 1 }).catch(() => {})
+  return true
+}
+
 // ── Ensure subscription row exists for a shop ─────────────────────
 // Uses ignoreDuplicates so it never overwrites a paid subscription.
 // Only creates a starter row if none exists.
@@ -287,7 +306,13 @@ export const syncService = {
 
       // ── STEP 1: Shop ────────────────────────────────────────────
       // Must succeed before anything else — all other tables FK to shops
-      const shop = await db.shop.toCollection().first()
+      const shop = await db.shop.get(shopId) ?? await db.shop.toCollection().first()
+      if (shop && shop.id !== shopId) {
+        const msg = `local shop ${shop.id} does not match active shop ${shopId}`
+        console.warn('[Sync] shops mismatch:', msg)
+        errors.push(`shops: ${msg}`)
+        return { success: false, errors }
+      }
       if (shop && shop._synced === 0) {
         const { error: shopError } = await upsertTable<ShopRow>(
           'shops', [shopToRow(shop)]
@@ -303,13 +328,17 @@ export const syncService = {
         // Ensure subscription + usage rows exist
         // These are created server-side by trigger, but may be missing
         // if the shop was created offline. ignoreDuplicates keeps paid plans safe.
+        await ensureRemoteShopExists(shop)
         await ensureSubscriptionExists(shop.id)
         await ensureUsageExists(shop.id)
       } else if (shop && shop._synced === 1) {
         // Shop already synced — still ensure subscription exists
         // in case it was lost or never created
-        await ensureSubscriptionExists(shop.id)
-        await ensureUsageExists(shop.id)
+        const remoteShopReady = await ensureRemoteShopExists(shop)
+        if (remoteShopReady) {
+          await ensureSubscriptionExists(shop.id)
+          await ensureUsageExists(shop.id)
+        }
       }
 
       // ── STEP 2: Team members ────────────────────────────────────

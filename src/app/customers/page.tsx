@@ -11,7 +11,6 @@ import {
 } from 'lucide-react'
 import { db, CustomerRecord }         from '@/lib/db/schema'
 import { useAuth }                    from '@/lib/auth/AuthContext'
-import { BottomNav }                  from '@/components/layout/BottomNav'
 import { CustomerCardSkeleton }       from '@/components/ui/Skeleton'
 import { cn }                         from '@/lib/utils'
 import { format, isToday, isYesterday } from 'date-fns'
@@ -187,13 +186,13 @@ export default function CustomersPage() {
   const hasFilters = search || gender !== 'all'
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 pb-20 lg:pb-8">
+    <div className="flex min-h-dvh flex-col overflow-x-clip bg-slate-50 pb-24 lg:pb-8">
 
       {/* ── HEADER ── */}
       <header className="bg-white border-b border-slate-100 px-4 pt-12 lg:pt-6 pb-4
                          sticky top-0 z-10">
-        <div className="flex items-center justify-between mb-3">
-          <div>
+        <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
+          <div className="min-w-0">
             <h1 className="text-xl font-bold text-slate-800">Gahak</h1>
             <p className="text-xs text-slate-400 mt-0.5">
               {isLoading
@@ -205,7 +204,7 @@ export default function CustomersPage() {
           {isOwner && (
             <button
               onClick={() => router.push('/customers/new')}
-              className="flex items-center gap-1.5 bg-blue-600 text-white
+              className="flex shrink-0 items-center gap-1.5 bg-blue-600 text-white
                          text-sm font-semibold px-4 py-2.5 rounded-xl
                          active:scale-95 transition-colors hover:bg-blue-700"
             >
@@ -341,7 +340,7 @@ export default function CustomersPage() {
 
             {/* Summary strip */}
             {!hasFilters && allCustomers.length > 0 && (
-              <div className="flex gap-3 mb-2">
+              <div className="mb-2 grid grid-cols-1 gap-3 min-[380px]:grid-cols-3">
                 {[
                   {
                     label: 'Total',
@@ -397,7 +396,6 @@ export default function CustomersPage() {
         )}
       </main>
 
-      <BottomNav />
     </div>
   )
 }

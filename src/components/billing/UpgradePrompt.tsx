@@ -25,8 +25,7 @@ export function UpgradePrompt({ feature, onClose }: UpgradePromptProps) {
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
       <div
-        className="relative w-full max-w-107.5 bg-white rounded-t-3xl lg:rounded-2xl
-                   px-5 pt-5 pb-8 shadow-2xl z-10"
+        className="relative z-10 max-h-[92dvh] w-full max-w-[min(100vw,34rem)] overflow-y-auto bg-white px-5 pt-5 pb-8 shadow-2xl rounded-t-3xl lg:rounded-2xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Handle */}

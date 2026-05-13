@@ -46,25 +46,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthGuard>
-      <div className="flex min-h-screen bg-slate-100">
+      <div className="flex min-h-dvh overflow-x-clip bg-slate-100">
         {!isKarigar && (
           <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:z-40">
             <SideNav />
           </aside>
         )}
-        <div className={`flex-1 ${!isKarigar ? 'lg:pl-64' : ''}`}>
-          {/* Mobile layout - added overflow-x-hidden for safety */}
-          <div className="lg:hidden min-h-screen max-w-107.5 mx-auto bg-white shadow-xl relative overflow-x-hidden">
+        <div className={`min-w-0 flex-1 ${!isKarigar ? 'lg:pl-64' : ''}`}>
+          <div className="min-h-dvh bg-white shadow-xl lg:hidden relative overflow-x-clip">
             <VerificationBanner />
             <OfflineBanner />
             {children}
             {!isKarigar && <BottomNav />}
           </div>
-          {/* Desktop layout - unchanged */}
-          <div className="hidden lg:block min-h-screen bg-white">
+          <div className="hidden min-h-dvh bg-white lg:block">
             <VerificationBanner />
             <OfflineBanner />
-            <div className="max-w-6xl mx-auto px-8 py-8">{children}</div>
+            <div className="mx-auto w-full max-w-screen-2xl px-6 py-8 xl:px-8 2xl:px-10">{children}</div>
           </div>
         </div>
       </div>

@@ -18,7 +18,6 @@ import {
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { DueOrdersAlert } from "@/components/dashboard/DueOrdersAlert";
 import { RecentOrderCard } from "@/components/dashboard/RecentOrderCard";
-import { BottomNav } from "@/components/layout/BottomNav";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { db, OrderRecord } from "@/lib/db/schema";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -163,21 +162,21 @@ export default function DashboardPage() {
   }
 if (isLoading || !shopId) return <DashboardSkeleton />
   return (
-    <div className="pb-20 lg:pb-0 overflow-x-hidden">
+    <div className="overflow-x-clip pb-24 lg:pb-0">
       {/* HEADER */}
       <header
         className="bg-linear-to-br from-blue-900 to-blue-700 text-white
-                   px-5 pt-12 pb-6 lg:rounded-2xl lg:mb-6 lg:pt-8"
+                   px-4 pt-12 pb-6 sm:px-5 lg:rounded-2xl lg:mb-6 lg:pt-8"
       >
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <div className="min-w-0">
             <p className="text-blue-200 text-sm font-medium">{greeting} 👋</p>
-            <h1 className="text-2xl font-bold mt-0.5">{shop?.shopName || "DarziHub"}</h1>
+            <h1 className="mt-0.5 truncate text-2xl font-bold">{shop?.shopName || "DarziHub"}</h1>
             <p className="text-blue-300 text-xs mt-1">
               {todayStr || <span className="opacity-0">—</span>}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <PlanBadge />
             <NotificationBell />
           </div>
@@ -190,7 +189,7 @@ if (isLoading || !shopId) return <DashboardSkeleton />
         <NotificationPermissionCard />
 
         {/* STATS GRID */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <section className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 xl:grid-cols-4">
           <StatsCard
             icon={ClipboardList}
             label="Aaj Ke Orders"
@@ -226,8 +225,8 @@ if (isLoading || !shopId) return <DashboardSkeleton />
         </section>
 
         {/* DESKTOP 2-col */}
-        <div className="lg:grid lg:grid-cols-3 lg:gap-6">
-          <div className="lg:col-span-2 space-y-5">
+        <div className="xl:grid xl:grid-cols-3 xl:gap-6">
+          <div className="space-y-5 xl:col-span-2">
             {/* Baaki strip */}
             {stats.pendingBalance > 0 && (
               <button
@@ -336,8 +335,6 @@ if (isLoading || !shopId) return <DashboardSkeleton />
           </div>
         </div>
       </div>
-
-      <BottomNav />
     </div>
   );
 }

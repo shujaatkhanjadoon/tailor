@@ -122,8 +122,39 @@
 }
 
 @layer base {
+  html,
+  body {
+    width: 100%;
+    min-width: 320px;
+    max-width: 100%;
+    overflow-x: clip;
+    scroll-behavior: smooth;
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    min-height: 100dvh;
+  }
+
   * {
     @apply border-border outline-ring/50;
+    box-sizing: border-box;
+  }
+
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+    min-width: 0;
   }
   body {
     @apply bg-background text-foreground;
@@ -138,17 +169,34 @@
     }
   }
 
-  html {
-  scroll-behavior: smooth;
-}
   /* src/app/globals.css — add inside @layer base or at the end */
 @keyframes shake {
-  0%, 100% { transform: translateX(0);    }
-  15%       { transform: translateX(-8px); }
-  30%       { transform: translateX(8px);  }
-  45%       { transform: translateX(-6px); }
-  60%       { transform: translateX(6px);  }
-  75%       { transform: translateX(-4px); }
-  90%       { transform: translateX(4px);  }
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-8px); }
+  30% { transform: translateX(8px); }
+  45% { transform: translateX(-6px); }
+  60% { transform: translateX(6px); }
+  75% { transform: translateX(-4px); }
+  90% { transform: translateX(4px); }
 }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .safe-px {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
 }

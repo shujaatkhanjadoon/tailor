@@ -6,7 +6,6 @@ import { ArrowLeft, CheckCircle2, Calendar, MessageCircle } from "lucide-react";
 import { usePlan } from "@/hooks/usePlan";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { PLANS } from "@/lib/billing/plans";
-import { BottomNav } from "@/components/layout/BottomNav";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useSearchParams } from "next/navigation";
@@ -276,7 +275,6 @@ export default function BillingPage() {
         Payment History Dekhein →
       </button>
 
-      <BottomNav />
     </div>
   );
 }

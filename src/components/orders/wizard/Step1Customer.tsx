@@ -161,7 +161,7 @@ export function Step1Customer({ data, onUpdate, onNext }: Step1Props) {
           />
 
           <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3">
-            <Phone size={14} className="text-slate-400 flex-shrink-0" />
+            <Phone size={14} className="text-slate-400 shrink-0" />
             <input
               type="tel"
               placeholder="Phone number *"
@@ -248,7 +248,7 @@ export function Step1Customer({ data, onUpdate, onNext }: Step1Props) {
             >
               {/* Avatar */}
               <div className={cn(
-                'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold',
+                'w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-bold',
                 isSelected ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'
               )}>
                 {isSelected
@@ -280,9 +280,8 @@ export function Step1Customer({ data, onUpdate, onNext }: Step1Props) {
       </div>
 
       {/* Sticky Next button */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px]
-                      lg:static lg:translate-x-0 lg:max-w-none
-                      bg-white border-t border-slate-100 px-4 py-4 z-10">
+      <div className="fixed inset-x-0 bottom-0 z-10 w-full bg-white border-t border-slate-100 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]
+                      lg:static lg:max-w-none lg:pb-4">
         <button
           onClick={onNext}
           disabled={!selectedId}

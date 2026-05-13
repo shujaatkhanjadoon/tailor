@@ -80,13 +80,13 @@ export const OrderListCard = memo(function OrderListCard({
         onClick={() => router.push(`/orders/${order.id}`)}
       >
         {/* Row 1: order number + status badge */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
+        <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <span className="text-sm font-bold text-slate-700">
               #{String(order.orderNumber).padStart(3, '0')}
             </span>
             {gc && (
-              <span className="text-xs text-slate-400">
+              <span className="truncate text-xs text-slate-400">
                 {gc.emoji} {gc.label}
               </span>
             )}
@@ -98,7 +98,7 @@ export const OrderListCard = memo(function OrderListCard({
               if (!isTerminal && onStatusTap) onStatusTap(order)
             }}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors',
+              'flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
               sc.bg, sc.color, sc.border,
               !isTerminal && onStatusTap ? 'active:scale-95' : ''
             )}
@@ -145,13 +145,13 @@ export const OrderListCard = memo(function OrderListCard({
         )}
 
         {/* Row 5: due date + actions */}
-        <div className="flex items-center justify-between">
-          <p className={cn('text-xs flex items-center gap-1', dueUrgent && !isTerminal ? 'text-red-600 font-semibold' : 'text-slate-400')}>
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+          <p className={cn('min-w-0 text-xs flex items-center gap-1', dueUrgent && !isTerminal ? 'text-red-600 font-semibold' : 'text-slate-400')}>
             <Clock size={10} />
             {dueLabel}
           </p>
 
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
             {/* Assign button — owner only, non-terminal */}
             {isOwner && !isTerminal && onAssignTap && (
               <button

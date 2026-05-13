@@ -98,8 +98,8 @@ export function OfflineBanner() {
 
   return (
     <div className={cn(
-      'fixed top-0 left-1/2 -translate-x-1/2',
-      'w-full max-w-107.5 lg:max-w-none lg:left-64 lg:translate-x-0',
+      'fixed inset-x-0 top-0',
+      'w-full lg:left-64 lg:w-auto',
       'z-50 px-4 py-2.5',
       'flex items-center gap-2 text-sm font-medium',
       'transition-all duration-300 will-change-transform',

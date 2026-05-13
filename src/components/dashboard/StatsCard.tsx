@@ -33,7 +33,7 @@ export function StatsCard({
     <button
       onClick={onClick}
       className={cn(
-        'w-full text-left rounded-2xl border p-4 transition-transform active:scale-95',
+        'w-full min-w-0 text-left rounded-2xl border p-3.5 transition-transform active:scale-95 sm:p-4',
         styles.card,
         onClick ? 'cursor-pointer' : 'cursor-default'
       )}
@@ -44,16 +44,16 @@ export function StatsCard({
       </div>
 
       {/* Value — BIG and prominent */}
-      <p className={cn('text-2xl font-bold leading-none', styles.value)}>
+      <p className={cn('truncate text-xl font-bold leading-tight sm:text-2xl', styles.value)}>
         {value}
       </p>
 
       {/* Label */}
-      <p className="text-xs font-medium text-slate-500 mt-1">{label}</p>
+      <p className="mt-1 text-xs font-medium leading-snug text-slate-500">{label}</p>
 
       {/* Optional sub-label */}
       {subLabel && (
-        <p className="text-[10px] text-slate-400 mt-0.5">{subLabel}</p>
+        <p className="mt-0.5 text-[10px] leading-snug text-slate-400">{subLabel}</p>
       )}
     </button>
   )

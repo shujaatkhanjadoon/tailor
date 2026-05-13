@@ -9,7 +9,6 @@ import { useOrders, OrderFilter }     from '@/hooks/useOrders'
 import { OrderListCard }              from '@/components/orders/OrderListCard'
 import { StatusUpdateSheet }          from '@/components/orders/StatusUpdateSheet'
 import { AssignSheet }                from '@/components/orders/AssignSheet'
-import { BottomNav }                  from '@/components/layout/BottomNav'
 import { OrderRecord }                from '@/lib/db/schema'
 import { ORDER_STATUS_CONFIG, OrderStatus } from '@/types'
 import { cn }                         from '@/lib/utils'
@@ -61,13 +60,13 @@ function OrdersContent() {
   const hasActiveFilters = searchQuery || statusFilter !== 'all' || activeFilter !== 'all'
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 pb-20 lg:pb-8">
+    <div className="flex min-h-dvh flex-col overflow-x-clip bg-slate-50 pb-24 lg:pb-8">
 
       {/* ── HEADER ── */}
       <header className="bg-white border-b border-slate-100 px-4 pt-12 lg:pt-6 pb-4
                          sticky top-0 z-10">
-        <div className="flex items-center justify-between mb-3">
-          <div>
+        <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
+          <div className="min-w-0">
             <h1 className="text-xl font-bold text-slate-800">
               {isKarigar ? 'Mere Orders' : 'Sare Orders'}
             </h1>
@@ -81,7 +80,7 @@ function OrdersContent() {
           {isOwner && (
             <button
               onClick={() => router.push('/orders/new')}
-              className="flex items-center gap-1.5 bg-blue-600 text-white
+              className="flex shrink-0 items-center gap-1.5 bg-blue-600 text-white
                          text-sm font-semibold px-4 py-2.5 rounded-xl
                          active:scale-95 transition-colors hover:bg-blue-700"
             >
@@ -92,7 +91,7 @@ function OrdersContent() {
         </div>
 
         {/* Search + Status filter */}
-        <div className="flex gap-2 mb-3">
+        <div className="mb-3 flex gap-2">
           <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -316,7 +315,6 @@ function OrdersContent() {
         )}
       </main>
 
-      <BottomNav />
 
       {/* ── STATUS UPDATE SHEET ── */}
       {statusSheet && (

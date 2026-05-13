@@ -174,7 +174,7 @@ export function Step3Confirm({
         </label>
         <div className="flex items-center gap-3 bg-slate-50 border-2 border-slate-200
                         rounded-2xl px-4 py-4 focus-within:border-blue-500 transition-colors">
-          <span className="text-slate-400 font-semibold text-lg flex-shrink-0">Rs.</span>
+          <span className="text-slate-400 font-semibold text-lg shrink-0">Rs.</span>
           <input
             type="number"
             inputMode="numeric"
@@ -210,7 +210,7 @@ export function Step3Confirm({
         </label>
         <div className="flex items-center gap-3 bg-slate-50 border-2 border-slate-200
                         rounded-2xl px-4 py-3 focus-within:border-blue-500 transition-colors">
-          <span className="text-slate-400 font-semibold flex-shrink-0">Rs.</span>
+          <span className="text-slate-400 font-semibold shrink-0">Rs.</span>
           <input
             type="number"
             inputMode="numeric"
@@ -293,7 +293,7 @@ export function Step3Confirm({
         </div>
         {/* Custom date */}
         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-          <Calendar size={16} className="text-slate-400 flex-shrink-0" />
+          <Calendar size={16} className="text-slate-400 shrink-0" />
           <input
             type="date"
             value={data.dueDate || ''}
@@ -310,9 +310,8 @@ export function Step3Confirm({
       </div>
 
       {/* Submit */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px]
-                      lg:static lg:translate-x-0 lg:max-w-none
-                      bg-white border-t border-slate-100 px-4 py-4">
+      <div className="fixed inset-x-0 bottom-0 w-full bg-white border-t border-slate-100 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]
+                      lg:static lg:max-w-none lg:pb-4">
         <button
           onClick={onSubmit}
           disabled={!canSubmit || saving}

@@ -81,8 +81,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
 
       {/* Sheet */}
       <div
-        className="relative w-full max-w-107.5 bg-white rounded-t-3xl lg:rounded-2xl
-                   px-5 pt-4 pb-8 lg:pb-6 shadow-2xl"
+        className="relative max-h-[92dvh] w-full max-w-[min(100vw,34rem)] overflow-y-auto bg-white px-5 pt-4 pb-8 shadow-2xl rounded-t-3xl lg:rounded-2xl lg:pb-6"
         onClick={e => e.stopPropagation()}
       >
         {/* Drag handle */}

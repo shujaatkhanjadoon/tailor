@@ -16,15 +16,15 @@ const navItems = [
 export function BottomNav() {
   const pathname = usePathname();
   return (
-    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-107.5 bg-white border-t border-slate-200 z-50 lg:hidden pb-[env(safe-area-inset-bottom)]">
-      <div className="flex items-center justify-around h-16">
+    <nav className="fixed inset-x-0 bottom-0 z-50 w-full bg-white/95 border-t border-slate-200 backdrop-blur lg:hidden pb-[env(safe-area-inset-bottom)]">
+      <div className="mx-auto grid h-16 max-w-3xl grid-cols-6">
         {navItems.map(({ href, icon: Icon, label }) => {
           const isActive = pathname === href || (href === '/dashboard' && pathname === '/dashboard');
           return (
-            <Link key={href} href={href} className={`flex flex-col items-center justify-center gap-0.5 w-full h-full transition-colors ${isActive ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
-              <Icon size={22} strokeWidth={isActive ? 2.5 : 1.8} className={isActive ? 'text-blue-600' : 'text-slate-400'} />
-              <span className={`text-[10px] font-medium leading-none ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>{label}</span>
-              {isActive && <span className="absolute bottom-1 w-1 h-1 bg-blue-600 rounded-full" />}
+            <Link key={href} href={href} className={`relative flex h-full min-w-0 flex-col items-center justify-center gap-1 px-1 transition-colors ${isActive ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
+              <Icon size={21} strokeWidth={isActive ? 2.5 : 1.8} className={isActive ? 'text-blue-600' : 'text-slate-400'} />
+              <span className={`max-w-full truncate text-[9.5px] font-medium leading-none sm:text-[10px] ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>{label}</span>
+              {isActive && <span className="absolute bottom-1 size-1 rounded-full bg-blue-600" />}
             </Link>
           );
         })}

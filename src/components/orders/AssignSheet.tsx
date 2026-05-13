@@ -98,8 +98,7 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
       <div
-        className="relative w-full max-w-107.5 bg-white rounded-t-3xl lg:rounded-2xl
-                   px-5 pt-4 pb-8 lg:pb-6 shadow-2xl"
+        className="relative max-h-[92dvh] w-full max-w-[min(100vw,34rem)] overflow-y-auto bg-white px-5 pt-4 pb-8 shadow-2xl rounded-t-3xl lg:rounded-2xl lg:pb-6"
         onClick={e => e.stopPropagation()}
       >
         <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-5 lg:hidden" />

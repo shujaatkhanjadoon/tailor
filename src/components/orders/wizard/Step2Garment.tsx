@@ -319,9 +319,8 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
       </div>
 
       {/* Next button */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-107.5
-                      lg:static lg:translate-x-0 lg:max-w-none
-                      bg-white border-t border-slate-100 px-4 py-4">
+      <div className="fixed inset-x-0 bottom-0 w-full bg-white border-t border-slate-100 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]
+                      lg:static lg:max-w-none lg:pb-4">
         <button
           onClick={onNext}
           disabled={!canProceed}

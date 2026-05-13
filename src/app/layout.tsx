@@ -52,8 +52,7 @@ export const viewport: Viewport = {
   themeColor: "#1e3a5f",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  viewportFit: "cover", // I† handles iPhone notch / Dynamic Island
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -62,9 +61,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <body
-        className={`${poppins.variable} font-sans antialiased overscroll-none`}
+        className={`${poppins.variable} min-w-0 overflow-x-clip font-sans antialiased`}
       >
         <AuthProvider>
           <OfflineBanner />

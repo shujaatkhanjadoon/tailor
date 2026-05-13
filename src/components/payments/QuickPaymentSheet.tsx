@@ -182,8 +182,7 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
       <div
-        className="relative w-full max-w-107.5 bg-white rounded-t-3xl lg:rounded-2xl
-                   shadow-2xl z-10 max-h-[90vh] flex flex-col"
+        className="relative z-10 flex max-h-[92dvh] w-full max-w-[min(100vw,34rem)] flex-col bg-white shadow-2xl rounded-t-3xl lg:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Handle */}
@@ -385,7 +384,7 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
                 </div>
 
                 {/* Quick amounts */}
-                <div className="grid grid-cols-4 gap-2 mt-2">
+                <div className="mt-2 grid grid-cols-2 gap-2 min-[380px]:grid-cols-4">
                   {[500, 1000, balance > 0 ? balance : 2000, 2000]
                     .filter((v, i, arr) => arr.indexOf(v) === i && v > 0)
                     .slice(0, 4)
@@ -413,7 +412,7 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
                     <p className="text-xs font-semibold text-amber-800">
                       Rs. {surplus.toLocaleString()} zyada receive hua. Isay adjust karein:
                     </p>
-                    <div className="mt-2 grid grid-cols-3 gap-2">
+                    <div className="mt-2 grid grid-cols-1 gap-2 min-[380px]:grid-cols-3">
                       {[
                         {
                           key: "auto_transfer",
@@ -451,7 +450,7 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
                   Kaise Mila?
                 </label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 gap-2 min-[380px]:grid-cols-4">
                   {METHODS.map((m) => (
                     <button
                       key={m.key}

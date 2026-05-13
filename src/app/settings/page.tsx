@@ -17,7 +17,6 @@ import {
 import { useAuth } from "@/lib/auth/AuthContext";
 import { SettingsRow } from "@/components/settings/SettingsRow";
 import { DangerZone } from "@/components/settings/DangerZone";
-import { BottomNav } from "@/components/layout/BottomNav";
 import { db } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -456,7 +455,6 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <BottomNav />
     </div>
   );
 }

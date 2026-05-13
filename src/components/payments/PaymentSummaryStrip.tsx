@@ -54,7 +54,7 @@ export function PaymentSummaryStrip({
   return (
     <div className="space-y-3">
       {/* Clickable stat cards */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-3">
         {cards.map(c => {
           const isActive = activeFilter === c.filter
           return (
@@ -95,7 +95,7 @@ export function PaymentSummaryStrip({
 
       {/* Pending balance strip */}
       {totalPending > 0 && (
-        <div className="flex items-center justify-between bg-red-50 border border-red-200
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-red-50 border border-red-200
                         rounded-2xl px-4 py-3">
           <div className="flex items-center gap-2">
             <Wallet size={15} className="text-red-600" />

@@ -10,7 +10,6 @@ import { IncomeChart } from "@/components/reports/IncomeChart";
 import { OrderStatusChart } from "@/components/reports/OrderStatusChart";
 import { TopCustomers } from "@/components/reports/TopCustomers";
 import { GarmentBreakdown } from "@/components/reports/GarmentBreakdown";
-import { BottomNav } from "@/components/layout/BottomNav";
 import { cn } from "@/lib/utils";
 import { FeatureGate } from "@/components/billing/FeatureGate";
 import { ReportSkeleton } from "@/components/ui/Skeleton";
@@ -154,13 +153,13 @@ function ReportsContent({
 
   return (
     <FeatureGate feature="analytics" mode="blur">
-      <div className="flex flex-col min-h-screen bg-slate-50 pb-20 lg:pb-8">
+      <div className="flex min-h-dvh flex-col overflow-x-clip bg-slate-50 pb-24 lg:pb-8">
         {/* ── HEADER ── */}
         <header className="bg-white border-b border-slate-100 px-4 pt-12 lg:pt-6 pb-4 sticky top-0 z-10">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
+          <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
               <BarChart3 size={20} className="text-blue-600" />
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-xl font-bold text-slate-800">Reports</h1>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Business analytics aur insights
@@ -412,7 +411,7 @@ function ReportsContent({
             {activeTab === "customers" && (
               <div className="space-y-4 pb-4">
                 {/* Quick stats */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-3">
                   {[
                     {
                       label: "Total",
@@ -491,7 +490,6 @@ function ReportsContent({
           </main>
         )}
 
-        <BottomNav />
       </div>
     </FeatureGate>
   );
