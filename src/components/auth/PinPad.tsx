@@ -111,7 +111,7 @@ export function PinPad({
       </div>
 
       {/* Number grid */}
-      <div className="grid grid-cols-3 gap-3 w-full max-w-[280px]">
+      <div className="grid grid-cols-3 gap-3 w-full max-w-70">
         {KEYS.map((key, i) => {
           const isEmpty  = key === ''
           const isDelete = key === '⌫'

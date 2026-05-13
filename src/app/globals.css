@@ -137,6 +137,10 @@
       min-height: 44px;
     }
   }
+
+  html {
+  scroll-behavior: smooth;
+}
   /* src/app/globals.css — add inside @layer base or at the end */
 @keyframes shake {
   0%, 100% { transform: translateX(0);    }
