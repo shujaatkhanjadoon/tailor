@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Copy, Check, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
+import { X, Copy, Check, AlertCircle, CheckCircle2, Loader2, MessageCircle } from 'lucide-react'
 import { QRCodeSVG }    from 'qrcode.react'
 import { supabase }     from '@/lib/supabase/client'
 import { useAuth }      from '@/lib/auth/AuthContext'
@@ -15,6 +15,7 @@ import { cn }            from '@/lib/utils'
 const RAAST_ID       = process.env.NEXT_PUBLIC_RAAST_ID       ?? '03135931459'
 const RAAST_NAME     = process.env.NEXT_PUBLIC_RAAST_NAME      ?? 'Shujaat Khan'
 const RAAST_BANK     = process.env.NEXT_PUBLIC_RAAST_BANK      ?? 'Bank Alfalah'
+const ADMIN_WA       = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP  ?? ''
 
 interface RaastPaymentSheetProps {
   planId:       PlanId
@@ -50,6 +51,12 @@ export function RaastPaymentSheet({
     `Amount: PKR ${amountPkr}`,
     `Reference: ${paymentRef}`,
   ].join('\n')
+
+  const adminWhatsAppLink = ADMIN_WA
+    ? `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(
+        `Assalam o Alaikum, subscription ${planId} ${cycle} request verify kar dein.\n\nShop ID: ${shopId ?? 'N/A'}\nAmount: Rs. ${amountPkr}\nPayment Ref: ${paymentRef}\nTransaction ID: ${txId.trim() || 'Submitted in app'}\nPayer: ${payerName.trim() || 'N/A'}`,
+      )}`
+    : null
 
   const copy = async (text: string, key: 'id' | 'amount') => {
     try {
@@ -188,7 +195,7 @@ export function RaastPaymentSheet({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center lg:items-center"
-      onClick={onClose}
+      role="presentation"
     >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
@@ -197,7 +204,6 @@ export function RaastPaymentSheet({
       <div
         className="relative w-full max-w-115 bg-white rounded-t-3xl
                    lg:rounded-2xl shadow-2xl z-10 max-h-[95vh] flex flex-col"
-        onClick={e => e.stopPropagation()}
       >
         {/* Handle */}
         <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-3
@@ -270,10 +276,26 @@ export function RaastPaymentSheet({
                 kar ke plan activate kar denge.
               </p>
               <div className="mt-5 bg-blue-50 border border-blue-200
-                              rounded-2xl px-4 py-3 w-full max-w-xs">
+                              rounded-2xl px-4 py-3 w-full max-w-xs space-y-3">
                 <p className="text-xs text-blue-700 font-medium">
                   📱 Activation ka message aapko bata diya jayega
                 </p>
+                <p className="text-xs text-blue-700 leading-relaxed">
+                  Jaldi verification ke liye admin ko WhatsApp par payment
+                  reference aur transaction ID bhej dein.
+                </p>
+                {adminWhatsAppLink && (
+                  <a
+                    href={adminWhatsAppLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-xl
+                               bg-green-600 px-3 py-2.5 text-xs font-bold text-white"
+                  >
+                    <MessageCircle size={13} />
+                    Admin Ko WhatsApp Karein
+                  </a>
+                )}
               </div>
             </div>
           )}

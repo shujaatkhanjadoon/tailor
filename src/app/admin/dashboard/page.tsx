@@ -26,11 +26,22 @@ interface PendingPayment {
   shops:    { shop_name: string; owner_phone: string } | null
 }
 
+interface PendingVerification {
+  id: string
+  shop_id: string
+  owner_name: string
+  owner_phone: string
+  shop_name?: string
+  requested_at: string
+}
+
 interface Shop {
   id:         string
   shop_name:  string
   owner_phone: string
   plan:       string
+  is_active?: boolean
+  verification_status?: string
   created_at: string
   subscriptions: { plan: string; status: string }[]
 }
@@ -73,6 +84,7 @@ export default function AdminDashboardPage() {
   const router  = useRouter()
   const [summary,  setSummary]  = useState<Summary | null>(null)
   const [pending,  setPending]  = useState<PendingPayment[]>([])
+  const [pendingVerifications, setPendingVerifications] = useState<PendingVerification[]>([])
   const [shops,    setShops]    = useState<Shop[]>([])
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState('')
@@ -81,10 +93,11 @@ export default function AdminDashboardPage() {
     setLoading(true)
     setError('')
     try {
-      const [sumRes, pendRes, shopRes] = await Promise.all([
+      const [sumRes, pendRes, shopRes, verifyRes] = await Promise.all([
         fetch('/api/admin/data?type=summary'),
         fetch('/api/admin/data?type=pending'),
         fetch('/api/admin/data?type=shops&limit=8'),
+        fetch('/api/admin/data?type=pending_verifications'),
       ])
 
       if (sumRes.status === 401) {
@@ -92,12 +105,13 @@ export default function AdminDashboardPage() {
         return
       }
 
-      const [sumData, pendData, shopData] = await Promise.all([
-        sumRes.json(), pendRes.json(), shopRes.json(),
+      const [sumData, pendData, shopData, verifyData] = await Promise.all([
+        sumRes.json(), pendRes.json(), shopRes.json(), verifyRes.json(),
       ])
 
       setSummary(sumData.data ?? { total: 0, thisMonthRevenue: 0, activeSubscriptions: 0, trialing: 0 })
       setPending(pendData.data ?? [])
+      setPendingVerifications(verifyData.data ?? [])
       setShops(shopData.data ?? [])
     } catch (e) {
       setError('Data load nahi ho saka. Page refresh karein.')
@@ -186,6 +200,33 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
+      {/* Pending shop verification alert */}
+      {pendingVerifications.length > 0 && (
+        <div className="bg-amber-900/30 border-2 border-amber-600 rounded-2xl
+                        p-4 flex flex-col sm:flex-row items-start sm:items-center
+                        justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <AlertCircle size={20} className="text-amber-400 shrink-0" />
+            <div>
+              <p className="font-bold text-amber-300 text-sm">
+                {pendingVerifications.length} new shop verification
+                {pendingVerifications.length > 1 ? 's' : ''} pending
+              </p>
+              <p className="text-amber-500/70 text-xs">
+                Naye account owners approve/reject karne ke liye
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push('/admin/dashboard/shops')}
+            className="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 text-amber-900
+                       font-bold px-4 py-2.5 rounded-xl text-sm transition-colors"
+          >
+            Review Shops →
+          </button>
+        </div>
+      )}
+
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         <StatCard
@@ -210,10 +251,10 @@ export default function AdminDashboardPage() {
         />
         <StatCard
           label="Pending"
-          value={pending.length}
-          sub={pending.length > 0 ? 'Needs review' : 'All clear'}
+          value={pending.length + pendingVerifications.length}
+          sub={pending.length + pendingVerifications.length > 0 ? 'Needs review' : 'All clear'}
           icon={CreditCard}
-          color={pending.length > 0 ? 'amber' : 'slate'}
+          color={pending.length + pendingVerifications.length > 0 ? 'amber' : 'slate'}
         />
       </div>
 
@@ -239,8 +280,12 @@ export default function AdminDashboardPage() {
             </p>
           ) : shops.map(shop => {
             const sub    = shop.subscriptions?.[0]
-            const status = sub?.status ?? 'active'
             const plan   = sub?.plan   ?? 'starter'
+            const verif  = shop.verification_status ?? 'pending'
+            const active = shop.is_active !== false && verif === 'approved'
+            const status = !active
+              ? verif === 'rejected' ? 'rejected' : 'unverified'
+              : sub?.status ?? 'active'
 
             return (
               <div
@@ -270,6 +315,8 @@ export default function AdminDashboardPage() {
                     status === 'active'   ? 'bg-green-900 text-green-400' :
                     status === 'trialing' ? 'bg-blue-900  text-blue-400'  :
                     status === 'expired'  ? 'bg-red-900   text-red-400'   :
+                    status === 'rejected' ? 'bg-red-900   text-red-400'   :
+                    status === 'unverified' ? 'bg-amber-900 text-amber-400' :
                                            'bg-slate-800  text-slate-500'
                   )}>
                     {status}

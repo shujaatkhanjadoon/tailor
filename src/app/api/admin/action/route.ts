@@ -286,18 +286,27 @@ export async function POST(req: NextRequest) {
 
       case "verify_shop": {
         const { shopId, status, note } = body;
+        if (!shopId || !["approved", "rejected"].includes(status)) {
+          return NextResponse.json(
+            { error: "shopId and valid status required" },
+            { status: 400 },
+          );
+        }
+        const now = new Date().toISOString();
         await sbPatch(
           "shop_verification_requests",
           `shop_id=eq.${shopId}&status=eq.pending`,
           {
             status,
             admin_note: note ?? null,
-            reviewed_at: new Date().toISOString(),
+            reviewed_at: now,
           },
         );
         await sbPatch("shops", `id=eq.${shopId}`, {
           verification_status: status,
-          verified_at: status === "approved" ? new Date().toISOString() : null,
+          is_active: status === "approved",
+          verified_at: status === "approved" ? now : null,
+          updated_at: now,
         });
         await logAction(
           status === "approved" ? "shop_activated" : "shop_deactivated",
@@ -305,6 +314,48 @@ export async function POST(req: NextRequest) {
           shopId,
           { note },
         );
+        return NextResponse.json({ success: true });
+      }
+
+      case "delete_shop": {
+        const { shopId, reason } = body;
+        if (!shopId) {
+          return NextResponse.json(
+            { error: "shopId required" },
+            { status: 400 },
+          );
+        }
+
+        const now = new Date().toISOString();
+
+        // Soft-delete/deactivate related login and billing data first so
+        // rejected accounts cannot continue signing in while preserving audit.
+        await Promise.all([
+          sbPatch("team_members", `shop_id=eq.${shopId}`, {
+            is_active: false,
+            deleted_at: now,
+            updated_at: now,
+          }).catch((e) => console.warn("[Admin Action] team cleanup:", e)),
+          sbPatch("subscriptions", `shop_id=eq.${shopId}`, {
+            status: "cancelled",
+            cancelled_at: now,
+            updated_at: now,
+          }).catch((e) => console.warn("[Admin Action] subscription cleanup:", e)),
+          sbPatch("shop_verification_requests", `shop_id=eq.${shopId}`, {
+            status: "rejected",
+            admin_note: reason ?? "Account deleted by admin",
+            reviewed_at: now,
+          }).catch((e) => console.warn("[Admin Action] verification cleanup:", e)),
+        ]);
+
+        await sbPatch("shops", `id=eq.${shopId}`, {
+          is_active: false,
+          verification_status: "rejected",
+          deleted_at: now,
+          updated_at: now,
+        });
+
+        await logAction("shop_deleted", shopId, shopId, { reason });
         return NextResponse.json({ success: true });
       }
 

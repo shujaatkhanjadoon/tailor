@@ -9,7 +9,7 @@ import { QRCodeDisplay } from '@/components/orders/QRCodeDisplay'
 import {
   ArrowLeft, MessageCircle, Clock, Wallet,
   User2, QrCode, ChevronRight, Plus,
-  Ruler, Image as ImageIcon, StickyNote, Phone,
+  Ruler, Image as ImageIcon, StickyNote, Phone, X,
 } from 'lucide-react'
 import { useOrder } from '@/hooks/useOrders'
 import { useAuth } from '@/lib/auth/AuthContext'
@@ -76,6 +76,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [savingPay, setSavingPay] = useState(false)
   const [showPaySheet, setShowPaySheet] = useState(false)
   const [showQR, setShowQR] = useState(false)
+  const [previewPhoto, setPreviewPhoto] = useState<{
+    src: string
+    label: string
+  } | null>(null)
 
   if (!order) {
     return (
@@ -467,6 +471,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             Nap / Measurements
           </h2>
 
+          <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-blue-500">
+              Clothes Type
+            </p>
+            <p className="text-sm font-bold text-blue-800">
+              {gc?.emoji} {gc?.label ?? order.garmentType}
+            </p>
+          </div>
+
           {measurement && Object.keys(measurement.values).length > 0 ? (
             <>
               <div className="grid grid-cols-2 gap-2">
@@ -500,11 +513,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </h2>
             <div className="grid grid-cols-2 gap-3">
               {photos.map(photo => (
-                <a
+                <button
                   key={photo.id}
-                  href={photo.cloudUrl ?? photo.base64}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  type="button"
+                  onClick={() => setPreviewPhoto({
+                    src: photo.cloudUrl ?? photo.base64,
+                    label: `${photo.type} photo`,
+                  })}
                   className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
                 >
                   <img
@@ -515,7 +530,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <p className="px-3 py-2 text-xs font-semibold capitalize text-slate-600">
                     {photo.type}
                   </p>
-                </a>
+                </button>
               ))}
             </div>
           </div>
@@ -581,6 +596,33 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           brandLogoUrl={shop?.brandLogoUrl}
           onClose={() => setShowQR(false)}
         />
+      )}
+
+      {previewPhoto && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setPreviewPhoto(null)}
+        >
+          <div
+            className="relative max-h-full w-full max-w-3xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              aria-label="Close image preview"
+              onClick={() => setPreviewPhoto(null)}
+              className="absolute right-2 top-2 z-10 flex h-10 w-10 items-center
+                         justify-center rounded-full bg-black/60 text-white"
+            >
+              <X size={18} />
+            </button>
+            <img
+              src={previewPhoto.src}
+              alt={previewPhoto.label}
+              className="max-h-[85vh] w-full rounded-2xl object-contain"
+            />
+          </div>
+        </div>
       )}
     </div>
   )

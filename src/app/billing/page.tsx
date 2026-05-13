@@ -2,8 +2,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Calendar } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Calendar, MessageCircle } from "lucide-react";
 import { usePlan } from "@/hooks/usePlan";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { PLANS } from "@/lib/billing/plans";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { cn } from "@/lib/utils";
@@ -12,12 +13,18 @@ import { useSearchParams } from "next/navigation";
 import { BillingHistory } from "@/components/billing/BillingHistory";
 import { BillingSkeleton } from '@/components/ui/Skeleton'
 
+const ADMIN_WA = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? "923135931459";
+
 export default function BillingPage() {
   const router = useRouter();
+  const { shopId } = useAuth();
   const plan = usePlan();
   const planDef = PLANS[plan.plan];
   const searchParams = useSearchParams();
   const paymentSubmitted = searchParams.get("payment") === "submitted";
+  const adminWhatsAppLink = `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(
+    `Assalam o Alaikum, meri subscription payment request submit ho gayi hai. Please verify kar dein.\n\nPlan: ${plan.plan}\nShop ID: ${shopId ?? "N/A"}`,
+  )}`;
 
   if (plan.isLoading) return <BillingSkeleton />
 
@@ -46,6 +53,16 @@ export default function BillingPage() {
             Hum aapki payment 24 ghante mein verify kar ke plan activate kar
             denge. Koi masla ho to WhatsApp karein.
           </p>
+          <a
+            href={adminWhatsAppLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-2 rounded-xl bg-green-600
+                       px-4 py-2.5 text-xs font-bold text-white"
+          >
+            <MessageCircle size={13} />
+            Admin Ko WhatsApp Karein
+          </a>
         </div>
       )}
 

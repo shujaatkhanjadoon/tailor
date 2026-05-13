@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   ShieldX,
   ShieldAlert,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -372,6 +373,7 @@ function ShopCard({
   onPlanChange,
   onToggleActive,
   onVerifyAction,
+  onDeleteShop,
 }: {
   shop: Shop;
   onPlanChange: (
@@ -384,13 +386,15 @@ function ShopCard({
     shopId: string,
     status: "approved" | "rejected",
   ) => Promise<void>;
+  onDeleteShop: (shop: Shop) => Promise<void>;
 }) {
   const sub = shop.subscriptions?.[0];
   const usage = shop.shop_usage?.[0];
   const status = sub?.status ?? "active";
   const plan = sub?.plan ?? shop.plan ?? "starter";
-  const isActive = shop.is_active !== false;
   const verif = shop.verification_status ?? "pending";
+  const isVerified = verif === "approved";
+  const isActive = shop.is_active !== false && isVerified;
   const billingCycle =
     sub?.billing_cycle ?? (plan === "starter" ? null : "monthly");
   const expiryDate = sub?.expires_at || sub?.trial_ends_at;
@@ -489,7 +493,7 @@ function ShopCard({
                 className="text-[10px] font-bold px-2 py-0.5 rounded-full
                                bg-red-900 text-red-300"
               >
-                Inactive
+                {verif === "rejected" ? "Rejected" : "Inactive"}
               </span>
             )}
 
@@ -702,6 +706,30 @@ function ShopCard({
             </div>
           )}
 
+          {/* Delete action — available after rejection */}
+          {verif === "rejected" && (
+            <div>
+              <label
+                className="block text-[10px] font-bold text-slate-500
+                                 uppercase tracking-wide mb-1.5"
+              >
+                Rejected Account
+              </label>
+              <button
+                type="button"
+                disabled={changing}
+                onClick={() => onDeleteShop(shop)}
+                className="w-full flex items-center justify-center gap-1.5
+                           bg-red-950/50 border border-red-800 text-red-300
+                           font-bold text-xs py-2.5 rounded-xl hover:bg-red-950
+                           transition-colors disabled:opacity-50"
+              >
+                <Trash2 size={13} />
+                Delete Account
+              </button>
+            </div>
+          )}
+
           {/* Quick action buttons */}
           <div className="flex flex-wrap gap-2">
             {/* WhatsApp */}
@@ -722,21 +750,23 @@ function ShopCard({
             </a>
 
             {/* Activate / Deactivate */}
-            <button
-              type="button"
-              disabled={changing}
-              onClick={() => onToggleActive(shop)}
-              className={cn(
-                "flex items-center gap-1.5 border text-xs font-semibold",
-                "px-3 py-2 rounded-xl transition-colors disabled:opacity-50",
-                isActive
-                  ? "bg-red-900/30 border-red-800 text-red-300 hover:bg-red-900/50"
-                  : "bg-green-900/30 border-green-800 text-green-300 hover:bg-green-900/50",
-              )}
-            >
-              <Power size={12} />
-              {isActive ? "Deactivate" : "Activate"}
-            </button>
+            {isVerified && (
+              <button
+                type="button"
+                disabled={changing}
+                onClick={() => onToggleActive(shop)}
+                className={cn(
+                  "flex items-center gap-1.5 border text-xs font-semibold",
+                  "px-3 py-2 rounded-xl transition-colors disabled:opacity-50",
+                  isActive
+                    ? "bg-red-900/30 border-red-800 text-red-300 hover:bg-red-900/50"
+                    : "bg-green-900/30 border-green-800 text-green-300 hover:bg-green-900/50",
+                )}
+              >
+                <Power size={12} />
+                {isActive ? "Deactivate" : "Activate"}
+              </button>
+            )}
 
             {/* Shop ID */}
             <span
@@ -877,7 +907,9 @@ export default function AdminShopsPage() {
 
       setShops((prev) =>
         prev.map((s) =>
-          s.id !== shopId ? s : { ...s, verification_status: status },
+          s.id !== shopId
+            ? s
+            : { ...s, verification_status: status, is_active: status === "approved" },
         ),
       );
       setPendingVerifications((prev) =>
@@ -886,6 +918,31 @@ export default function AdminShopsPage() {
     },
     [],
   );
+
+  const handleDeleteShop = useCallback(async (shop: Shop) => {
+    const confirmed = confirm(
+      `Delete rejected account: ${shop.shop_name}?\n\n` +
+        "Owner login band ho jayega aur shop admin list se hide ho jayegi. Audit log safe rahega.",
+    );
+    if (!confirmed) return;
+
+    const res = await fetch("/api/admin/action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "delete_shop",
+        shopId: shop.id,
+        reason: "Rejected account deleted by admin",
+      }),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error ?? "Delete failed");
+
+    setShops((prev) => prev.filter((s) => s.id !== shop.id));
+    setPendingVerifications((prev) =>
+      prev.filter((v) => v.shop_id !== shop.id),
+    );
+  }, []);
 
   // ── Filter shops ──────────────────────────────────────────────
   const filtered = shops.filter((s) => {
@@ -1075,6 +1132,7 @@ export default function AdminShopsPage() {
                 onPlanChange={handlePlanChange}
                 onToggleActive={handleToggleActive}
                 onVerifyAction={handleVerifyAction}
+                onDeleteShop={handleDeleteShop}
               />
             ))
           )}

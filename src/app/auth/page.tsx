@@ -18,6 +18,7 @@ import {
   ArrowLeft,
   MapPin,
   Lock,
+  MessageCircle,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { supabase } from "@/lib/supabase/client";
@@ -27,6 +28,8 @@ import { validatePakistaniPhone } from "@/lib/security/phone";
 import { validatePIN, getPINStrength } from "@/lib/security/pin";
 import { verifyPIN } from "@/lib/security/pin";
 import { cn } from "@/lib/utils";
+
+const ADMIN_WA = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? "";
 
 // ── Step Types ────────────────────────────────────────────────────
 type Step =
@@ -784,6 +787,11 @@ function AuthContent() {
 
   // ── PIN strength indicator ────────────────────────────────────
   const pinStrength = getPINStrength(pin);
+  const adminWhatsAppLink = ADMIN_WA
+    ? `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(
+        `Assalam o Alaikum, nayi shop registration verify kar dein.\n\nShop: ${shopName.trim()}\nOwner: ${ownerName.trim()}\nPhone: ${phone.replace(/\D/g, "")}\nCity: ${city.trim() || "N/A"}`,
+      )}`
+    : null;
 
   // ── Render ────────────────────────────────────────────────────
   return (
@@ -1417,12 +1425,28 @@ function AuthContent() {
 
               <div
                 className="bg-amber-50 border border-amber-200 rounded-2xl
-                              px-4 py-3 mb-5"
+                              px-4 py-3 mb-5 space-y-3"
               >
                 <p className="text-amber-700 text-xs leading-relaxed">
                   ⏱️ Verification 24 ghante mein ho jati hai. Tab tak aap app
                   use kar sakte hain.
                 </p>
+                <p className="text-amber-700 text-xs leading-relaxed">
+                  Admin ko WhatsApp par bhi bata dein ke nayi shop registration
+                  aur verification request submit ho gayi hai.
+                </p>
+                {adminWhatsAppLink && (
+                  <a
+                    href={adminWhatsAppLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 bg-green-600
+                               text-white text-sm font-bold py-3 rounded-xl"
+                  >
+                    <MessageCircle size={15} />
+                    Admin Ko WhatsApp Karein
+                  </a>
+                )}
               </div>
 
               <button

@@ -4,12 +4,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { X, Check, Scissors, UserX, Plus } from 'lucide-react'
-import { TeamMemberRecord } from '@/lib/db/schema'
+import { db, TeamMemberRecord, OrderRecord } from '@/lib/db/schema'
 import { teamOps, orderOps } from '@/lib/db/operations'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { cn } from '@/lib/utils'
 import { usePlan } from '@/hooks/usePlan'
 import { getKarigarLimitMessage, getSelectableKarigarIds } from '@/lib/team/karigar-limits'
+import { GARMENT_LABELS, GarmentType } from '@/types'
 
 interface AssignSheetProps {
   orderId:         string
@@ -18,17 +19,38 @@ interface AssignSheetProps {
   onAssigned:      () => void
 }
 
+const SPECIALITY_TO_GARMENTS: Record<string, GarmentType[]> = {
+  'Shalwar Kameez': ['shalwar_kameez'],
+  Shirt: ['shirt'],
+  Trouser: ['trouser'],
+  Sherwani: ['sherwani'],
+  Coat: ['coat'],
+  'Sab Kuch': ['shalwar_kameez', 'shirt', 'trouser', 'sherwani', 'coat', 'other'],
+}
+
+function canKarigarHandleGarment(member: TeamMemberRecord, garmentType?: string) {
+  if (!garmentType) return true
+  const speciality = member.speciality ?? 'Sab Kuch'
+  const allowed = speciality
+    .split(',')
+    .map(s => s.trim())
+    .flatMap(s => SPECIALITY_TO_GARMENTS[s] ?? [])
+
+  return allowed.length === 0 || allowed.includes(garmentType as GarmentType)
+}
+
 export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: AssignSheetProps) {
   const router = useRouter()
   const { shopId } = useAuth()
   const plan = usePlan()
   const [members,  setMembers]  = useState<TeamMemberRecord[]>([])
+  const [order,    setOrder]    = useState<OrderRecord | null>(null)
   const [selected, setSelected] = useState<string | null>(currentAssignee ?? null)
   const [saving,   setSaving]   = useState(false)
 
   useEffect(() => {
     if (shopId) {
-      teamOps.getAll(shopId).then(all => {
+      Promise.all([teamOps.getAll(shopId), db.orders.get(orderId)]).then(([all, orderRecord]) => {
         const karigars = all
           .filter(m => m.role === 'karigar')
           .sort((a, b) => {
@@ -37,12 +59,20 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
             return a.createdAt.localeCompare(b.createdAt)
           })
         setMembers(karigars)
+        setOrder(orderRecord ?? null)
       })
     }
-  }, [shopId])
+  }, [shopId, orderId])
 
   const selectableIds = getSelectableKarigarIds(members, plan.karigarLimit)
-  const selectedIsDisabled = selected !== null && !selectableIds.has(selected)
+  const selectedMember = selected ? members.find(m => m.id === selected) : null
+  const selectedIsDisabled = selected !== null && (
+    !selectableIds.has(selected) ||
+    (selectedMember ? !canKarigarHandleGarment(selectedMember, order?.garmentType) : false)
+  )
+  const garmentLabel = order?.garmentType
+    ? GARMENT_LABELS[order.garmentType as GarmentType]?.label ?? order.garmentType
+    : null
 
   const handleSave = async () => {
     if (selected === currentAssignee) { onClose(); return }
@@ -129,7 +159,8 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
               {/* Team members */}
               {members.map(m => {
                 const isSelected = selected === m.id
-                const canSelect = selectableIds.has(m.id)
+                const specialityMatch = canKarigarHandleGarment(m, order?.garmentType)
+                const canSelect = selectableIds.has(m.id) && specialityMatch
                 return (
                   <button
                     key={m.id}
@@ -161,7 +192,9 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
                       <div className="flex items-center gap-2 mt-0.5">
                         {!canSelect && (
                           <span className="text-[10px] text-slate-500 font-semibold">
-                            Plan limit
+                            {!selectableIds.has(m.id)
+                              ? 'Plan limit'
+                              : `${garmentLabel ?? 'Order'} ka kaam nahi`}
                           </span>
                         )}
                         {m.speciality && (
@@ -188,7 +221,9 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
                          py-4 rounded-2xl transition-colors active:scale-[0.98]"
             >
               {selectedIsDisabled
-                ? getKarigarLimitMessage(plan.karigarLimit)
+                ? selectedMember && !canKarigarHandleGarment(selectedMember, order?.garmentType)
+                  ? `${selectedMember.name} ${garmentLabel ?? 'is order'} ke liye select nahi ho sakta`
+                  : getKarigarLimitMessage(plan.karigarLimit)
                 : saving ? 'Assign ho raha hai...' : 'Assign Karein ✓'}
             </button>
           </>

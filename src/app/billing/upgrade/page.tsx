@@ -21,8 +21,7 @@ function UpgradeContent() {
 
   const handleSelectPlan = (planId: PlanId) => {
     if (planId === 'starter') {
-      // Downgrade to starter — no payment needed
-      // TODO: handle downgrade flow
+      router.push('/billing/cancel')
       return
     }
     setSelectedPlan(planId)

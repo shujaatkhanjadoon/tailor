@@ -38,15 +38,17 @@ function PaymentCard({
   const [showReject,     setShowReject]      = useState(false)
   const [rejectReason,   setRejectReason]   = useState('')
   const [rejecting,      setRejecting]      = useState(false)
-  const [copied,         setCopied]         = useState(false)
+  const [copied,         setCopied]         = useState<'tx' | 'ref' | null>(null)
   const [done,           setDone]           = useState<'activated' | 'rejected' | null>(null)
 
   const shop = payment.shops
+  const paymentRef = payment.receipt_data?.payment_ref ?? ''
+  const submittedAt = payment.receipt_data?.submitted_at ?? payment.paid_at
 
-  const copyTxId = () => {
-    navigator.clipboard.writeText(payment.gateway_tx_id ?? '')
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const copyText = (text: string, key: 'tx' | 'ref') => {
+    navigator.clipboard.writeText(text)
+    setCopied(key)
+    setTimeout(() => setCopied(null), 2000)
   }
 
   const handleActivate = async () => {
@@ -127,6 +129,12 @@ function PaymentCard({
           <p className="font-bold text-slate-200 text-sm">{shop?.shop_name}</p>
           <p className="text-slate-500 text-xs font-mono mt-0.5">{shop?.owner_phone}</p>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            {paymentRef && (
+              <span className="text-[10px] font-bold bg-amber-900 text-amber-300
+                               px-2 py-0.5 rounded-full font-mono">
+                Ref: {paymentRef}
+              </span>
+            )}
             <span className="text-[10px] font-bold bg-blue-900 text-blue-300
                              px-2 py-0.5 rounded-full">
               {payment.plan}
@@ -151,37 +159,50 @@ function PaymentCard({
       {expanded && (
         <div className="px-4 pb-4 border-t border-slate-700 pt-3 space-y-3">
 
-          {/* TX ID */}
-          <div className="flex items-center justify-between bg-slate-700/50
-                          rounded-xl px-3 py-2.5">
-            <div>
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide font-bold">
-                Transaction ID
-              </p>
-              <p className="font-mono font-bold text-slate-200 text-sm mt-0.5">
-                {payment.gateway_tx_id ?? '—'}
-              </p>
-            </div>
-            <button
-              onClick={copyTxId}
-              className={cn(
-                'flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl',
-                copied
-                  ? 'bg-green-500 text-white'
-                  : 'bg-slate-600 text-slate-200 hover:bg-slate-500'
-              )}
-            >
-              {copied ? <Check size={11} /> : <Copy size={11} />}
-              {copied ? 'Copied!' : 'Copy'}
-            </button>
+          {/* Matching references */}
+          <div className="grid gap-2">
+            {[
+              { key: 'ref' as const, label: 'App Payment Reference', value: paymentRef },
+              { key: 'tx' as const, label: 'Bank Transaction ID', value: payment.gateway_tx_id },
+            ].map(({ key, label, value }) => (
+              <div
+                key={key}
+                className="flex items-center justify-between bg-slate-700/50
+                           rounded-xl px-3 py-2.5 gap-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-[10px] text-slate-500 uppercase tracking-wide font-bold">
+                    {label}
+                  </p>
+                  <p className="font-mono font-bold text-slate-200 text-sm mt-0.5 wrap-break-word">
+                    {value || '—'}
+                  </p>
+                </div>
+                {value && (
+                  <button
+                    onClick={() => copyText(value, key)}
+                    className={cn(
+                      'shrink-0 flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl',
+                      copied === key
+                        ? 'bg-green-500 text-white'
+                        : 'bg-slate-600 text-slate-200 hover:bg-slate-500'
+                    )}
+                  >
+                    {copied === key ? <Check size={11} /> : <Copy size={11} />}
+                    {copied === key ? 'Copied!' : 'Copy'}
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* Other details */}
           <div className="grid grid-cols-2 gap-2 text-xs">
             {[
-              { label: 'Payment Ref', value: payment.receipt_data?.payment_ref ?? '—' },
+              { label: 'Shop',        value: shop?.shop_name ?? '—' },
+              { label: 'Phone',       value: shop?.owner_phone ?? '—' },
               { label: 'Payer',       value: payment.receipt_data?.payer_name  ?? '—' },
-              { label: 'Submitted',   value: format(new Date(payment.paid_at), 'd MMM, h:mm a') },
+              { label: 'Submitted',   value: submittedAt ? format(new Date(submittedAt), 'd MMM, h:mm a') : '—' },
               { label: 'Method',      value: payment.method ?? 'raast' },
             ].map(({ label, value }) => (
               <div key={label} className="bg-slate-700/30 rounded-xl px-3 py-2">
@@ -189,6 +210,17 @@ function PaymentCard({
                 <p className="text-slate-300 font-medium mt-0.5 truncate">{value}</p>
               </div>
             ))}
+          </div>
+
+          <div className="bg-amber-950/30 border border-amber-800 rounded-xl px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-amber-400 mb-1">
+              Verify Against Bank Statement
+            </p>
+            <p className="text-xs text-amber-200/80 leading-relaxed">
+              Match amount Rs. {Number(payment.amount_pkr).toLocaleString()}, app reference{' '}
+              <span className="font-mono font-bold">{paymentRef || '—'}</span>, and bank
+              transaction ID <span className="font-mono font-bold">{payment.gateway_tx_id || '—'}</span>.
+            </p>
           </div>
 
           {/* Reject form */}

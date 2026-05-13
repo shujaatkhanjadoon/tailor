@@ -139,12 +139,17 @@ export async function GET(req: NextRequest) {
       }
 
       case 'pending_verifications': {
-  const verifications = await sbGet(
-    'shop_verification_requests?status=eq.pending&order=requested_at.desc&select=*'
-  )
-  const shopIds = verifications.map((v: any) => v.shop_id).join(',')
-  return NextResponse.json({ data: verifications})
-}
+        const [verifications, shops] = await Promise.all([
+          sbGet(
+            'shop_verification_requests?status=eq.pending&order=requested_at.desc&select=*'
+          ),
+          sbGet('shops?select=id'),
+        ])
+        const activeShopIds = new Set(shops.map((s: any) => s.id))
+        return NextResponse.json({
+          data: verifications.filter((v: any) => activeShopIds.has(v.shop_id))
+        })
+      }
 
       default:
         return NextResponse.json({ error: 'Invalid type' }, { status: 400 })

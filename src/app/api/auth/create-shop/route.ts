@@ -240,16 +240,14 @@ export async function POST(req: NextRequest) {
     const adminWA  = process.env.ADMIN_WHATSAPP
 
     // Email notification
-    if (normalizedEmail) {
-      sendShopVerificationAlert({
-        shopName,
-        ownerName:  ownerName ?? shopName,
-        ownerPhone,
-        ownerEmail: normalizedEmail,
-        city,
-        shopId,
-      }).catch(console.error)
-    }
+    sendShopVerificationAlert({
+      shopName,
+      ownerName:  ownerName ?? shopName,
+      ownerPhone,
+      ownerEmail: normalizedEmail || 'N/A',
+      city,
+      shopId,
+    }).catch(console.error)
 
     // WhatsApp via CallMeBot (if configured)
     const callMeBotKey = process.env.CALLMEBOT_API_KEY

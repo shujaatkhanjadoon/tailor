@@ -3,7 +3,7 @@
 
 import { useState }  from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, CheckCircle2, MessageCircle } from 'lucide-react'
 import { supabase }  from '@/lib/supabase/client'
 import { useAuth }   from '@/lib/auth/AuthContext'
 import { usePlan }   from '@/hooks/usePlan'
@@ -20,6 +20,8 @@ const CANCEL_REASONS = [
   'Other',
 ]
 
+const ADMIN_WA = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? '923135931459'
+
 export default function CancelPage() {
   const router              = useRouter()
   const { shopId }          = useAuth()
@@ -29,6 +31,9 @@ export default function CancelPage() {
   const [cancelling, setCancelling] = useState(false)
 
   const currentPlan = PLANS[plan.plan]
+  const adminWhatsAppLink = `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(
+    `Assalam o Alaikum, meri subscription downgrade/cancel request submit ho gayi hai.\n\nShop ID: ${shopId ?? 'N/A'}\nCurrent plan: ${plan.plan}\nReason: ${reason || 'N/A'}`,
+  )}`
 
   const handleCancel = async () => {
     if (!reason || !shopId) return
@@ -68,6 +73,16 @@ export default function CancelPage() {
             : 'end of period'
           } tak active rahega. Data delete nahi hoga.
         </p>
+        <a
+          href={adminWhatsAppLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mb-3 inline-flex items-center gap-2 bg-green-600 text-white
+                     font-bold px-6 py-3 rounded-2xl text-sm"
+        >
+          <MessageCircle size={15} />
+          Admin Ko WhatsApp Karein
+        </a>
         <button
           onClick={() => router.push('/billing')}
           className="bg-blue-600 text-white font-bold px-8 py-3.5 rounded-2xl"
