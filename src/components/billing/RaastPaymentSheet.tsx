@@ -336,13 +336,13 @@ export function RaastPaymentSheet({
                 </p>
                 <div className="bg-white border-2 border-slate-200 rounded-2xl
                                 p-4 shadow-sm">
-                  <QRCodeSVG
+                  {/* <QRCodeSVG
                     value={paymentDetailsQR}
                     size={180}
                     level="M"
                     includeMargin={false}
-                  />
-                  {/* <img src="/payment/qr/pro-monthly.jpeg" /> */}
+                  /> */}
+                  <img src="/payment/qr/meezan-qr.png" />
                 </div>
                 <p className="text-[10px] text-slate-400 mt-2 text-center">
                   Bank app mein Raast ID manually daalein. Custom QR banking apps mein invalid aa sakta hai.
