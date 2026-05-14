@@ -3,26 +3,27 @@
 
 import { useState, useEffect } from 'react'
 import { X, Copy, Check, AlertCircle, CheckCircle2, Loader2, MessageCircle } from 'lucide-react'
-import { QRCodeSVG }    from 'qrcode.react'
-import { supabase }     from '@/lib/supabase/client'
-import { useAuth }      from '@/lib/auth/AuthContext'
+import { QRCodeSVG } from 'qrcode.react'
+import { supabase } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth/AuthContext'
 import { generatePaymentRef } from '@/lib/billing/raast'
 import { PLANS, PlanId } from '@/lib/billing/plans'
-import { cn }            from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import Image from 'next/image'
 
 // Read Raast config from env 
 // Set NEXT_PUBLIC_RAAST_ID in .env.local
-const RAAST_ID       = process.env.NEXT_PUBLIC_RAAST_ID       ?? '03135931459'
-const RAAST_NAME     = process.env.NEXT_PUBLIC_RAAST_NAME      ?? 'Shujaat Khan'
-const RAAST_BANK     = process.env.NEXT_PUBLIC_RAAST_BANK      ?? 'Bank Alfalah'
-const ADMIN_WA       = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP  ?? '03135931459'
+const RAAST_ID = process.env.NEXT_PUBLIC_RAAST_ID ?? '03135931459'
+const RAAST_NAME = process.env.NEXT_PUBLIC_RAAST_NAME ?? 'Shujaat Khan'
+const RAAST_BANK = process.env.NEXT_PUBLIC_RAAST_BANK ?? 'Bank Alfalah'
+const ADMIN_WA = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? '03135931459'
 
 interface RaastPaymentSheetProps {
-  planId:       PlanId
-  cycle:        'monthly' | 'yearly'
-  amountPkr:    number
-  onClose:      () => void
-  onSubmitted:  () => void
+  planId: PlanId
+  cycle: 'monthly' | 'yearly'
+  amountPkr: number
+  onClose: () => void
+  onSubmitted: () => void
 }
 
 type SheetStep = 'payment' | 'confirm' | 'submitted'
@@ -30,16 +31,16 @@ type SheetStep = 'payment' | 'confirm' | 'submitted'
 export function RaastPaymentSheet({
   planId, cycle, amountPkr, onClose, onSubmitted,
 }: RaastPaymentSheetProps) {
-  const { shopId }        = useAuth()
-  const [step, setStep]   = useState<SheetStep>('payment')
-  const [txId,  setTxId]  = useState('')
+  const { shopId } = useAuth()
+  const [step, setStep] = useState<SheetStep>('payment')
+  const [txId, setTxId] = useState('')
   const [payerName, setPayerName] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState<'id' | 'amount' | null>(null)
 
   const [paymentRef] = useState(() => generatePaymentRef(shopId ?? 'SHOP'))
-  const targetPlan   = PLANS[planId]
+  const targetPlan = PLANS[planId]
 
   // Banking apps reject custom deep links as invalid QR codes.
   // This QR is intentionally a plain payment-details card for phone cameras.
@@ -54,8 +55,8 @@ export function RaastPaymentSheet({
 
   const adminWhatsAppLink = ADMIN_WA
     ? `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(
-        `Assalam o Alaikum, subscription ${planId} ${cycle} request verify kar dein.\n\nShop ID: ${shopId ?? 'N/A'}\nAmount: Rs. ${amountPkr}\nPayment Ref: ${paymentRef}\nTransaction ID: ${txId.trim() || 'Submitted in app'}\nPayer: ${payerName.trim() || 'N/A'}`,
-      )}`
+      `Assalam o Alaikum, subscription ${planId} ${cycle} request verify kar dein.\n\nShop ID: ${shopId ?? 'N/A'}\nAmount: Rs. ${amountPkr}\nPayment Ref: ${paymentRef}\nTransaction ID: ${txId.trim() || 'Submitted in app'}\nPayer: ${payerName.trim() || 'N/A'}`,
+    )}`
     : null
 
   const copy = async (text: string, key: 'id' | 'amount') => {
@@ -65,7 +66,7 @@ export function RaastPaymentSheet({
       const el = document.createElement('textarea')
       el.value = text
       el.style.position = 'fixed'
-      el.style.opacity  = '0'
+      el.style.opacity = '0'
       document.body.appendChild(el)
       el.select()
       document.execCommand('copy')
@@ -109,13 +110,13 @@ export function RaastPaymentSheet({
         const { data: newSub, error: subCreateErr } = await (supabase as any)
           .from('subscriptions')
           .insert({
-            shop_id:       shopId,
-            plan:          'starter',
-            status:        'active',
+            shop_id: shopId,
+            plan: 'starter',
+            status: 'active',
             trial_ends_at: null,
-            expires_at:    null,
+            expires_at: null,
             billing_cycle: null,
-            amount_pkr:    null,
+            amount_pkr: null,
           })
           .select('id')
           .single()
@@ -130,18 +131,18 @@ export function RaastPaymentSheet({
 
       // Step 2: Insert payment record 
       const paymentRecord: Record<string, any> = {
-        shop_id:       shopId,
-        plan:          planId,
+        shop_id: shopId,
+        plan: planId,
         billing_cycle: cycle,
-        amount_pkr:    amountPkr,
-        method:        'raast',
+        amount_pkr: amountPkr,
+        method: 'raast',
         gateway_tx_id: txId.trim(),
-        status:        'pending',
-        paid_at:       new Date().toISOString(),
-        receipt_data:  {
-          payment_ref:  paymentRef,
-          payer_name:   payerName.trim() || null,
-          raast_id:     RAAST_ID,
+        status: 'pending',
+        paid_at: new Date().toISOString(),
+        receipt_data: {
+          payment_ref: paymentRef,
+          payer_name: payerName.trim() || null,
+          raast_id: RAAST_ID,
           submitted_at: new Date().toISOString(),
         },
       }
@@ -167,9 +168,9 @@ export function RaastPaymentSheet({
         await (supabase as any)
           .from('subscriptions')
           .update({
-            gateway:       'raast',
+            gateway: 'raast',
             gateway_sub_id: paymentRef,
-            updated_at:    new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           })
           .eq('id', subscriptionId)
       }
@@ -188,8 +189,8 @@ export function RaastPaymentSheet({
   }
 
   const STEPS = [
-    { label: 'Payment',  key: 'payment'  },
-    { label: 'Confirm',  key: 'confirm'  },
+    { label: 'Payment', key: 'payment' },
+    { label: 'Confirm', key: 'confirm' },
   ]
 
   return (
@@ -238,8 +239,8 @@ export function RaastPaymentSheet({
                   step === s.key
                     ? 'bg-blue-600 text-white'
                     : (STEPS.indexOf({ label: step === 'confirm' ? 'Confirm' : 'Payment', key: step }) > i)
-                    ? 'bg-green-500 text-white'
-                    : 'bg-slate-200 text-slate-500'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-slate-200 text-slate-500'
                 )}>
                   {i + 1}
                 </div>
@@ -328,21 +329,27 @@ export function RaastPaymentSheet({
                 </p>
               </div>
 
-          {/* Reference QR */}
-          <div className="flex flex-col items-center">
+              {/* Reference QR */}
+              <div className="flex flex-col items-center">
                 <p className="text-xs font-semibold text-slate-500 uppercase
                                tracking-wide mb-3">
                   Payment Details QR
                 </p>
                 <div className="bg-white border-2 border-slate-200 rounded-2xl
-                                p-4 shadow-sm">
+                                p-4 shadow-sm max-w-85">
                   {/* <QRCodeSVG
                     value={paymentDetailsQR}
                     size={180}
                     level="M"
                     includeMargin={false}
                   /> */}
-                  <img src="/payment/qr/meezan-qr.png" />
+                  
+                  <Image
+                    src="/payment/qr/meezan-qr.png"
+                    alt="Meezan Payment Qr"
+                    width={386}
+                    height={409}
+                  />
                 </div>
                 <p className="text-[10px] text-slate-400 mt-2 text-center">
                   Bank app mein Raast ID manually daalein. Custom QR banking apps mein invalid aa sakta hai.
