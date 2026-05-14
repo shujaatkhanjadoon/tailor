@@ -553,7 +553,7 @@ export function RaastPaymentSheet({
 
         {/* Footer */}
         {step !== 'submitted' && (
-          <div className="px-5 py-4 border-t border-slate-100 shrink-0 space-y-2">
+          <div className="px-5 py-4 border-t border-slate-100 shrink-0 space-y-2 mb-14 lg:mb-0">
             {step === 'payment' ? (
               <>
                 <button
