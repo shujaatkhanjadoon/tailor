@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CreditCard, Lock, LogOut, Settings, UserRound, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthContext'
+import Image from 'next/image'
+import Link from 'next/link'
 
 const actions = [
   { href: '/settings',             icon: Settings,   label: 'Settings' },
@@ -30,16 +32,17 @@ export function MobileAccountBar() {
 
   return (
     <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
-      <div className="flex h-14 items-center gap-3">
-        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-xl bg-slate-100">
-          <img src="/logo.png" alt="DarziHub logo" className="h-full w-full object-cover" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-slate-800">{currentUser?.name ?? 'User'}</p>
-          <p className="truncate text-[11px] font-medium text-slate-400">
-            {currentUser?.role === 'owner' ? 'Owner account' : 'Karigar account'}
-          </p>
-        </div>
+      <div className="flex h-14 items-center justify-between gap-3">
+        <div className="flex items-center justify-center shrink-0">
+                  <Link href="/">
+                    <Image
+                      src="/logo.png"
+                      alt="Mera Darzi Logo"
+                      width={150}
+                      height={50}
+                    />
+                  </Link>
+                </div>
         <button
           aria-label="Open user actions"
           onClick={() => setOpen(v => !v)}

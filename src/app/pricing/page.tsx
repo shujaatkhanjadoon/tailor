@@ -43,7 +43,7 @@ export default function PricingPage() {
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <Scissors size={16} className="text-white" />
           </div>
-          <span className="font-bold text-slate-800 text-lg">DarziHub</span>
+          <span className="font-bold text-slate-800 text-lg">MeraDarzi</span>
         </Link>
         <div className="flex items-center gap-3">
           <Link href="/auth" className="text-sm font-semibold text-slate-600 hover:text-slate-800">
@@ -268,7 +268,7 @@ export default function PricingPage() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 py-8 text-center text-sm text-slate-400">
-        © {new Date().getFullYear()} DarziHub • Made with ❤️ for Pakistan 🇵🇰
+        © {new Date().getFullYear()} MeraDarzi • Made with ❤️ for Pakistan 🇵🇰
       </footer>
     </div>
   )

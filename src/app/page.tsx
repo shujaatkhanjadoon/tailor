@@ -171,7 +171,7 @@ if (isLoading || !shopId) return <DashboardSkeleton />
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-blue-200 text-sm font-medium">{greeting} 👋</p>
-            <h1 className="mt-0.5 truncate text-2xl font-bold">{shop?.shopName || "DarziHub"}</h1>
+            <h1 className="mt-0.5 truncate text-2xl font-bold">{shop?.shopName || "MeraDarzi"}</h1>
             <p className="text-blue-300 text-xs mt-1">
               {todayStr || <span className="opacity-0">—</span>}
             </p>

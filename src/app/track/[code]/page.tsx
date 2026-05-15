@@ -66,9 +66,9 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
             _synced: 1, _deleted: 0,
           } as OrderRecord)
           const remoteShop = remote.shops
-          setShopName(remoteShop?.brand_name ?? remoteShop?.shop_name ?? 'DarziHub')
+          setShopName(remoteShop?.brand_name ?? remoteShop?.shop_name ?? 'MeraDarzi')
           setBranding({
-            name: remoteShop?.brand_name ?? remoteShop?.shop_name ?? 'DarziHub',
+            name: remoteShop?.brand_name ?? remoteShop?.shop_name ?? 'MeraDarzi',
             color: remoteShop?.brand_color ?? '#1d4ed8',
             logoUrl: remoteShop?.brand_logo_url ?? '',
           })
@@ -88,7 +88,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
         const shop = await db.shop.toCollection().first()
         setShopName(shop?.brandName ?? shop?.shopName ?? '')
         setBranding({
-          name: shop?.brandName ?? shop?.shopName ?? 'DarziHub',
+          name: shop?.brandName ?? shop?.shopName ?? 'MeraDarzi',
           color: shop?.brandColor ?? '#1d4ed8',
           logoUrl: shop?.brandLogoUrl ?? '',
         })
@@ -159,7 +159,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
           <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center">
             <Scissors size={12} className="text-white" />
           </div>
-          <span className="text-sm font-bold text-slate-600">DarziHub</span>
+          <span className="text-sm font-bold text-slate-600">MeraDarzi</span>
         </div>
       </div>
     )
@@ -345,9 +345,9 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
                 <Scissors size={12} className="text-white" />
               )}
             </div>
-            <span className="text-sm font-bold text-slate-700">{branding.name || 'DarziHub'}</span>
+            <span className="text-sm font-bold text-slate-700">{branding.name || 'MeraDarzi'}</span>
           </div>
-          <p className="text-xs text-slate-400">Powered by DarziHub · Pakistan 🇵🇰</p>
+          <p className="text-xs text-slate-400">Powered by MeraDarzi · Pakistan 🇵🇰</p>
         </div>
       </div>
     </div>

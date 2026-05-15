@@ -11,14 +11,15 @@ import {
 import { cn } from '@/lib/utils'
 import { db } from '@/lib/db/schema'
 import { useAuth } from '@/lib/auth/AuthContext'
+import Image from 'next/image'
 
 const navItems = [
-  { href: '/',          icon: Home,          label: 'Dashboard'  },
-  { href: '/orders',    icon: ClipboardList, label: 'Orders'     },
-  { href: '/customers', icon: Users,         label: 'Gahak'      },
-  { href: '/payments',  icon: Wallet,        label: 'Payments'   },
-  { href: '/reports',   icon: BarChart3,     label: 'Reports'  },
-  { href: '/settings',  icon: Settings,      label: 'Settings'   },
+  { href: '/', icon: Home, label: 'Dashboard' },
+  { href: '/orders', icon: ClipboardList, label: 'Orders' },
+  { href: '/customers', icon: Users, label: 'Gahak' },
+  { href: '/payments', icon: Wallet, label: 'Payments' },
+  { href: '/reports', icon: BarChart3, label: 'Reports' },
+  { href: '/settings', icon: Settings, label: 'Settings' },
 ]
 
 export function SideNav() {
@@ -40,12 +41,16 @@ export function SideNav() {
     <div className="flex flex-col h-full bg-slate-900 text-white">
 
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-6 border-b border-slate-700">
-        <div className="w-10 h-10 overflow-hidden rounded-xl bg-white flex items-center justify-center shrink-0">
-          <img src="/logo.png" alt="DarziHub logo" className="h-full w-full object-cover" />
-        </div>
-        <div className="min-w-0">
-          <p className="font-bold text-sm leading-tight">{shop?.shopName ?? 'DarziHub'}</p>
+      <div className="flex items-center px-5 py-6 border-b border-slate-700">
+        <div className="flex items-center justify-center shrink-0">
+          <Link href="/">
+            <Image
+              src="/logo.png"
+              alt="Mera Darzi Logo"
+              width={150}
+              height={50}
+            />
+          </Link>
         </div>
       </div>
 
