@@ -85,7 +85,7 @@ export function PageErrorBoundary({ children }: { children: ReactNode }) {
                 Page Reload Karein
               </button>
               <a
-                href="/dashboard"
+                href="/"
                 className="block w-full bg-slate-100 text-slate-700 font-bold
                            py-3 rounded-xl text-sm text-center"
               >

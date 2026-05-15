@@ -18,7 +18,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isKarigar = currentUser?.role === 'karigar';
   const isPlainRoute =
-    pathname === '/' || pathname === '/auth' || pathname === '/login' || pathname === '/setup' ||
+    pathname === '/auth' || pathname === '/login' || pathname === '/setup' ||
     pathname.startsWith('/track') || pathname.startsWith('/admin') || pathname.startsWith('/pricing') ||
     pathname.startsWith('/about') || pathname.startsWith('/privacy-policy') ||
     pathname.startsWith('/terms-of-service') || pathname.startsWith('/contact') ||

@@ -27,8 +27,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     if (isLoading) return
 
     const isPublic    = isPublicPath(pathname)
-    const isMarketing = pathname === '/'
-    if (isMarketing || isPublic) return
+    if (isPublic) return
 
     if (!currentUser) {
       // Full page navigation avoids RSC conflict

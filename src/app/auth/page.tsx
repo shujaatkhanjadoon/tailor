@@ -214,15 +214,15 @@ function OTPInput({
 // ── Main Auth Content ─────────────────────────────────────────────
 function AuthContent() {
   const searchParams = useSearchParams();
-  const rawRedirect = searchParams.get("redirect") ?? "/dashboard";
+  const rawRedirect = searchParams.get("redirect") ?? "/";
 
   const redirectTo = (
   rawRedirect.startsWith('/auth') ||
   rawRedirect.startsWith('/login') ||
   rawRedirect.startsWith('/setup') ||
   rawRedirect.startsWith('/admin') ||
-  rawRedirect === '/'
-) ? '/dashboard' : rawRedirect
+  rawRedirect.startsWith('/dashboard')
+) ? '/' : rawRedirect
 
   const {
     currentUser,
@@ -271,7 +271,7 @@ function AuthContent() {
       'setup_pin', 'setup_confirm_pin', 'setup_verify_request'
     ].includes(step)) return
     window.location.href =
-      currentUser.role === 'karigar' ? '/karigar' : '/dashboard'
+      currentUser.role === 'karigar' ? '/karigar' : '/'
   }, [currentUser, authLoading, step])
 
   useEffect(() => {
@@ -571,7 +571,7 @@ function AuthContent() {
       const dest = member.role === 'karigar'
         ? '/karigar'
         : redirectTo === '/auth' || redirectTo.startsWith('/auth')
-          ? '/dashboard'
+          ? '/'
           : redirectTo
 
       window.location.href = dest
@@ -781,7 +781,7 @@ function AuthContent() {
       }).catch(console.error)   // non-blocking
     } finally {
       setLoading(false)
-      window.location.href = '/dashboard'  // ← always /dashboard
+      window.location.href = '/'
     }
   }, [newShopId, shopName, ownerName, phone, email, city])
 

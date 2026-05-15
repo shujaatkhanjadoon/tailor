@@ -326,7 +326,7 @@ function NewOrderWizard({
           </button>
 
           <button
-            onClick={() => router.replace("/dashboard")}
+            onClick={() => router.replace("/")}
             className="w-full text-slate-500 font-medium py-3
                        hover:text-slate-700 transition-colors"
           >

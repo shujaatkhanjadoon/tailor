@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Home, ClipboardList, Users, Wallet, Settings, BarChart3 } from 'lucide-react';
 
 const navItems = [
-  { href: '/dashboard', icon: Home, label: 'Ghar' },
+  { href: '/', icon: Home, label: 'Ghar' },
   { href: '/orders', icon: ClipboardList, label: 'Orders' },
   { href: '/customers', icon: Users, label: 'Gahak' },
   { href: '/payments', icon: Wallet, label: 'Raseed' },
@@ -19,7 +19,7 @@ export function BottomNav() {
     <nav className="fixed inset-x-0 bottom-0 z-50 w-full bg-white/95 border-t border-slate-200 backdrop-blur lg:hidden pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto grid h-16 max-w-3xl grid-cols-6">
         {navItems.map(({ href, icon: Icon, label }) => {
-          const isActive = pathname === href || (href === '/dashboard' && pathname === '/dashboard');
+          const isActive = pathname === href;
           return (
             <Link key={href} href={href} className={`relative flex h-full min-w-0 flex-col items-center justify-center gap-1 px-1 transition-colors ${isActive ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
               <Icon size={21} strokeWidth={isActive ? 2.5 : 1.8} className={isActive ? 'text-blue-600' : 'text-slate-400'} />

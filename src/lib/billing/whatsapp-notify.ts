@@ -26,7 +26,7 @@ export function buildActivationWhatsApp(
     `✅ Plan: *${planName}*\n` +
     `🔄 Billing: ${cycle}${expiryText}\n\n` +
     `Aapke sab features ab unlock hain. App khol ke dekhein:\n` +
-    `${APP_URL}/dashboard\n\n` +
+    `${APP_URL}/\n\n` +
     `Shukriya! Koi masla ho to reply karein. 🙏`
   )
 

@@ -13,7 +13,7 @@ import { db } from '@/lib/db/schema'
 import { useAuth } from '@/lib/auth/AuthContext'
 
 const navItems = [
-  { href: '/dashboard', icon: Home,          label: 'Dashboard'  },
+  { href: '/',          icon: Home,          label: 'Dashboard'  },
   { href: '/orders',    icon: ClipboardList, label: 'Orders'     },
   { href: '/customers', icon: Users,         label: 'Gahak'      },
   { href: '/payments',  icon: Wallet,        label: 'Payments'   },
@@ -59,7 +59,7 @@ export function SideNav() {
       {/* Nav items */}
       <nav className="flex-1 px-3 space-y-1">
         {navItems.map(({ href, icon: Icon, label }) => {
-          const isActive = pathname === href || (href === '/dashboard' && pathname === '/dashboard')
+          const isActive = pathname === href
           return (
             <Link
               key={href}
