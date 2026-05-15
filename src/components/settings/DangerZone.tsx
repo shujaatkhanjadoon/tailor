@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth/AuthContext'
 import { cn } from '@/lib/utils'
 
 export function DangerZone() {
-  const { clearAllData } = useAuth()
+  const { clearAllData, currentUser, shopId } = useAuth()
   const [showModal, setShowModal]   = useState(false)
   const [step,      setStep]        = useState<'confirm' | 'typing' | 'deleting'>('confirm')
   const [typed,     setTyped]       = useState('')
@@ -15,15 +15,30 @@ export function DangerZone() {
   const CONFIRM_WORD = 'DELETE'
 
   const handleReset = async () => {
+    if (!shopId || !currentUser) return
     setDeleting(true)
     setStep('deleting')
     try {
-    await clearAllData()   // ← use AuthContext method
-    window.location.href = '/setup'   // hard reload to clear React state
-  } catch (e) {
-    console.error(e)
-    setDeleting(false)
-  }
+      const res = await fetch('/api/shop/delete', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          shopId,
+          memberId: currentUser.id,
+          confirm: CONFIRM_WORD,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error ?? 'Shop delete nahi ho saki')
+      }
+      await clearAllData()
+      window.location.href = '/setup'
+    } catch (e) {
+      console.error(e)
+      setDeleting(false)
+      setStep('typing')
+    }
   }
 
   return (
@@ -37,7 +52,7 @@ export function DangerZone() {
         </div>
         <div className="flex-1">
           <p className="text-sm font-semibold text-red-600">Sab Data Mitao</p>
-          <p className="text-xs text-slate-400 mt-0.5">App reset — wapas nahi aayega</p>
+          <p className="text-xs text-slate-400 mt-0.5">Shop aur server data permanently delete hoga</p>
         </div>
       </button>
 
@@ -85,7 +100,7 @@ export function DangerZone() {
                 </div>
 
                 <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-5">
-                  <p className="text-sm text-red-700 font-medium mb-1">Yeh sab mit jayega:</p>
+                  <p className="text-sm text-red-700 font-medium mb-1">Yeh sab permanently mit jayega:</p>
                   <ul className="text-xs text-red-600 space-y-1">
                     {['Sare gahak','Sare orders','Sari payments','Sare karigar','Sab measurements'].map(item => (
                       <li key={item} className="flex items-center gap-1.5">

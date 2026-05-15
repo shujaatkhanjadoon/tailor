@@ -266,6 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       db.payments.clear(),
       db.orderStatusHistory.clear(),
       db.syncQueue.clear(),
+      db.photos.clear(),
       db.teamMembers.clear(),
       db.shop.clear(),
       db.appSettings.clear(),

@@ -22,11 +22,12 @@ function isPublicPath(pathname: string) {
 export function AuthGuard({ children }: { children: ReactNode }) {
   const { isLoading, currentUser } = useAuth()
   const pathname = usePathname()
+  const isPublic = isPublicPath(pathname)
+  const karigarAllowed = currentUser?.role !== 'karigar' || ['/karigar', '/orders', '/settings'].some(r => pathname.startsWith(r))
 
   useEffect(() => {
     if (isLoading) return
 
-    const isPublic    = isPublicPath(pathname)
     if (isPublic) return
 
     if (!currentUser) {
@@ -44,7 +45,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     }
   }, [isLoading, currentUser, pathname])
 
-  if (isLoading) {
+  if (isLoading || (!isPublic && (!currentUser || !karigarAllowed))) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-4">

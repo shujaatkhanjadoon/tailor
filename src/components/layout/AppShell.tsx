@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { syncService } from '@/lib/supabase/sync-service';
 import { subscribeToShop } from '@/lib/supabase/realtime';
 import { VerificationBanner } from './VerificationBanner';
+import { MobileAccountBar } from './MobileAccountBar';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, shopId } = useAuth();
@@ -54,6 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
         <div className={`min-w-0 flex-1 ${!isKarigar ? 'lg:pl-64' : ''}`}>
           <div className="min-h-dvh bg-white shadow-xl lg:hidden relative overflow-x-clip">
+            <MobileAccountBar />
             <VerificationBanner />
             <OfflineBanner />
             {children}
