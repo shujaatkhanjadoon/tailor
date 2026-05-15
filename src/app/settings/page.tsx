@@ -379,7 +379,7 @@ export default function SettingsPage() {
             iconBg="bg-slate-100"
             iconColor="text-slate-500"
             label="App Info"
-            sublabel="DarziHub v0.1.0 Beta"
+            sublabel="DarziHub"
             value={`${orderCount} orders`}
             last
           />

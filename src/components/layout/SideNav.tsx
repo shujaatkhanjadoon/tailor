@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Home, ClipboardList, Users, Wallet,
-  Settings, Plus, BarChart3, LogOut, UserRound,
+  Settings, Plus, BarChart3, LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { db } from '@/lib/db/schema'
@@ -85,30 +85,29 @@ export function SideNav() {
       </nav>
 
       {/* Account */}
-      <div className="border-t border-slate-700 px-4 py-4">
+      <div className="border-t border-slate-800 p-3">
         <Link
           href="/settings"
-          className="flex min-w-0 items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-slate-800"
+          className="group flex min-w-0 items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/40 p-3 transition-colors hover:border-slate-700 hover:bg-slate-800/70"
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-950/40">
             {userInitial}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-white">{currentUser?.name ?? 'User'}</p>
-            <p className="truncate text-[11px] text-slate-400">
+            <p className="mt-0.5 truncate text-[11px] font-medium text-slate-400">
               {currentUser?.role === 'owner' ? 'Owner' : 'Karigar'}
             </p>
           </div>
-          <UserRound size={16} className="text-slate-400" />
+          <Settings size={16} className="text-slate-500 transition-colors group-hover:text-slate-300" />
         </Link>
         <button
           onClick={handleLogout}
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-red-200 transition-colors hover:bg-red-500/10 hover:text-red-100"
+          className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:bg-red-500/10 hover:text-red-200"
         >
           <LogOut size={14} />
           Logout
         </button>
-        <p className="mt-3 text-center text-[11px] text-slate-500">v0.1.0 Beta</p>
       </div>
     </div>
   )
