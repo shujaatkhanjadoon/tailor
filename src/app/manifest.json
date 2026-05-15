@@ -1,7 +1,11 @@
 {
   "name": "MeraDarzi",
-  "short_name": "MeraDarzi","description": "Tailor shop management for Pakistan — works offline",
+  "short_name": "MeraDarzi",
+  "description": "Tailor shop management for Pakistan — works offline",
   "start_url": "/",
+  "orientation": "portrait",
+  "categories": ["business", "productivity"],
+  "lang": "en-PK",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
