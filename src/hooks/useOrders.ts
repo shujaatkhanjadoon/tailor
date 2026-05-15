@@ -2,6 +2,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState, useMemo } from 'react'
 import { db, OrderRecord } from '@/lib/db/schema'
+import { orderBalance } from '@/lib/payments/calculations'
 
 export type OrderFilter = 'all' | 'today' | 'overdue' | 'ready' | 'unassigned'
 
@@ -119,7 +120,7 @@ export function useOrder(orderId: string) {
     [orderId]
   )
 
-  const balance = order ? Math.max(0, order.totalPrice - order.amountPaid) : 0
+  const balance = order ? orderBalance(order) : 0
 
   return {
     order,

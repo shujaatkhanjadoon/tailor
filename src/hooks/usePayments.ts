@@ -2,6 +2,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { db, PaymentRecord, OrderRecord } from '@/lib/db/schema'
+import { orderBalance, paymentAppliedAmount, paymentSurplusAmount, sumPayments } from '@/lib/payments/calculations'
 
 export type PaymentFilter = 'all' | 'today' | 'this_week' | 'this_month'
 export type PaymentMethod = 'all' | 'cash' | 'easypaisa' | 'jazzcash' | 'bank'
@@ -12,6 +13,8 @@ export interface PaymentWithOrder extends PaymentRecord {
   garmentType:  string
   orderTotal:   number
   orderBalance: number
+  appliedAmount: number
+  surplusAmount: number
 }
 
 function startOf(unit: 'day' | 'week' | 'month'): string {
@@ -58,11 +61,11 @@ export function usePayments(shopId: string | null) {
           customerName: order?.customerName ?? 'Unknown',
           garmentType:  order?.garmentType  ?? '',
           orderTotal:   order?.totalPrice   ?? 0,
-          orderBalance: order
-            ? Math.max(0, order.totalPrice - order.amountPaid)
-            : 0,
+          orderBalance: order ? orderBalance(order) : 0,
+          appliedAmount: paymentAppliedAmount(p),
+          surplusAmount: paymentSurplusAmount(p),
         }
-      })
+      }).sort((a, b) => b.paidAt.localeCompare(a.paidAt))
     },
     [shopId]
   )
@@ -108,8 +111,7 @@ export function usePayments(shopId: string | null) {
     const weekStart      = startOf('week')
     const monthStart     = startOf('month')
 
-    const sum = (arr: PaymentWithOrder[]) =>
-      arr.reduce((s, p) => s + p.amount, 0)
+    const sum = (arr: PaymentWithOrder[]) => sumPayments(arr).received
 
     const todayPayments  = safe.filter(p => p.paidAt >= todayStart)
     const weekPayments   = safe.filter(p => p.paidAt >= weekStart)
@@ -131,6 +133,9 @@ export function usePayments(shopId: string | null) {
       allTimeTotal:  sum(safe),
       filteredTotal: sum(filtered),
       filteredCount: filtered.length,
+      filteredApplied: sumPayments(filtered).applied,
+      filteredTips: sumPayments(filtered).tips,
+      filteredOverpayments: sumPayments(filtered).overpayments,
       methodBreakdown: byMethod(filter === 'all' ? monthPayments : filtered),
     }
   }, [safe, filtered, filter])
@@ -154,8 +159,8 @@ export function usePendingBalances(shopId: string | null) {
         .where('shopId').equals(shopId)
         .filter(o =>
           o._deleted === 0 &&
-          !['delivered', 'cancelled'].includes(o.status) &&
-          o.totalPrice > o.amountPaid
+          o.status !== 'cancelled' &&
+          orderBalance(o) > 0
         )
         .reverse()
         .sortBy('dueDate')
@@ -165,7 +170,7 @@ export function usePendingBalances(shopId: string | null) {
 
   const safe = pendingOrders ?? []
   const totalPending = safe.reduce(
-    (sum, o) => sum + Math.max(0, o.totalPrice - o.amountPaid), 0
+    (sum, o) => sum + orderBalance(o), 0
   )
 
   return {

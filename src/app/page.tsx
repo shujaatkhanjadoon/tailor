@@ -110,7 +110,7 @@ export default function DashboardPage() {
     return db.payments
       .where("shopId")
       .equals(shopId)
-      .filter((p) => p.paidAt.startsWith(today))
+      .filter((p) => p._deleted === 0 && p.paidAt.startsWith(today))
       .toArray();
   }, [shopId, today]);
 

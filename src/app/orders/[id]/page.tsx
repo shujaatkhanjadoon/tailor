@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { usePlan } from '@/hooks/usePlan'
 import { AccessNotice } from '@/components/billing/AccessNotice'
+import { orderPaymentProgress } from '@/lib/payments/calculations'
 
 const PAYMENT_METHODS = [
   { key: 'cash', label: 'Cash', emoji: '💵' },
@@ -105,7 +106,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const today = new Date().toISOString().split('T')[0]
   const isOverdue = order.dueDate < today && !isTerminal
   const progress = order.totalPrice > 0
-    ? Math.min(100, Math.round((order.amountPaid / order.totalPrice) * 100))
+    ? orderPaymentProgress(order)
     : 0
 
   const waLink = (() => {
@@ -263,6 +264,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 </div>
               ))}
             </div>
+            {payments.some(p => p.kind === 'tip' || p.kind === 'overpayment') && (
+              <div className="mb-3 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                Extra payments, tips, aur overpayments order balance se alag track ho rahe hain.
+              </div>
+            )}
 
             {/* Progress bar */}
             <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -363,7 +369,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                       </p>
                       {p.appliedToBalance !== undefined && p.appliedToBalance !== p.amount && (
                         <p className="text-[10px] text-slate-400">
-                          Rs.{p.appliedToBalance.toLocaleString()} balance
+                          Rs.{p.appliedToBalance.toLocaleString()} balance par
                         </p>
                       )}
                     </div>

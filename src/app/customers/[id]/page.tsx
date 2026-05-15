@@ -1,7 +1,7 @@
 // src/app/customers/[id]/page.tsx
 'use client'
 
-import { use } from 'react'
+import { use, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Phone, MessageCircle, Ruler,
@@ -14,12 +14,15 @@ import { ORDER_STATUS_CONFIG, GARMENT_LABELS } from '@/types'
 import { customerOps } from '@/lib/db/operations'
 import { cn } from '@/lib/utils'
 import { format, formatDistanceToNow } from 'date-fns'
+import { QuickPaymentSheet } from '@/components/payments/QuickPaymentSheet'
+import { orderBalance, orderPaymentProgress } from '@/lib/payments/calculations'
 
 export default function CustomerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id }   = use(params)
   const router   = useRouter()
   const { isOwner} = useAuth()
   const { customer, orders, measurements, totalSpent, pendingBalance } = useCustomer(id)
+  const [paymentOrderId, setPaymentOrderId] = useState<string | null>(null)
 
   if (!customer) {
     return (
@@ -180,7 +183,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
             {activeOrders.map(order => {
               const sc      = ORDER_STATUS_CONFIG[order.status]
               const gc      = GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS]
-              const balance = order.totalPrice - order.amountPaid
+              const balance = orderBalance(order)
               const isLate  = order.dueDate < today
 
               return (
@@ -229,7 +232,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                     <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className={cn('h-full rounded-full', balance === 0 ? 'bg-green-500' : 'bg-blue-500')}
-                        style={{ width: `${Math.min(100, Math.round((order.amountPaid / order.totalPrice) * 100))}%` }}
+                        style={{ width: `${orderPaymentProgress(order)}%` }}
                       />
                     </div>
                   </div>
@@ -241,6 +244,20 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                         ? `${formatDistanceToNow(new Date(order.dueDate))} late`
                         : format(new Date(order.dueDate), 'd MMM')}
                     </p>
+                    <div className="flex items-center gap-2">
+                    {isOwner && balance > 0 && (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          setPaymentOrderId(order.id)
+                        }}
+                        className="flex items-center gap-1 bg-blue-50 text-blue-700 text-xs
+                                   font-semibold px-3 py-1.5 rounded-full"
+                      >
+                        <Wallet size={11} />
+                        Payment
+                      </button>
+                    )}
                     {order.status === 'ready' && (
                       <a
                         href={buildOrderWhatsApp(order.orderNumber, balance)}
@@ -254,6 +271,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                         Bata Do
                       </a>
                     )}
+                    </div>
                   </div>
                 </div>
               )
@@ -309,6 +327,13 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
             <p className="text-sm text-amber-800">{customer.notes}</p>
           </div>
         </div>
+      )}
+      {paymentOrderId && (
+        <QuickPaymentSheet
+          preOrder={orders.find(o => o.id === paymentOrderId)}
+          onClose={() => setPaymentOrderId(null)}
+          onSaved={() => setPaymentOrderId(null)}
+        />
       )}
     </div>
   )

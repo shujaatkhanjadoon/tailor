@@ -34,6 +34,8 @@ export const PaymentCard = memo(function PaymentCard({ payment }: PaymentCardPro
     ?? METHOD_CONFIG.other
   const gc     = GARMENT_LABELS[payment.garmentType as keyof typeof GARMENT_LABELS]
   const isPaid = payment.orderBalance === 0
+  const isTip = payment.kind === 'tip'
+  const isOverpayment = payment.kind === 'overpayment'
 
   return (
     <button
@@ -63,6 +65,14 @@ export const PaymentCard = memo(function PaymentCard({ payment }: PaymentCardPro
             )}>
               {method.label}
             </span>
+            {(isTip || isOverpayment) && (
+              <span className={cn(
+                'text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0',
+                isTip ? 'bg-amber-100 text-amber-700' : 'bg-violet-100 text-violet-700'
+              )}>
+                {isTip ? 'Tip' : 'Extra'}
+              </span>
+            )}
           </div>
 
           <p className="text-xs text-slate-400">
@@ -73,6 +83,11 @@ export const PaymentCard = memo(function PaymentCard({ payment }: PaymentCardPro
           <p className="text-xs text-slate-400 mt-0.5">
             {formatPaymentDate(payment.paidAt)}
           </p>
+          {payment.surplusAmount > 0 && (
+            <p className="mt-1 text-[10px] font-medium text-slate-500">
+              Rs. {payment.appliedAmount.toLocaleString()} order par apply hua · Rs. {payment.surplusAmount.toLocaleString()} {isTip ? 'tip' : 'extra'}
+            </p>
+          )}
 
           {/* Balance remaining */}
           {!isPaid && (
@@ -88,9 +103,9 @@ export const PaymentCard = memo(function PaymentCard({ payment }: PaymentCardPro
         {/* Amount */}
         <div className="flex flex-col items-end gap-1 shrink-0">
           <p className="text-lg font-bold text-green-700">
-            +{payment.amount.toLocaleString()}
+            Rs. {payment.amount.toLocaleString()}
           </p>
-          <p className="text-[10px] text-slate-400">Rs.</p>
+          <p className="text-[10px] text-slate-400">received</p>
           <ChevronRight size={13} className="text-slate-300" />
         </div>
       </div>

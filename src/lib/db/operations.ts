@@ -3,6 +3,7 @@ import { db, OrderRecord, CustomerRecord, TeamMemberRecord, PaymentRecord } from
 import { syncQueue } from './sync'
 import { generateTrackingCode } from '../tracking'
 import { supabase } from '@/lib/supabase/client'
+import { paymentAppliedAmount } from '@/lib/payments/calculations'
 
 // ── Utility ──────────────────────────────────────────────────────
 
@@ -521,7 +522,7 @@ export const paymentOps = {
   async getTodayTotal(shopId: string): Promise<number> {
     const payments = await db.payments
       .where('shopId').equals(shopId)
-      .filter(p => p.paidAt.startsWith(today()))
+      .filter(p => p._deleted === 0 && p.paidAt.startsWith(today()))
       .toArray()
     return payments.reduce((sum, p) => sum + p.amount, 0)
   },
@@ -533,31 +534,40 @@ export const paymentOps = {
       appliedToBalance?: number
     }
   ): Promise<PaymentRecord> {
+    const amount = Math.floor(Number(data.amount))
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error('Payment amount must be greater than zero')
+    }
+
+    const order = await db.orders.get(data.orderId)
+    if (!order || order.shopId !== shopId || order._deleted === 1) {
+      throw new Error('Order not found for this payment')
+    }
+
     const existingPayments = await db.payments
       .where('orderId').equals(data.orderId)
       .filter(p => p._deleted === 0)
       .toArray()
-    const order = await db.orders.get(data.orderId)
     const paidTowardBalance = existingPayments.reduce(
-      (sum, p) => sum + (p.appliedToBalance ?? p.amount),
+      (sum, p) => sum + paymentAppliedAmount(p),
       0
     )
-    const remainingBalance = order
-      ? Math.max(0, order.totalPrice - paidTowardBalance)
-      : data.amount
+    const remainingBalance = Math.max(0, order.totalPrice - paidTowardBalance)
     const kind = data.kind ?? 'order_payment'
-    const appliedToBalance = data.appliedToBalance ??
-      (kind === 'order_payment' ? Math.min(data.amount, remainingBalance) : 0)
+    const requestedApplied = data.appliedToBalance ??
+      (kind === 'order_payment' ? amount : 0)
+    const appliedToBalance = Math.max(0, Math.min(amount, remainingBalance, requestedApplied))
 
     const payment: PaymentRecord = {
+      ...data,
       id:       uuid(),
       shopId,
+      amount,
       paidAt:   now(),
       _synced:  0,
       _deleted: 0,
       kind,
       appliedToBalance,
-      ...data,
     }
 
     // Dexie transaction — atomically insert + recalculate
@@ -571,9 +581,9 @@ export const paymentOps = {
       // Sum includes the new payment — do NOT add data.amount again
       const totalPaid = allPayments
         .filter(p => p._deleted === 0)
-        .reduce((sum, p) => sum + (p.appliedToBalance ?? p.amount), 0)
+        .reduce((sum, p) => sum + paymentAppliedAmount(p), 0)
 
-      const amountPaid = order ? Math.min(totalPaid, order.totalPrice) : totalPaid
+      const amountPaid = Math.min(totalPaid, order.totalPrice)
       await db.orders.update(data.orderId, {
         amountPaid,
         updatedAt:  now(),

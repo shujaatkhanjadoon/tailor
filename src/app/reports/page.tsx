@@ -126,6 +126,7 @@ function ReportsContent({
     topCustomers,
     karigarStats,
     paymentMethods,
+    paymentSummary,
     dailyActivity,
     isLoading,
   } = useReports(shopId);
@@ -318,6 +319,21 @@ function ReportsContent({
                       </div>
                     )}
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
+                  {[
+                    { label: "Order payments", value: paymentSummary.applied, color: "text-blue-700", bg: "bg-blue-50" },
+                    { label: "Tips", value: paymentSummary.tips, color: "text-amber-700", bg: "bg-amber-50" },
+                    { label: "Extra / overpay", value: paymentSummary.overpayments, color: "text-violet-700", bg: "bg-violet-50" },
+                  ].map(item => (
+                    <div key={item.label} className={cn("rounded-2xl border border-slate-200 p-4", item.bg)}>
+                      <p className={cn("text-lg font-bold", item.color)}>
+                        Rs. {item.value.toLocaleString()}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-slate-500">{item.label}</p>
+                    </div>
+                  ))}
                 </div>
 
                 {/* 30-day activity heatmap */}

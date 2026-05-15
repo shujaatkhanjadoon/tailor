@@ -2,6 +2,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { db, OrderRecord, PaymentRecord } from '@/lib/db/schema'
+import { orderBalance, sumPayments } from '@/lib/payments/calculations'
 
 export type ReportPeriod = '7d' | '30d' | '90d' | '365d' | 'all'
 
@@ -98,12 +99,13 @@ export function useReports(shopId: string | null) {
     const payments = filteredPayments
     const allO     = allOrders ?? []
 
-    const totalRevenue   = payments.reduce((s, p) => s + p.amount, 0)
+    const paymentTotals  = sumPayments(payments)
+    const totalRevenue   = paymentTotals.received
     const totalOrders    = orders.length
     const completedOrders = orders.filter(o => o.status === 'delivered').length
     const pendingBalance = allO
       .filter(o => !['delivered','cancelled'].includes(o.status))
-      .reduce((s, o) => s + Math.max(0, o.totalPrice - o.amountPaid), 0)
+      .reduce((s, o) => s + orderBalance(o), 0)
 
     const avgOrderValue = totalOrders > 0
       ? Math.round(orders.reduce((s, o) => s + o.totalPrice, 0) / totalOrders)
@@ -127,7 +129,7 @@ export function useReports(shopId: string | null) {
     const prevPayments = (allPayments ?? []).filter(p =>
       prevStart && p.paidAt >= prevStart && p.paidAt < (periodStart(period) ?? '')
     )
-    const prevRevenue = prevPayments.reduce((s, p) => s + p.amount, 0)
+    const prevRevenue = sumPayments(prevPayments).received
     const revenueGrowth = prevRevenue > 0
       ? Math.round(((totalRevenue - prevRevenue) / prevRevenue) * 100)
       : null
@@ -141,6 +143,9 @@ export function useReports(shopId: string | null) {
       completionRate,
       urgentOrders,
       revenueGrowth,
+      appliedRevenue: paymentTotals.applied,
+      tips: paymentTotals.tips,
+      overpayments: paymentTotals.overpayments,
       totalCustomers: (allCustomers ?? []).length,
     }
   }, [filteredOrders, filteredPayments, allOrders, allPayments, allCustomers, period])
@@ -152,7 +157,7 @@ export function useReports(shopId: string | null) {
 
     return months.map(({ key, label }) => {
       const monthPayments = payments.filter(p => p.paidAt.startsWith(key))
-      const income        = monthPayments.reduce((s, p) => s + p.amount, 0)
+      const income        = sumPayments(monthPayments).received
       const cash          = monthPayments.filter(p => p.method === 'cash').reduce((s,p) => s+p.amount, 0)
       const digital       = income - cash
       return { key, label, income, cash, digital }
@@ -175,7 +180,7 @@ export function useReports(shopId: string | null) {
         const t = new Date(p.paidAt)
         return t >= weekStart && t < weekEnd
       })
-      const income  = weekP.reduce((s, p) => s + p.amount, 0)
+      const income  = sumPayments(weekP).received
       const label   = `W${8 - i}`
 
       result.push({ label, income })
@@ -266,7 +271,7 @@ export function useReports(shopId: string | null) {
   // ── Payment method breakdown ─────────────────────────────────────
   const paymentMethods = useMemo(() => {
     const payments = filteredPayments
-    const total    = payments.reduce((s, p) => s + p.amount, 0)
+    const total    = sumPayments(payments).received
     const groups: Record<string, number> = {}
     payments.forEach(p => {
       groups[p.method] = (groups[p.method] || 0) + p.amount
@@ -279,6 +284,8 @@ export function useReports(shopId: string | null) {
       }))
       .sort((a, b) => b.amount - a.amount)
   }, [filteredPayments])
+
+  const paymentSummary = useMemo(() => sumPayments(filteredPayments), [filteredPayments])
 
   // ── Daily heatmap (last 30 days) ─────────────────────────────────
   const dailyActivity = useMemo(() => {
@@ -315,6 +322,7 @@ export function useReports(shopId: string | null) {
     topCustomers,
     karigarStats,
     paymentMethods,
+    paymentSummary,
     dailyActivity,
     isLoading: allOrders === undefined || allPayments === undefined,
   }

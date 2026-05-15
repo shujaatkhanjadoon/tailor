@@ -69,8 +69,7 @@ export default function PaymentsPage() {
           <div className="min-w-0">
             <h1 className="text-xl font-bold text-slate-800">Payments</h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              {stats.filteredCount} entries ·{' '}
-              Rs. {stats.filteredTotal.toLocaleString()} total
+              {stats.filteredCount} entries · Rs. {stats.filteredTotal.toLocaleString()} received
             </p>
           </div>
           {isOwner && (
@@ -177,6 +176,21 @@ export default function PaymentsPage() {
           onFilterClick={f => setFilter(f)}
           activeFilter={filter}
         />
+
+        {(stats.filteredApplied > 0 || stats.filteredTips > 0 || stats.filteredOverpayments > 0) && (
+          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3">
+            {[
+              { label: 'Orders par apply', value: stats.filteredApplied, color: 'text-blue-700', bg: 'bg-blue-50' },
+              { label: 'Tips', value: stats.filteredTips, color: 'text-amber-700', bg: 'bg-amber-50' },
+              { label: 'Extra / overpay', value: stats.filteredOverpayments, color: 'text-violet-700', bg: 'bg-violet-50' },
+            ].map(item => (
+              <div key={item.label} className={cn('rounded-2xl border border-slate-200 p-3', item.bg)}>
+                <p className={cn('text-base font-bold', item.color)}>Rs. {item.value.toLocaleString()}</p>
+                <p className="mt-0.5 text-[11px] font-medium text-slate-500">{item.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Method breakdown bar */}
         {stats.methodBreakdown && stats.monthTotal > 0 && (

@@ -9,6 +9,7 @@ import { ORDER_STATUS_CONFIG, OrderStatus } from '@/types'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { cn } from '@/lib/utils'
 import { toast } from "sonner"
+import { orderBalance } from '@/lib/payments/calculations'
 
 // Valid next statuses from current
 const NEXT_STATUSES: Record<OrderStatus, OrderStatus[]> = {
@@ -41,7 +42,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
 
     // ── Block delivery until this order is fully paid ─────────────
     if (newStatus === 'delivered') {
-      const unpaidBalance = Math.max(0, order.totalPrice - order.amountPaid)
+      const unpaidBalance = orderBalance(order)
 
       if (unpaidBalance > 0 && !deliveryWarningAccepted) {
         setDeliveryWarningAccepted(true)
@@ -139,7 +140,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
                 <div key={status}>
                   {/* Unpaid balance warning */}
                   {(() => {
-                    const unpaid = Math.max(0, order.totalPrice - order.amountPaid)
+                    const unpaid = orderBalance(order)
                     if (unpaid <= 0 || status !== 'delivered') return null
                     return (
                       <div className="flex items-start gap-2 bg-amber-50 border border-amber-200

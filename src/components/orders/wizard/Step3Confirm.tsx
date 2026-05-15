@@ -60,6 +60,7 @@ export function Step3Confirm({
   const totalPrice = data.totalPrice || 0
   const advancePaid = data.advancePaid || 0
   const balance = Math.max(0, totalPrice - advancePaid)
+  const extraAdvance = Math.max(0, advancePaid - totalPrice)
 
   const handlePriceInput = (field: 'totalPrice' | 'advancePaid', value: string) => {
     const num = parseInt(value.replace(/\D/g, '')) || 0
@@ -225,16 +226,18 @@ export function Step3Confirm({
         {totalPrice > 0 && (
           <div className={cn(
             'flex items-center justify-between mt-3 px-4 py-2.5 rounded-xl',
-            balance > 0 ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'
+            extraAdvance > 0
+              ? 'bg-amber-50 border border-amber-200'
+              : balance > 0 ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'
           )}>
             <span className={cn('text-sm font-medium',
-              balance > 0 ? 'text-red-700' : 'text-green-700'
+              extraAdvance > 0 ? 'text-amber-800' : balance > 0 ? 'text-red-700' : 'text-green-700'
             )}>
-              {balance > 0 ? 'Baaki Raqam' : 'Poori raqam mil gayi ✓'}
+              {extraAdvance > 0 ? 'Extra advance overpayment mein save hoga' : balance > 0 ? 'Baaki Raqam' : 'Poori raqam mil gayi ✓'}
             </span>
-            {balance > 0 && (
-              <span className="text-base font-bold text-red-700">
-                Rs. {balance.toLocaleString()}
+            {(balance > 0 || extraAdvance > 0) && (
+              <span className={cn('text-base font-bold', extraAdvance > 0 ? 'text-amber-800' : 'text-red-700')}>
+                Rs. {(extraAdvance || balance).toLocaleString()}
               </span>
             )}
           </div>

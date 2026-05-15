@@ -7,6 +7,7 @@ import { OrderRecord } from '@/lib/db/schema';
 import { ORDER_STATUS_CONFIG, GARMENT_LABELS } from '@/types';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import { orderBalance, orderPaymentProgress } from '@/lib/payments/calculations';
 
 interface RecentOrderCardProps {
   order: OrderRecord;
@@ -14,7 +15,7 @@ interface RecentOrderCardProps {
 
 function buildWhatsAppLink(order: OrderRecord): string {
   const phone = `92${order.customerPhone.replace(/^0/, '').replace(/\D/g, '')}`;
-  const balance = order.totalPrice - order.amountPaid;
+  const balance = orderBalance(order);
   const msg = encodeURIComponent(
     `Assalam o Alaikum ${order.customerName}! 🎉\n\n` +
     `Aapka order #${order.orderNumber} tayyar ho gaya hai!\n` +
@@ -30,11 +31,11 @@ export function RecentOrderCard({ order }: RecentOrderCardProps) {
   const statusConfig = ORDER_STATUS_CONFIG[order.status as keyof typeof ORDER_STATUS_CONFIG];
   const garmentConfig = GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS];
 
-  const balance = order.totalPrice - order.amountPaid;
+  const balance = orderBalance(order);
   const isOverdue = order.dueDate < new Date().toISOString().split('T')[0] &&
     !['delivered', 'cancelled'].includes(order.status);
   const paymentProgress = order.totalPrice > 0
-    ? Math.round((order.amountPaid / order.totalPrice) * 100)
+    ? orderPaymentProgress(order)
     : 0;
 
   if (!statusConfig) return null;

@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { GARMENT_LABELS } from "@/types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { orderBalance, orderPaymentProgress } from "@/lib/payments/calculations";
 
 const METHODS = [
   { key: "cash", label: "Cash", emoji: "💵" },
@@ -53,7 +54,7 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
         (o) =>
           o._deleted === 0 &&
           o.status !== "cancelled" &&
-          o.totalPrice > o.amountPaid,
+          orderBalance(o) > 0,
       )
       .reverse()
       .sortBy("dueDate");
@@ -68,17 +69,16 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
     );
   });
 
-  const balance = selectedOrder
-    ? Math.max(0, selectedOrder.totalPrice - selectedOrder.amountPaid)
-    : 0;
+  const balance = selectedOrder ? orderBalance(selectedOrder) : 0;
   const enteredAmount = parseInt(amount || "0");
   const surplus = selectedOrder ? Math.max(0, enteredAmount - balance) : 0;
+  const appliedToSelected = selectedOrder ? Math.min(enteredAmount, balance) : 0;
   const transferTargets = (pendingOrders ?? [])
     .filter((o) =>
       selectedOrder &&
       o.id !== selectedOrder.id &&
       o.customerId === selectedOrder.customerId &&
-      o.totalPrice > o.amountPaid
+          orderBalance(o) > 0
     )
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
@@ -88,28 +88,29 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
     setSaving(true);
     try {
       const shouldTransfer = surplus > 0 && surplusKind === "auto_transfer";
-      const primaryAmount = shouldTransfer ? Math.min(amt, balance) : amt;
 
-      if (shouldTransfer && primaryAmount > 0) {
+      if (appliedToSelected > 0) {
         await paymentOps.add(shopId, {
           orderId: selectedOrder.id,
-          amount: primaryAmount,
+          amount: appliedToSelected,
           method,
           recordedBy: currentUser.id,
           kind: "order_payment",
-          appliedToBalance: Math.min(primaryAmount, balance),
+          appliedToBalance: appliedToSelected,
           notes: [
             notes.trim(),
-            `Received Rs. ${amt.toLocaleString()}; extra auto-adjusted to other pending orders.`,
+            surplus > 0
+              ? `Received Rs. ${amt.toLocaleString()}; Rs. ${appliedToSelected.toLocaleString()} applied to this order.`
+              : "",
           ].filter(Boolean).join(" · ") || undefined,
         });
       }
 
-      if (shouldTransfer) {
+      if (surplus > 0) {
         let remaining = surplus;
-        for (const target of transferTargets) {
+        if (shouldTransfer) for (const target of transferTargets) {
           if (remaining <= 0) break;
-          const targetBalance = Math.max(0, target.totalPrice - target.amountPaid);
+          const targetBalance = orderBalance(target);
           const applied = Math.min(remaining, targetBalance);
           if (applied <= 0) continue;
 
@@ -129,36 +130,22 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
         }
 
         if (remaining > 0) {
+          const finalKind = surplusKind === "tip" ? "tip" : "overpayment";
           await paymentOps.add(shopId, {
             orderId: selectedOrder.id,
             amount: remaining,
             method,
             recordedBy: currentUser.id,
-            kind: "overpayment",
+            kind: finalKind,
             appliedToBalance: 0,
             notes: [
               notes.trim(),
-              `Unallocated overpayment after auto-adjust: Rs. ${remaining.toLocaleString()}.`,
+              finalKind === "tip"
+                ? `Tip: Rs. ${remaining.toLocaleString()}.`
+                : `Unallocated overpayment: Rs. ${remaining.toLocaleString()}.`,
             ].filter(Boolean).join(" · "),
           });
         }
-      } else if (!shouldTransfer) {
-        await paymentOps.add(shopId, {
-        orderId: selectedOrder.id,
-        amount: amt,
-        method,
-        recordedBy: currentUser.id,
-        kind: surplus > 0
-          ? (surplusKind === "auto_transfer" ? "overpayment" : surplusKind)
-          : "order_payment",
-        appliedToBalance: surplus > 0 ? balance : Math.min(amt, balance),
-        notes: [
-          notes.trim(),
-          surplus > 0
-            ? `${surplusKind === "tip" ? "Tip" : "Overpayment"}: Rs. ${surplus.toLocaleString()}`
-            : "",
-        ].filter(Boolean).join(" · ") || undefined,
-      });
       }
       setSaved(true);
       toast.success("Payment Record Ho Gayi! 💰", {
@@ -261,8 +248,8 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
                       GARMENT_LABELS[
                         o.garmentType as keyof typeof GARMENT_LABELS
                       ];
-                    const bal = Math.max(0, o.totalPrice - o.amountPaid);
-                    const pct = Math.round((o.amountPaid / o.totalPrice) * 100);
+                    const bal = orderBalance(o);
+                    const pct = orderPaymentProgress(o);
 
                     return (
                       <button
@@ -343,10 +330,7 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
                   <div
                     className="h-full bg-blue-500 rounded-full"
                     style={{
-                      width: `${Math.round(
-                        (selectedOrder.amountPaid / selectedOrder.totalPrice) *
-                          100,
-                      )}%`,
+                      width: `${orderPaymentProgress(selectedOrder)}%`,
                     }}
                   />
                 </div>
@@ -410,15 +394,19 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
                 {surplus > 0 && (
                   <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3">
                     <p className="text-xs font-semibold text-amber-800">
-                      Rs. {surplus.toLocaleString()} zyada receive hua. Isay adjust karein:
+                      Rs. {surplus.toLocaleString()} zyada receive hua. Isay kaise handle karein?
                     </p>
+                    <div className="mt-2 rounded-xl bg-white/70 px-3 py-2 text-[11px] font-medium text-amber-800">
+                      Rs. {appliedToSelected.toLocaleString()} is order par apply hoga
+                      {surplus > 0 ? ` · Rs. ${surplus.toLocaleString()} extra hai` : ""}
+                    </div>
                     <div className="mt-2 grid grid-cols-1 gap-2 min-[380px]:grid-cols-3">
                       {[
                         {
                           key: "auto_transfer",
-                          label: transferTargets.length > 0 ? "Auto adjust" : "Keep extra",
+                          label: transferTargets.length > 0 ? "Auto adjust" : "Overpay",
                         },
-                        { key: "overpayment", label: "Overpay" },
+                        { key: "overpayment", label: "Keep extra" },
                         { key: "tip", label: "Tip" },
                       ].map((opt) => (
                         <button

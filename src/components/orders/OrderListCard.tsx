@@ -11,6 +11,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db/schema'
 import { Image } from 'lucide-react'
 import { memo } from 'react'
+import { orderBalance, orderPaymentProgress } from '@/lib/payments/calculations'
 
 interface OrderListCardProps {
   order: OrderRecord
@@ -41,7 +42,7 @@ export const OrderListCard = memo(function OrderListCard({
   const router = useRouter()
   const sc = ORDER_STATUS_CONFIG[order.status as keyof typeof ORDER_STATUS_CONFIG]
   const gc = GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS]
-  const balance = Math.max(0, order.totalPrice - order.amountPaid)
+  const balance = orderBalance(order)
   const { label: dueLabel, urgent: dueUrgent } = formatDueDate(order.dueDate)
   const isTerminal = ['delivered', 'cancelled'].includes(order.status)
 
@@ -138,7 +139,7 @@ export const OrderListCard = memo(function OrderListCard({
             <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
               <div
                 className={cn('h-full rounded-full', balance === 0 ? 'bg-green-500' : 'bg-blue-500')}
-                style={{ width: `${Math.min(100, Math.round((order.amountPaid / order.totalPrice) * 100))}%` }}
+                style={{ width: `${orderPaymentProgress(order)}%` }}
               />
             </div>
           </div>

@@ -216,17 +216,31 @@ function NewOrderWizard({
       // ── 2. Record advance payment (paymentOps sets amountPaid correctly) ──
       if (data.advancePaid && data.advancePaid > 0) {
         const advanceAmount = Math.min(data.advancePaid, data.totalPrice);
-        await paymentOps.add(shopId, {
-          orderId: order.id,
-          amount: advanceAmount,
-          method: data.paymentMethod ?? "cash",
-          recordedBy: currentUser.id,
-          appliedToBalance: advanceAmount,
-          notes:
-            data.advancePaid > data.totalPrice
-              ? `Advance Rs. ${data.advancePaid.toLocaleString()} tha; order balance par Rs. ${advanceAmount.toLocaleString()} apply hua.`
-              : undefined,
-        });
+        const surplus = Math.max(0, data.advancePaid - advanceAmount);
+        if (advanceAmount > 0) {
+          await paymentOps.add(shopId, {
+            orderId: order.id,
+            amount: advanceAmount,
+            method: data.paymentMethod ?? "cash",
+            recordedBy: currentUser.id,
+            appliedToBalance: advanceAmount,
+            notes:
+              surplus > 0
+                ? `Advance Rs. ${data.advancePaid.toLocaleString()} tha; Rs. ${advanceAmount.toLocaleString()} order par apply hua.`
+                : undefined,
+          });
+        }
+        if (surplus > 0) {
+          await paymentOps.add(shopId, {
+            orderId: order.id,
+            amount: surplus,
+            method: data.paymentMethod ?? "cash",
+            recordedBy: currentUser.id,
+            kind: "overpayment",
+            appliedToBalance: 0,
+            notes: `Advance ka extra overpayment: Rs. ${surplus.toLocaleString()}.`,
+          });
+        }
       }
 
       // ── 3. Save measurements if any fields were filled ─────────
