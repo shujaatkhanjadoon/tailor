@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useNotifications } from '@/hooks/useNotifications'
 import { cn } from '@/lib/utils'
+import { ToggleSwitch } from '@/components/ui/toggle-switch'
 
 interface ToggleRowProps {
   icon:      React.ReactNode
@@ -28,18 +29,12 @@ function ToggleRow({ icon, label, sublabel, value, onChange, disabled }: ToggleR
         <p className="text-sm font-semibold text-slate-800">{label}</p>
         {sublabel && <p className="text-xs text-slate-400 mt-0.5">{sublabel}</p>}
       </div>
-      <button
-        onClick={() => !disabled && onChange(!value)}
-        className={cn(
-          'relative w-12 h-6 rounded-full transition-colors flex-shrink-0',
-          value && !disabled ? 'bg-blue-600' : 'bg-slate-300'
-        )}
-      >
-        <span className={cn(
-          'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
-          value ? 'translate-x-6' : 'translate-x-0.5'
-        )} />
-      </button>
+      <ToggleSwitch
+        checked={value}
+        onCheckedChange={onChange}
+        disabled={disabled}
+        label={label}
+      />
     </div>
   )
 }

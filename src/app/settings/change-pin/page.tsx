@@ -7,10 +7,15 @@ import { ArrowLeft, CheckCircle2, Lock, Eye, EyeOff } from 'lucide-react'
 import { useAuth }                       from '@/lib/auth/AuthContext'
 import { db }                            from '@/lib/db/schema'
 import { syncQueue }                     from '@/lib/db/sync'
-import { verifyPIN, hashPIN, validatePIN, getPINStrength } from '@/lib/security/pin'
+import {
+  KARIGAR_PIN_LENGTH,
+  SHOP_PIN_LENGTH,
+  verifyPIN,
+  hashPIN,
+  validatePIN,
+  getPINStrength,
+} from '@/lib/security/pin'
 import { cn }                            from '@/lib/utils'
-
-const PIN_LENGTH = 8
 
 type PinStep = 'verify' | 'new' | 'confirm' | 'done'
 
@@ -21,12 +26,14 @@ function PINInput({
   error,
   disabled = false,
   showDigits = false,
+  length,
 }: {
   value:      string
   onChange:   (v: string) => void
   error?:     string
   disabled?:  boolean
   showDigits?: boolean
+  length:      number
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -37,7 +44,7 @@ function PINInput({
         className="flex gap-2 justify-center mb-3 cursor-text"
         onClick={() => inputRef.current?.focus()}
       >
-        {Array.from({ length: PIN_LENGTH }).map((_, i) => {
+        {Array.from({ length }).map((_, i) => {
           const filled = i < value.length
           return (
             <div
@@ -71,9 +78,9 @@ function PINInput({
         type="tel"
         inputMode="numeric"
         pattern="[0-9]*"
-        maxLength={PIN_LENGTH}
+        maxLength={length}
         value={value}
-        onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, PIN_LENGTH))}
+        onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, length))}
         disabled={disabled}
         autoFocus
         className="sr-only"
@@ -90,7 +97,7 @@ function PINInput({
             : 'border-slate-200 bg-slate-50 text-slate-400 hover:border-blue-400'
         )}
       >
-        {error ?? `Tap karein aur ${PIN_LENGTH}-digit PIN daalein`}
+        {error ?? `Tap karein aur ${length}-digit PIN daalein`}
       </button>
     </div>
   )
@@ -109,12 +116,13 @@ export default function ChangePinPage() {
   const [showPin,   setShowPin]   = useState(false)
 
   const pinStrength = getPINStrength(newPin)
+  const pinLength = currentUser?.role === 'karigar' ? KARIGAR_PIN_LENGTH : SHOP_PIN_LENGTH
 
   // ── Auto-advance on full input ───────────────────────────────
   const handleCurrentPinChange = useCallback(async (val: string) => {
     setCurrentPin(val)
     setError('')
-    if (val.length === PIN_LENGTH) {
+    if (val.length === pinLength) {
       // Verify
       if (!currentUser) return
       const valid = await verifyPIN(val, currentUser.pin)
@@ -126,13 +134,13 @@ export default function ChangePinPage() {
         setCurrentPin('')
       }
     }
-  }, [currentUser])
+  }, [currentUser, pinLength])
 
   const handleNewPinChange = useCallback((val: string) => {
     setNewPin(val)
     setError('')
-    if (val.length === PIN_LENGTH) {
-      const validation = validatePIN(val)
+    if (val.length === pinLength) {
+      const validation = validatePIN(val, pinLength)
       if (!validation.valid) {
         setError(validation.error!)
         setNewPin('')
@@ -140,12 +148,12 @@ export default function ChangePinPage() {
       }
       setStep('confirm')
     }
-  }, [])
+  }, [pinLength])
 
   const handleConfirmPinChange = useCallback(async (val: string) => {
     setConfirmPin(val)
     setError('')
-    if (val.length === PIN_LENGTH) {
+    if (val.length === pinLength) {
       if (val !== newPin) {
         setError('PIN match nahi kiya! Dobara try karein.')
         setConfirmPin('')
@@ -172,6 +180,7 @@ export default function ChangePinPage() {
           body:    JSON.stringify({
             memberId: currentUser.id,
             pinHash:  hashed,
+            pinPlain: val,
           }),
         }).catch(console.error)
 
@@ -183,7 +192,7 @@ export default function ChangePinPage() {
         setSaving(false)
       }
     }
-  }, [newPin, currentUser, router, reinitialize])
+  }, [newPin, currentUser, router, reinitialize, pinLength])
 
   const STEPS: PinStep[] = ['verify', 'new', 'confirm']
   const stepIdx = STEPS.indexOf(step)
@@ -201,7 +210,7 @@ export default function ChangePinPage() {
         </button>
         <div>
           <h1 className="text-lg font-bold text-slate-800">PIN Badlein</h1>
-          <p className="text-xs text-slate-400">8-digit naya PIN set karein</p>
+          <p className="text-xs text-slate-400">{pinLength}-digit naya PIN set karein</p>
         </div>
       </header>
 
@@ -216,7 +225,7 @@ export default function ChangePinPage() {
             <h2 className="text-xl font-bold text-slate-800 mb-1">
               PIN Change Ho Gaya!
             </h2>
-            <p className="text-slate-400 text-sm">Naya 8-digit PIN yaad rakhein</p>
+            <p className="text-slate-400 text-sm">Naya {pinLength}-digit PIN yaad rakhein</p>
           </div>
 
         ) : (
@@ -259,7 +268,7 @@ export default function ChangePinPage() {
             </h2>
             <p className="text-slate-400 text-sm mb-6 text-center">
               {step === 'verify' ? 'Security ke liye purana PIN verify karein' :
-               step === 'new'    ? '8 numbers ka naya PIN chunein' :
+               step === 'new'    ? `${pinLength} numbers ka naya PIN chunein` :
                                    'Wahi naya PIN dobara daalein'  }
             </p>
 
@@ -270,6 +279,7 @@ export default function ChangePinPage() {
                 onChange={handleCurrentPinChange}
                 error={error || undefined}
                 disabled={saving}
+                length={pinLength}
               />
             )}
 
@@ -281,10 +291,11 @@ export default function ChangePinPage() {
                   error={error || undefined}
                   showDigits={showPin}
                   disabled={saving}
+                  length={pinLength}
                 />
 
                 {/* Strength meter */}
-                {newPin.length > 0 && newPin.length < PIN_LENGTH && (
+                {newPin.length > 0 && newPin.length < pinLength && (
                   <div className="mt-3">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-slate-500">PIN Strength</span>
@@ -332,6 +343,7 @@ export default function ChangePinPage() {
                 onChange={handleConfirmPinChange}
                 error={error || undefined}
                 disabled={saving}
+                length={pinLength}
               />
             )}
 

@@ -42,7 +42,7 @@ export default function TeamSettingsPage() {
       {/* PIN reminder */}
       <div className="mx-4 mt-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
         <p className="text-xs text-amber-700 font-medium leading-relaxed">
-          💡 Har karigar ka <strong>8-digit PIN</strong> hota hai login ke liye.
+          💡 Har karigar ka <strong>4-digit PIN</strong> hota hai login ke liye.
           PIN set karne ke baad karigar ko batayein — woh sirf unhe pata hona chahiye.
         </p>
       </div>

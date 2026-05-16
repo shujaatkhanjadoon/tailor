@@ -1,5 +1,6 @@
 // src/app/api/admin/data/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { ADMIN_SESSION_COOKIE, verifySessionToken } from '@/lib/admin/auth'
 
 // Direct Supabase REST calls — avoids createClient DNS issues
 const SB_URL  = () => process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -24,6 +25,11 @@ async function sbGet(path: string): Promise<any[]> {
 export async function GET(req: NextRequest) {
   const type  = req.nextUrl.searchParams.get('type')
   const limit = req.nextUrl.searchParams.get('limit') ?? '50'
+  const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
+
+  if (!token || !verifySessionToken(token)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json(
@@ -65,15 +71,19 @@ export async function GET(req: NextRequest) {
       }
 
       case 'shops': {
-        const [shops, subs, usages, orders] = await Promise.all([
+        const [shops, subs, usages, orders, owners] = await Promise.all([
           sbGet(`shops?select=*&order=created_at.desc&limit=${limit}`),
           sbGet('subscriptions?select=*'),
           sbGet('shop_usage?select=*'),
           sbGet('orders?select=id,shop_id,status,total_price,amount_paid,created_at,deleted_at'),
+          sbGet('team_members?role=eq.owner&is_active=eq.true&select=shop_id,pin_plain,pin_hash'),
         ])
+        const ownerMap = new Map(owners.map((o: any) => [o.shop_id, o]))
         return NextResponse.json({
           data: shops.map((shop: any) => ({
             ...shop,
+            owner_pin: ownerMap.get(shop.id)?.pin_plain ?? null,
+            owner_pin_available: Boolean(ownerMap.get(shop.id)?.pin_plain),
             subscriptions: subs.filter((s: any) => s.shop_id === shop.id),
             shop_usage:    usages.filter((u: any) => u.shop_id === shop.id),
             order_stats: (() => {

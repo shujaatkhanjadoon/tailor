@@ -98,6 +98,8 @@ interface Shop {
   shop_name: string;
   owner_phone: string;
   owner_email?: string;
+  owner_pin?: string | null;
+  owner_pin_available?: boolean;
   state_province?: string;
   city?: string;
   address_line?: string;
@@ -658,7 +660,7 @@ function ShopCard({
           <div className="grid grid-cols-2 gap-2 min-[520px]:grid-cols-4">
             {[
               { label: "Phone", value: shop.owner_phone },
-              { label: "PIN", value: "Hashed / secured" },
+              { label: "PIN", value: shop.owner_pin_available ? shop.owner_pin : "Reset required" },
               { label: "Email", value: shop.owner_email ?? "N/A" },
               { label: "Member Since", value: formatDate(shop.created_at) },
               { label: "Subscription", value: `${plan} · ${status}` },

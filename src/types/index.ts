@@ -13,10 +13,19 @@ export type PaymentMethod = 'cash' | 'easypaisa' | 'jazzcash' | 'bank'
 
 export type GarmentType =
   | 'shalwar_kameez'
+  | 'kurta'
+  | 'kurti'
   | 'shirt'
   | 'trouser'
+  | 'pajama'
   | 'sherwani'
-  | 'coat'
+  | 'waistcoat'
+  | 'prince_coat'
+  | 'pant_coat'
+  | 'lehenga'
+  | 'maxi'
+  | 'blazer'
+  | 'jacket'
   | 'other'
 
 export interface Customer {
@@ -122,9 +131,18 @@ export const ORDER_STATUS_CONFIG: Record<
 
 export const GARMENT_LABELS: Record<GarmentType, { label: string; emoji: string }> = {
   shalwar_kameez: { label: 'Shalwar Kameez', emoji: '👘' },
+  kurta:          { label: 'Kurta',           emoji: '👕' },
+  kurti:          { label: 'Kurti',           emoji: '👚' },
   shirt:          { label: 'Shirt',           emoji: '👕' },
   trouser:        { label: 'Trouser',         emoji: '👖' },
+  pajama:         { label: 'Pajama',          emoji: '👖' },
   sherwani:       { label: 'Sherwani',        emoji: '🎩' },
-  coat:           { label: 'Coat',            emoji: '🧥' },
+  waistcoat:      { label: 'Waistcoat',       emoji: '🦺' },
+  prince_coat:    { label: 'Prince Coat',     emoji: '🧥' },
+  pant_coat:      { label: 'Pant Coat',       emoji: '🤵' },
+  lehenga:        { label: 'Lehenga',         emoji: '💃' },
+  maxi:           { label: 'Maxi',            emoji: '👗' },
+  blazer:         { label: 'Blazer',          emoji: '🧥' },
+  jacket:         { label: 'Jacket',          emoji: '🧥' },
   other:          { label: 'Aur',             emoji: '📌' },
 }

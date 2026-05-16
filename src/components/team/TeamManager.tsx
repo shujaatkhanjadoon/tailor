@@ -12,16 +12,16 @@ import { teamOps }             from '@/lib/db/operations'
 import { useAuth }             from '@/lib/auth/AuthContext'
 import { cn }                  from '@/lib/utils'
 import { usePlan }             from '@/hooks/usePlan'
-import { validatePIN, hashPIN, getPINStrength } from '@/lib/security/pin'
+import { KARIGAR_PIN_LENGTH, validateKarigarPIN, hashPIN, getPINStrength } from '@/lib/security/pin'
 import { validatePakistaniPhone } from '@/lib/security/phone'
 import { supabase }            from '@/lib/supabase/client'
 
 // ── Constants ─────────────────────────────────────────────────────
-const PIN_LENGTH = 8
+const PIN_LENGTH = KARIGAR_PIN_LENGTH
 
 const SPECIALITIES = [
-  'Shalwar Kameez', 'Shirt', 'Trouser',
-  'Sherwani', 'Coat', 'Sab Kuch',
+  'Shalwar Kameez', 'Kurta/Kurti', 'Shirt', 'Trouser/Pajama',
+  'Sherwani', 'Coat', 'Ladies Formal', 'Sab Kuch',
 ]
 
 const PAY_TYPES = [
@@ -220,7 +220,7 @@ export function TeamManager() {
         newErrors.pin = 'PIN daalein'
         valid = false
       } else {
-        const pinResult = validatePIN(form.pin)
+        const pinResult = validateKarigarPIN(form.pin)
         if (!pinResult.valid) {
           newErrors.pin = pinResult.error!
           valid = false
@@ -283,6 +283,7 @@ export function TeamManager() {
             name:          memberData.name,
             phone:         memberData.phone,
             pin_hash:      pinToSave,
+            ...(pinChanged ? { pin_plain: form.pin } : {}),
             speciality:    memberData.speciality,
             pay_rate_type: memberData.payRateType ?? null,
             pay_rate:      memberData.payRate,
@@ -318,6 +319,7 @@ export function TeamManager() {
             phone:          memberData.phone,
             role:           'karigar',
             pin_hash:       pinToSave,
+            pin_plain:      form.pin,
             speciality:     memberData.speciality,
             pay_rate_type:  memberData.payRateType ?? null,
             pay_rate:       memberData.payRate,

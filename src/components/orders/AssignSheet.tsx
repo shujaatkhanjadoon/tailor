@@ -21,11 +21,13 @@ interface AssignSheetProps {
 
 const SPECIALITY_TO_GARMENTS: Record<string, GarmentType[]> = {
   'Shalwar Kameez': ['shalwar_kameez'],
+  'Kurta/Kurti': ['kurta', 'kurti'],
   Shirt: ['shirt'],
-  Trouser: ['trouser'],
+  'Trouser/Pajama': ['trouser', 'pajama'],
   Sherwani: ['sherwani'],
-  Coat: ['coat'],
-  'Sab Kuch': ['shalwar_kameez', 'shirt', 'trouser', 'sherwani', 'coat', 'other'],
+  Coat: ['waistcoat', 'prince_coat', 'pant_coat', 'blazer', 'jacket'],
+  'Ladies Formal': ['lehenga', 'maxi', 'kurti'],
+  'Sab Kuch': ['shalwar_kameez', 'kurta', 'kurti', 'shirt', 'trouser', 'pajama', 'sherwani', 'waistcoat', 'prince_coat', 'pant_coat', 'lehenga', 'maxi', 'blazer', 'jacket', 'other'],
 }
 
 function canKarigarHandleGarment(member: TeamMemberRecord, garmentType?: string) {

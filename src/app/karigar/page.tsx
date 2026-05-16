@@ -176,7 +176,7 @@ function ActiveOrderCard({
               <Phone size={10} /> {order.customerPhone || 'No phone'}
             </span>
             {order.specialInstructions && (
-              <span className="line-clamp-1 inline-flex max-w-full rounded-full bg-amber-50 px-2 py-1 font-medium text-amber-700">
+              <span className="inline-flex max-w-full whitespace-pre-line rounded-xl bg-amber-50 px-2 py-1 font-medium leading-relaxed text-amber-700">
                 {order.specialInstructions}
               </span>
             )}

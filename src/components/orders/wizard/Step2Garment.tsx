@@ -9,15 +9,25 @@ import { cn } from '@/lib/utils'
 import { Camera } from 'lucide-react'
 import { compressImage } from '@/lib/photos/compress'
 import { db } from '@/lib/db/schema'
+import { ToggleSwitch } from '@/components/ui/toggle-switch'
 
 // Measurement fields per garment type
 const FABRIC_HINTS: Record<GarmentType, string> = {
   shalwar_kameez: 'Lawn, cotton, wash & wear, boski, khaddar, linen',
+  kurta: 'Cotton, wash & wear, linen, khaddar, boski',
+  kurti: 'Lawn, cotton, cambric, chiffon, silk',
   shirt: 'Cotton, lawn, poplin, cambric, silk, chiffon',
   trouser: 'Cotton, denim, twill, linen, suiting',
+  pajama: 'Cotton, wash & wear, lawn, linen',
   sherwani: 'Jamawar, banarsi, raw silk, velvet, brocade',
-  coat: 'Suiting, wool blend, blazer fabric, wash & wear',
-  other: 'Lehenga, kurti, abaya, waistcoat, maxi, kids wear',
+  waistcoat: 'Suiting, jamawar, raw silk, wash & wear',
+  prince_coat: 'Suiting, jamawar, velvet, raw silk',
+  pant_coat: 'Suiting, tropical, wool blend, wash & wear',
+  lehenga: 'Net, chiffon, organza, raw silk, banarsi',
+  maxi: 'Chiffon, net, silk, georgette, organza',
+  blazer: 'Suiting, wool blend, tweed, tropical',
+  jacket: 'Denim, cotton, suiting, leatherette',
+  other: 'Abaya, kids wear, custom design',
 }
 
 const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; unit: string }[]> = {
@@ -39,6 +49,23 @@ const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; unit
     { key: 'knee', label: 'Knee (Ghutna)', unit: 'inch' },
     { key: 'bottom', label: 'Bottom (Paincha)', unit: 'inch' },
   ],
+  kurta: [
+    { key: 'length', label: 'Length (Lambai)', unit: 'inch' },
+    { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
+    { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
+    { key: 'shoulder', label: 'Shoulder (Kandha)', unit: 'inch' },
+    { key: 'sleeve', label: 'Sleeves (Aasteen)', unit: 'inch' },
+    { key: 'collar', label: 'Collar/Gala', unit: 'inch' },
+    { key: 'bottom', label: 'Daman Width', unit: 'inch' },
+  ],
+  kurti: [
+    { key: 'length', label: 'Length (Lambai)', unit: 'inch' },
+    { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
+    { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
+    { key: 'hip', label: 'Hip (Kolha)', unit: 'inch' },
+    { key: 'shoulder', label: 'Shoulder (Kandha)', unit: 'inch' },
+    { key: 'sleeve', label: 'Sleeves (Aasteen)', unit: 'inch' },
+  ],
   shirt: [
     { key: 'length', label: 'Length (Lambai)', unit: 'inch' },
     { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
@@ -56,6 +83,13 @@ const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; unit
     { key: 'knee', label: 'Knee (Ghutna)', unit: 'inch' },
     { key: 'bottom', label: 'Bottom (Paincha)', unit: 'inch' },
   ],
+  pajama: [
+    { key: 'trouser_length', label: 'Length (Lambai)', unit: 'inch' },
+    { key: 'trouser_waist', label: 'Waist/Nara', unit: 'inch' },
+    { key: 'hip', label: 'Hip (Sirin)', unit: 'inch' },
+    { key: 'thigh', label: 'Thigh (Raan)', unit: 'inch' },
+    { key: 'bottom', label: 'Paincha', unit: 'inch' },
+  ],
   sherwani: [
     { key: 'length', label: 'Length (Lambai)', unit: 'inch' },
     { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
@@ -64,7 +98,53 @@ const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; unit
     { key: 'sleeve', label: 'Sleeves (Aasteen)', unit: 'inch' },
     { key: 'hip', label: 'Hip (Kolha)', unit: 'inch' },
   ],
-  coat: [
+  waistcoat: [
+    { key: 'length', label: 'Length (Lambai)', unit: 'inch' },
+    { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
+    { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
+    { key: 'shoulder', label: 'Shoulder (Kandha)', unit: 'inch' },
+  ],
+  prince_coat: [
+    { key: 'length', label: 'Length (Lambai)', unit: 'inch' },
+    { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
+    { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
+    { key: 'hip', label: 'Hip (Kolha)', unit: 'inch' },
+    { key: 'shoulder', label: 'Shoulder (Kandha)', unit: 'inch' },
+    { key: 'sleeve', label: 'Sleeves (Aasteen)', unit: 'inch' },
+  ],
+  pant_coat: [
+    { key: 'length', label: 'Length (Lambai)', unit: 'inch' },
+    { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
+    { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
+    { key: 'shoulder', label: 'Shoulder (Kandha)', unit: 'inch' },
+    { key: 'sleeve', label: 'Sleeves (Aasteen)', unit: 'inch' },
+    { key: 'trouser_length', label: 'Pant Length', unit: 'inch' },
+    { key: 'trouser_waist', label: 'Pant Waist', unit: 'inch' },
+  ],
+  lehenga: [
+    { key: 'length', label: 'Lehenga Length', unit: 'inch' },
+    { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
+    { key: 'hip', label: 'Hip (Kolha)', unit: 'inch' },
+    { key: 'chest', label: 'Blouse Chest', unit: 'inch' },
+    { key: 'shoulder', label: 'Blouse Shoulder', unit: 'inch' },
+    { key: 'sleeve', label: 'Blouse Sleeve', unit: 'inch' },
+  ],
+  maxi: [
+    { key: 'length', label: 'Full Length', unit: 'inch' },
+    { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
+    { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
+    { key: 'hip', label: 'Hip (Kolha)', unit: 'inch' },
+    { key: 'shoulder', label: 'Shoulder (Kandha)', unit: 'inch' },
+    { key: 'sleeve', label: 'Sleeves (Aasteen)', unit: 'inch' },
+  ],
+  blazer: [
+    { key: 'length', label: 'Length (Lambai)', unit: 'inch' },
+    { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
+    { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
+    { key: 'shoulder', label: 'Shoulder (Kandha)', unit: 'inch' },
+    { key: 'sleeve', label: 'Sleeves (Aasteen)', unit: 'inch' },
+  ],
+  jacket: [
     { key: 'length', label: 'Length (Lambai)', unit: 'inch' },
     { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
     { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
@@ -79,12 +159,71 @@ const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; unit
   ],
 }
 
+export type StyleSelections = {
+  neck?: string
+  daman?: string
+  sleeve?: string
+  fit?: string
+  buttons?: string[]
+  extras?: string[]
+}
+
+const STYLE_GROUPS = [
+  {
+    key: 'neck',
+    title: 'Neck / Gala Style',
+    type: 'radio',
+    options: ['Gol Gala', 'Ban Gala', 'V Gala', 'Collar Gala', 'Sherwani Collar', 'Chinese Collar'],
+  },
+  {
+    key: 'daman',
+    title: 'Daman Style',
+    type: 'radio',
+    options: ['Gol Daman', 'Square Daman', 'Round Cut Daman', 'Side Cut Daman', 'Straight Daman'],
+  },
+  {
+    key: 'sleeve',
+    title: 'Sleeve Style',
+    type: 'radio',
+    options: ['Full Sleeve', 'Half Sleeve', 'Cuff Sleeve', 'Loose Sleeve', 'Straight Sleeve'],
+  },
+  {
+    key: 'fit',
+    title: 'Fit Type',
+    type: 'radio',
+    options: ['Slim Fit', 'Regular Fit', 'Loose Fit'],
+  },
+  {
+    key: 'buttons',
+    title: 'Button Types',
+    type: 'checkbox',
+    options: ['Simple Button', 'Fancy Button', 'Metal Button', 'Covered Button', 'Hidden Patti', 'Double Button'],
+  },
+  {
+    key: 'extras',
+    title: 'Extra Details',
+    type: 'checkbox',
+    options: ['Side Pocket', 'Front Pocket', 'Kaf Patti', 'Embroidery', 'Piping', 'Lace', 'Lining', 'Chak Patti'],
+  },
+] as const
+
+export function formatStyleSelections(styles: StyleSelections): string {
+  const labels: string[] = []
+  STYLE_GROUPS.forEach((group) => {
+    const value = styles[group.key]
+    if (Array.isArray(value) && value.length > 0) labels.push(`${group.title}: ${value.join(', ')}`)
+    if (typeof value === 'string' && value) labels.push(`${group.title}: ${value}`)
+  })
+  return labels.length ? `Style: ${labels.join(' | ')}` : ''
+}
+
 interface Step2Props {
   data: {
     garmentType?: GarmentType
     customerId?: string
     measurementId?: string
     measurements?: Record<string, string>
+    styleSelections?: StyleSelections
     specialInstructions?: string
     isUrgent?: boolean
     fabricPhotoBase64?: string
@@ -93,6 +232,7 @@ interface Step2Props {
     garmentType: GarmentType
     measurementId: string | undefined
     measurements: Record<string, string>
+    styleSelections: StyleSelections
     specialInstructions: string
     isUrgent: boolean
     fabricPhotoBase64?: string
@@ -103,6 +243,9 @@ interface Step2Props {
 export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
   const [measurements, setMeasurements] = useState<Record<string, string>>(
     data.measurements || {}
+  )
+  const [styleSelections, setStyleSelections] = useState<StyleSelections>(
+    data.styleSelections || {}
   )
 
   // Add state inside Step2Garment:
@@ -116,7 +259,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
     try {
       const result = await compressImage(file)
       setQuickPhoto(result.base64)
-      onUpdate({ fabricPhotoBase64: result.base64 } as any)
+      onUpdate({ fabricPhotoBase64: result.base64 })
     } finally {
       setTakingPhoto(false)
     }
@@ -141,6 +284,20 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
     const updated = { ...measurements, [key]: value }
     setMeasurements(updated)
     onUpdate({ measurements: updated, measurementId: undefined })
+  }
+
+  const updateStyle = (key: keyof StyleSelections, value: string, multi: boolean) => {
+    const current = styleSelections[key]
+    const updated: StyleSelections = {
+      ...styleSelections,
+      [key]: multi
+        ? (Array.isArray(current) && current.includes(value)
+            ? current.filter(item => item !== value)
+            : [...(Array.isArray(current) ? current : []), value])
+        : value,
+    }
+    setStyleSelections(updated)
+    onUpdate({ styleSelections: updated })
   }
 
   const filledCount = Object.values(measurements).filter(v => v && v !== '0').length
@@ -196,18 +353,12 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
             <p className="text-xs text-orange-500">Jaldi banana zaroor hai</p>
           </div>
         </div>
-        <button
-          onClick={() => onUpdate({ isUrgent: !data.isUrgent })}
-          className={cn(
-            'relative w-12 h-6 rounded-full transition-colors shrink-0',
-            data.isUrgent ? 'bg-orange-500' : 'bg-slate-300'
-          )}
-        >
-          <span className={cn(
-            'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
-            data.isUrgent ? 'translate-x-6' : 'translate-x-0.5'
-          )} />
-        </button>
+        <ToggleSwitch
+          checked={!!data.isUrgent}
+          onCheckedChange={(checked) => onUpdate({ isUrgent: checked })}
+          label="Urgent Order"
+          activeClassName="bg-orange-500"
+        />
       </div>
 
       {/* Measurements — only shows after garment type selected */}
@@ -284,6 +435,61 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
         </div>
       )}
 
+      {/* Style reference options */}
+      {selectedType && (
+        <div>
+          <p className="text-sm font-semibold text-slate-700 mb-1">
+            Style Reference
+          </p>
+          <p className="text-xs text-slate-400 mb-3">
+            Pakistani tailoring details select karein taake karigar ko clear brief milay.
+          </p>
+          <div className="space-y-3">
+            {STYLE_GROUPS.map((group) => (
+              <div key={group.key} className="rounded-2xl border border-slate-200 bg-white p-3">
+                <p className="text-xs font-bold text-slate-600 mb-2">{group.title}</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {group.options.map((option) => {
+                    const value = styleSelections[group.key]
+                    const selected = Array.isArray(value)
+                      ? value.includes(option)
+                      : value === option
+                    const multi = group.type === 'checkbox'
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => updateStyle(group.key, option, multi)}
+                        className={cn(
+                          'flex min-h-10 items-center gap-2 rounded-xl border px-3 py-2 text-left text-[11px] font-semibold transition-colors',
+                          selected
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
+                        )}
+                      >
+                        <span className={cn(
+                          'flex h-4 w-4 shrink-0 items-center justify-center border',
+                          multi ? 'rounded' : 'rounded-full',
+                          selected ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'
+                        )}>
+                          {selected && <span className={cn('bg-white', multi ? 'h-2 w-2 rounded-[2px]' : 'h-1.5 w-1.5 rounded-full')} />}
+                        </span>
+                        <span>{option}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          {formatStyleSelections(styleSelections) && (
+            <p className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-[11px] leading-relaxed text-blue-700">
+              {formatStyleSelections(styleSelections)}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Special instructions */}
       {selectedType && (
         <div>
@@ -315,7 +521,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
             />
             <button
               aria-label="Remove fabric photo"
-              onClick={() => { setQuickPhoto(null); onUpdate({ fabricPhotoBase64: undefined } as any) }}
+              onClick={() => { setQuickPhoto(null); onUpdate({ fabricPhotoBase64: undefined }) }}
               className="absolute top-2 right-2 w-11 h-11 bg-red-500 text-white
                    rounded-full flex items-center justify-center text-sm font-bold"
             >

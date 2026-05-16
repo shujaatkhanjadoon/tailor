@@ -1,6 +1,7 @@
 // src/app/api/admin/action/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { sendShopOwnerAdminActionEmail } from "@/lib/security/email-otp";
+import { ADMIN_SESSION_COOKIE, verifySessionToken } from "@/lib/admin/auth";
 
 const SB_URL = () => process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -96,6 +97,11 @@ function nextExpiry(cycle: string | undefined, planId = "professional") {
 }
 
 export async function POST(req: NextRequest) {
+  const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+  if (!token || !verifySessionToken(token)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json(
       { error: "SUPABASE_SERVICE_ROLE_KEY not configured" },

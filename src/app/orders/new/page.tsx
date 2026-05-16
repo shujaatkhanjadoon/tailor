@@ -7,7 +7,7 @@ import { CheckCircle2, MessageCircle } from "lucide-react";
 import { GarmentType, PaymentMethod } from "@/types";
 import { StepIndicator } from "@/components/orders/wizard/StepIndicator";
 import { Step1Customer } from "@/components/orders/wizard/Step1Customer";
-import { Step2Garment } from "@/components/orders/wizard/Step2Garment";
+import { Step2Garment, formatStyleSelections, type StyleSelections } from "@/components/orders/wizard/Step2Garment";
 import { Step3Confirm } from "@/components/orders/wizard/Step3Confirm";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { orderOps, paymentOps, teamOps } from "@/lib/db/operations";
@@ -41,6 +41,7 @@ interface WizardData {
   garmentType: GarmentType;
   measurementId?: string;
   measurements: Record<string, string>;
+  styleSelections: StyleSelections;
   specialInstructions: string;
   isUrgent: boolean;
   totalPrice: number;
@@ -199,6 +200,11 @@ function NewOrderWizard({
         measurementId = latestMeasurement[0]?.id;
       }
       // ── 1. Create the order (amountPaid starts at 0) ───────────
+      const styleSummary = formatStyleSelections(data.styleSelections ?? {});
+      const orderNotes = [styleSummary, data.specialInstructions?.trim()]
+        .filter(Boolean)
+        .join("\n\n");
+
       const order = await orderOps.add(shopId, {
         customerId: data.customerId,
         customerName: data.customerName!,
@@ -209,7 +215,7 @@ function NewOrderWizard({
         dueDate: data.dueDate,
         totalPrice: data.totalPrice,
         isUrgent: data.isUrgent ? 1 : 0,
-        specialInstructions: data.specialInstructions || undefined,
+        specialInstructions: orderNotes || undefined,
         assignedTo: data.assignedTo,
         assignedToName: data.assignedToName,
         fabricPhotoUrl: data.fabricPhotoBase64,

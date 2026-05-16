@@ -274,7 +274,7 @@ export default function SettingsPage() {
             iconBg="bg-purple-100"
             iconColor="text-purple-600"
             label="PIN Badlein"
-            sublabel="Apna 4-digit PIN change karein"
+            sublabel={currentUser?.role === "karigar" ? "Apna 4-digit PIN change karein" : "Apna 6-digit PIN change karein"}
             onClick={() => router.push("/settings/change-pin")}
             last
           />

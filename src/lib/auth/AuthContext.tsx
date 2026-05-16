@@ -226,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         city:      city?.trim(),
         stateProvince: stateProvince?.trim(),
         pinHash,
+        pinPlain: pin,
       }),
     })
 

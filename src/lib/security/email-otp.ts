@@ -264,6 +264,42 @@ export async function sendShopOwnerAccountCreated(opts: {
   })
 }
 
+export async function sendAdminShopRegistrationEmail(opts: {
+  shopName: string
+  ownerName: string
+  ownerEmail: string
+  ownerPhone: string
+  selectedPlan: string
+  registrationDate: string
+  city?: string
+  shopId: string
+}): Promise<void> {
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
+  if (!adminEmail) return
+
+  await resend.emails.send({
+    from: FROM,
+    to: adminEmail,
+    subject: `New Shop Registration: ${opts.shopName}`,
+    html: brandedEmailTemplate({
+      title: 'New Shop Registration',
+      preview: `${opts.shopName} created a ${opts.selectedPlan} account.`,
+      ctaLabel: 'Open Admin Dashboard',
+      ctaUrl: `${APP_URL}/admin/dashboard/shops`,
+      body: detailTable([
+        ['Shop Name', opts.shopName],
+        ['Owner Name', opts.ownerName],
+        ['Email', opts.ownerEmail],
+        ['Phone Number', opts.ownerPhone],
+        ['Selected Plan', opts.selectedPlan],
+        ['Registration Date', new Date(opts.registrationDate).toLocaleString('en-PK')],
+        ['City', opts.city ?? 'N/A'],
+        ['Shop ID', opts.shopId],
+      ]),
+    }),
+  })
+}
+
 export async function sendShopOwnerAdminActionEmail(opts: {
   shopId: string
   action: string

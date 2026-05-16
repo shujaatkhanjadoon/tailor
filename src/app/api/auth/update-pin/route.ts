@@ -5,9 +5,12 @@ const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function POST(req: NextRequest) {
-  const { memberId, pinHash } = await req.json()
+  const { memberId, pinHash, pinPlain } = await req.json()
   if (!memberId || !pinHash) {
     return NextResponse.json({ error: 'memberId and pinHash required' }, { status: 400 })
+  }
+  if (pinPlain && !/^\d{4}$|^\d{6}$/.test(String(pinPlain))) {
+    return NextResponse.json({ error: 'PIN must be exactly 4 or 6 digits' }, { status: 400 })
   }
 
   const res = await fetch(
@@ -22,6 +25,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         pin_hash:   pinHash,
+        ...(pinPlain ? { pin_plain: pinPlain } : {}),
         updated_at: new Date().toISOString(),
       }),
     }

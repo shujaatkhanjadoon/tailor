@@ -2,15 +2,14 @@
 import bcrypt from 'bcryptjs'
 
 const SALT_ROUNDS = 10
-const PIN_LENGTH  = 8
+export const SHOP_PIN_LENGTH = 6
+export const KARIGAR_PIN_LENGTH = 4
 
 // ── Weak PINs to reject ───────────────────────────────────────────
 const WEAK_PINS = [
-  '00000000','11111111','22222222','33333333','44444444',
-  '55555555','66666666','77777777','88888888','99999999',
-  '12345678','87654321','11223344','12121212','11112222',
-  '00001111','99998888','12341234','11111111','00000000',
-  '10101010','01010101','12121212','11221122','00110011',
+  '000000','111111','222222','333333','444444','555555','666666','777777','888888','999999',
+  '123456','654321','112233','121212','111222','000111','999888','123123','101010','010101',
+  '0000','1111','2222','3333','4444','5555','6666','7777','8888','9999','1234','4321','1212',
 ]
 
 export interface PINValidationResult {
@@ -18,22 +17,21 @@ export interface PINValidationResult {
   error?: string
 }
 
-export function validatePIN(pin: string): PINValidationResult {
+export function validatePIN(pin: string, length = SHOP_PIN_LENGTH): PINValidationResult {
   if (!pin) return { valid: false, error: 'PIN daalein' }
 
-  // Must be exactly 8 digits
-  if (!/^\d{8}$/.test(pin)) {
+  if (!new RegExp(`^\\d{${length}}$`).test(pin)) {
     return {
       valid: false,
-      error: 'PIN bilkul 8 numbers ka hona chahiye',
+      error: `PIN bilkul ${length} numbers ka hona chahiye`,
     }
   }
 
   // Reject all same digits
-  if (/^(\d)\1{7}$/.test(pin)) {
+  if (/^(\d)\1+$/.test(pin)) {
     return {
       valid: false,
-      error: 'Sab ek jaise numbers use mat karein (jaise: 11111111)',
+      error: `Sab ek jaise numbers use mat karein (jaise: ${'1'.repeat(length)})`,
     }
   }
 
@@ -57,15 +55,19 @@ export function validatePIN(pin: string): PINValidationResult {
 
   // Must have at least 2 different digits
   const uniqueDigits = new Set(pin.split('')).size
-  if (uniqueDigits < 3) {
+  const minUnique = length <= KARIGAR_PIN_LENGTH ? 2 : 3
+  if (uniqueDigits < minUnique) {
     return {
       valid: false,
-      error: 'PIN mein kam se kam 3 alag alag numbers hone chahiye',
+      error: `PIN mein kam se kam ${minUnique} alag alag numbers hone chahiye`,
     }
   }
 
   return { valid: true }
 }
+
+export const validateShopPIN = (pin: string) => validatePIN(pin, SHOP_PIN_LENGTH)
+export const validateKarigarPIN = (pin: string) => validatePIN(pin, KARIGAR_PIN_LENGTH)
 
 export async function hashPIN(pin: string): Promise<string> {
   return bcrypt.hash(pin, SALT_ROUNDS)
@@ -84,10 +86,10 @@ export function getPINStrength(pin: string): {
   label: string
   color: string
 } {
-  if (pin.length < 8) return { score: 0, label: '', color: '' }
+  if (pin.length < KARIGAR_PIN_LENGTH) return { score: 0, label: '', color: '' }
 
   const uniqueDigits   = new Set(pin.split('')).size
-  const validation     = validatePIN(pin)
+  const validation     = validatePIN(pin, pin.length <= KARIGAR_PIN_LENGTH ? KARIGAR_PIN_LENGTH : SHOP_PIN_LENGTH)
 
   if (!validation.valid) return { score: 1, label: 'Kamzor', color: 'bg-red-500' }
   if (uniqueDigits >= 6) return { score: 4, label: 'Mazboot', color: 'bg-green-500' }

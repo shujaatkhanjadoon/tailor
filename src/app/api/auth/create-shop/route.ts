@@ -1,6 +1,6 @@
 // src/app/api/auth/create-shop/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { sendShopOwnerAccountCreated, sendShopVerificationAlert } from '@/lib/security/email-otp'
+import { sendAdminShopRegistrationEmail, sendShopOwnerAccountCreated, sendShopVerificationAlert } from '@/lib/security/email-otp'
 
 const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -111,12 +111,19 @@ export async function POST(req: NextRequest) {
 
   const {
     shopId, shopName, ownerPhone, ownerName,
-    email, city, stateProvince, addressLine, postalCode, pinHash,
+    email, city, stateProvince, addressLine, postalCode, pinHash, pinPlain,
   } = await req.json()
 
   if (!shopId || !shopName || !ownerPhone || !pinHash) {
     return NextResponse.json(
       { error: 'Required fields: shopId, shopName, ownerPhone, pinHash' },
+      { status: 400 }
+    )
+  }
+
+  if (pinPlain && !/^\d{6}$/.test(String(pinPlain))) {
+    return NextResponse.json(
+      { error: 'Shop account PIN must be exactly 6 digits' },
       { status: 400 }
     )
   }
@@ -190,6 +197,7 @@ export async function POST(req: NextRequest) {
       phone:          ownerPhone,
       role:           'owner',
       pin_hash:       pinHash,
+      pin_plain:      pinPlain ?? null,
       email:          normalizedEmail || null,
       email_verified: normalizedEmail ? true : false,
       is_active:      true,
@@ -249,6 +257,17 @@ export async function POST(req: NextRequest) {
       ownerName:  ownerName ?? shopName,
       ownerPhone,
       ownerEmail: normalizedEmail || 'N/A',
+      city,
+      shopId,
+    }).catch(console.error)
+
+    sendAdminShopRegistrationEmail({
+      shopName,
+      ownerName: ownerName ?? shopName,
+      ownerPhone,
+      ownerEmail: normalizedEmail || 'N/A',
+      selectedPlan: 'starter',
+      registrationDate: new Date().toISOString(),
       city,
       shopId,
     }).catch(console.error)

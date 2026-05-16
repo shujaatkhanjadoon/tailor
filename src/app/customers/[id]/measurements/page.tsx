@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 
 // All fields per garment type
-const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; labelUrdu: string }[]> = {
+const MEASUREMENT_FIELDS: Partial<Record<GarmentType, { key: string; label: string; labelUrdu: string }[]>> = {
   shalwar_kameez: [
     { key: 'length',         label: 'Length',        labelUrdu: 'Lambai'    },
     { key: 'chest',          label: 'Chest',         labelUrdu: 'Seena'     },
@@ -48,7 +48,7 @@ const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; labe
     { key: 'shoulder', label: 'Shoulder', labelUrdu: 'Kandha'  },
     { key: 'sleeve',   label: 'Sleeve',   labelUrdu: 'Bazoo'   },
   ],
-  coat: [
+  blazer: [
     { key: 'length',   label: 'Length',   labelUrdu: 'Lambai'  },
     { key: 'chest',    label: 'Chest',    labelUrdu: 'Seena'   },
     { key: 'shoulder', label: 'Shoulder', labelUrdu: 'Kandha'  },
@@ -83,7 +83,7 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
   const [editingId,     setEditingId]     = useState<string | null>(null)
   const [categoryFilter,setCategoryFilter]= useState<GarmentType | 'all'>('all')
 
-  const fields = MEASUREMENT_FIELDS[selectedType]
+  const fields = MEASUREMENT_FIELDS[selectedType] ?? MEASUREMENT_FIELDS.other ?? []
   const visibleMeasurements = (measurements ?? []).filter(m =>
     categoryFilter === 'all' || m.garmentType === categoryFilter
   )

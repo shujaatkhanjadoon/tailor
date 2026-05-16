@@ -15,6 +15,7 @@ import {
 import { customerOps } from "@/lib/db/operations";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { cn } from "@/lib/utils";
+import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { toast } from "sonner";
 import { usePlan } from "@/hooks/usePlan";
 import { AccessNotice } from "@/components/billing/AccessNotice";
@@ -333,28 +334,19 @@ function NewCustomerForm({ shopId }: { shopId: string | null }) {
               <MessageCircle size={14} className="text-green-500" />
               WhatsApp Number
             </label>
-            <button
-              onClick={() => {
-                setSameAsPhone((v) => !v);
-                if (!sameAsPhone) setWhatsapp(phone);
-              }}
-              className="flex items-center gap-1.5 text-xs font-medium"
-            >
-              <div
-                className={cn(
-                  "w-8 h-4 rounded-full transition-colors relative",
-                  sameAsPhone ? "bg-green-500" : "bg-slate-300",
-                )}
-              >
-                <span
-                  className={cn(
-                    "absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform",
-                    sameAsPhone ? "translate-x-4" : "translate-x-0.5",
-                  )}
-                />
-              </div>
+            <div className="flex items-center gap-1.5 text-xs font-medium">
+              <ToggleSwitch
+                checked={sameAsPhone}
+                onCheckedChange={() => {
+                  setSameAsPhone((v) => !v);
+                  if (!sameAsPhone) setWhatsapp(phone);
+                }}
+                label="Phone jaisa"
+                size="sm"
+                activeClassName="bg-green-500"
+              />
               <span className="text-slate-500">Phone jaisa</span>
-            </button>
+            </div>
           </div>
 
           {sameAsPhone ? (

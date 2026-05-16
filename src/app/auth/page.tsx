@@ -25,7 +25,7 @@ import { supabase } from "@/lib/supabase/client";
 import { syncService } from "@/lib/supabase/sync-service";
 import { db } from "@/lib/db/schema";
 import { validatePakistaniPhone } from "@/lib/security/phone";
-import { validatePIN, getPINStrength } from "@/lib/security/pin";
+import { SHOP_PIN_LENGTH, KARIGAR_PIN_LENGTH, validatePIN, getPINStrength } from "@/lib/security/pin";
 import { verifyPIN } from "@/lib/security/pin";
 import { cn } from "@/lib/utils";
 import { PAKISTAN_STATE_CITIES } from "@/lib/locations/pakistan";
@@ -46,7 +46,7 @@ type Step =
 
 // ── PIN Input Component ───────────────────────────────────────────
 function PINInput({
-  length = 8,
+  length = SHOP_PIN_LENGTH,
   value,
   onChange,
   masked = true,
@@ -249,6 +249,7 @@ function AuthContent() {
   const [pinError, setPinError] = useState("");
   const [maskedEmail, setMaskedEmail] = useState("");
   const [shopDisplay, setShopDisplay] = useState("");
+  const [loginPinLength, setLoginPinLength] = useState(SHOP_PIN_LENGTH);
   const [lockoutEnd, setLockoutEnd] = useState<Date | null>(null);
   const [newShopId, setNewShopId] = useState("");
 
@@ -364,6 +365,7 @@ function AuthContent() {
 
       if (members && members.length > 0) {
         const member = members[0];
+        setLoginPinLength(member.role === 'karigar' ? KARIGAR_PIN_LENGTH : SHOP_PIN_LENGTH);
 
         // Check lockout
         if (member.locked_until && new Date(member.locked_until) > new Date()) {
@@ -405,7 +407,7 @@ function AuthContent() {
 
   // ── Replace handlePINLogin ────────────────────────────────────────
   const handlePINLogin = useCallback(async (enteredPin: string) => {
-    if (enteredPin.length !== 8 || loading) return
+    if (enteredPin.length !== loginPinLength || loading) return
     setLoading(true)
     setPinError('')
 
@@ -603,14 +605,14 @@ function AuthContent() {
     } finally {
       setLoading(false)
     }
-  }, [phone, loading, redirectTo])
+  }, [phone, loading, redirectTo, loginPinLength])
 
-  // Auto-submit PIN when 8 digits entered
+  // Auto-submit PIN when the role-specific length is entered
   useEffect(() => {
-    if (step === "pin_login" && pin.length === 8) {
+    if (step === "pin_login" && pin.length === loginPinLength) {
       handlePINLogin(pin);
     }
-  }, [pin, step, handlePINLogin]);
+  }, [pin, step, handlePINLogin, loginPinLength]);
 
   // ── STEP: Send OTP ────────────────────────────────────────────
   const handleSendOTP = useCallback(async () => {
@@ -693,8 +695,8 @@ function AuthContent() {
 
   // ── STEP: Set PIN ─────────────────────────────────────────────
   const handleSetPin = useCallback(() => {
-    if (pin.length !== 8) return;
-    const validation = validatePIN(pin);
+    if (pin.length !== SHOP_PIN_LENGTH) return;
+    const validation = validatePIN(pin, SHOP_PIN_LENGTH);
     if (!validation.valid) {
       setPinError(validation.error!);
       setPin("");
@@ -705,7 +707,7 @@ function AuthContent() {
   }, [pin]);
 
   useEffect(() => {
-    if (step === "setup_pin" && pin.length === 8) {
+    if (step === "setup_pin" && pin.length === SHOP_PIN_LENGTH) {
       handleSetPin();
     }
   }, [pin, step, handleSetPin]);
@@ -713,7 +715,7 @@ function AuthContent() {
   // ── STEP: Confirm PIN & Create Shop ──────────────────────────
   const handleConfirmPin = useCallback(
     async (enteredConfirm: string) => {
-      if (enteredConfirm.length !== 8 || isSubmittingRef.current) return;
+      if (enteredConfirm.length !== SHOP_PIN_LENGTH || isSubmittingRef.current) return;
 
       if (enteredConfirm !== pin) {
         setPinError("PIN match nahi kiya! Pehla PIN dobara try karein.");
@@ -777,7 +779,7 @@ function AuthContent() {
 
   // Auto-submit confirm PIN
   useEffect(() => {
-    if (step === "setup_confirm_pin" && confirmPin.length === 8) {
+    if (step === "setup_confirm_pin" && confirmPin.length === SHOP_PIN_LENGTH) {
       handleConfirmPin(confirmPin);
     }
   }, [confirmPin, step, handleConfirmPin]);
@@ -975,7 +977,8 @@ function AuthContent() {
                       setPin(v);
                       setPinError("");
                     }}
-                    label="8-Digit PIN Daalein"
+                    length={loginPinLength}
+                    label={`${loginPinLength}-Digit PIN Daalein`}
                     error={pinError || undefined}
                     disabled={loading}
                   />
@@ -1362,7 +1365,7 @@ function AuthContent() {
                 </div>
                 <div>
                   <h2 className="font-bold text-slate-800">
-                    8-Digit PIN Banayein
+                    {SHOP_PIN_LENGTH}-Digit PIN Banayein
                   </h2>
                   <p className="text-slate-400 text-xs">
                     Login ke liye use hoga — yaad rakhein
@@ -1390,10 +1393,11 @@ function AuthContent() {
                 label="Naya PIN"
                 error={pinError || undefined}
                 disabled={loading}
+                length={SHOP_PIN_LENGTH}
               />
 
               {/* PIN strength */}
-              {pin.length === 8 && pinStrength.score > 0 && (
+              {pin.length === SHOP_PIN_LENGTH && pinStrength.score > 0 && (
                 <div className="mt-3">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs text-slate-500">PIN Strength</span>
@@ -1461,6 +1465,7 @@ function AuthContent() {
                 label="PIN Dobara Daalein"
                 error={pinError || undefined}
                 disabled={loading}
+                length={SHOP_PIN_LENGTH}
               />
 
               {loading && (
