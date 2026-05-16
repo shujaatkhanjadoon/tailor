@@ -27,7 +27,7 @@ function buildReminderMessage(
   if (isTrial) {
     return (
       `${urgency} Assalam o Alaikum *${shopName}*!\n\n` +
-      `Aapka *DarziHub* free trial sirf *${daysLeft} din* mein khatam ho raha hai.\n\n` +
+      `Aapka *Meradarzi* free trial sirf *${daysLeft} din* mein khatam ho raha hai.\n\n` +
       `Trial ke baad *Starter* (free) plan par aa jayenge:\n` +
       `❌ Karigar accounts band\n` +
       `❌ Order tracking band\n` +

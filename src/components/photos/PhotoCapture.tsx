@@ -45,6 +45,7 @@ export function PhotoCapture({
     openGallery,
     handleFileChange,
     deletePhoto,
+    retryUpload,
     cloudEnabled,
     isProcessing,
   } = usePhotoCapture({ orderId, type })
@@ -78,7 +79,7 @@ export function PhotoCapture({
       </div>
 
       {/* Photo grid */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 min-[380px]:grid-cols-3 sm:grid-cols-4 lg:grid-cols-5">
 
         {/* Existing photos */}
         {photos.map(photo => {
@@ -90,7 +91,7 @@ export function PhotoCapture({
           return (
             <div
               key={photo.id}
-              className="relative aspect-square rounded-2xl overflow-hidden
+              className="relative aspect-square rounded-xl sm:rounded-2xl overflow-hidden
                          bg-slate-100 border border-slate-200 group"
             >
               {/* Image */}
@@ -111,7 +112,7 @@ export function PhotoCapture({
                 <button
                   aria-label={`Expand ${label} photo`}
                   onClick={() => setViewing(photo.cloudUrl ?? photo.base64)}
-                  className="opacity-0 group-hover:opacity-100 w-11 h-11 bg-white/90
+                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 w-9 h-9 sm:w-11 sm:h-11 bg-white/90
                              rounded-full flex items-center justify-center
                              transition-all active:scale-90"
                 >
@@ -123,7 +124,7 @@ export function PhotoCapture({
                   aria-label={`Delete ${label} photo`}
                   onClick={() => deletePhoto(photo)}
                   disabled={isDeleting}
-                  className="opacity-0 group-hover:opacity-100 w-11 h-11 bg-red-500
+                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 w-9 h-9 sm:w-11 sm:h-11 bg-red-500
                              rounded-full flex items-center justify-center
                              transition-all active:scale-90 disabled:opacity-50"
                 >
@@ -168,7 +169,7 @@ export function PhotoCapture({
         {/* Upload button / processing state */}
         {(canAdd || isProcessing) && (
           <div className={cn(
-            'aspect-square rounded-2xl border-2 border-dashed',
+            'aspect-square rounded-xl sm:rounded-2xl border-2 border-dashed',
             'flex flex-col items-center justify-center gap-1.5',
             isProcessing
               ? 'border-blue-300 bg-blue-50'
@@ -242,9 +243,12 @@ export function PhotoCapture({
               {photos.filter(p => p.cloudUrl).length}/{photos.length} on cloud
             </span>
           )}
-          {cloudEnabled && photos.some(p => !p.cloudUrl) && navigator.onLine && (
+          {cloudEnabled && photos.some(p => !p.cloudUrl && p.base64) && navigator.onLine && (
             <button
-              onClick={() => {/* TODO: retry upload */}}
+              onClick={() => {
+                const photo = photos.find(p => !p.cloudUrl && p.base64)
+                if (photo) void retryUpload(photo)
+              }}
               className="flex items-center gap-1 text-amber-500 hover:text-amber-700"
             >
               <Upload size={9} />

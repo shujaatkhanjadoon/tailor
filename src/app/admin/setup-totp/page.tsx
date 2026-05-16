@@ -175,7 +175,7 @@ export default function SetupTOTPPage() {
                 </li>
                 <li>App mein "+" button → "Scan QR code"</li>
                 <li>Upar wala QR scan karein</li>
-                <li>"DarziHub Admin" entry dikh jayegi</li>
+                <li>"Meradarzi Admin" entry dikh jayegi</li>
                 <li>Ab har login mein 6-digit code use karein</li>
               </ol>
             </div>

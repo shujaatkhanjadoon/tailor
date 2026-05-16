@@ -9,7 +9,7 @@ import type {
 
 // ── Field mappers: Dexie camelCase → Supabase snake_case ─────────
 
-function shopToRow(r: any): ShopRow {
+function shopToRow(r: any): Partial<ShopRow> {
   return {
     id:              r.id,
     owner_phone:     r.ownerPhone,
@@ -22,7 +22,6 @@ function shopToRow(r: any): ShopRow {
     brand_name:      r.brandName      || undefined,
     brand_color:     r.brandColor     || undefined,
     brand_logo_url:  r.brandLogoUrl   || undefined,
-    plan:            'starter',         // new shops always start as starter
     is_active:       r.isActive !== 0,
     created_at:      r.createdAt,
     updated_at:      r.updatedAt,
@@ -179,7 +178,7 @@ async function ensureRemoteShopExists(shop: ShopRecord): Promise<boolean> {
 
   if (!error && data?.id) return true
 
-  const { error: upsertError } = await upsertTable<ShopRow>('shops', [shopToRow(shop)])
+  const { error: upsertError } = await upsertTable<Partial<ShopRow>>('shops', [shopToRow(shop)])
   if (upsertError) {
     console.error('[Sync] shops repair failed:', upsertError.message)
     return false
@@ -317,7 +316,7 @@ export const syncService = {
         return { success: false, errors }
       }
       if (shop && shop._synced === 0) {
-        const { error: shopError } = await upsertTable<ShopRow>(
+        const { error: shopError } = await upsertTable<Partial<ShopRow>>(
           'shops', [shopToRow(shop)]
         )
         if (shopError) {
@@ -735,6 +734,28 @@ export const syncService = {
         })))
         console.log(`[Sync] Pulled ${photos.length} photo records`)
       }
+
+      const [
+        { data: deletedCustomers },
+        { data: deletedOrders },
+        { data: deletedMeasurements },
+        { data: deletedPayments },
+        { data: deletedPhotos },
+      ] = await Promise.all([
+        (supabase as any).from('customers').select('id').eq('shop_id', shopId).not('deleted_at', 'is', null),
+        (supabase as any).from('orders').select('id').eq('shop_id', shopId).not('deleted_at', 'is', null),
+        (supabase as any).from('measurements').select('id').eq('shop_id', shopId).not('deleted_at', 'is', null),
+        (supabase as any).from('payments').select('id').eq('shop_id', shopId).not('deleted_at', 'is', null),
+        (supabase as any).from('order_photos').select('id').eq('shop_id', shopId).not('deleted_at', 'is', null),
+      ])
+
+      await Promise.all([
+        ...((deletedCustomers ?? []).map((r: any) => db.customers.update(r.id, { _deleted: 1, _synced: 1 }))),
+        ...((deletedOrders ?? []).map((r: any) => db.orders.update(r.id, { _deleted: 1, _synced: 1 }))),
+        ...((deletedMeasurements ?? []).map((r: any) => db.measurements.update(r.id, { _deleted: 1, _synced: 1 }))),
+        ...((deletedPayments ?? []).map((r: any) => db.payments.update(r.id, { _deleted: 1, _synced: 1 }))),
+        ...((deletedPhotos ?? []).map((r: any) => db.photos.update(r.id, { _deleted: 1, _synced: 1 }))),
+      ])
 
       console.log('[Sync] ✓ pullAll complete')
 

@@ -1,5 +1,5 @@
 ﻿// src/lib/billing/raast.ts
-// Raast payment configuration for DarziHub subscriptions
+// Raast payment configuration for Meradarzi subscriptions
 // No API key needed â€” purely display-based manual flow
 
 export interface RaastConfig {
@@ -45,7 +45,7 @@ export function generatePaymentRef(shopId: string): string {
 export function buildRaastQRData(config: RaastConfig, amount: number, ref: string): string {
   // Plain payment details. Custom raast:// deep links are rejected by many bank scanners.
   return [
-    'DarziHub subscription payment',
+    'Meradarzi subscription payment',
     `Raast ID: ${config.raastId}`,
     `Account: ${config.accountTitle}`,
     `Bank: ${config.bankName}`,
@@ -56,5 +56,5 @@ export function buildRaastQRData(config: RaastConfig, amount: number, ref: strin
 
 // Format amount with note for payment description
 export function buildPaymentNote(planId: string, cycle: string, ref: string): string {
-  return `DarziHub ${planId} ${cycle} ${ref}`
+  return `Meradarzi ${planId} ${cycle} ${ref}`
 }

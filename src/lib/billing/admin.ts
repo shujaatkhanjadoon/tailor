@@ -239,7 +239,7 @@ export async function activateSubscription(
     // 5. Update shop plan
     await sbUpdate('shops',
       `id=eq.${shopId}`,
-      { plan: planId, updated_at: new Date().toISOString() }
+      { plan: planId, plan_expires_at: expiresAtISO, updated_at: new Date().toISOString() }
     )
 
     // 6. Audit log
@@ -346,7 +346,7 @@ export async function adminSetPlan(
 
     await sbUpdate('shops',
       `id=eq.${shopId}`,
-      { plan: planId, updated_at: new Date().toISOString() }
+      { plan: planId, plan_expires_at: expiresAtISO, updated_at: new Date().toISOString() }
     )
 
     await logAdminAction(
@@ -377,7 +377,7 @@ export async function deactivateShop(
 
     await sbUpdate('shops',
       `id=eq.${shopId}`,
-      { plan: 'starter', updated_at: new Date().toISOString() }
+      { plan: 'starter', plan_expires_at: null, updated_at: new Date().toISOString() }
     )
 
     await logAdminAction('shop_deactivated', 'shop', shopId, shopId, { reason })
@@ -407,7 +407,7 @@ export async function reactivateShop(
 
     await sbUpdate('shops',
       `id=eq.${shopId}`,
-      { plan: 'professional', updated_at: new Date().toISOString() }
+      { plan: 'professional', plan_expires_at: expiresAt.toISOString(), updated_at: new Date().toISOString() }
     )
 
     await logAdminAction('shop_activated', 'shop', shopId, shopId)

@@ -112,7 +112,7 @@ export function verifyTOTP(token: string, secret?: string): boolean {
 export function getTOTPUri(): string {
   const secret  = process.env.ADMIN_TOTP_SECRET
   if (!secret) throw new Error('ADMIN_TOTP_SECRET not set')
-  const issuer  = 'DarziHub Admin'
+  const issuer  = 'Meradarzi Admin'
   const account = 'admin'
   return (
     `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(account)}` +

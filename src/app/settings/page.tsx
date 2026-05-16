@@ -379,7 +379,7 @@ export default function SettingsPage() {
             iconBg="bg-slate-100"
             iconColor="text-slate-500"
             label="App Info"
-            sublabel="MeraDarzi"
+            sublabel="Meradarzi"
             value={`${orderCount} orders`}
             last
           />
@@ -451,7 +451,7 @@ export default function SettingsPage() {
 
         {/* Footer */}
         <p className="text-center text-xs text-slate-400 pb-2">
-          © {new Date().getFullYear()} MeraDarzi • Made with ❤️ for Pakistan 🇵🇰
+          © {new Date().getFullYear()} Meradarzi • Made with ❤️ for Pakistan 🇵🇰
         </p>
       </div>
 

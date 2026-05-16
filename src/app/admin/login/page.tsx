@@ -246,7 +246,7 @@ function LoginContent() {
                           justify-center mx-auto mb-4 shadow-xl shadow-blue-900/50">
             <Scissors size={28} className="text-white" strokeWidth={1.5} />
           </div>
-          <h1 className="text-2xl font-bold text-white">DarziHub</h1>
+          <h1 className="text-2xl font-bold text-white">Meradarzi</h1>
           <p className="text-slate-400 text-sm mt-1">Super Admin Panel</p>
         </div>
 
@@ -416,7 +416,7 @@ function LoginContent() {
         </div>
 
         <p className="text-center text-slate-600 text-xs mt-6">
-          DarziHub · Super Admin · Secure Session
+          Meradarzi · Super Admin · Secure Session
         </p>
       </div>
     </div>

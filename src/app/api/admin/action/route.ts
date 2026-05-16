@@ -141,6 +141,7 @@ export async function POST(req: NextRequest) {
         // Update subscription plan only. Shop account activation is controlled separately.
         await sbPatch("shops", `id=eq.${shopId}`, {
           plan: planId,
+          plan_expires_at: expiresAt,
           updated_at: now,
         });
 
@@ -212,6 +213,7 @@ export async function POST(req: NextRequest) {
         // Update subscription plan only. Shop account activation is controlled separately.
         await sbPatch("shops", `id=eq.${shopId}`, {
           plan: planId,
+          plan_expires_at: expiresAt,
           updated_at: now,
         });
 

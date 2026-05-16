@@ -559,7 +559,7 @@ function HomeTab({
             </h2>
             <p className="text-slate-500 text-xs mt-1 flex items-center gap-1">
               <Scissors size={10} />
-              Karigar · My Darzi
+              Karigar · Meradarzi
             </p>
           </div>
           <div className="bg-blue-600 w-12 h-12 rounded-2xl flex items-center
@@ -1120,7 +1120,7 @@ export default function KarigarPage() {
               <p className="font-bold text-slate-800 text-sm leading-tight">
                 {currentUser?.name ?? 'Karigar'}
               </p>
-              <p className="text-slate-400 text-[10px]">My Darzi</p>
+              <p className="text-slate-400 text-[10px]">Meradarzi</p>
             </div>
           </div>
 

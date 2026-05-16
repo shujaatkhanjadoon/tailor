@@ -21,7 +21,7 @@ export interface PhotoUploadState {
 export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
   const { shopId }   = useAuth()
   const plan         = usePlan()
-  const canSyncImages = plan.plan === 'business' && plan.isActive
+  const canSyncImages = (plan.plan === 'professional' || plan.plan === 'business') && plan.isActive
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [state, setState] = useState<PhotoUploadState>({ phase: 'idle' })
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -131,7 +131,37 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
     } finally {
       setDeletingId(null)
     }
-  }, [canSyncImages])
+  }, [])
+
+  const retryUpload = useCallback(async (photo: PhotoRecord) => {
+    if (!shopId || !canSyncImages || !cloudinaryEnabled || !navigator.onLine || !photo.base64) return
+
+    setState({ phase: 'uploading', sizeKB: photo.sizeKB })
+    try {
+      const uploaded = await uploadToCloudinary(
+        photo.base64,
+        shopId,
+        photo.orderId,
+        photo.type
+      )
+      if (uploaded) {
+        await db.photos.update(photo.id, {
+          cloudUrl: uploaded.url,
+          publicId: uploaded.publicId,
+          cloudSizeKB: Math.round(uploaded.bytes / 1024),
+          _synced: 0,
+        })
+        setState({ phase: 'done', sizeKB: photo.sizeKB })
+      } else {
+        setState({ phase: 'error', error: 'Cloud upload nahi ho saka. Dobara try karein.' })
+      }
+    } catch (e) {
+      console.error('Retry upload failed:', e)
+      setState({ phase: 'error', error: 'Cloud upload nahi ho saka. Dobara try karein.' })
+    } finally {
+      setTimeout(() => setState({ phase: 'idle' }), 2500)
+    }
+  }, [shopId, canSyncImages])
 
   return {
     fileInputRef,
@@ -141,6 +171,7 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
     openGallery,
     handleFileChange,
     deletePhoto,
+    retryUpload,
     cloudEnabled:  canSyncImages && cloudinaryEnabled,
     isProcessing:  state.phase !== 'idle' && state.phase !== 'done' && state.phase !== 'error',
   }

@@ -1,7 +1,7 @@
 // src/app/auth/page.tsx
 "use client";
 
-import { useState, useCallback, useEffect, useRef, Suspense } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Scissors,
@@ -242,6 +242,7 @@ function AuthContent() {
   const [shopName, setShopName] = useState("");
   const [city, setCity] = useState("");
   const [stateProvince, setStateProvince] = useState("");
+  const [cityQuery, setCityQuery] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -250,6 +251,23 @@ function AuthContent() {
   const [shopDisplay, setShopDisplay] = useState("");
   const [lockoutEnd, setLockoutEnd] = useState<Date | null>(null);
   const [newShopId, setNewShopId] = useState("");
+
+  const selectedState = useMemo(
+    () => PAKISTAN_STATE_CITIES.find((group) => group.state === stateProvince),
+    [stateProvince],
+  );
+  const filteredCities = useMemo(() => {
+    const query = cityQuery.trim().toLowerCase();
+    const cities = selectedState?.cities ?? [];
+    return query
+      ? cities.filter((item) => item.toLowerCase().includes(query))
+      : cities;
+  }, [cityQuery, selectedState]);
+  const canAddTypedCity =
+    cityQuery.trim().length > 1 &&
+    !filteredCities.some(
+      (item) => item.toLowerCase() === cityQuery.trim().toLowerCase(),
+    );
   const isSubmittingRef = useRef(false);
   const [isOnline, setIsOnline] = useState(true);
   // ── Constants (put near top of file) ─────────────────────────────
@@ -824,7 +842,7 @@ function AuthContent() {
           >
             <Scissors size={28} className="text-white" strokeWidth={1.5} />
           </div>
-          <h1 className="text-2xl font-bold text-white">My Darzi</h1>
+          <h1 className="text-2xl font-bold text-white">Meradarzi</h1>
           <p className="text-slate-400 text-sm mt-1">
             Pakistan ka Tailor Management App
           </p>
@@ -1220,29 +1238,84 @@ function AuthContent() {
 
               <label className="mb-4 block">
                 <span className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <MapPin size={13} /> State / City (Optional)
+                  <MapPin size={13} /> State / Province (Optional)
                 </span>
                 <select
-                  value={stateProvince && city ? `${stateProvince}|${city}` : ""}
+                  value={stateProvince}
                   onChange={(e) => {
-                    const [state, selectedCity] = e.target.value.split("|");
-                    setStateProvince(state ?? "");
-                    setCity(selectedCity ?? "");
+                    setStateProvince(e.target.value);
+                    setCity("");
+                    setCityQuery("");
                   }}
                   className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-800 outline-none transition-all focus:border-blue-500 focus:bg-white"
                 >
-                  <option value="">Sheher chunein...</option>
+                  <option value="">State/Province chunein...</option>
                   {PAKISTAN_STATE_CITIES.map((group) => (
-                    <optgroup key={group.state} label={group.state}>
-                      {group.cities.map((item) => (
-                        <option key={`${group.state}-${item}`} value={`${group.state}|${item}`}>
-                          {item}
-                        </option>
-                      ))}
-                    </optgroup>
+                    <option key={group.state} value={group.state}>
+                      {group.state}
+                    </option>
                   ))}
                 </select>
               </label>
+
+              {stateProvince && (
+                <label className="mb-4 block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    City
+                  </span>
+                  <input
+                    type="text"
+                    value={cityQuery}
+                    onChange={(e) => setCityQuery(e.target.value)}
+                    placeholder={city || "Search city ya manually type karein"}
+                    className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-800 outline-none transition-all focus:border-blue-500 focus:bg-white"
+                  />
+                  <div className="mt-2 max-h-40 overflow-y-auto rounded-2xl border border-slate-200 bg-white">
+                    {city && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCity("");
+                          setCityQuery("");
+                        }}
+                        className="w-full border-b border-slate-100 px-4 py-2.5 text-left text-xs font-semibold text-slate-400"
+                      >
+                        Selected: {city} - clear
+                      </button>
+                    )}
+                    {filteredCities.map((item) => (
+                      <button
+                        key={`${stateProvince}-${item}`}
+                        type="button"
+                        onClick={() => {
+                          setCity(item);
+                          setCityQuery("");
+                        }}
+                        className={cn(
+                          "w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition-colors last:border-0 hover:bg-slate-50",
+                          city === item
+                            ? "bg-blue-50 font-semibold text-blue-700"
+                            : "text-slate-700",
+                        )}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                    {canAddTypedCity && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCity(cityQuery.trim());
+                          setCityQuery("");
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50"
+                      >
+                        Add &quot;{cityQuery.trim()}&quot;
+                      </button>
+                    )}
+                  </div>
+                </label>
+              )}
 
               {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
 
@@ -1521,7 +1594,7 @@ function AuthContent() {
 
         {/* Footer */}
         <p className="text-center text-slate-600 text-xs mt-5">
-          My Darzi · Secure & Verified ✓
+          Meradarzi · Secure & Verified ✓
         </p>
       </div>
     </div>

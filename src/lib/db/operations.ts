@@ -4,6 +4,7 @@ import { syncQueue } from './sync'
 import { generateTrackingCode } from '../tracking'
 import { supabase } from '@/lib/supabase/client'
 import { paymentAppliedAmount } from '@/lib/payments/calculations'
+import { deleteFromCloudinary } from '@/lib/photos/cloudinary'
 
 // ── Utility ──────────────────────────────────────────────────────
 
@@ -340,7 +341,59 @@ export const customerOps = {
   },
 
   async softDelete(id: string): Promise<void> {
-    await db.customers.update(id, { _deleted: 1, _synced: 0 })
+    const customer = await db.customers.get(id)
+    if (!customer) return
+
+    const timestamp = now()
+    const orders = await db.orders
+      .where('customerId').equals(id)
+      .toArray()
+    const orderIds = orders.map(order => order.id)
+    const photos = orderIds.length > 0
+      ? await db.photos
+          .where('shopId').equals(customer.shopId)
+          .filter(photo => orderIds.includes(photo.orderId))
+          .toArray()
+      : []
+
+    await db.transaction(
+      'rw',
+      [db.customers, db.measurements, db.orders, db.payments, db.photos],
+      async () => {
+        await db.customers.update(id, {
+          _deleted: 1,
+          _synced: 0,
+          updatedAt: timestamp,
+        })
+
+        await db.measurements
+          .where('customerId').equals(id)
+          .modify({ _deleted: 1, _synced: 0 })
+
+        for (const order of orders) {
+          await db.orders.update(order.id, {
+            _deleted: 1,
+            status: 'cancelled',
+            updatedAt: timestamp,
+            _synced: 0,
+          })
+          await db.payments
+            .where('orderId').equals(order.id)
+            .modify({ _deleted: 1, _synced: 0 })
+          await db.photos
+            .where('orderId').equals(order.id)
+            .modify({ _deleted: 1, _synced: 0 })
+        }
+      }
+    )
+
+    await Promise.all(
+      photos
+        .map(photo => photo.publicId)
+        .filter((publicId): publicId is string => !!publicId)
+        .map(publicId => deleteFromCloudinary(publicId).catch(() => false))
+    )
+
     syncQueue.push('delete', 'customers', id, {})
   },
 }

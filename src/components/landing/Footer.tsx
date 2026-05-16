@@ -68,7 +68,7 @@ export function Footer() {
                               justify-center">
                 <Scissors size={18} className="text-white" strokeWidth={1.8} />
               </div>
-              <span className="text-lg font-bold text-white">My Darzi</span>
+              <span className="text-lg font-bold text-white">Meradarzi</span>
             </Link>
             <p className="text-sm leading-relaxed mb-5 max-w-xs">
               Pakistan ka pehla offline-first tailor management app.
@@ -118,7 +118,7 @@ export function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between
                         gap-3 py-6 text-xs">
           <p>
-            © {year} My Darzi. Made with ❤️ in Pakistan 🇵🇰
+            © {year} Meradarzi. Made with ❤️ in Pakistan 🇵🇰
           </p>
           <div className="flex items-center gap-4">
             <Link href="/privacy-policy" className="hover:text-white transition-colors">

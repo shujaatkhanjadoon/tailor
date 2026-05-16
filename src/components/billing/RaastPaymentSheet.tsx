@@ -45,7 +45,7 @@ export function RaastPaymentSheet({
   // Banking apps reject custom deep links as invalid QR codes.
   // This QR is intentionally a plain payment-details card for phone cameras.
   const paymentDetailsQR = [
-    `DarziHub subscription payment`,
+    `Meradarzi subscription payment`,
     `Raast ID: ${RAAST_ID}`,
     `Account: ${RAAST_NAME}`,
     `Bank: ${RAAST_BANK}`,

@@ -42,9 +42,23 @@ export async function GET(req: NextRequest) {
   }
 
   const now     = new Date().toISOString()
-  const results = { graceStarted: 0, graceLapsed: 0, expired: 0, errors: [] as string[] }
+  const results = { expiryMirrored: 0, graceStarted: 0, graceLapsed: 0, expired: 0, errors: [] as string[] }
 
   try {
+    // 0. Keep denormalized shops.plan_expires_at in sync for admin views.
+    const paidWithExpiry = await sbGet(
+      `subscriptions?status=eq.active&plan=in.(professional,business)&expires_at=not.is.null&select=shop_id,expires_at`
+    )
+    for (const sub of paidWithExpiry) {
+      try {
+        await sbPatch(`shops?id=eq.${sub.shop_id}`, {
+          plan_expires_at: sub.expires_at,
+          updated_at: now,
+        })
+        results.expiryMirrored++
+      } catch (e) { results.errors.push(String(e)) }
+    }
+
     // 1. Active past expiry → Starter immediately
     const expiredPaid = await sbGet(
       `subscriptions?status=eq.active&expires_at=lt.${now}&expires_at=not.is.null&select=id,shop_id,expires_at`
@@ -60,7 +74,7 @@ export async function GET(req: NextRequest) {
           updated_at: now,
         })
         await sbPatch(`shops?id=eq.${sub.shop_id}`, {
-          plan: 'starter', updated_at: now,
+          plan: 'starter', plan_expires_at: null, updated_at: now,
         })
         results.expired++
       } catch (e) { results.errors.push(String(e)) }
@@ -76,7 +90,7 @@ export async function GET(req: NextRequest) {
           status: 'active', plan: 'starter', billing_cycle: null, expires_at: null, updated_at: now,
         })
         await sbPatch(`shops?id=eq.${sub.shop_id}`, {
-          plan: 'starter', updated_at: now,
+          plan: 'starter', plan_expires_at: null, updated_at: now,
         })
         results.graceLapsed++
       } catch (e) { results.errors.push(String(e)) }
@@ -92,7 +106,7 @@ export async function GET(req: NextRequest) {
           status: 'active', plan: 'starter', billing_cycle: null, expires_at: null, updated_at: now,
         })
         await sbPatch(`shops?id=eq.${sub.shop_id}`, {
-          plan: 'starter', updated_at: now,
+          plan: 'starter', plan_expires_at: null, updated_at: now,
         })
         results.expired++
       } catch (e) { results.errors.push(String(e)) }

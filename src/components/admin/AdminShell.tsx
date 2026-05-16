@@ -42,7 +42,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <Scissors size={16} className="text-white" />
           </div>
           <div>
-            <p className="font-bold text-white text-sm leading-tight">DarziHub</p>
+            <p className="font-bold text-white text-sm leading-tight">Meradarzi</p>
             <p className="text-slate-500 text-[10px]">Super Admin</p>
           </div>
         </div>

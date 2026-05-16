@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     const data = await res.json()
 
-    if (data.result === 'ok') {
+    if (data.result === 'ok' || data.result === 'not found') {
       return NextResponse.json({ success: true })
     } else {
       return NextResponse.json({ error: data.result }, { status: 400 })

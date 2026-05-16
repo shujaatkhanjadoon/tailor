@@ -17,17 +17,17 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: {
-    default: "MeraDarzi",
-    template: "%s | MeraDarzi",
+    default: "Meradarzi",
+    template: "%s | Meradarzi",
   },
   description:
     "Pakistan ka pehla tailor management app â€” orders, measurements, payments. Offline bhi kaam kare.",
   keywords: ["tailor", "darzi", "pakistan", "order management", "kapra"],
   openGraph: {
-    title: "MeraDarzi",
+    title: "Meradarzi",
     description: "Pakistan ka pehla tailor management app",
     url: "https://app.meradarzi.pk/",
-    siteName: "MeraDarzi",
+    siteName: "Meradarzi",
     locale: "ur_PK",
     type: "website",
   },
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "MeraDarzi",
+    title: "Meradarzi",
   },
   formatDetection: { telephone: false },
   icons: {

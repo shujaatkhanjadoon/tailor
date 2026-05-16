@@ -168,7 +168,7 @@ function buildExpiredWhatsApp(
   const dayTxt = daysLeft === 1 ? "1 din" : `${daysLeft} din`;
   const msg = encodeURIComponent(
     `Assalam o Alaikum ${shopName}!\n\n` +
-      `Aapki My Darzi subscription ${daysLeft !== null ? `${dayTxt} mein` : "jaldi"} expire ho rahi hai.` +
+      `Aapki Meradarzi subscription ${daysLeft !== null ? `${dayTxt} mein` : "jaldi"} expire ho rahi hai.` +
       (expiryDate ? `\nExpiry: ${formatDate(expiryDate)}` : "") +
       `\n\nService continue rakhne ke liye renewal karein:\n${process.env.NEXT_PUBLIC_APP_URL ?? "https://mydarzi.vercel.app"}/billing/upgrade\n\nShukriya!`,
   );
@@ -194,7 +194,7 @@ function VerificationCard({
   const [done, setDone] = useState<"approved" | "rejected" | null>(null);
 
   const waLink = `https://wa.me/92${request.owner_phone.replace(/^0/, "").replace(/\D/g, "")}?text=${encodeURIComponent(
-    `Assalam o Alaikum ${request.owner_name}! Aapki My Darzi shop (${request.shop_name ?? request.owner_phone}) ki verification request review ho rahi hai. Hum aapko jald batayenge. Shukriya!`,
+    `Assalam o Alaikum ${request.owner_name}! Aapki Meradarzi shop (${request.shop_name ?? request.owner_phone}) ki verification request review ho rahi hai. Hum aapko jald batayenge. Shukriya!`,
   )}`;
 
   const handle = async (status: "approved" | "rejected") => {

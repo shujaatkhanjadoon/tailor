@@ -1,7 +1,7 @@
 // src/app/settings/shop/page.tsx
 'use client'
 
-import { useState, useEffect, type ChangeEvent } from 'react'
+import { useState, useEffect, useMemo, type ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -27,13 +27,12 @@ export default function ShopSettingsPage() {
   const [city,       setCity]       = useState('')
   const [addressLine, setAddressLine] = useState('')
   const [postalCode, setPostalCode] = useState('')
-  const [brandName,  setBrandName]  = useState('')
   const [brandColor, setBrandColor] = useState('#2563eb')
   const [brandLogoUrl, setBrandLogoUrl] = useState('')
   const [logoError, setLogoError] = useState('')
   const [saving,     setSaving]     = useState(false)
   const [saved,      setSaved]      = useState(false)
-  const [showCities, setShowCities] = useState(false)
+  const [cityQuery, setCityQuery] = useState('')
 
   const shop = useLiveQuery(
     async () => shopId ? db.shop.get(shopId) : undefined,
@@ -48,12 +47,24 @@ export default function ShopSettingsPage() {
       setCity(shop.city           ?? '')
       setAddressLine(shop.addressLine ?? '')
       setPostalCode(shop.postalCode ?? '')
-      setBrandName(shop.brandName ?? '')
       setBrandColor(shop.brandColor ?? '#2563eb')
       setBrandLogoUrl(shop.brandLogoUrl ?? '')
   }, [shop])
 
   const isBusiness = plan.plan === 'business' && plan.isActive
+  const selectedState = useMemo(
+    () => PAKISTAN_STATE_CITIES.find(group => group.state === stateProvince),
+    [stateProvince]
+  )
+  const filteredCities = useMemo(() => {
+    const query = cityQuery.trim().toLowerCase()
+    const cities = selectedState?.cities ?? []
+    return query
+      ? cities.filter(c => c.toLowerCase().includes(query))
+      : cities
+  }, [cityQuery, selectedState])
+  const canAddTypedCity = cityQuery.trim().length > 1 &&
+    !filteredCities.some(c => c.toLowerCase() === cityQuery.trim().toLowerCase())
 
   const handleLogoUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -101,7 +112,7 @@ export default function ShopSettingsPage() {
           city:           city     || undefined,
           addressLine:    addressLine.trim() || undefined,
           postalCode:     postalCode.trim() || undefined,
-          brandName:      isBusiness ? brandName.trim() || undefined : undefined,
+          brandName:      isBusiness ? shopName.trim() : undefined,
           brandColor:     isBusiness ? brandColor || undefined : undefined,
           brandLogoUrl:   isBusiness ? brandLogoUrl || undefined : undefined,
           updatedAt:      new Date().toISOString(),
@@ -169,7 +180,7 @@ export default function ShopSettingsPage() {
                 )}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold">Custom Branding</p>
+                <p className="text-sm font-bold">{shopName || 'Custom Branding'}</p>
                 <p className="text-xs text-white/75 truncate">
                   {isBusiness
                     ? 'Tracking page aur invoice/QR sharing par ye identity show hogi.'
@@ -187,20 +198,6 @@ export default function ShopSettingsPage() {
                 </p>
               </div>
             )}
-
-            <label className="block">
-              <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                Brand Display Name
-              </span>
-              <input
-                type="text"
-                value={brandName}
-                disabled={!isBusiness}
-                onChange={e => setBrandName(e.target.value)}
-                placeholder="Jaise: Ahmed Bespoke"
-                className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-sm outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
-              />
-            </label>
 
             <div className="grid grid-cols-[auto_1fr] gap-3 items-center">
               <label className="w-14 h-12 rounded-2xl border-2 border-slate-200 bg-slate-50 flex items-center justify-center cursor-pointer">
@@ -286,54 +283,76 @@ export default function ShopSettingsPage() {
         {/* Address */}
         <div>
           <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-            State / City (Optional)
+            State / Province (Optional)
           </label>
-          <div className="relative">
-            <button
-              onClick={() => setShowCities(v => !v)}
-              className="w-full flex items-center gap-2 bg-slate-50 border-2 border-slate-200
-                         rounded-2xl px-4 py-4 text-left transition-all hover:border-slate-300"
-            >
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 bg-slate-50 border-2 border-slate-200
+                            rounded-2xl px-4 py-4 transition-all focus-within:border-blue-500">
               <MapPin size={16} className="text-slate-400 shrink-0" />
-              <span className={cn('flex-1 text-sm', city ? 'text-slate-800 font-medium' : 'text-slate-400')}>
-                {city ? `${city}${stateProvince ? `, ${stateProvince}` : ''}` : 'Sheher chunein...'}
-              </span>
-              <span className="text-slate-400 text-xs">{showCities ? '▲' : '▼'}</span>
-            </button>
-
-            {showCities && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200
-                              rounded-2xl shadow-xl z-20 max-h-52 overflow-y-auto">
-                {/* Clear option */}
-                <button
-                  onClick={() => { setStateProvince(''); setCity(''); setShowCities(false) }}
-                  className="w-full px-4 py-3 text-left text-sm text-slate-400 border-b border-slate-100
-                             hover:bg-slate-50"
-                >
-                  — Koi nahi
-                </button>
+              <select
+                value={stateProvince}
+                onChange={e => {
+                  setStateProvince(e.target.value)
+                  setCity('')
+                  setCityQuery('')
+                }}
+                className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-800 outline-none"
+              >
+                <option value="">State/Province chunein...</option>
                 {PAKISTAN_STATE_CITIES.map(group => (
-                  <div key={group.state}>
-                    <p className="bg-slate-50 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                      {group.state}
-                    </p>
-                    {group.cities.map(c => (
-                      <button
-                        key={`${group.state}-${c}`}
-                        onClick={() => { setStateProvince(group.state); setCity(c); setShowCities(false) }}
-                        className={cn(
-                          'w-full px-4 py-3 text-left text-sm transition-colors',
-                          'border-b border-slate-100 last:border-0 hover:bg-slate-50',
-                          city === c && stateProvince === group.state
-                            ? 'bg-blue-50 text-blue-700 font-semibold'
-                            : 'text-slate-700'
-                        )}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
+                  <option key={group.state} value={group.state}>{group.state}</option>
                 ))}
+              </select>
+            </div>
+
+            {stateProvince && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                  City
+                </label>
+                <input
+                  type="text"
+                  value={cityQuery}
+                  onChange={e => setCityQuery(e.target.value)}
+                  placeholder={city || 'Search city ya manually type karein'}
+                  className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-500"
+                />
+                <div className="mt-2 max-h-44 overflow-y-auto rounded-2xl border border-slate-200 bg-white">
+                  {city && (
+                    <button
+                      type="button"
+                      onClick={() => { setCity(''); setCityQuery('') }}
+                      className="w-full border-b border-slate-100 px-4 py-2.5 text-left text-xs font-semibold text-slate-400"
+                    >
+                      Selected: {city} - clear
+                    </button>
+                  )}
+                  {filteredCities.map(c => (
+                    <button
+                      key={`${stateProvince}-${c}`}
+                      type="button"
+                      onClick={() => { setCity(c); setCityQuery('') }}
+                      className={cn(
+                        'w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition-colors last:border-0 hover:bg-slate-50',
+                        city === c ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-700'
+                      )}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                  {canAddTypedCity && (
+                    <button
+                      type="button"
+                      onClick={() => { setCity(cityQuery.trim()); setCityQuery('') }}
+                      className="w-full px-4 py-3 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50"
+                    >
+                      Add "{cityQuery.trim()}"
+                    </button>
+                  )}
+                  {filteredCities.length === 0 && !canAddTypedCity && (
+                    <p className="px-4 py-3 text-xs text-slate-400">City type karein.</p>
+                  )}
+                </div>
               </div>
             )}
           </div>

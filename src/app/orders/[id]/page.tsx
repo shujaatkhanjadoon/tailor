@@ -24,6 +24,7 @@ import { format } from 'date-fns'
 import { usePlan } from '@/hooks/usePlan'
 import { AccessNotice } from '@/components/billing/AccessNotice'
 import { orderFinancialSummary, orderPaymentProgress } from '@/lib/payments/calculations'
+import { getOptimisedUrl } from '@/lib/photos/cloudinary'
 
 const PAYMENT_METHODS = [
   { key: 'cash', label: 'Cash', emoji: '💵' },
@@ -112,7 +113,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const displayPhotos = photos.length > 0
     ? photos.map(photo => ({
         id: photo.id,
-        src: photo.cloudUrl ?? photo.base64,
+        src: photo.cloudUrl ? getOptimisedUrl(photo.cloudUrl, { width: 800 }) : photo.base64,
         label: `${photo.type} photo`,
         type: photo.type,
       }))
@@ -158,7 +159,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         isOverdue ? 'bg-red-700' : 'bg-linear-to-br from-blue-900 to-blue-700'
       )}>
         <div className="flex items-center justify-between mb-5">
-          {plan.canUseQR ? (
+          {plan.isLoading ? (
+            <div className="h-9 w-20 rounded-xl bg-white/15" />
+          ) : plan.canUseQR ? (
             <button
               onClick={() => setShowQR(true)}
               className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30
@@ -530,7 +533,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <ImageIcon size={15} className="text-blue-600" />
               Uploaded Images
             </h2>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3">
               {displayPhotos.map(photo => (
                 <button
                   key={photo.id}
@@ -539,12 +542,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     src: photo.src,
                     label: photo.label,
                   })}
-                  className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-left"
                 >
                   <img
                     src={photo.src}
                     alt={photo.label}
-                    className="h-36 w-full object-cover"
+                    className="aspect-[4/3] w-full object-cover"
                   />
                   <p className="px-3 py-2 text-xs font-semibold capitalize text-slate-600">
                     {photo.type}

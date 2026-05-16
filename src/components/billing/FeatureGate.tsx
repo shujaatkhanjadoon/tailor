@@ -26,6 +26,12 @@ export function FeatureGate({
   const featureDef     = FEATURE_DESCRIPTIONS[feature]
   const requiredPlan   = PLANS[featureDef.requiredPlan]
 
+  if (plan.isLoading) {
+    return mode === 'hide' ? null : (
+      <div className="min-h-24 animate-pulse rounded-2xl bg-slate-100" />
+    )
+  }
+
   // Check if user has access to this feature
   const hasAccess = (() => {
     switch (feature) {

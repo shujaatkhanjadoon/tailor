@@ -2,10 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CreditCard, Lock, LogOut, Settings, UserRound, X } from 'lucide-react'
+import { CreditCard, Lock, LogOut, Settings, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthContext'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '@/lib/db/schema'
+import { usePlan } from '@/hooks/usePlan'
 
 const actions = [
   { href: '/settings',             icon: Settings,   label: 'Settings' },
@@ -15,9 +18,20 @@ const actions = [
 
 export function MobileAccountBar() {
   const router = useRouter()
-  const { currentUser, logout } = useAuth()
+  const { currentUser, logout, shopId } = useAuth()
+  const plan = usePlan()
   const [open, setOpen] = useState(false)
-  const initial = currentUser?.name?.charAt(0)?.toUpperCase() ?? '?'
+  const shop = useLiveQuery(
+    async () => shopId ? db.shop.get(shopId) : undefined,
+    [shopId]
+  )
+  const initials = (currentUser?.name ?? 'User')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part.charAt(0).toUpperCase())
+    .join('') || '?'
+  const showShopLogo = plan.plan === 'business' && plan.isActive && !!shop?.brandLogoUrl
 
   const go = (href: string) => {
     setOpen(false)
@@ -37,7 +51,7 @@ export function MobileAccountBar() {
                   <Link href="/">
                     <Image
                       src="/logo.png"
-                      alt="Mera Darzi Logo"
+                      alt="Meradarzi Logo"
                       width={150}
                       height={50}
                     />
@@ -46,9 +60,16 @@ export function MobileAccountBar() {
         <button
           aria-label="Open user actions"
           onClick={() => setOpen(v => !v)}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-100"
+          className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-100"
         >
-          {open ? <X size={17} /> : initial}
+          {open ? (
+            <X size={17} />
+          ) : showShopLogo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={shop.brandLogoUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            initials
+          )}
         </button>
       </div>
 
@@ -58,8 +79,13 @@ export function MobileAccountBar() {
             onClick={() => go('/settings')}
             className="flex w-full items-center gap-3 rounded-2xl bg-slate-50 p-3 text-left active:bg-slate-100"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm">
-              <UserRound size={16} />
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white text-sm font-bold text-slate-600 shadow-sm">
+              {showShopLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={shop.brandLogoUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                initials
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-slate-800">{currentUser?.name ?? 'User'}</p>

@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { db } from '@/lib/db/schema'
 import { useAuth } from '@/lib/auth/AuthContext'
 import Image from 'next/image'
+import { usePlan } from '@/hooks/usePlan'
 
 const navItems = [
   { href: '/', icon: Home, label: 'Dashboard' },
@@ -26,11 +27,18 @@ export function SideNav() {
   const pathname = usePathname()
   const router = useRouter()
   const { shopId, currentUser, logout } = useAuth()
+  const plan = usePlan()
   const shop = useLiveQuery(
     async () => shopId ? db.shop.get(shopId) : undefined,
     [shopId]
   )
-  const userInitial = currentUser?.name?.charAt(0)?.toUpperCase() ?? '?'
+  const userInitials = (currentUser?.name ?? 'User')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part.charAt(0).toUpperCase())
+    .join('') || '?'
+  const showShopLogo = plan.plan === 'business' && plan.isActive && !!shop?.brandLogoUrl
 
   const handleLogout = () => {
     logout()
@@ -46,7 +54,7 @@ export function SideNav() {
           <Link href="/">
             <Image
               src="/logo.png"
-              alt="Mera Darzi Logo"
+              alt="Meradarzi Logo"
               width={150}
               height={50}
             />
@@ -95,8 +103,13 @@ export function SideNav() {
           href="/settings"
           className="group flex min-w-0 items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/40 p-3 transition-colors hover:border-slate-700 hover:bg-slate-800/70"
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-950/40">
-            {userInitial}
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-950/40">
+            {showShopLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={shop.brandLogoUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              userInitials
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-white">{currentUser?.name ?? 'User'}</p>

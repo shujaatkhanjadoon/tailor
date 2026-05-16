@@ -282,7 +282,7 @@ function OrdersContent() {
         {/* Order list */}
         {!isLoading && orders.length > 0 && (
           <div className="space-y-3">
-            {isOwner && !plan.canAddKarigar && (
+            {isOwner && !plan.isLoading && !plan.canAddKarigar && (
               <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3">
                 <p className="text-sm font-semibold text-blue-800">
                   Karigar assignment Professional plan mein available hai.

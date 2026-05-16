@@ -156,7 +156,7 @@ export const notifScheduler = {
   async test() {
     if (notifPermission.current() !== 'granted') return false
     notifPermission.fire(
-      '✅ DarziHub',
+      '✅ Meradarzi',
       'Notifications kaam kar rahi hain! Aap ko due orders ki yaad dilayi jayegi.',
       'darzi-test'
     )

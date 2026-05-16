@@ -41,7 +41,7 @@ export function Navbar() {
                             justify-center shadow-lg shadow-blue-600/25">
               <Scissors size={18} className="text-white" strokeWidth={1.8} />
             </div>
-            <span className="text-lg font-bold text-slate-900">My Darzi</span>
+            <span className="text-lg font-bold text-slate-900">Meradarzi</span>
           </Link>
 
           {/* Desktop nav */}

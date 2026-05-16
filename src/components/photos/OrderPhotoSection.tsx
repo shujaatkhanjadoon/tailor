@@ -2,7 +2,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Image, Info, Lock, Upload, X } from 'lucide-react'
+import { Image, Lock, Upload, X } from 'lucide-react'
 import { PhotoCapture } from './PhotoCapture'
 import { usePlan } from '@/hooks/usePlan'
 
@@ -71,6 +71,10 @@ function LockedPhotoPrompt() {
 export function OrderPhotoSection({ orderId }: OrderPhotoSectionProps) {
   const plan = usePlan()
 
+  if (plan.isLoading) {
+    return <div className="mt-4 h-32 rounded-2xl bg-slate-100 animate-pulse" />
+  }
+
   if (!plan.canUsePhotos) return <LockedPhotoPrompt />
 
   return (
@@ -81,14 +85,9 @@ export function OrderPhotoSection({ orderId }: OrderPhotoSectionProps) {
           Photos
         </h2>
 
-        {plan.plan === 'professional' && (
-          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-            <Info size={14} className="mt-0.5 shrink-0 text-amber-600" />
-            <p className="text-xs leading-relaxed text-amber-800">
-              Professional plan photos are saved only on this device. They are not synced to cloud storage, so they will not appear on another phone.
-            </p>
-          </div>
-        )}
+        <p className="text-[10px] leading-relaxed text-slate-400">
+          Uploaded images are synced to cloud storage and automatically deleted after 90 days.
+        </p>
       </div>
 
       <PhotoCapture
