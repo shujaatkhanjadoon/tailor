@@ -31,6 +31,7 @@ interface AuthActions {
     ownerName?: string,
     email?:     string,
     city?:      string,
+    stateProvince?: string,
   ) => Promise<string>
   reinitialize: () => Promise<void>
   clearAllData: () => Promise<void>
@@ -192,6 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ownerName?: string,
     email?:     string,
     city?:      string,
+    stateProvince?: string,
   ): Promise<string> => {
 
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -222,6 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ownerName: ownerName?.trim() || shopName + ' (Owner)',
         email:     email?.toLowerCase().trim(),
         city:      city?.trim(),
+        stateProvince: stateProvince?.trim(),
         pinHash,
       }),
     })
@@ -235,6 +238,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // ── Also save to IndexedDB for offline use ───────────────────
     await shopOps.setupWithId(shopId, shopName, ownerPhone)
+    await db.shop.update(shopId, {
+      city: city?.trim() || undefined,
+      stateProvince: stateProvince?.trim() || undefined,
+      _synced: 1,
+    })
 
     const owner = await teamOps.addWithId(shopId, actualMemberId, {
       name:  ownerName?.trim() || shopName + ' (Owner)',

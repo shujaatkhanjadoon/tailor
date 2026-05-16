@@ -53,7 +53,10 @@ export interface ShopRow {
   owner_phone:      string
   shop_name:        string
   whatsapp_number?: string
+  state_province?:  string
   city?:            string
+  address_line?:    string
+  postal_code?:     string
   brand_name?:      string
   brand_color?:     string
   brand_logo_url?:  string

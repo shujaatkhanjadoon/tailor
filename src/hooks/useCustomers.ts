@@ -2,6 +2,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState, useMemo } from 'react'
 import { db, CustomerRecord, MeasurementRecord, OrderRecord, PaymentRecord } from '@/lib/db/schema'
+import { customerFinancialSummary } from '@/lib/payments/calculations'
 
 export function useCustomers(shopId: string | null) {
   const [query,        setQuery]        = useState('')
@@ -76,16 +77,33 @@ export function useCustomer(id: string) {
 
   const safeOrders: OrderRecord[] = orders ?? []
 
+  const payments = useLiveQuery(
+    async (): Promise<PaymentRecord[]> => {
+      const orderIds = safeOrders.map(o => o.id)
+      if (orderIds.length === 0) return []
+      const rows = await db.payments.bulkGet(
+        (await db.payments.toArray())
+          .filter(p => orderIds.includes(p.orderId))
+          .map(p => p.id)
+      )
+      return rows.filter(Boolean) as PaymentRecord[]
+    },
+    [safeOrders.map(o => o.id).join('|')]
+  )
+
+  const finance = useMemo(
+    () => customerFinancialSummary(safeOrders, payments ?? []),
+    [safeOrders, payments]
+  )
+
   const totalSpent = useMemo(
-    () => safeOrders.reduce((sum, o) => sum + o.amountPaid, 0),
-    [safeOrders]
+    () => finance.receivedAmount,
+    [finance]
   )
 
   const pendingBalance = useMemo(
-    () => safeOrders
-      .filter(o => o.status !== 'cancelled')
-      .reduce((sum, o) => sum + Math.max(0, o.totalPrice - o.amountPaid), 0),
-    [safeOrders]
+    () => finance.remainingBalance,
+    [finance]
   )
 
   return {
@@ -94,5 +112,6 @@ export function useCustomer(id: string) {
     measurements: measurements ?? [],
     totalSpent,
     pendingBalance,
+    finance,
   }
 }

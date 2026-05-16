@@ -1,6 +1,6 @@
 // src/app/api/auth/create-shop/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { sendShopVerificationAlert } from '@/lib/security/email-otp'
+import { sendShopOwnerAccountCreated, sendShopVerificationAlert } from '@/lib/security/email-otp'
 
 const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
 
   const {
     shopId, shopName, ownerPhone, ownerName,
-    email, city, pinHash,
+    email, city, stateProvince, addressLine, postalCode, pinHash,
   } = await req.json()
 
   if (!shopId || !shopName || !ownerPhone || !pinHash) {
@@ -170,7 +170,10 @@ export async function POST(req: NextRequest) {
       shop_name:           shopName,
       owner_phone:         ownerPhone,
       owner_email:         normalizedEmail || null,
+      state_province:      stateProvince ?? null,
       city:                city   ?? null,
+      address_line:        addressLine ?? null,
+      postal_code:         postalCode ?? null,
       plan:                'starter',
       is_active:           true,
       verification_status: 'pending',
@@ -226,6 +229,7 @@ export async function POST(req: NextRequest) {
         owner_name:   ownerName ?? shopName,
         owner_phone:  ownerPhone,
         owner_email:  normalizedEmail || null,
+        state_province: stateProvince ?? null,
         city:         city  ?? null,
         status:       'pending',
         requested_at: new Date().toISOString(),
@@ -247,6 +251,14 @@ export async function POST(req: NextRequest) {
       ownerEmail: normalizedEmail || 'N/A',
       city,
       shopId,
+    }).catch(console.error)
+
+    sendShopOwnerAccountCreated({
+      shopName,
+      ownerName:  ownerName ?? shopName,
+      ownerPhone,
+      ownerEmail: normalizedEmail || undefined,
+      city,
     }).catch(console.error)
 
     // WhatsApp via CallMeBot (if configured)

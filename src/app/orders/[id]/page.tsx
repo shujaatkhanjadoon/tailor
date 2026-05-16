@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { usePlan } from '@/hooks/usePlan'
 import { AccessNotice } from '@/components/billing/AccessNotice'
-import { orderPaymentProgress } from '@/lib/payments/calculations'
+import { orderFinancialSummary, orderPaymentProgress } from '@/lib/payments/calculations'
 
 const PAYMENT_METHODS = [
   { key: 'cash', label: 'Cash', emoji: '💵' },
@@ -108,6 +108,17 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const progress = order.totalPrice > 0
     ? orderPaymentProgress(order)
     : 0
+  const finance = orderFinancialSummary(order, payments)
+  const displayPhotos = photos.length > 0
+    ? photos.map(photo => ({
+        id: photo.id,
+        src: photo.cloudUrl ?? photo.base64,
+        label: `${photo.type} photo`,
+        type: photo.type,
+      }))
+    : order.fabricPhotoUrl
+      ? [{ id: 'fabric-photo-url', src: order.fabricPhotoUrl, label: 'fabric photo', type: 'fabric' }]
+      : []
 
   const waLink = (() => {
     const phone = `92${order.customerPhone.replace(/^0/, '').replace(/\D/g, '')}`
@@ -251,11 +262,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             {/* Total / paid / balance row */}
             <div className="grid grid-cols-3 gap-3 mb-3">
               {[
-                { label: 'Kul Qeemat', value: `Rs.${order.totalPrice.toLocaleString()}`, color: 'text-slate-800' },
-                { label: 'Diya', value: `Rs.${order.amountPaid.toLocaleString()}`, color: 'text-green-700' },
+                { label: 'Kul Qeemat', value: `Rs.${finance.totalAmount.toLocaleString()}`, color: 'text-slate-800' },
+                { label: 'Received', value: `Rs.${finance.receivedAmount.toLocaleString()}`, color: 'text-green-700' },
                 {
-                  label: 'Baaki', value: balance > 0 ? `Rs.${balance.toLocaleString()}` : '—',
-                  color: balance > 0 ? 'text-red-600' : 'text-slate-400'
+                  label: 'Baaki', value: finance.remainingBalance > 0 ? `Rs.${finance.remainingBalance.toLocaleString()}` : '—',
+                  color: finance.remainingBalance > 0 ? 'text-red-600' : 'text-slate-400'
                 },
               ].map(s => (
                 <div key={s.label} className="text-center bg-slate-50 rounded-xl p-2.5">
@@ -264,9 +275,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 </div>
               ))}
             </div>
-            {payments.some(p => p.kind === 'tip' || p.kind === 'overpayment') && (
-              <div className="mb-3 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                Extra payments, tips, aur overpayments order balance se alag track ho rahe hain.
+            {(finance.appliedAmount !== finance.receivedAmount || finance.tips > 0 || finance.overpayment > 0) && (
+              <div className="mb-3 grid grid-cols-1 gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500 min-[420px]:grid-cols-3">
+                <span>Applied: Rs.{finance.appliedAmount.toLocaleString()}</span>
+                <span>Tips: Rs.{finance.tips.toLocaleString()}</span>
+                <span>Overpay: Rs.{finance.overpayment.toLocaleString()}</span>
               </div>
             )}
 
@@ -511,26 +524,26 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </div>
 
         {/* UPLOADED IMAGES */}
-        {photos.length > 0 && (
+        {displayPhotos.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
             <h2 className="font-bold text-slate-800 text-sm flex items-center gap-2">
               <ImageIcon size={15} className="text-blue-600" />
               Uploaded Images
             </h2>
             <div className="grid grid-cols-2 gap-3">
-              {photos.map(photo => (
+              {displayPhotos.map(photo => (
                 <button
                   key={photo.id}
                   type="button"
                   onClick={() => setPreviewPhoto({
-                    src: photo.cloudUrl ?? photo.base64,
-                    label: `${photo.type} photo`,
+                    src: photo.src,
+                    label: photo.label,
                   })}
                   className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
                 >
                   <img
-                    src={photo.cloudUrl ?? photo.base64}
-                    alt={`${photo.type} photo`}
+                    src={photo.src}
+                    alt={photo.label}
                     className="h-36 w-full object-cover"
                   />
                   <p className="px-3 py-2 text-xs font-semibold capitalize text-slate-600">

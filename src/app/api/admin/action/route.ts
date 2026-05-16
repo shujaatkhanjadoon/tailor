@@ -1,5 +1,6 @@
 // src/app/api/admin/action/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { sendShopOwnerAdminActionEmail } from "@/lib/security/email-otp";
 
 const SB_URL = () => process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -79,6 +80,12 @@ async function logAction(
   }
 }
 
+function notifyOwner(shopId: string, action: string, title: string, message: string, details?: [string, unknown][]) {
+  sendShopOwnerAdminActionEmail({ shopId, action, title, message, details }).catch((e) => {
+    console.error("[Admin Action] Owner email failed (non-fatal):", e);
+  });
+}
+
 function nextExpiry(cycle: string | undefined, planId = "professional") {
   if (planId === "starter") return null;
   const d = new Date();
@@ -143,6 +150,11 @@ export async function POST(req: NextRequest) {
           cycle,
           expires_at: expiresAt,
         });
+        notifyOwner(shopId, "manual_plan_change", "Subscription Plan Updated", `Admin updated your subscription to ${planId}.`, [
+          ["Plan", planId],
+          ["Cycle", cycle ?? "monthly"],
+          ["Expires At", expiresAt ?? "No expiry"],
+        ]);
 
         console.log(
           "[Admin Action] Plan changed:",
@@ -209,6 +221,12 @@ export async function POST(req: NextRequest) {
           cycle,
           amount: amountPkr,
         });
+        notifyOwner(shopId, "activate_subscription", "Subscription Payment Approved", `Your ${planId} subscription payment has been approved.`, [
+          ["Plan", planId],
+          ["Cycle", cycle],
+          ["Amount", amountPkr ? `Rs. ${amountPkr}` : "N/A"],
+          ["Expires At", expiresAt],
+        ]);
 
         return NextResponse.json({ success: true, expiresAt });
       }
@@ -244,6 +262,9 @@ export async function POST(req: NextRequest) {
         await logAction("reject_payment", paymentId, shopId ?? paymentId, {
           reason,
         });
+        if (shopId) notifyOwner(shopId, "reject_payment", "Subscription Payment Needs Review", "Your submitted subscription payment was not approved.", [
+          ["Reason", reason ?? "Admin rejected"],
+        ]);
 
         return NextResponse.json({ success: true });
       }
@@ -262,6 +283,9 @@ export async function POST(req: NextRequest) {
         });
 
         await logAction("shop_deactivated", shopId, shopId, { reason });
+        notifyOwner(shopId, "shop_deactivated", "Shop Account Deactivated", "Admin deactivated your shop account.", [
+          ["Reason", reason ?? "N/A"],
+        ]);
         return NextResponse.json({ success: true });
       }
 
@@ -281,6 +305,9 @@ export async function POST(req: NextRequest) {
         });
 
         await logAction("shop_activated", shopId, shopId, { reason });
+        notifyOwner(shopId, "shop_activated", "Shop Account Activated", "Admin activated your shop account.", [
+          ["Reason", reason ?? "N/A"],
+        ]);
         return NextResponse.json({ success: true });
       }
 
@@ -314,6 +341,9 @@ export async function POST(req: NextRequest) {
           shopId,
           { note },
         );
+        notifyOwner(shopId, status === "approved" ? "shop_approved" : "shop_rejected", status === "approved" ? "Shop Verification Approved" : "Shop Verification Rejected", status === "approved" ? "Your shop verification has been approved." : "Your shop verification was rejected.", [
+          ["Note", note ?? "N/A"],
+        ]);
         return NextResponse.json({ success: true });
       }
 
@@ -356,6 +386,9 @@ export async function POST(req: NextRequest) {
         });
 
         await logAction("shop_deleted", shopId, shopId, { reason });
+        notifyOwner(shopId, "shop_deleted", "Shop Account Deleted", "Admin deleted/deactivated your shop account.", [
+          ["Reason", reason ?? "N/A"],
+        ]);
         return NextResponse.json({ success: true });
       }
 

@@ -62,6 +62,23 @@ function orderToRemoteRow(order: OrderRecord) {
   }
 }
 
+async function recalculateOrderPaymentState(orderId: string): Promise<void> {
+  const order = await db.orders.get(orderId)
+  if (!order) return
+
+  const payments = await db.payments
+    .where('orderId').equals(orderId)
+    .filter(p => p._deleted === 0)
+    .toArray()
+
+  const applied = payments.reduce((sum, p) => sum + paymentAppliedAmount(p), 0)
+  await db.orders.update(orderId, {
+    amountPaid: Math.min(applied, order.totalPrice),
+    updatedAt:  now(),
+    _synced:    0 as const,
+  })
+}
+
 function paymentToRemoteRow(payment: PaymentRecord) {
   return {
     id:                 payment.id,
@@ -573,22 +590,7 @@ export const paymentOps = {
     // Dexie transaction — atomically insert + recalculate
     await db.transaction('rw', [db.payments, db.orders], async () => {
       await db.payments.add(payment)
-
-      const allPayments = await db.payments
-        .where('orderId').equals(data.orderId)
-        .toArray()
-
-      // Sum includes the new payment — do NOT add data.amount again
-      const totalPaid = allPayments
-        .filter(p => p._deleted === 0)
-        .reduce((sum, p) => sum + paymentAppliedAmount(p), 0)
-
-      const amountPaid = Math.min(totalPaid, order.totalPrice)
-      await db.orders.update(data.orderId, {
-        amountPaid,
-        updatedAt:  now(),
-        _synced:    0 as const,
-      })
+      await recalculateOrderPaymentState(data.orderId)
     })
 
     syncQueue.push('create', 'payments', payment.id, payment)

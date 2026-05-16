@@ -2,6 +2,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
   if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -35,8 +37,10 @@ export async function GET(req: NextRequest) {
 
     if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`)
 
-    return NextResponse.json({ success: true, monthYear })
+    console.log('[Cron] reset-usage complete:', { monthYear, at: now })
+    return NextResponse.json({ success: true, monthYear, timestamp: now })
   } catch (e) {
+    console.error('[Cron] reset-usage error:', e)
     return NextResponse.json({ success: false, error: String(e) }, { status: 500 })
   }
 }

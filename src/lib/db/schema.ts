@@ -8,7 +8,10 @@ export interface ShopRecord {
   shopName: string
   ownerPhone: string
   whatsappNumber?: string
+  stateProvince?: string
   city?: string
+  addressLine?: string
+  postalCode?: string
   brandName?: string
   brandColor?: string
   brandLogoUrl?: string
@@ -165,7 +168,7 @@ export class TailorDB extends Dexie {
 
   constructor() {
     super('DarziManagerDB')
-    this.version(6).stores({
+    this.version(7).stores({
       shop: 'id, ownerPhone, _synced',
       teamMembers: 'id, shopId, phone, role, isActive, _synced, [shopId+isActive]',
       customers: 'id, shopId, phone, name, _synced, _deleted, lastOrderAt',

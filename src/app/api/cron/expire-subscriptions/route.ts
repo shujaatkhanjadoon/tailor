@@ -1,6 +1,8 @@
 // src/app/api/cron/expire-subscriptions/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 const jsonHeaders = (serviceKey: string) => ({
   'Content-Type': 'application/json',
   'apikey': serviceKey,
@@ -96,8 +98,10 @@ export async function GET(req: NextRequest) {
       } catch (e) { results.errors.push(String(e)) }
     }
 
+    console.log('[Cron] expire-subscriptions complete:', results)
     return NextResponse.json({ success: true, timestamp: now, ...results })
   } catch (e) {
+    console.error('[Cron] expire-subscriptions error:', e)
     return NextResponse.json({ success: false, error: String(e) }, { status: 500 })
   }
 }

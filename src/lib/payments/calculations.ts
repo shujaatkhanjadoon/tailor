@@ -12,6 +12,49 @@ export function orderBalance(order: Pick<OrderRecord, 'totalPrice' | 'amountPaid
   return Math.max(0, order.totalPrice - order.amountPaid)
 }
 
+export function orderFinancialSummary(
+  order: Pick<OrderRecord, 'totalPrice' | 'amountPaid'>,
+  payments: PaymentRecord[] = [],
+) {
+  const totals = sumPayments(payments.filter(p => p._deleted === 0))
+  const effectivePaid = Math.min(order.totalPrice, totals.applied || order.amountPaid)
+  const remainingBalance = Math.max(0, order.totalPrice - effectivePaid)
+
+  return {
+    totalAmount: order.totalPrice,
+    advancePayment: payments
+      .filter(p => p.kind === 'order_payment')
+      .sort((a, b) => a.paidAt.localeCompare(b.paidAt))[0]?.amount ?? 0,
+    receivedAmount: totals.received,
+    appliedAmount: effectivePaid,
+    remainingBalance,
+    overpayment: totals.overpayments,
+    tips: totals.tips,
+    surplus: totals.surplus,
+  }
+}
+
+export function customerFinancialSummary(orders: OrderRecord[], payments: PaymentRecord[]) {
+  const activeOrders = orders.filter(o => o._deleted === 0 && o.status !== 'cancelled')
+  const orderIds = new Set(activeOrders.map(o => o.id))
+  const customerPayments = payments.filter(p => p._deleted === 0 && orderIds.has(p.orderId))
+  const paymentTotals = sumPayments(customerPayments)
+  const totalAmount = activeOrders.reduce((sum, o) => sum + o.totalPrice, 0)
+  const remainingBalance = activeOrders.reduce((sum, o) => sum + orderBalance(o), 0)
+
+  return {
+    totalAmount,
+    receivedAmount: paymentTotals.received,
+    appliedAmount: paymentTotals.applied,
+    remainingBalance,
+    overpayment: paymentTotals.overpayments,
+    tips: paymentTotals.tips,
+    adjustments: customerPayments
+      .filter(p => /Auto-adjusted from order/i.test(p.notes ?? ''))
+      .reduce((sum, p) => sum + paymentAppliedAmount(p), 0),
+  }
+}
+
 export function orderPaymentProgress(order: Pick<OrderRecord, 'totalPrice' | 'amountPaid'>): number {
   if (order.totalPrice <= 0) return 0
   return Math.min(100, Math.round((order.amountPaid / order.totalPrice) * 100))

@@ -28,6 +28,7 @@ import { validatePakistaniPhone } from "@/lib/security/phone";
 import { validatePIN, getPINStrength } from "@/lib/security/pin";
 import { verifyPIN } from "@/lib/security/pin";
 import { cn } from "@/lib/utils";
+import { PAKISTAN_STATE_CITIES } from "@/lib/locations/pakistan";
 
 const ADMIN_WA = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? "";
 
@@ -240,6 +241,7 @@ function AuthContent() {
   const [ownerName, setOwnerName] = useState("");
   const [shopName, setShopName] = useState("");
   const [city, setCity] = useState("");
+  const [stateProvince, setStateProvince] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -738,6 +740,7 @@ function AuthContent() {
           ownerName.trim(),
           email.trim().toLowerCase(),
           city.trim(),
+          stateProvince.trim(),
         );
         setNewShopId(createdShopId);
         setStep("setup_verify_request");
@@ -751,7 +754,7 @@ function AuthContent() {
         setLoading(false);
       }
     },
-    [pin, phone, shopName, ownerName, email, city, setupShop],
+    [pin, phone, shopName, ownerName, email, city, stateProvince, setupShop],
   );
 
   // Auto-submit confirm PIN
@@ -1215,21 +1218,31 @@ function AuthContent() {
                            transition-all placeholder:text-slate-400 mb-3"
               />
 
-              <div
-                className="flex items-center gap-2 border-2 border-slate-200
-                              bg-slate-50 rounded-2xl px-4 py-3.5 mb-4
-                              focus-within:border-blue-500 focus-within:bg-white transition-all"
-              >
-                <MapPin size={16} className="text-slate-400 shrink-0" />
-                <input
-                  type="text"
-                  placeholder="Shehar (Optional) — Lahore, Karachi..."
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className="flex-1 text-sm bg-transparent outline-none text-slate-800
-                             placeholder:text-slate-400"
-                />
-              </div>
+              <label className="mb-4 block">
+                <span className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <MapPin size={13} /> State / City (Optional)
+                </span>
+                <select
+                  value={stateProvince && city ? `${stateProvince}|${city}` : ""}
+                  onChange={(e) => {
+                    const [state, selectedCity] = e.target.value.split("|");
+                    setStateProvince(state ?? "");
+                    setCity(selectedCity ?? "");
+                  }}
+                  className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-800 outline-none transition-all focus:border-blue-500 focus:bg-white"
+                >
+                  <option value="">Sheher chunein...</option>
+                  {PAKISTAN_STATE_CITIES.map((group) => (
+                    <optgroup key={group.state} label={group.state}>
+                      {group.cities.map((item) => (
+                        <option key={`${group.state}-${item}`} value={`${group.state}|${item}`}>
+                          {item}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </label>
 
               {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
 

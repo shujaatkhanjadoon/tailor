@@ -14,12 +14,7 @@ import { cn } from '@/lib/utils'
 import { AccessNotice } from '@/components/billing/AccessNotice'
 import { usePlan } from '@/hooks/usePlan'
 import { syncService } from '@/lib/supabase/sync-service'
-
-const PAKISTAN_CITIES = [
-  'Karachi','Lahore','Islamabad','Rawalpindi','Faisalabad',
-  'Multan','Peshawar','Quetta','Sialkot','Gujranwala',
-  'Hyderabad','Abbottabad','Bahawalpur','Sargodha','Sukkur',
-]
+import { PAKISTAN_STATE_CITIES } from '@/lib/locations/pakistan'
 
 export default function ShopSettingsPage() {
   const router     = useRouter()
@@ -28,7 +23,10 @@ export default function ShopSettingsPage() {
 
   const [shopName,   setShopName]   = useState('')
   const [whatsapp,   setWhatsapp]   = useState('')
+  const [stateProvince, setStateProvince] = useState('')
   const [city,       setCity]       = useState('')
+  const [addressLine, setAddressLine] = useState('')
+  const [postalCode, setPostalCode] = useState('')
   const [brandName,  setBrandName]  = useState('')
   const [brandColor, setBrandColor] = useState('#2563eb')
   const [brandLogoUrl, setBrandLogoUrl] = useState('')
@@ -46,7 +44,10 @@ export default function ShopSettingsPage() {
       if (!shop) return
       setShopName(shop.shopName   ?? '')
       setWhatsapp(shop.whatsappNumber ?? '')
+      setStateProvince(shop.stateProvince ?? '')
       setCity(shop.city           ?? '')
+      setAddressLine(shop.addressLine ?? '')
+      setPostalCode(shop.postalCode ?? '')
       setBrandName(shop.brandName ?? '')
       setBrandColor(shop.brandColor ?? '#2563eb')
       setBrandLogoUrl(shop.brandLogoUrl ?? '')
@@ -96,7 +97,10 @@ export default function ShopSettingsPage() {
         await db.shop.update(currentShop.id, {
           shopName:       shopName.trim(),
           whatsappNumber: whatsapp || undefined,
+          stateProvince:  stateProvince || undefined,
           city:           city     || undefined,
+          addressLine:    addressLine.trim() || undefined,
+          postalCode:     postalCode.trim() || undefined,
           brandName:      isBusiness ? brandName.trim() || undefined : undefined,
           brandColor:     isBusiness ? brandColor || undefined : undefined,
           brandLogoUrl:   isBusiness ? brandLogoUrl || undefined : undefined,
@@ -279,10 +283,10 @@ export default function ShopSettingsPage() {
           </div>
         </div>
 
-        {/* City */}
+        {/* Address */}
         <div>
           <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-            Sheher (Optional)
+            State / City (Optional)
           </label>
           <div className="relative">
             <button
@@ -292,7 +296,7 @@ export default function ShopSettingsPage() {
             >
               <MapPin size={16} className="text-slate-400 shrink-0" />
               <span className={cn('flex-1 text-sm', city ? 'text-slate-800 font-medium' : 'text-slate-400')}>
-                {city || 'Sheher chunein...'}
+                {city ? `${city}${stateProvince ? `, ${stateProvince}` : ''}` : 'Sheher chunein...'}
               </span>
               <span className="text-slate-400 text-xs">{showCities ? '▲' : '▼'}</span>
             </button>
@@ -302,28 +306,65 @@ export default function ShopSettingsPage() {
                               rounded-2xl shadow-xl z-20 max-h-52 overflow-y-auto">
                 {/* Clear option */}
                 <button
-                  onClick={() => { setCity(''); setShowCities(false) }}
+                  onClick={() => { setStateProvince(''); setCity(''); setShowCities(false) }}
                   className="w-full px-4 py-3 text-left text-sm text-slate-400 border-b border-slate-100
                              hover:bg-slate-50"
                 >
                   — Koi nahi
                 </button>
-                {PAKISTAN_CITIES.map(c => (
-                  <button
-                    key={c}
-                    onClick={() => { setCity(c); setShowCities(false) }}
-                    className={cn(
-                      'w-full px-4 py-3 text-left text-sm transition-colors',
-                      'border-b border-slate-100 last:border-0 hover:bg-slate-50',
-                      city === c ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700'
-                    )}
-                  >
-                    {c}
-                  </button>
+                {PAKISTAN_STATE_CITIES.map(group => (
+                  <div key={group.state}>
+                    <p className="bg-slate-50 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                      {group.state}
+                    </p>
+                    {group.cities.map(c => (
+                      <button
+                        key={`${group.state}-${c}`}
+                        onClick={() => { setStateProvince(group.state); setCity(c); setShowCities(false) }}
+                        className={cn(
+                          'w-full px-4 py-3 text-left text-sm transition-colors',
+                          'border-b border-slate-100 last:border-0 hover:bg-slate-50',
+                          city === c && stateProvince === group.state
+                            ? 'bg-blue-50 text-blue-700 font-semibold'
+                            : 'text-slate-700'
+                        )}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
                 ))}
               </div>
             )}
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-[1fr_10rem]">
+          <label>
+            <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+              Address Line
+            </span>
+            <input
+              type="text"
+              value={addressLine}
+              onChange={e => setAddressLine(e.target.value)}
+              placeholder="Shop #, bazaar, road..."
+              className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-500"
+            />
+          </label>
+          <label>
+            <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+              Postal Code
+            </span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={postalCode}
+              onChange={e => setPostalCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="54000"
+              className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-500"
+            />
+          </label>
         </div>
 
         {/* Info box */}

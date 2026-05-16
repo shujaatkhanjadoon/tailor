@@ -49,6 +49,7 @@ interface WizardData {
   paymentMethod: PaymentMethod;
   assignedTo?: string;
   assignedToName?: string;
+  fabricPhotoBase64?: string;
 }
 
 const STEPS = ["Gahak Chunein", "Kapra & Nap", "Qeemat & Tarikh"];
@@ -211,7 +212,22 @@ function NewOrderWizard({
         specialInstructions: data.specialInstructions || undefined,
         assignedTo: data.assignedTo,
         assignedToName: data.assignedToName,
+        fabricPhotoUrl: data.fabricPhotoBase64,
       });
+
+      if (data.fabricPhotoBase64) {
+        await db.photos.add({
+          id: uuid(),
+          orderId: order.id,
+          shopId,
+          type: "fabric",
+          base64: data.fabricPhotoBase64,
+          sizeKB: Math.ceil((data.fabricPhotoBase64.length * 3) / 4 / 1024),
+          takenAt: new Date().toISOString(),
+          _synced: 0,
+          _deleted: 0,
+        });
+      }
 
       // ── 2. Record advance payment (paymentOps sets amountPaid correctly) ──
       if (data.advancePaid && data.advancePaid > 0) {

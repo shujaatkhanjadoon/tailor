@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient }              from '@supabase/supabase-js'
 
+export const dynamic = 'force-dynamic'
+
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -125,7 +127,7 @@ export async function GET(req: NextRequest) {
 
         // Store reminder in DB as a log record
         // In production: call WhatsApp Business API here
-        await adminSupabase
+        const { error: insertError } = await adminSupabase
           .from('subscription_payments')
           .insert({
             shop_id:       sub.shop_id,
@@ -143,6 +145,13 @@ export async function GET(req: NextRequest) {
               sent_at:    now.toISOString(),
             },
           })
+        if (insertError) {
+          if (insertError.code === '23505') {
+            results.skipped++
+            continue
+          }
+          throw insertError
+        }
 
         // Log the WhatsApp link so admin can send manually
         console.log(`[Cron] Reminder ${days}d: ${shop.shop_name} → ${waLink}`)

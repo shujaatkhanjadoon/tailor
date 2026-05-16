@@ -21,7 +21,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   const { id }   = use(params)
   const router   = useRouter()
   const { isOwner} = useAuth()
-  const { customer, orders, measurements, totalSpent, pendingBalance } = useCustomer(id)
+  const { customer, orders, measurements, totalSpent, pendingBalance, finance } = useCustomer(id)
   const [paymentOrderId, setPaymentOrderId] = useState<string | null>(null)
 
   if (!customer) {
@@ -121,6 +121,20 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
             </div>
           ))}
         </div>
+        {(finance.adjustments > 0 || finance.tips > 0 || finance.overpayment > 0) && (
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            {[
+              { label: 'Adjust', value: finance.adjustments },
+              { label: 'Tips', value: finance.tips },
+              { label: 'Overpay', value: finance.overpayment },
+            ].map(item => (
+              <div key={item.label} className="rounded-xl bg-white/10 px-2 py-2">
+                <p className="text-xs font-bold text-white">Rs.{item.value.toLocaleString()}</p>
+                <p className="mt-0.5 text-[9px] text-blue-200">{item.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── QUICK ACTIONS ── */}

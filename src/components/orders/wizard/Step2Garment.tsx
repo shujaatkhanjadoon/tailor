@@ -11,48 +11,71 @@ import { compressImage } from '@/lib/photos/compress'
 import { db } from '@/lib/db/schema'
 
 // Measurement fields per garment type
+const FABRIC_HINTS: Record<GarmentType, string> = {
+  shalwar_kameez: 'Lawn, cotton, wash & wear, boski, khaddar, linen',
+  shirt: 'Cotton, lawn, poplin, cambric, silk, chiffon',
+  trouser: 'Cotton, denim, twill, linen, suiting',
+  sherwani: 'Jamawar, banarsi, raw silk, velvet, brocade',
+  coat: 'Suiting, wool blend, blazer fabric, wash & wear',
+  other: 'Lehenga, kurti, abaya, waistcoat, maxi, kids wear',
+}
+
 const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; unit: string }[]> = {
   shalwar_kameez: [
-    { key: 'length', label: 'Length', unit: 'inch' },
+    { key: 'length', label: 'Length (Lambai)', unit: 'inch' },
     { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
     { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
-    { key: 'shoulder', label: 'Shoulder (Kandhа)', unit: 'inch' },
-    { key: 'sleeve', label: 'Sleeve (Bazoo)', unit: 'inch' },
+    { key: 'hip', label: 'Hip (Kolha)', unit: 'inch' },
+    { key: 'shoulder', label: 'Shoulder (Kandha)', unit: 'inch' },
+    { key: 'sleeve', label: 'Sleeves (Aasteen)', unit: 'inch' },
+    { key: 'armhole', label: 'Armhole (Baazu Golai)', unit: 'inch' },
+    { key: 'bicep', label: 'Bicep (Bazoo)', unit: 'inch' },
     { key: 'collar', label: 'Collar (Gireban)', unit: 'inch' },
-    { key: 'trouser_length', label: 'Shalwar Length', unit: 'inch' },
-    { key: 'trouser_waist', label: 'Shalwar Waist', unit: 'inch' },
+    { key: 'front_neck', label: 'Front Neck (Agla Gala)', unit: 'inch' },
+    { key: 'back_neck', label: 'Back Neck (Pichla Gala)', unit: 'inch' },
+    { key: 'trouser_length', label: 'Shalwar Length (Shalwar Lambai)', unit: 'inch' },
+    { key: 'trouser_waist', label: 'Shalwar Waist (Nara)', unit: 'inch' },
+    { key: 'thigh', label: 'Thigh (Raan)', unit: 'inch' },
+    { key: 'knee', label: 'Knee (Ghutna)', unit: 'inch' },
     { key: 'bottom', label: 'Bottom (Paincha)', unit: 'inch' },
   ],
   shirt: [
-    { key: 'length', label: 'Length', unit: 'inch' },
-    { key: 'chest', label: 'Chest', unit: 'inch' },
-    { key: 'shoulder', label: 'Shoulder', unit: 'inch' },
-    { key: 'sleeve', label: 'Sleeve', unit: 'inch' },
-    { key: 'collar', label: 'Collar', unit: 'inch' },
+    { key: 'length', label: 'Length (Lambai)', unit: 'inch' },
+    { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
+    { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
+    { key: 'shoulder', label: 'Shoulder (Kandha)', unit: 'inch' },
+    { key: 'sleeve', label: 'Sleeves (Aasteen)', unit: 'inch' },
+    { key: 'collar', label: 'Collar (Gireban)', unit: 'inch' },
+    { key: 'cuff', label: 'Cuff (Kaf)', unit: 'inch' },
   ],
   trouser: [
-    { key: 'trouser_length', label: 'Length', unit: 'inch' },
+    { key: 'trouser_length', label: 'Length (Lambai)', unit: 'inch' },
     { key: 'trouser_waist', label: 'Waist (Kamar)', unit: 'inch' },
     { key: 'hip', label: 'Hip (Sirin)', unit: 'inch' },
-    { key: 'knee', label: 'Knee', unit: 'inch' },
+    { key: 'thigh', label: 'Thigh (Raan)', unit: 'inch' },
+    { key: 'knee', label: 'Knee (Ghutna)', unit: 'inch' },
     { key: 'bottom', label: 'Bottom (Paincha)', unit: 'inch' },
   ],
   sherwani: [
-    { key: 'length', label: 'Length', unit: 'inch' },
-    { key: 'chest', label: 'Chest', unit: 'inch' },
-    { key: 'waist', label: 'Waist', unit: 'inch' },
-    { key: 'shoulder', label: 'Shoulder', unit: 'inch' },
-    { key: 'sleeve', label: 'Sleeve', unit: 'inch' },
+    { key: 'length', label: 'Length (Lambai)', unit: 'inch' },
+    { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
+    { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
+    { key: 'shoulder', label: 'Shoulder (Kandha)', unit: 'inch' },
+    { key: 'sleeve', label: 'Sleeves (Aasteen)', unit: 'inch' },
+    { key: 'hip', label: 'Hip (Kolha)', unit: 'inch' },
   ],
   coat: [
-    { key: 'length', label: 'Length', unit: 'inch' },
-    { key: 'chest', label: 'Chest', unit: 'inch' },
-    { key: 'shoulder', label: 'Shoulder', unit: 'inch' },
-    { key: 'sleeve', label: 'Sleeve', unit: 'inch' },
+    { key: 'length', label: 'Length (Lambai)', unit: 'inch' },
+    { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
+    { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
+    { key: 'shoulder', label: 'Shoulder (Kandha)', unit: 'inch' },
+    { key: 'sleeve', label: 'Sleeves (Aasteen)', unit: 'inch' },
   ],
   other: [
-    { key: 'length', label: 'Length', unit: 'inch' },
-    { key: 'chest', label: 'Chest', unit: 'inch' },
+    { key: 'length', label: 'Length (Lambai)', unit: 'inch' },
+    { key: 'chest', label: 'Chest (Seena)', unit: 'inch' },
+    { key: 'shoulder', label: 'Shoulder (Kandha)', unit: 'inch' },
+    { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
   ],
 }
 
@@ -64,6 +87,7 @@ interface Step2Props {
     measurements?: Record<string, string>
     specialInstructions?: string
     isUrgent?: boolean
+    fabricPhotoBase64?: string
   }
   onUpdate: (d: Partial<{
     garmentType: GarmentType
@@ -71,6 +95,7 @@ interface Step2Props {
     measurements: Record<string, string>
     specialInstructions: string
     isUrgent: boolean
+    fabricPhotoBase64?: string
   }>) => void
   onNext: () => void
 }
@@ -81,7 +106,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
   )
 
   // Add state inside Step2Garment:
-  const [quickPhoto, setQuickPhoto] = useState<string | null>(null)
+  const [quickPhoto, setQuickPhoto] = useState<string | null>(data.fabricPhotoBase64 ?? null)
   const [takingPhoto, setTakingPhoto] = useState(false)
 
   const handleQuickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,6 +176,9 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
                   <span className="text-2xl">{emoji}</span>
                   <span className="text-[11px] font-semibold leading-tight text-center">
                     {label}
+                  </span>
+                  <span className="px-1 text-center text-[9px] leading-tight text-slate-400">
+                    {FABRIC_HINTS[type]}
                   </span>
                 </button>
               )

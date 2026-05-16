@@ -98,7 +98,10 @@ interface Shop {
   shop_name: string;
   owner_phone: string;
   owner_email?: string;
+  state_province?: string;
   city?: string;
+  address_line?: string;
+  postal_code?: string;
   plan: string;
   is_active?: boolean;
   verification_status?: string;
@@ -117,6 +120,13 @@ interface Shop {
     customers_total: number;
     karigar_count: number;
   }[];
+  order_stats?: {
+    total_orders: number;
+    active_orders: number;
+    delivered_orders: number;
+    total_value: number;
+    received: number;
+  };
 }
 
 interface VerificationRequest {
@@ -582,6 +592,11 @@ function ShopCard({
               ) : null}
             </div>
           )}
+          {shop.order_stats && (
+            <p className="mt-1 text-[10px] text-slate-500">
+              Orders: {shop.order_stats.total_orders} · Active: {shop.order_stats.active_orders} · Received Rs.{shop.order_stats.received.toLocaleString()}
+            </p>
+          )}
         </div>
 
         <ChevronDown
@@ -637,6 +652,33 @@ function ShopCard({
                   WhatsApp button renewal reminder ke saath ready hai
                 </p>
               </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 min-[520px]:grid-cols-4">
+            {[
+              { label: "Phone", value: shop.owner_phone },
+              { label: "PIN", value: "Hashed / secured" },
+              { label: "Email", value: shop.owner_email ?? "N/A" },
+              { label: "Member Since", value: formatDate(shop.created_at) },
+              { label: "Subscription", value: `${plan} · ${status}` },
+              { label: "Expiry", value: formatDate(expiryDate) },
+              { label: "Orders", value: shop.order_stats?.total_orders ?? 0 },
+              { label: "Revenue", value: `Rs.${(shop.order_stats?.total_value ?? 0).toLocaleString()}` },
+            ].map(item => (
+              <div key={item.label} className="rounded-xl border border-slate-700 bg-slate-900/40 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{item.label}</p>
+                <p className="mt-1 break-words text-xs font-semibold text-slate-300">{item.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {(shop.address_line || shop.city || shop.state_province || shop.postal_code) && (
+            <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Address</p>
+              <p className="mt-1 text-xs text-slate-300">
+                {[shop.address_line, shop.city, shop.state_province, shop.postal_code].filter(Boolean).join(", ")}
+              </p>
             </div>
           )}
 

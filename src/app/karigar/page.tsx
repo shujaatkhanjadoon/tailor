@@ -146,25 +146,47 @@ function ActiveOrderCard({
         </div>
 
         {/* Due date bar */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1.5">
-            <Calendar size={12} className={due.color} />
-            <span className={cn('text-xs font-semibold', due.color)}>
-              {due.text}
-              {!due.urgent && ` — ${format(new Date(order.dueDate), 'd MMM')}`}
+        <div className="mb-3 rounded-xl bg-slate-50 p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Calendar size={12} className={due.color} />
+              <span className={cn('text-xs font-semibold', due.color)}>
+                {due.text}
+                {!due.urgent && ` — ${format(new Date(order.dueDate), 'd MMM')}`}
+              </span>
+            </div>
+            <span className="text-xs font-semibold text-slate-500">
+              Rs. {order.totalPrice.toLocaleString()}
             </span>
           </div>
-          {order.customerPhone && (
-            <a
-              href={`https://wa.me/92${order.customerPhone.replace(/^0/, '').replace(/\D/g, '')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              className="flex items-center gap-1 text-green-600 text-xs font-medium"
-            >
-              <MessageCircle size={11} />
-              WA
-            </a>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+            {order.customerPhone && (
+              <a
+                href={`https://wa.me/92${order.customerPhone.replace(/^0/, '').replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-1 font-semibold text-green-700"
+              >
+                <MessageCircle size={11} />
+                WhatsApp
+              </a>
+            )}
+            <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1">
+              <Phone size={10} /> {order.customerPhone || 'No phone'}
+            </span>
+            {order.specialInstructions && (
+              <span className="line-clamp-1 inline-flex max-w-full rounded-full bg-amber-50 px-2 py-1 font-medium text-amber-700">
+                {order.specialInstructions}
+              </span>
+            )}
+          </div>
+          {order.fabricPhotoUrl && (
+            <img
+              src={order.fabricPhotoUrl}
+              alt="Fabric reference"
+              className="mt-3 h-28 w-full rounded-xl object-cover"
+            />
           )}
         </div>
 

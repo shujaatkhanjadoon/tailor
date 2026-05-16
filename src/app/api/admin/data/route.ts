@@ -65,16 +65,27 @@ export async function GET(req: NextRequest) {
       }
 
       case 'shops': {
-        const [shops, subs, usages] = await Promise.all([
+        const [shops, subs, usages, orders] = await Promise.all([
           sbGet(`shops?select=*&order=created_at.desc&limit=${limit}`),
           sbGet('subscriptions?select=*'),
           sbGet('shop_usage?select=*'),
+          sbGet('orders?select=id,shop_id,status,total_price,amount_paid,created_at,deleted_at'),
         ])
         return NextResponse.json({
           data: shops.map((shop: any) => ({
             ...shop,
             subscriptions: subs.filter((s: any) => s.shop_id === shop.id),
             shop_usage:    usages.filter((u: any) => u.shop_id === shop.id),
+            order_stats: (() => {
+              const shopOrders = orders.filter((o: any) => o.shop_id === shop.id && !o.deleted_at)
+              return {
+                total_orders: shopOrders.length,
+                active_orders: shopOrders.filter((o: any) => !['delivered', 'cancelled'].includes(o.status)).length,
+                delivered_orders: shopOrders.filter((o: any) => o.status === 'delivered').length,
+                total_value: shopOrders.reduce((sum: number, o: any) => sum + Number(o.total_price ?? 0), 0),
+                received: shopOrders.reduce((sum: number, o: any) => sum + Number(o.amount_paid ?? 0), 0),
+              }
+            })(),
           }))
         })
       }

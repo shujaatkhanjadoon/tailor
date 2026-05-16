@@ -5,6 +5,74 @@ import { createHash, randomInt } from 'crypto'
 const resend  = new Resend(process.env.RESEND_API_KEY)
 const FROM    = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mydarzi.vercel.app'
+const SUPPORT_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL ?? process.env.ADMIN_EMAIL ?? 'admin@mydarzi.app'
+const SUPPORT_PHONE = process.env.ADMIN_PHONE ?? process.env.ADMIN_WHATSAPP ?? '+92 300 0000000'
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
+}
+
+function brandedEmailTemplate(opts: {
+  title: string
+  preview?: string
+  body: string
+  ctaLabel?: string
+  ctaUrl?: string
+}) {
+  return `
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;background:#f1f5f9;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
+  <div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(opts.preview ?? opts.title)}</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e2e8f0;">
+          <tr>
+            <td style="background:#0f172a;padding:24px;">
+              <img src="${APP_URL}/logo.png" width="48" height="48" alt="My Darzi" style="display:block;border-radius:12px;">
+              <h1 style="margin:18px 0 4px;color:#ffffff;font-size:24px;line-height:1.2;">${escapeHtml(opts.title)}</h1>
+              ${opts.preview ? `<p style="margin:0;color:#cbd5e1;font-size:14px;line-height:1.6;">${escapeHtml(opts.preview)}</p>` : ''}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px;">
+              ${opts.body}
+              ${opts.ctaUrl && opts.ctaLabel ? `
+                <div style="margin-top:24px;">
+                  <a href="${opts.ctaUrl}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;padding:13px 18px;border-radius:12px;">
+                    ${escapeHtml(opts.ctaLabel)}
+                  </a>
+                </div>
+              ` : ''}
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f8fafc;padding:20px 28px;border-top:1px solid #e2e8f0;">
+              <p style="margin:0 0 8px;color:#475569;font-size:13px;font-weight:700;">My Darzi Support</p>
+              <p style="margin:0;color:#64748b;font-size:12px;line-height:1.7;">
+                Email: <a href="mailto:${SUPPORT_EMAIL}" style="color:#2563eb;">${SUPPORT_EMAIL}</a><br>
+                Phone: ${escapeHtml(SUPPORT_PHONE)}<br>
+                Website: <a href="${APP_URL}" style="color:#2563eb;">${APP_URL}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
 
 // ── Generate 6-digit OTP ──────────────────────────────────────────
 export function generateOTP(): string {
@@ -130,31 +198,110 @@ export async function sendShopVerificationAlert(opts: {
       from:    FROM,
       to:      adminEmail,
       subject: `🔔 New Shop Verification: ${opts.shopName}`,
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px;">
-          <h2>New Shop Verification Request</h2>
-          <table style="width:100%;border-collapse:collapse;">
-            <tr><td style="padding:8px;background:#f8fafc;font-weight:600;">Shop</td>
-                <td style="padding:8px;">${opts.shopName}</td></tr>
-            <tr><td style="padding:8px;background:#f8fafc;font-weight:600;">Owner</td>
-                <td style="padding:8px;">${opts.ownerName}</td></tr>
-            <tr><td style="padding:8px;background:#f8fafc;font-weight:600;">Phone</td>
-                <td style="padding:8px;">${opts.ownerPhone}</td></tr>
-            <tr><td style="padding:8px;background:#f8fafc;font-weight:600;">Email</td>
-                <td style="padding:8px;">${opts.ownerEmail}</td></tr>
-            <tr><td style="padding:8px;background:#f8fafc;font-weight:600;">City</td>
-                <td style="padding:8px;">${opts.city ?? 'N/A'}</td></tr>
-          </table>
-          <div style="margin-top:20px;display:flex;gap:10px;">
-            <a href="${adminUrl}" style="background:#3b82f6;color:white;padding:12px 20px;
-               border-radius:8px;text-decoration:none;font-weight:600;">
-              Review in Admin Panel
-            </a>
-          </div>
-        </div>
-      `,
+      html: brandedEmailTemplate({
+        title: `New Shop Verification: ${opts.shopName}`,
+        preview: 'A new account needs admin review.',
+        ctaLabel: 'Review in Admin Panel',
+        ctaUrl: adminUrl,
+        body: detailTable([
+          ['Shop', opts.shopName],
+          ['Owner', opts.ownerName],
+          ['Phone', opts.ownerPhone],
+          ['Email', opts.ownerEmail],
+          ['City', opts.city ?? 'N/A'],
+          ['Shop ID', opts.shopId],
+        ]),
+      }),
     })
   } catch (e) {
     console.error('[Email] Admin notification failed:', e)
   }
+}
+
+function detailTable(rows: [string, unknown][]) {
+  return `
+    <table style="width:100%;border-collapse:separate;border-spacing:0 8px;">
+      ${rows.map(([label, value]) => `
+        <tr>
+          <td style="width:38%;padding:12px;background:#f8fafc;border-radius:10px 0 0 10px;color:#475569;font-size:13px;font-weight:700;">${escapeHtml(label)}</td>
+          <td style="padding:12px;background:#f8fafc;border-radius:0 10px 10px 0;color:#0f172a;font-size:13px;">${escapeHtml(value)}</td>
+        </tr>
+      `).join('')}
+    </table>
+  `
+}
+
+export async function sendShopOwnerAccountCreated(opts: {
+  shopName: string
+  ownerName: string
+  ownerEmail?: string
+  ownerPhone: string
+  city?: string
+}): Promise<void> {
+  if (!opts.ownerEmail || opts.ownerEmail === 'N/A') return
+
+  await resend.emails.send({
+    from: FROM,
+    to: opts.ownerEmail,
+    subject: `Welcome to My Darzi, ${opts.shopName}`,
+    html: brandedEmailTemplate({
+      title: 'Account Created Successfully',
+      preview: 'Your shop account has been created and is pending admin review.',
+      ctaLabel: 'Open My Darzi',
+      ctaUrl: APP_URL,
+      body: `
+        <p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:1.7;">
+          Assalam o Alaikum ${escapeHtml(opts.ownerName)}, your My Darzi shop account has been created.
+          Admin review is pending; you will be notified after approval.
+        </p>
+        ${detailTable([
+          ['Shop', opts.shopName],
+          ['Phone', opts.ownerPhone],
+          ['City', opts.city ?? 'N/A'],
+        ])}
+      `,
+    }),
+  })
+}
+
+export async function sendShopOwnerAdminActionEmail(opts: {
+  shopId: string
+  action: string
+  title: string
+  message: string
+  details?: [string, unknown][]
+}): Promise<void> {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!serviceKey || !supabaseUrl) return
+
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/team_members?shop_id=eq.${opts.shopId}&role=eq.owner&is_active=eq.true&select=email,name&limit=1`,
+    { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+  )
+  if (!res.ok) return
+  const [owner] = await res.json()
+  if (!owner?.email) return
+
+  await resend.emails.send({
+    from: FROM,
+    to: owner.email,
+    subject: opts.title,
+    html: brandedEmailTemplate({
+      title: opts.title,
+      preview: opts.message,
+      ctaLabel: 'Open Dashboard',
+      ctaUrl: APP_URL,
+      body: `
+        <p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:1.7;">
+          ${escapeHtml(owner.name ?? 'Shop owner')}, ${escapeHtml(opts.message)}
+        </p>
+        ${detailTable([
+          ['Action', opts.action],
+          ['Shop ID', opts.shopId],
+          ...(opts.details ?? []),
+        ])}
+      `,
+    }),
+  })
 }
