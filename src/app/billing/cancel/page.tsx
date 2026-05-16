@@ -54,6 +54,19 @@ export default function CancelPage() {
         })
         .eq('shop_id', shopId)
 
+      await fetch('/api/billing/subscription-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopId,
+          event: 'downgraded',
+          previousPlan: plan.plan,
+          plan: 'starter',
+          reason,
+          expiresAt: plan.expiresAt?.toISOString() ?? null,
+        }),
+      }).catch((e) => console.error('[Billing Cancel] Admin email event failed:', e))
+
       setStep('done')
     } finally {
       setCancelling(false)

@@ -341,3 +341,83 @@ export async function sendShopOwnerAdminActionEmail(opts: {
     }),
   })
 }
+
+export async function sendAdminSubscriptionEventEmail(opts: {
+  shopId: string
+  event: 'upgraded' | 'downgraded' | 'renewed' | 'expired' | 'cancelled' | 'payment_submitted'
+  plan?: string
+  previousPlan?: string
+  cycle?: string
+  amountPkr?: number
+  reason?: string
+  paymentRef?: string
+  transactionId?: string
+  payerName?: string
+  expiresAt?: string | null
+}): Promise<void> {
+  type SubscriptionShop = {
+    shop_name?: string
+    owner_phone?: string
+    city?: string
+    plan?: string
+  }
+
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL ?? process.env.ADMIN_EMAIL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!adminEmail) return
+
+  let shop: SubscriptionShop | null = null
+  if (serviceKey && supabaseUrl) {
+    try {
+      const res = await fetch(
+        `${supabaseUrl}/rest/v1/shops?id=eq.${opts.shopId}&select=shop_name,owner_phone,city,plan&limit=1`,
+        { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+      )
+      if (res.ok) {
+        const rows = await res.json() as SubscriptionShop[]
+        shop = rows?.[0] ?? null
+      }
+    } catch (e) {
+      console.error('[Email] Subscription shop lookup failed:', e)
+    }
+  }
+
+  const eventLabel: Record<typeof opts.event, string> = {
+    upgraded: 'Subscription Upgraded',
+    downgraded: 'Subscription Downgraded',
+    renewed: 'Subscription Renewed',
+    expired: 'Subscription Expired',
+    cancelled: 'Subscription Cancelled',
+    payment_submitted: 'Subscription Payment Submitted',
+  }
+
+  await resend.emails.send({
+    from: FROM,
+    to: adminEmail,
+    subject: `${eventLabel[opts.event]}: ${shop?.shop_name ?? opts.shopId}`,
+    html: brandedEmailTemplate({
+      title: eventLabel[opts.event],
+      preview: `${shop?.shop_name ?? 'A shop'} triggered a subscription event.`,
+      ctaLabel: 'Open Admin Dashboard',
+      ctaUrl: `${APP_URL}/admin/dashboard/shops`,
+      body: detailTable([
+        ['Event', opts.event],
+        ['Shop', shop?.shop_name ?? 'N/A'],
+        ['Shop ID', opts.shopId],
+        ['Owner Phone', shop?.owner_phone ?? 'N/A'],
+        ['City', shop?.city ?? 'N/A'],
+        ['Previous Plan', opts.previousPlan ?? 'N/A'],
+        ['Plan', opts.plan ?? shop?.plan ?? 'N/A'],
+        ['Cycle', opts.cycle ?? 'N/A'],
+        ['Amount', opts.amountPkr ? `Rs. ${opts.amountPkr.toLocaleString()}` : 'N/A'],
+        ['Payment Ref', opts.paymentRef ?? 'N/A'],
+        ['Transaction ID', opts.transactionId ?? 'N/A'],
+        ['Payer', opts.payerName ?? 'N/A'],
+        ['Reason', opts.reason ?? 'N/A'],
+        ['Expires At', opts.expiresAt ?? 'N/A'],
+        ['Time', new Date().toLocaleString('en-PK')],
+      ]),
+    }),
+  })
+}

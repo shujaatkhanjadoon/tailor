@@ -175,6 +175,21 @@ export function RaastPaymentSheet({
           .eq('id', subscriptionId)
       }
 
+      await fetch('/api/billing/subscription-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopId,
+          event: 'payment_submitted',
+          plan: planId,
+          cycle,
+          amountPkr,
+          paymentRef,
+          transactionId: txId.trim(),
+          payerName: payerName.trim(),
+        }),
+      }).catch((e) => console.error('[Payment] Admin email event failed:', e))
+
       setStep('submitted')
       setTimeout(() => {
         onSubmitted()

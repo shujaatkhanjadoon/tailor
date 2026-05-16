@@ -1,5 +1,6 @@
 // src/app/api/cron/expire-subscriptions/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { sendAdminSubscriptionEventEmail } from '@/lib/security/email-otp'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
 
     // 1. Active past expiry → Starter immediately
     const expiredPaid = await sbGet(
-      `subscriptions?status=eq.active&expires_at=lt.${now}&expires_at=not.is.null&select=id,shop_id,expires_at`
+      `subscriptions?status=eq.active&expires_at=lt.${now}&expires_at=not.is.null&select=id,shop_id,plan,billing_cycle,expires_at`
     )
     for (const sub of expiredPaid) {
       try {
@@ -76,13 +77,21 @@ export async function GET(req: NextRequest) {
         await sbPatch(`shops?id=eq.${sub.shop_id}`, {
           plan: 'starter', plan_expires_at: null, updated_at: now,
         })
+        await sendAdminSubscriptionEventEmail({
+          shopId: sub.shop_id,
+          event: 'expired',
+          previousPlan: sub.plan,
+          plan: 'starter',
+          cycle: sub.billing_cycle,
+          expiresAt: sub.expires_at,
+        }).catch((e) => console.error('[Cron] admin expired email failed:', e))
         results.expired++
       } catch (e) { results.errors.push(String(e)) }
     }
 
     // 2. Grace lapsed → expired
     const toLapse = await sbGet(
-      `subscriptions?status=eq.grace&grace_ends_at=lt.${now}&grace_ends_at=not.is.null&select=id,shop_id`
+      `subscriptions?status=eq.grace&grace_ends_at=lt.${now}&grace_ends_at=not.is.null&select=id,shop_id,plan,billing_cycle,grace_ends_at`
     )
     for (const sub of toLapse) {
       try {
@@ -92,13 +101,21 @@ export async function GET(req: NextRequest) {
         await sbPatch(`shops?id=eq.${sub.shop_id}`, {
           plan: 'starter', plan_expires_at: null, updated_at: now,
         })
+        await sendAdminSubscriptionEventEmail({
+          shopId: sub.shop_id,
+          event: 'expired',
+          previousPlan: sub.plan,
+          plan: 'starter',
+          cycle: sub.billing_cycle,
+          expiresAt: sub.grace_ends_at,
+        }).catch((e) => console.error('[Cron] admin grace email failed:', e))
         results.graceLapsed++
       } catch (e) { results.errors.push(String(e)) }
     }
 
     // 3. Trials past end → expired
     const trialLapsed = await sbGet(
-      `subscriptions?status=eq.trialing&trial_ends_at=lt.${now}&select=id,shop_id`
+      `subscriptions?status=eq.trialing&trial_ends_at=lt.${now}&select=id,shop_id,plan,trial_ends_at`
     )
     for (const sub of trialLapsed) {
       try {
@@ -108,6 +125,13 @@ export async function GET(req: NextRequest) {
         await sbPatch(`shops?id=eq.${sub.shop_id}`, {
           plan: 'starter', plan_expires_at: null, updated_at: now,
         })
+        await sendAdminSubscriptionEventEmail({
+          shopId: sub.shop_id,
+          event: 'expired',
+          previousPlan: sub.plan,
+          plan: 'starter',
+          expiresAt: sub.trial_ends_at,
+        }).catch((e) => console.error('[Cron] admin trial email failed:', e))
         results.expired++
       } catch (e) { results.errors.push(String(e)) }
     }

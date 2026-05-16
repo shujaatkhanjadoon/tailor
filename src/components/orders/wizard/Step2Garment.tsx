@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { GarmentType, GARMENT_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
 import { Camera } from 'lucide-react'
@@ -164,48 +164,205 @@ export type StyleSelections = {
   daman?: string
   sleeve?: string
   fit?: string
+  bottom?: string
+  pocket?: string
+  length?: string
+  collar?: string
+  cuff?: string
+  button?: string
   buttons?: string[]
   extras?: string[]
 }
 
-const STYLE_GROUPS = [
+type StyleKey = keyof StyleSelections
+type StyleGroup = {
+  key: StyleKey
+  title: string
+  helper: string
+  type: 'radio' | 'checkbox'
+  options: { label: string; icon: string; hint?: string }[]
+}
+
+const STYLE_GROUPS: StyleGroup[] = [
   {
     key: 'neck',
     title: 'Neck / Gala Style',
+    helper: 'Gala ki shape select karein',
     type: 'radio',
-    options: ['Gol Gala', 'Ban Gala', 'V Gala', 'Collar Gala', 'Sherwani Collar', 'Chinese Collar'],
+    options: [
+      { label: 'Round Neck (Gol Gala)', icon: '○' },
+      { label: 'Ban Collar (Ban Gala)', icon: '▯' },
+      { label: 'V Neck (V Gala)', icon: 'V' },
+      { label: 'Collar Neck (Collar Gala)', icon: '⌑' },
+      { label: 'Sherwani Collar (Sherwani Gala)', icon: '▰' },
+      { label: 'Chinese Collar (Cheeni Gala)', icon: '▱' },
+    ],
   },
   {
     key: 'daman',
     title: 'Daman Style',
+    helper: 'Kameez/kurta ka neeche wala cut',
     type: 'radio',
-    options: ['Gol Daman', 'Square Daman', 'Round Cut Daman', 'Side Cut Daman', 'Straight Daman'],
+    options: [
+      { label: 'Round Daman (Gol Daman)', icon: '◠' },
+      { label: 'Square Daman (Chokor Daman)', icon: '□' },
+      { label: 'Round Cut Daman (Gol Cut Daman)', icon: '⌒' },
+      { label: 'Side Cut Daman (Side Chak)', icon: '⇲' },
+      { label: 'Straight Daman (Seedha Daman)', icon: '▬' },
+    ],
   },
   {
     key: 'sleeve',
     title: 'Sleeve Style',
+    helper: 'Aasteen ka style',
     type: 'radio',
-    options: ['Full Sleeve', 'Half Sleeve', 'Cuff Sleeve', 'Loose Sleeve', 'Straight Sleeve'],
+    options: [
+      { label: 'Full Sleeve (Puri Aasteen)', icon: '┃' },
+      { label: 'Half Sleeve (Aadhi Aasteen)', icon: '╻' },
+      { label: 'Cuff Sleeve (Kaf Aasteen)', icon: '▣' },
+      { label: 'Loose Sleeve (Khuli Aasteen)', icon: '◫' },
+      { label: 'Straight Sleeve (Seedhi Aasteen)', icon: '▌' },
+    ],
   },
   {
     key: 'fit',
     title: 'Fit Type',
+    helper: 'Kapray ki fitting',
     type: 'radio',
-    options: ['Slim Fit', 'Regular Fit', 'Loose Fit'],
+    options: [
+      { label: 'Slim Fit (Chipka Fit)', icon: 'S' },
+      { label: 'Regular Fit (Normal Fit)', icon: 'R' },
+      { label: 'Loose Fit (Khula Fit)', icon: 'L' },
+    ],
+  },
+  {
+    key: 'bottom',
+    title: 'Bottom Style',
+    helper: 'Paincha / bottom ka cut',
+    type: 'radio',
+    options: [
+      { label: 'Straight Bottom (Seedha Paincha)', icon: '║' },
+      { label: 'Narrow Bottom (Tang Paincha)', icon: '⌯' },
+      { label: 'Wide Bottom (Khula Paincha)', icon: '⌵' },
+      { label: 'Cuffed Bottom (Mori Wala Paincha)', icon: '▤' },
+    ],
+  },
+  {
+    key: 'pocket',
+    title: 'Pocket Style',
+    helper: 'Jaib ka style',
+    type: 'radio',
+    options: [
+      { label: 'Side Pocket (Side Jaib)', icon: '◧' },
+      { label: 'Front Pocket (Samne Jaib)', icon: '▣' },
+      { label: 'Back Pocket (Peechay Jaib)', icon: '◨' },
+      { label: 'No Pocket (Baghair Jaib)', icon: '×' },
+    ],
+  },
+  {
+    key: 'length',
+    title: 'Length Type',
+    helper: 'Lambai ka andaaz',
+    type: 'radio',
+    options: [
+      { label: 'Ankle Length (Takhnay Tak)', icon: '↧' },
+      { label: 'Full Length (Puri Lambai)', icon: '↓' },
+      { label: 'Short Length (Choti Lambai)', icon: '↥' },
+    ],
+  },
+  {
+    key: 'collar',
+    title: 'Collar Style',
+    helper: 'Waistcoat/coat ka collar',
+    type: 'radio',
+    options: [
+      { label: 'V Collar (V Gala)', icon: 'V' },
+      { label: 'Round Collar (Gol Collar)', icon: '○' },
+      { label: 'Band Collar (Ban Collar)', icon: '▯' },
+      { label: 'Shawl Collar (Shawl Collar)', icon: '⌒' },
+    ],
+  },
+  {
+    key: 'button',
+    title: 'Button Style',
+    helper: 'Button laganay ka style',
+    type: 'radio',
+    options: [
+      { label: 'Single Button Line (Single Patti)', icon: '•' },
+      { label: 'Double Button Line (Double Patti)', icon: '••' },
+      { label: 'Hidden Button Patti (Chupi Patti)', icon: '▦' },
+      { label: 'Fancy Buttons (Fancy Button)', icon: '✦' },
+    ],
+  },
+  {
+    key: 'cuff',
+    title: 'Cuff Style',
+    helper: 'Kaf / aasteen end ka style',
+    type: 'radio',
+    options: [
+      { label: 'Simple Cuff (Sada Kaf)', icon: '▭' },
+      { label: 'Round Cuff (Gol Kaf)', icon: '◜' },
+      { label: 'Button Cuff (Button Wala Kaf)', icon: '•' },
+      { label: 'Open Sleeve (Khuli Aasteen)', icon: '⌵' },
+    ],
   },
   {
     key: 'buttons',
     title: 'Button Types',
+    helper: 'Extra button details',
     type: 'checkbox',
-    options: ['Simple Button', 'Fancy Button', 'Metal Button', 'Covered Button', 'Hidden Patti', 'Double Button'],
+    options: [
+      { label: 'Simple Button (Sada Button)', icon: '•' },
+      { label: 'Fancy Button (Fancy Button)', icon: '✦' },
+      { label: 'Metal Button (Dhati Button)', icon: '●' },
+      { label: 'Covered Button (Kapray Wala Button)', icon: '◉' },
+      { label: 'Hidden Patti (Chupi Patti)', icon: '▦' },
+      { label: 'Double Button (Double Button)', icon: '••' },
+    ],
   },
   {
     key: 'extras',
     title: 'Extra Details',
+    helper: 'Khaas kaam ya finishing',
     type: 'checkbox',
-    options: ['Side Pocket', 'Front Pocket', 'Kaf Patti', 'Embroidery', 'Piping', 'Lace', 'Lining', 'Chak Patti'],
+    options: [
+      { label: 'Side Pocket (Side Jaib)', icon: '◧' },
+      { label: 'Front Pocket (Samne Jaib)', icon: '▣' },
+      { label: 'Kaf Patti (Cuff Patti)', icon: '▤' },
+      { label: 'Embroidery (Karhai)', icon: '✽' },
+      { label: 'Piping (Piping)', icon: '│' },
+      { label: 'Lace (Lace)', icon: '≈' },
+      { label: 'Lining (Asthar)', icon: '▥' },
+      { label: 'Chak Patti (Side Patti)', icon: '⇲' },
+    ],
   },
-] as const
+]
+
+const STYLE_GROUPS_BY_GARMENT: Record<GarmentType, StyleKey[]> = {
+  shalwar_kameez: ['neck', 'sleeve', 'daman', 'cuff', 'fit', 'bottom', 'pocket', 'extras'],
+  kurta: ['neck', 'sleeve', 'daman', 'cuff', 'fit', 'pocket', 'extras'],
+  kurti: ['neck', 'sleeve', 'daman', 'cuff', 'fit', 'extras'],
+  shirt: ['neck', 'sleeve', 'daman', 'cuff', 'fit', 'pocket', 'extras'],
+  trouser: ['bottom', 'pocket', 'length', 'fit', 'extras'],
+  pajama: ['bottom', 'length', 'fit', 'extras'],
+  sherwani: ['collar', 'button', 'sleeve', 'daman', 'fit', 'pocket', 'extras'],
+  waistcoat: ['collar', 'button', 'pocket', 'fit', 'extras'],
+  prince_coat: ['collar', 'button', 'sleeve', 'fit', 'pocket', 'extras'],
+  pant_coat: ['collar', 'button', 'sleeve', 'bottom', 'pocket', 'fit', 'extras'],
+  lehenga: ['daman', 'sleeve', 'neck', 'fit', 'extras'],
+  maxi: ['neck', 'sleeve', 'daman', 'fit', 'extras'],
+  blazer: ['collar', 'button', 'sleeve', 'fit', 'pocket', 'extras'],
+  jacket: ['collar', 'button', 'sleeve', 'fit', 'pocket', 'extras'],
+  other: ['neck', 'sleeve', 'daman', 'bottom', 'pocket', 'fit', 'extras'],
+}
+
+function getStyleGroupsForGarment(type?: GarmentType): StyleGroup[] {
+  if (!type) return []
+  const keys = STYLE_GROUPS_BY_GARMENT[type] ?? []
+  return keys
+    .map(key => STYLE_GROUPS.find(group => group.key === key))
+    .filter(Boolean) as StyleGroup[]
+}
 
 export function formatStyleSelections(styles: StyleSelections): string {
   const labels: string[] = []
@@ -267,6 +424,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
 
   const selectedType = data.garmentType
   const fields = selectedType ? MEASUREMENT_FIELDS[selectedType] : []
+  const visibleStyleGroups = getStyleGroupsForGarment(selectedType)
   const previousMeasurements = useLiveQuery(
     async () => {
       if (!data.customerId || !selectedType) return []
@@ -320,7 +478,8 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
                   key={type}
                   onClick={() => {
                     setMeasurements({})
-                    onUpdate({ garmentType: type, measurements: {}, measurementId: undefined })
+                    setStyleSelections({})
+                    onUpdate({ garmentType: type, measurements: {}, measurementId: undefined, styleSelections: {} })
                   }}
                   className={cn(
                     'flex flex-col items-center gap-2 py-4 rounded-2xl border-2',
@@ -437,44 +596,59 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
 
       {/* Style reference options */}
       {selectedType && (
-        <div>
-          <p className="text-sm font-semibold text-slate-700 mb-1">
-            Style Reference
-          </p>
-          <p className="text-xs text-slate-400 mb-3">
-            Pakistani tailoring details select karein taake karigar ko clear brief milay.
-          </p>
-          <div className="space-y-3">
-            {STYLE_GROUPS.map((group) => (
-              <div key={group.key} className="rounded-2xl border border-slate-200 bg-white p-3">
-                <p className="text-xs font-bold text-slate-600 mb-2">{group.title}</p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-base font-bold text-slate-800">
+                Style Reference
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                English aur Roman Urdu names select karein taake karigar ko design clear samajh aaye.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-[10px] font-bold text-blue-700">
+              {visibleStyleGroups.length} fields
+            </span>
+          </div>
+          <div className="space-y-5">
+            {visibleStyleGroups.map((group) => (
+              <div key={group.key}>
+                <div className="mb-2">
+                  <p className="text-sm font-bold text-slate-700">{group.title}</p>
+                  <p className="text-[11px] text-slate-400">{group.helper}</p>
+                </div>
+                <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-3">
                   {group.options.map((option) => {
                     const value = styleSelections[group.key]
                     const selected = Array.isArray(value)
-                      ? value.includes(option)
-                      : value === option
+                      ? value.includes(option.label)
+                      : value === option.label
                     const multi = group.type === 'checkbox'
                     return (
                       <button
-                        key={option}
+                        key={option.label}
                         type="button"
-                        onClick={() => updateStyle(group.key, option, multi)}
+                        onClick={() => updateStyle(group.key, option.label, multi)}
                         className={cn(
-                          'flex min-h-10 items-center gap-2 rounded-xl border px-3 py-2 text-left text-[11px] font-semibold transition-colors',
+                          'group flex min-h-18 items-center gap-3 rounded-2xl border-2 px-3 py-3 text-left transition-all active:scale-[0.98]',
                           selected
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
+                            ? 'border-blue-500 bg-blue-50 text-blue-800 shadow-sm'
+                            : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white'
                         )}
                       >
                         <span className={cn(
-                          'flex h-4 w-4 shrink-0 items-center justify-center border',
-                          multi ? 'rounded' : 'rounded-full',
-                          selected ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'
+                          'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-lg font-black',
+                          selected ? 'border-blue-200 bg-white text-blue-700' : 'border-slate-200 bg-white text-slate-500'
                         )}>
-                          {selected && <span className={cn('bg-white', multi ? 'h-2 w-2 rounded-[2px]' : 'h-1.5 w-1.5 rounded-full')} />}
+                          {option.icon}
                         </span>
-                        <span>{option}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-xs font-bold leading-snug">{option.label}</span>
+                          {option.hint && <span className="mt-0.5 block text-[10px] text-slate-400">{option.hint}</span>}
+                        </span>
+                        {selected && (
+                          <CheckCircle2 size={17} className="shrink-0 text-blue-600" />
+                        )}
                       </button>
                     )
                   })}

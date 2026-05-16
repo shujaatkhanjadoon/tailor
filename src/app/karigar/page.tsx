@@ -96,8 +96,15 @@ function ActiveOrderCard({
   const due = dueDateLabel(order.dueDate)
 
   return (
-    <div className={cn(
-      'bg-white border-2 rounded-2xl overflow-hidden transition-all',
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onDetailTap(order)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onDetailTap(order)
+      }}
+      className={cn(
+      'bg-white border-2 rounded-2xl overflow-hidden transition-all cursor-pointer hover:border-blue-200 hover:shadow-sm active:scale-[0.99]',
       due.urgent ? 'border-amber-300' : 'border-slate-200'
     )}>
       {/* Urgent banner */}
@@ -134,15 +141,21 @@ function ActiveOrderCard({
           </div>
 
           {/* Status badge */}
-          <div className={cn(
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onStatusTap(order)
+            }}
+            className={cn(
             'flex items-center gap-1.5 px-3 py-1.5 rounded-full',
-            'text-xs font-bold shrink-0',
+            'text-xs font-bold shrink-0 active:scale-95 transition-transform',
             sc?.bg ?? 'bg-slate-100',
             sc?.color   ?? 'text-slate-700',
           )}>
             <span>{sc?.emoji}</span>
             <span>{sc?.label}</span>
-          </div>
+          </button>
         </div>
 
         {/* Due date bar */}
@@ -193,7 +206,10 @@ function ActiveOrderCard({
         {/* Action buttons */}
         <div className="flex gap-2">
           <button
-            onClick={() => onStatusTap(order)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onStatusTap(order)
+            }}
             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white
                        font-bold py-2.5 rounded-xl text-sm transition-colors
                        active:scale-[0.98] flex items-center justify-center gap-1.5"
@@ -202,7 +218,10 @@ function ActiveOrderCard({
             Status Update
           </button>
           <button
-            onClick={() => onDetailTap(order)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDetailTap(order)
+            }}
             className="w-10 h-10 flex items-center justify-center
                        bg-slate-100 rounded-xl text-slate-600 hover:bg-slate-200
                        transition-colors active:scale-95"
@@ -634,25 +653,45 @@ function HomeTab({
               const sc = ORDER_STATUS_CONFIG[o.status as OrderStatus]
               const gc = GARMENT_LABELS[o.garmentType as keyof typeof GARMENT_LABELS]
               return (
-                <button
+                <div
                   key={o.id}
-                  onClick={() => onStatusTap(o)}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onDetailTap(o)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') onDetailTap(o)
+                  }}
                   className="w-full flex items-center justify-between
                              bg-white border border-amber-200 rounded-xl px-3 py-2.5
-                             text-left hover:bg-amber-50/50 transition-colors"
+                             text-left hover:bg-amber-50/50 transition-colors active:scale-[0.99]"
                 >
                   <div>
                     <p className="font-semibold text-slate-800 text-sm">{o.customerName}</p>
                     <p className="text-xs text-slate-400">
+                      #{String(o.orderNumber).padStart(3, '0')} · {' '}
                       {sc?.emoji} {sc?.label}
                       {gc && ` · ${gc.emoji} ${gc.label}`}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5 text-blue-600 text-xs font-bold">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onStatusTap(o)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.stopPropagation()
+                        onStatusTap(o)
+                      }
+                    }}
+                    className="flex min-h-9 items-center gap-1.5 rounded-full bg-blue-50 px-3 text-blue-600 text-xs font-bold"
+                  >
                     <RefreshCw size={12} />
                     Update
                   </div>
-                </button>
+                </div>
               )
             })}
           </div>
@@ -701,11 +740,16 @@ function HomeTab({
               const gc  = GARMENT_LABELS[o.garmentType as keyof typeof GARMENT_LABELS]
               const due = dueDateLabel(o.dueDate)
               return (
-                <button
+                <div
                   key={o.id}
-                  onClick={() => onStatusTap(o)}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onDetailTap(o)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') onDetailTap(o)
+                  }}
                   className="w-full flex items-center gap-3 px-4 py-3
-                             text-left hover:bg-slate-50 transition-colors"
+                             text-left hover:bg-slate-50 transition-colors active:scale-[0.99]"
                 >
                   <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center
                                   justify-center shrink-0 text-base">
@@ -716,13 +760,32 @@ function HomeTab({
                       {o.customerName}
                     </p>
                     <p className="text-xs text-slate-400">
-                      {gc?.emoji} {gc?.label} · {sc?.label}
+                      #{String(o.orderNumber).padStart(3, '0')} · {gc?.emoji} {gc?.label}
                     </p>
                   </div>
-                  <span className={cn('text-xs font-bold shrink-0', due.color)}>
-                    {due.text}
-                  </span>
-                </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className={cn('text-xs font-bold', due.color)}>
+                      {due.text}
+                    </span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onStatusTap(o)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation()
+                          onStatusTap(o)
+                        }
+                      }}
+                      className={cn('rounded-full px-2.5 py-1 text-[10px] font-bold', sc?.bg, sc?.color)}
+                    >
+                      {sc?.label}
+                    </span>
+                  </div>
+                </div>
               )
             })}
           </div>

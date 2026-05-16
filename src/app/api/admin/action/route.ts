@@ -1,6 +1,6 @@
 // src/app/api/admin/action/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { sendShopOwnerAdminActionEmail } from "@/lib/security/email-otp";
+import { sendAdminSubscriptionEventEmail, sendShopOwnerAdminActionEmail } from "@/lib/security/email-otp";
 import { ADMIN_SESSION_COOKIE, verifySessionToken } from "@/lib/admin/auth";
 
 const SB_URL = () => process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -38,6 +38,14 @@ async function sbPost(
   });
   if (!res.ok)
     throw new Error(`POST ${table}: ${res.status} ${await res.text()}`);
+}
+
+async function sbGet<T = Record<string, unknown>>(path: string): Promise<T[]> {
+  const res = await fetch(`${SB_URL()}/rest/v1/${path}`, {
+    headers: { apikey: SB_KEY(), Authorization: `Bearer ${SB_KEY()}` },
+  });
+  if (!res.ok) throw new Error(`GET ${path}: ${res.status} ${await res.text()}`);
+  return res.json() as Promise<T[]>;
 }
 
 async function sbUpsert(
@@ -96,6 +104,23 @@ function nextExpiry(cycle: string | undefined, planId = "professional") {
   return d.toISOString();
 }
 
+function planRank(planId?: string | null) {
+  if (planId === "business") return 3;
+  if (planId === "professional") return 2;
+  return 1;
+}
+
+function subscriptionEvent(previousPlan?: string | null, nextPlan?: string | null): "upgraded" | "downgraded" | "renewed" {
+  if (previousPlan && previousPlan === nextPlan) return "renewed";
+  return planRank(nextPlan) > planRank(previousPlan) ? "upgraded" : "downgraded";
+}
+
+type SubscriptionSnapshot = {
+  plan?: string | null;
+  status?: string | null;
+  expires_at?: string | null;
+};
+
 export async function POST(req: NextRequest) {
   const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value;
   if (!token || !verifySessionToken(token)) {
@@ -124,6 +149,7 @@ export async function POST(req: NextRequest) {
         }
 
         const now = new Date().toISOString();
+        const previousSub = (await sbGet<SubscriptionSnapshot>(`subscriptions?shop_id=eq.${shopId}&select=plan,status,expires_at&limit=1`))[0];
 
         const expiresAt = nextExpiry(cycle, planId);
 
@@ -162,6 +188,14 @@ export async function POST(req: NextRequest) {
           ["Cycle", cycle ?? "monthly"],
           ["Expires At", expiresAt ?? "No expiry"],
         ]);
+        await sendAdminSubscriptionEventEmail({
+          shopId,
+          event: subscriptionEvent(previousSub?.plan, planId),
+          previousPlan: previousSub?.plan ?? undefined,
+          plan: planId,
+          cycle: cycle ?? "monthly",
+          expiresAt,
+        }).catch((e) => console.error("[Admin Action] Admin subscription email failed (non-fatal):", e));
 
         console.log(
           "[Admin Action] Plan changed:",
@@ -183,6 +217,7 @@ export async function POST(req: NextRequest) {
         }
 
         const now = new Date().toISOString();
+        const previousSub = (await sbGet<SubscriptionSnapshot>(`subscriptions?shop_id=eq.${shopId}&select=plan,status,expires_at&limit=1`))[0];
 
         const expiresAt = (() => {
           const d = new Date();
@@ -235,6 +270,15 @@ export async function POST(req: NextRequest) {
           ["Amount", amountPkr ? `Rs. ${amountPkr}` : "N/A"],
           ["Expires At", expiresAt],
         ]);
+        await sendAdminSubscriptionEventEmail({
+          shopId,
+          event: subscriptionEvent(previousSub?.plan, planId),
+          previousPlan: previousSub?.plan ?? undefined,
+          plan: planId,
+          cycle,
+          amountPkr,
+          expiresAt,
+        }).catch((e) => console.error("[Admin Action] Admin subscription email failed (non-fatal):", e));
 
         return NextResponse.json({ success: true, expiresAt });
       }
