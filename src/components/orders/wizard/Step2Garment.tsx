@@ -1,7 +1,7 @@
 // src/components/orders/wizard/Step2Garment.tsx
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { AlertCircle, CheckCircle2, Loader2, UsersRound } from 'lucide-react'
 import { GarmentType, GARMENT_LABELS, OrderRecipientRelation } from '@/types'
@@ -174,6 +174,12 @@ const RECIPIENT_OPTIONS: {
   { relation: 'sister', label: 'Sister', helper: 'Behen ke liye', gender: 'female' },
   { relation: 'other', label: 'Other', helper: 'Kisi aur ke liye', gender: 'custom' },
 ]
+
+const RECIPIENTS_BY_CUSTOMER: Record<'male' | 'female' | 'child', OrderRecipientRelation[]> = {
+  male: ['self', 'wife', 'son', 'daughter', 'brother', 'sister', 'other'],
+  female: ['self', 'husband', 'son', 'daughter', 'brother', 'sister', 'other'],
+  child: ['self', 'brother', 'sister', 'other'],
+}
 
 const GARMENTS_BY_RECIPIENT: Record<'male' | 'female' | 'child', GarmentType[]> = {
   male: [
@@ -427,12 +433,105 @@ const STYLE_GROUPS_BY_GARMENT: Record<GarmentType, StyleKey[]> = {
   other: ['fit', 'extras'],
 }
 
+const STYLE_ICON_OVERRIDES: Record<string, string> = {
+  'Round Neck (Gol Gala)': '⭕',
+  'Ban Collar (Ban Gala)': '👔',
+  'V Neck (V Gala)': '🔻',
+  'Collar Neck (Collar Gala)': '👕',
+  'Sherwani Collar (Sherwani Gala)': '🤵',
+  'Chinese Collar (Cheeni Gala)': '👔',
+  'Round Daman (Gol Daman)': '🌙',
+  'Square Daman (Chokor Daman)': '⬜',
+  'Round Cut Daman (Gol Cut Daman)': '〰️',
+  'Side Cut Daman (Side Chak)': '↔️',
+  'Straight Daman (Seedha Daman)': '➖',
+  'Full Sleeve (Puri Aasteen)': '🧥',
+  'Half Sleeve (Aadhi Aasteen)': '👕',
+  'Cuff Sleeve (Kaf Aasteen)': '🔘',
+  'Loose Sleeve (Khuli Aasteen)': '〰️',
+  'Straight Sleeve (Seedhi Aasteen)': '📏',
+  'Slim Fit (Chipka Fit)': '📏',
+  'Regular Fit (Normal Fit)': '✅',
+  'Loose Fit (Khula Fit)': '↔️',
+  'Straight Bottom (Seedha Paincha)': '➖',
+  'Narrow Bottom (Tang Paincha)': '📐',
+  'Wide Bottom (Khula Paincha)': '↔️',
+  'Cuffed Bottom (Mori Wala Paincha)': '🔘',
+  'Side Pocket (Side Jaib)': '🧵',
+  'Front Pocket (Samne Jaib)': '⬛',
+  'Back Pocket (Peechay Jaib)': '↩️',
+  'No Pocket (Baghair Jaib)': '🚫',
+  'Ankle Length (Takhnay Tak)': '🦶',
+  'Full Length (Puri Lambai)': '📏',
+  'Short Length (Choti Lambai)': '↕️',
+  'V Collar (V Gala)': '🔻',
+  'Round Collar (Gol Collar)': '⭕',
+  'Band Collar (Ban Collar)': '👔',
+  'Shawl Collar (Shawl Collar)': '🧣',
+  'Single Button Line (Single Patti)': '🔘',
+  'Double Button Line (Double Patti)': '🔘🔘',
+  'Hidden Button Patti (Chupi Patti)': '🙈',
+  'Fancy Buttons (Fancy Button)': '✨',
+  'Simple Cuff (Sada Kaf)': '➖',
+  'Round Cuff (Gol Kaf)': '⭕',
+  'Button Cuff (Button Wala Kaf)': '🔘',
+  'Open Sleeve (Khuli Aasteen)': '↔️',
+  'Simple Button (Sada Button)': '🔘',
+  'Fancy Button (Fancy Button)': '✨',
+  'Metal Button (Dhati Button)': '⚙️',
+  'Covered Button (Kapray Wala Button)': '🧵',
+  'Double Button (Double Button)': '🔘🔘',
+  'Kaf Patti (Cuff Patti)': '🔘',
+  'Embroidery (Karhai)': '🌸',
+  'Piping (Piping)': '〰️',
+  'Lace (Lace)': '🎀',
+  'Lining (Asthar)': '🧥',
+  'Chak Patti (Side Patti)': '↔️',
+  Other: '✏️',
+}
+
+function withStyleIconsAndOther(group: StyleGroup): StyleGroup {
+  const hasOther = group.options.some(option => option.label === 'Other')
+  return {
+    ...group,
+    options: [
+      ...group.options.map(option => ({
+        ...option,
+        icon: STYLE_ICON_OVERRIDES[option.label] ?? option.icon,
+      })),
+      ...(hasOther ? [] : [{ label: 'Other', icon: STYLE_ICON_OVERRIDES.Other }]),
+    ],
+  }
+}
+
 function getStyleGroupsForGarment(type?: GarmentType): StyleGroup[] {
   if (!type) return []
   const keys = STYLE_GROUPS_BY_GARMENT[type] ?? []
   return keys
     .map(key => STYLE_GROUPS.find(group => group.key === key))
-    .filter(Boolean) as StyleGroup[]
+    .filter(Boolean)
+    .map(group => withStyleIconsAndOther(group as StyleGroup))
+}
+
+const otherPrefix = 'Other: '
+
+function isOtherStyleValue(value: unknown): value is string {
+  return typeof value === 'string' && value.startsWith(otherPrefix)
+}
+
+function otherStyleText(value: unknown): string {
+  return isOtherStyleValue(value) ? value.slice(otherPrefix.length) : ''
+}
+
+function optionIsSelected(value: StyleSelections[StyleKey], optionLabel: string): boolean {
+  if (Array.isArray(value)) {
+    return optionLabel === 'Other'
+      ? value.some(isOtherStyleValue)
+      : value.includes(optionLabel)
+  }
+  return optionLabel === 'Other'
+    ? isOtherStyleValue(value)
+    : value === optionLabel
 }
 
 export function formatStyleSelections(styles: StyleSelections): string {
@@ -484,7 +583,14 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
   )
   const selectedRelation = data.orderForRelation ?? 'self'
   const recipientGender = inferRecipientGender(selectedRelation, data.customerGender, data.recipientGender)
+  const allowedRelations = RECIPIENTS_BY_CUSTOMER[data.customerGender ?? 'male']
   const visibleGarmentTypes = GARMENTS_BY_RECIPIENT[recipientGender]
+
+  useEffect(() => {
+    if (allowedRelations.includes(selectedRelation)) return
+    updateRecipient('self')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.customerGender, selectedRelation])
 
   // Add state inside Step2Garment:
   const [quickPhoto, setQuickPhoto] = useState<string | null>(data.fabricPhotoBase64 ?? null)
@@ -532,6 +638,20 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
 
   const updateStyle = (key: keyof StyleSelections, value: string, multi: boolean) => {
     const current = styleSelections[key]
+    if (value === 'Other') {
+      const nextOther = `${otherPrefix}${otherStyleText(current)}`
+      const updated: StyleSelections = {
+        ...styleSelections,
+        [key]: multi
+          ? (Array.isArray(current) && current.some(isOtherStyleValue)
+              ? current.filter(item => !isOtherStyleValue(item))
+              : [...(Array.isArray(current) ? current : []), nextOther])
+          : nextOther,
+      }
+      setStyleSelections(updated)
+      onUpdate({ styleSelections: updated })
+      return
+    }
     const updated: StyleSelections = {
       ...styleSelections,
       [key]: multi
@@ -539,6 +659,22 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
             ? current.filter(item => item !== value)
             : [...(Array.isArray(current) ? current : []), value])
         : value,
+    }
+    setStyleSelections(updated)
+    onUpdate({ styleSelections: updated })
+  }
+
+  const updateOtherStyle = (key: keyof StyleSelections, value: string, multi: boolean) => {
+    const custom = `${otherPrefix}${value}`
+    const current = styleSelections[key]
+    const updated: StyleSelections = {
+      ...styleSelections,
+      [key]: multi
+        ? [
+            ...(Array.isArray(current) ? current.filter(item => !isOtherStyleValue(item)) : []),
+            custom,
+          ]
+        : custom,
     }
     setStyleSelections(updated)
     onUpdate({ styleSelections: updated })
@@ -570,7 +706,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
           Ye order kis ke liye hai? <span className="text-red-500">*</span>
         </p>
         <div className="grid grid-cols-2 gap-2 min-[420px]:grid-cols-4">
-          {RECIPIENT_OPTIONS.map(option => {
+          {RECIPIENT_OPTIONS.filter(option => allowedRelations.includes(option.relation)).map(option => {
             const selected = selectedRelation === option.relation
             return (
               <button
@@ -795,36 +931,44 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
                 <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-3">
                   {group.options.map((option) => {
                     const value = styleSelections[group.key]
-                    const selected = Array.isArray(value)
-                      ? value.includes(option.label)
-                      : value === option.label
+                    const selected = optionIsSelected(value, option.label)
                     const multi = group.type === 'checkbox'
+                    const otherSelected = option.label === 'Other' && selected
                     return (
-                      <button
-                        key={option.label}
-                        type="button"
-                        onClick={() => updateStyle(group.key, option.label, multi)}
-                        className={cn(
-                          'group flex min-h-18 items-center gap-3 rounded-2xl border-2 px-3 py-3 text-left transition-all active:scale-[0.98]',
-                          selected
-                            ? 'border-blue-500 bg-blue-50 text-blue-800 shadow-sm'
-                            : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white'
+                      <div key={option.label} className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => updateStyle(group.key, option.label, multi)}
+                          className={cn(
+                            'group flex min-h-18 w-full items-center gap-3 rounded-2xl border-2 px-3 py-3 text-left transition-all active:scale-[0.98]',
+                            selected
+                              ? 'border-blue-500 bg-blue-50 text-blue-800 shadow-sm'
+                              : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white'
+                          )}
+                        >
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-xl">
+                            {option.icon}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-xs font-bold leading-snug">{option.label}</span>
+                            {option.hint && <span className="mt-0.5 block text-[10px] text-slate-400">{option.hint}</span>}
+                          </span>
+                          {selected && (
+                            <CheckCircle2 size={17} className="shrink-0 text-blue-600" />
+                          )}
+                        </button>
+                        {otherSelected && (
+                          <input
+                            type="text"
+                            value={Array.isArray(value)
+                              ? otherStyleText(value.find(isOtherStyleValue))
+                              : otherStyleText(value)}
+                            onChange={e => updateOtherStyle(group.key, e.target.value, multi)}
+                            placeholder="Apna style likhein..."
+                            className="w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
+                          />
                         )}
-                      >
-                        <span className={cn(
-                          'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border',
-                          selected ? 'border-blue-500 bg-blue-600 text-white' : 'border-slate-300 bg-white text-transparent'
-                        )}>
-                          <CheckCircle2 size={14} />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-xs font-bold leading-snug">{option.label}</span>
-                          {option.hint && <span className="mt-0.5 block text-[10px] text-slate-400">{option.hint}</span>}
-                        </span>
-                        {selected && (
-                          <CheckCircle2 size={17} className="shrink-0 text-blue-600" />
-                        )}
-                      </button>
+                      </div>
                     )
                   })}
                 </div>

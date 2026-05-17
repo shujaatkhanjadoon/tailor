@@ -230,6 +230,9 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
 
                   <p className="text-sm text-slate-500 mb-2">
                     {gc?.emoji} {gc?.label}
+                    {order.orderForRelation && order.orderForRelation !== 'self' && (
+                      <span className="ml-2 text-blue-600">For: {order.orderForName || order.orderForRelation}</span>
+                    )}
                     {order.assignedToName && (
                       <span className="ml-2 text-blue-600">· {order.assignedToName}</span>
                     )}
@@ -316,6 +319,11 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                     <p className="text-sm font-medium text-slate-700">
                       #{String(order.orderNumber).padStart(3,'0')} — {gc?.label}
                     </p>
+                    {order.orderForRelation && order.orderForRelation !== 'self' && (
+                      <p className="text-[11px] font-semibold text-blue-600">
+                        For: {order.orderForName || order.orderForRelation}
+                      </p>
+                    )}
                     <p className="text-xs text-slate-400">
                       {format(new Date(order.createdAt), 'd MMM yyyy')} · Rs. {order.totalPrice.toLocaleString()}
                     </p>

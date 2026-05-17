@@ -243,6 +243,7 @@ function AuthContent() {
   const [city, setCity] = useState("");
   const [stateProvince, setStateProvince] = useState("");
   const [cityQuery, setCityQuery] = useState("");
+  const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -1249,6 +1250,7 @@ function AuthContent() {
                     setStateProvince(e.target.value);
                     setCity("");
                     setCityQuery("");
+                    setCityDropdownOpen(false);
                   }}
                   className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-800 outline-none transition-all focus:border-blue-500 focus:bg-white"
                 >
@@ -1269,10 +1271,15 @@ function AuthContent() {
                   <input
                     type="text"
                     value={cityQuery}
-                    onChange={(e) => setCityQuery(e.target.value)}
+                    onFocus={() => setCityDropdownOpen(true)}
+                    onChange={(e) => {
+                      setCityQuery(e.target.value);
+                      setCityDropdownOpen(true);
+                    }}
                     placeholder={city || "Search city ya manually type karein"}
                     className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-800 outline-none transition-all focus:border-blue-500 focus:bg-white"
                   />
+                  {cityDropdownOpen && (
                   <div className="mt-2 max-h-40 overflow-y-auto rounded-2xl border border-slate-200 bg-white">
                     {city && (
                       <button
@@ -1280,6 +1287,7 @@ function AuthContent() {
                         onClick={() => {
                           setCity("");
                           setCityQuery("");
+                          setCityDropdownOpen(false);
                         }}
                         className="w-full border-b border-slate-100 px-4 py-2.5 text-left text-xs font-semibold text-slate-400"
                       >
@@ -1293,6 +1301,7 @@ function AuthContent() {
                         onClick={() => {
                           setCity(item);
                           setCityQuery("");
+                          setCityDropdownOpen(false);
                         }}
                         className={cn(
                           "w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition-colors last:border-0 hover:bg-slate-50",
@@ -1310,6 +1319,7 @@ function AuthContent() {
                         onClick={() => {
                           setCity(cityQuery.trim());
                           setCityQuery("");
+                          setCityDropdownOpen(false);
                         }}
                         className="w-full px-4 py-3 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50"
                       >
@@ -1317,6 +1327,7 @@ function AuthContent() {
                       </button>
                     )}
                   </div>
+                  )}
                 </label>
               )}
 

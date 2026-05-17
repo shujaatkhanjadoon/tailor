@@ -39,7 +39,7 @@ function brandedEmailTemplate(opts: {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e2e8f0;">
           <tr>
             <td style="background:#0f172a;padding:24px;">
-              <img src="${APP_URL}/logo.png" width="48" height="48" alt="Meradarzi" style="display:block;border-radius:12px;">
+              <img src="/logo.png" width="48" height="48" alt="Meradarzi" style="display:block;border-radius:12px;">
               <h1 style="margin:18px 0 4px;color:#ffffff;font-size:24px;line-height:1.2;">${escapeHtml(opts.title)}</h1>
               ${opts.preview ? `<p style="margin:0;color:#cbd5e1;font-size:14px;line-height:1.6;">${escapeHtml(opts.preview)}</p>` : ''}
             </td>
