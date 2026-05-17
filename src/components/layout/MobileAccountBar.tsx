@@ -53,7 +53,7 @@ export function MobileAccountBar() {
                       src="/logo.png"
                       alt="Meradarzi Logo"
                       width={150}
-                      height={50}
+                      height={25}
                     />
                   </Link>
                 </div>

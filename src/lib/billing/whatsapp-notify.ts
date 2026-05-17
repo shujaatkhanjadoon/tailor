@@ -2,7 +2,7 @@
 // Builds WhatsApp click-to-chat links for admin to send manually
 // or programmatically via WhatsApp Business API in future
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mydarzi.vercel.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.meradarzi.pk'
 
 export function buildActivationWhatsApp(
   phone:     string,

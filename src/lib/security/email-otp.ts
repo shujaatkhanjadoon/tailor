@@ -3,10 +3,10 @@ import { Resend }  from 'resend'
 import { createHash, randomInt } from 'crypto'
 
 const resend  = new Resend(process.env.RESEND_API_KEY)
-const FROM    = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mydarzi.vercel.app'
-const SUPPORT_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL ?? process.env.ADMIN_EMAIL ?? 'admin@mydarzi.app'
-const SUPPORT_PHONE = process.env.ADMIN_PHONE ?? process.env.ADMIN_WHATSAPP ?? '+92 300 0000000'
+const FROM    = process.env.RESEND_FROM_EMAIL ?? 'no-reply@meradarzi.pk'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.meradarzi.pk'
+const SUPPORT_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL ?? 'darzihub9@gmail.com'
+const SUPPORT_PHONE = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ??  '+92 313 5931459'
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -108,7 +108,7 @@ export async function sendOTPEmail(
     <div style="background:#1d4ed8;border-radius:16px 16px 0 0;padding:24px;text-align:center;">
       <div style="display:inline-flex;align-items:center;gap:10px;">
         <span style="font-size:24px;">✂️</span>
-        <span style="color:white;font-size:20px;font-weight:700;">Meradarzi</span>
+        <span style="color:white;font-size:20px;font-weight:700;">MeraDarzi</span>
       </div>
     </div>
 

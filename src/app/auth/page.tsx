@@ -844,7 +844,7 @@ function AuthContent() {
           >
             <Scissors size={28} className="text-white" strokeWidth={1.5} />
           </div>
-          <h1 className="text-2xl font-bold text-white">Meradarzi</h1>
+          <h1 className="text-2xl font-bold text-white">MeraDarzi</h1>
           <p className="text-slate-400 text-sm mt-1">
             Pakistan ka Tailor Management App
           </p>
