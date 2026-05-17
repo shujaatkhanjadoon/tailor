@@ -240,6 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // ── Also save to IndexedDB for offline use ───────────────────
     await shopOps.setupWithId(shopId, shopName, ownerPhone)
     await db.shop.update(shopId, {
+      ownerName: ownerName?.trim() || shopName + ' (Owner)',
       city: city?.trim() || undefined,
       stateProvince: stateProvince?.trim() || undefined,
       _synced: 1,

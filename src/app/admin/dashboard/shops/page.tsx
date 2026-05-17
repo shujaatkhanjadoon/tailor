@@ -31,6 +31,29 @@ const PLAN_OPTIONS = [
   { value: "business|yearly", label: "👑 Business Yearly (Rs.23,999)" },
 ];
 
+type ShopTab =
+  | "all"
+  | "renewals"
+  | "pending"
+  | "inactive"
+  | "starter"
+  | "professional_monthly"
+  | "professional_yearly"
+  | "business_monthly"
+  | "business_yearly";
+
+const PLAN_TABS: { key: ShopTab; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "renewals", label: "Renewals" },
+  { key: "starter", label: "Starter" },
+  { key: "professional_monthly", label: "Pro Monthly" },
+  { key: "professional_yearly", label: "Pro Yearly" },
+  { key: "business_monthly", label: "Business Monthly" },
+  { key: "business_yearly", label: "Business Yearly" },
+  { key: "pending", label: "Unverified" },
+  { key: "inactive", label: "Inactive" },
+];
+
 const SUB_STATUS_CONFIG: Record<
   string,
   {
@@ -158,6 +181,35 @@ function formatDate(value?: string | null): string {
 function formatCycle(value?: string | null): string {
   if (!value) return "Free";
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function getSubscription(shop: Shop) {
+  return shop.subscriptions?.[0];
+}
+
+function getShopPlanKey(shop: Shop): ShopTab {
+  const sub = getSubscription(shop);
+  const plan = sub?.plan ?? shop.plan ?? "starter";
+  const cycle = sub?.billing_cycle ?? (plan === "starter" ? null : "monthly");
+  if (plan === "professional" && cycle === "yearly") return "professional_yearly";
+  if (plan === "professional") return "professional_monthly";
+  if (plan === "business" && cycle === "yearly") return "business_yearly";
+  if (plan === "business") return "business_monthly";
+  return "starter";
+}
+
+function getExpiryDays(shop: Shop): number | null {
+  const sub = getSubscription(shop);
+  const expiryDate = sub?.expires_at || sub?.trial_ends_at;
+  if (!expiryDate) return null;
+  return Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
+}
+
+function isRenewalSoon(shop: Shop): boolean {
+  const sub = getSubscription(shop);
+  const plan = sub?.plan ?? shop.plan ?? "starter";
+  const days = getExpiryDays(shop);
+  return plan !== "starter" && sub?.status === "active" && days !== null && days <= 7;
 }
 
 function buildExpiredWhatsApp(
@@ -834,7 +886,7 @@ export default function AdminShopsPage() {
     VerificationRequest[]
   >([]);
   const [query, setQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "pending" | "inactive">(
+  const [activeTab, setActiveTab] = useState<ShopTab>(
     "all",
   );
   const [loading, setLoading] = useState(true);
@@ -999,13 +1051,23 @@ export default function AdminShopsPage() {
     const matchTab =
       activeTab === "all"
         ? true
+        : activeTab === "renewals"
+          ? isRenewalSoon(s)
         : activeTab === "pending"
           ? (s.verification_status ?? "pending") === "pending"
-          : activeTab === "inactive"
-            ? s.is_active === false
-            : true;
+        : activeTab === "inactive"
+          ? s.is_active === false
+          : getShopPlanKey(s) === activeTab;
 
     return matchQuery && matchTab;
+  }).sort((a, b) => {
+    const renewalA = isRenewalSoon(a) ? 0 : 1;
+    const renewalB = isRenewalSoon(b) ? 0 : 1;
+    if (renewalA !== renewalB) return renewalA - renewalB;
+    const daysA = getExpiryDays(a) ?? Number.MAX_SAFE_INTEGER;
+    const daysB = getExpiryDays(b) ?? Number.MAX_SAFE_INTEGER;
+    if (daysA !== daysB) return daysA - daysB;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
   // ── Counts for tab badges ─────────────────────────────────────
@@ -1013,6 +1075,17 @@ export default function AdminShopsPage() {
     (s) => (s.verification_status ?? "pending") === "pending",
   ).length;
   const inactiveCount = shops.filter((s) => s.is_active === false).length;
+  const tabCounts: Record<ShopTab, number> = {
+    all: shops.length,
+    renewals: shops.filter(isRenewalSoon).length,
+    pending: pendingCount,
+    inactive: inactiveCount,
+    starter: shops.filter(s => getShopPlanKey(s) === "starter").length,
+    professional_monthly: shops.filter(s => getShopPlanKey(s) === "professional_monthly").length,
+    professional_yearly: shops.filter(s => getShopPlanKey(s) === "professional_yearly").length,
+    business_monthly: shops.filter(s => getShopPlanKey(s) === "business_monthly").length,
+    business_yearly: shops.filter(s => getShopPlanKey(s) === "business_yearly").length,
+  };
 
   return (
     <div className="space-y-5 max-w-4xl">
@@ -1086,27 +1159,22 @@ export default function AdminShopsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 bg-slate-900 rounded-2xl p-1">
-        {(
-          [
-            { key: "all", label: "All Shops", count: shops.length },
-            { key: "pending", label: "Unverified", count: pendingCount },
-            { key: "inactive", label: "Inactive", count: inactiveCount },
-          ] as const
-        ).map((tab) => (
+      <div className="flex gap-2 overflow-x-auto bg-slate-900 rounded-2xl p-1">
+        {PLAN_TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2",
+              "flex shrink-0 items-center justify-center gap-2",
               "py-2.5 rounded-xl text-xs font-semibold transition-all",
+              "px-3",
               activeTab === tab.key
                 ? "bg-slate-700 text-white shadow-sm"
                 : "text-slate-500 hover:text-slate-300",
             )}
           >
             {tab.label}
-            {tab.count > 0 && (
+            {tabCounts[tab.key] > 0 && (
               <span
                 className={cn(
                   "text-[10px] font-bold px-1.5 py-0.5 rounded-full",
@@ -1119,7 +1187,7 @@ export default function AdminShopsPage() {
                     : "bg-slate-700 text-slate-400",
                 )}
               >
-                {tab.count}
+                {tabCounts[tab.key]}
               </span>
             )}
           </button>

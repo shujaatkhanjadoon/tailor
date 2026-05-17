@@ -81,6 +81,11 @@ export function RecentOrderCard({ order }: RecentOrderCardProps) {
         <p className="font-semibold text-slate-800 text-base leading-tight">
           {order.customerName}
         </p>
+        {order.orderForRelation && order.orderForRelation !== 'self' && (
+          <p className="text-[11px] font-semibold text-blue-600 mt-0.5">
+            For: {order.orderForName || order.orderForRelation}
+          </p>
+        )}
         {garmentConfig && (
           <p className="text-xs text-slate-400 mt-0.5">
             {garmentConfig.emoji} {garmentConfig.label}

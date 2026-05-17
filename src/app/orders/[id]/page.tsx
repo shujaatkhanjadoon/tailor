@@ -54,7 +54,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
       const matches = await db.measurements
         .where('customerId').equals(order.customerId)
-        .filter(m => m._deleted === 0 && m.garmentType === order.garmentType)
+        .filter(m =>
+          m._deleted === 0 &&
+          m.garmentType === order.garmentType &&
+          (m.orderForRelation ?? 'self') === (order.orderForRelation ?? 'self') &&
+          ((order.orderForRelation ?? 'self') === 'self' || (m.orderForName ?? '') === (order.orderForName ?? ''))
+        )
         .reverse()
         .sortBy('takenAt')
 
@@ -406,6 +411,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               label: 'Due Date',
               value: format(new Date(order.dueDate), 'EEEE, d MMMM yyyy'),
               valueClass: isOverdue ? 'text-red-600 font-bold' : 'text-slate-700',
+            },
+            {
+              icon: User2,
+              label: 'Order For',
+              value: order.orderForRelation && order.orderForRelation !== 'self'
+                ? `${order.orderForName || order.orderForRelation}${order.recipientGender ? ` (${order.recipientGender})` : ''}`
+                : 'Self',
+              valueClass: 'text-blue-700 font-medium',
             },
             {
               icon: User2,

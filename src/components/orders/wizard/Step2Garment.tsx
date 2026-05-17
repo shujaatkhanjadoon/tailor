@@ -3,8 +3,8 @@
 
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
-import { GarmentType, GARMENT_LABELS } from '@/types'
+import { AlertCircle, CheckCircle2, Loader2, UsersRound } from 'lucide-react'
+import { GarmentType, GARMENT_LABELS, OrderRecipientRelation } from '@/types'
 import { cn } from '@/lib/utils'
 import { Camera } from 'lucide-react'
 import { compressImage } from '@/lib/photos/compress'
@@ -157,6 +157,77 @@ const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; unit
     { key: 'shoulder', label: 'Shoulder (Kandha)', unit: 'inch' },
     { key: 'waist', label: 'Waist (Kamar)', unit: 'inch' },
   ],
+}
+
+const RECIPIENT_OPTIONS: {
+  relation: OrderRecipientRelation
+  label: string
+  helper: string
+  gender: 'male' | 'female' | 'child' | 'same' | 'custom'
+}[] = [
+  { relation: 'self', label: 'Self', helper: 'Gahak ke liye', gender: 'same' },
+  { relation: 'wife', label: 'Wife', helper: 'Biwi ke liye', gender: 'female' },
+  { relation: 'husband', label: 'Husband', helper: 'Shohar ke liye', gender: 'male' },
+  { relation: 'son', label: 'Son', helper: 'Beta ke liye', gender: 'child' },
+  { relation: 'daughter', label: 'Daughter', helper: 'Beti ke liye', gender: 'child' },
+  { relation: 'brother', label: 'Brother', helper: 'Bhai ke liye', gender: 'male' },
+  { relation: 'sister', label: 'Sister', helper: 'Behen ke liye', gender: 'female' },
+  { relation: 'other', label: 'Other', helper: 'Kisi aur ke liye', gender: 'custom' },
+]
+
+const GARMENTS_BY_RECIPIENT: Record<'male' | 'female' | 'child', GarmentType[]> = {
+  male: [
+    'shalwar_kameez',
+    'kurta',
+    'shirt',
+    'trouser',
+    'pajama',
+    'waistcoat',
+    'prince_coat',
+    'pant_coat',
+    'sherwani',
+    'blazer',
+    'jacket',
+    'other',
+  ],
+  female: [
+    'shalwar_kameez',
+    'kurti',
+    'shirt',
+    'trouser',
+    'pajama',
+    'lehenga',
+    'maxi',
+    'jacket',
+    'other',
+  ],
+  child: [
+    'shalwar_kameez',
+    'kurta',
+    'kurti',
+    'shirt',
+    'trouser',
+    'pajama',
+    'waistcoat',
+    'jacket',
+    'other',
+  ],
+}
+
+function relationLabel(relation?: OrderRecipientRelation) {
+  return RECIPIENT_OPTIONS.find(option => option.relation === relation)?.label ?? 'Self'
+}
+
+function inferRecipientGender(
+  relation: OrderRecipientRelation | undefined,
+  customerGender?: 'male' | 'female' | 'child',
+  selected?: 'male' | 'female' | 'child',
+): 'male' | 'female' | 'child' {
+  if (relation === 'self') return customerGender ?? 'male'
+  if (relation === 'wife' || relation === 'sister') return 'female'
+  if (relation === 'husband' || relation === 'brother') return 'male'
+  if (relation === 'son' || relation === 'daughter') return 'child'
+  return selected ?? customerGender ?? 'male'
 }
 
 export type StyleSelections = {
@@ -339,21 +410,21 @@ const STYLE_GROUPS: StyleGroup[] = [
 ]
 
 const STYLE_GROUPS_BY_GARMENT: Record<GarmentType, StyleKey[]> = {
-  shalwar_kameez: ['neck', 'sleeve', 'daman', 'cuff', 'fit', 'bottom', 'pocket', 'extras'],
-  kurta: ['neck', 'sleeve', 'daman', 'cuff', 'fit', 'pocket', 'extras'],
-  kurti: ['neck', 'sleeve', 'daman', 'cuff', 'fit', 'extras'],
-  shirt: ['neck', 'sleeve', 'daman', 'cuff', 'fit', 'pocket', 'extras'],
-  trouser: ['bottom', 'pocket', 'length', 'fit', 'extras'],
-  pajama: ['bottom', 'length', 'fit', 'extras'],
-  sherwani: ['collar', 'button', 'sleeve', 'daman', 'fit', 'pocket', 'extras'],
-  waistcoat: ['collar', 'button', 'pocket', 'fit', 'extras'],
-  prince_coat: ['collar', 'button', 'sleeve', 'fit', 'pocket', 'extras'],
-  pant_coat: ['collar', 'button', 'sleeve', 'bottom', 'pocket', 'fit', 'extras'],
-  lehenga: ['daman', 'sleeve', 'neck', 'fit', 'extras'],
-  maxi: ['neck', 'sleeve', 'daman', 'fit', 'extras'],
-  blazer: ['collar', 'button', 'sleeve', 'fit', 'pocket', 'extras'],
-  jacket: ['collar', 'button', 'sleeve', 'fit', 'pocket', 'extras'],
-  other: ['neck', 'sleeve', 'daman', 'bottom', 'pocket', 'fit', 'extras'],
+  shalwar_kameez: ['neck', 'sleeve', 'daman', 'fit', 'extras'],
+  kurta: ['neck', 'sleeve', 'daman', 'fit', 'extras'],
+  kurti: ['neck', 'sleeve', 'daman', 'fit', 'extras'],
+  shirt: ['neck', 'sleeve', 'fit', 'pocket'],
+  trouser: ['bottom', 'fit', 'pocket'],
+  pajama: ['bottom', 'fit'],
+  sherwani: ['collar', 'button', 'fit', 'extras'],
+  waistcoat: ['collar', 'button', 'fit', 'pocket'],
+  prince_coat: ['collar', 'button', 'fit', 'pocket'],
+  pant_coat: ['collar', 'button', 'bottom', 'fit', 'pocket'],
+  lehenga: ['neck', 'sleeve', 'fit', 'extras'],
+  maxi: ['neck', 'sleeve', 'fit', 'extras'],
+  blazer: ['collar', 'button', 'fit', 'pocket'],
+  jacket: ['collar', 'button', 'fit', 'pocket'],
+  other: ['fit', 'extras'],
 }
 
 function getStyleGroupsForGarment(type?: GarmentType): StyleGroup[] {
@@ -378,6 +449,10 @@ interface Step2Props {
   data: {
     garmentType?: GarmentType
     customerId?: string
+    customerGender?: 'male' | 'female' | 'child'
+    orderForRelation?: OrderRecipientRelation
+    orderForName?: string
+    recipientGender?: 'male' | 'female' | 'child'
     measurementId?: string
     measurements?: Record<string, string>
     styleSelections?: StyleSelections
@@ -386,7 +461,10 @@ interface Step2Props {
     fabricPhotoBase64?: string
   }
   onUpdate: (d: Partial<{
-    garmentType: GarmentType
+    garmentType: GarmentType | undefined
+    orderForRelation: OrderRecipientRelation
+    orderForName: string | undefined
+    recipientGender: 'male' | 'female' | 'child'
     measurementId: string | undefined
     measurements: Record<string, string>
     styleSelections: StyleSelections
@@ -404,6 +482,9 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
   const [styleSelections, setStyleSelections] = useState<StyleSelections>(
     data.styleSelections || {}
   )
+  const selectedRelation = data.orderForRelation ?? 'self'
+  const recipientGender = inferRecipientGender(selectedRelation, data.customerGender, data.recipientGender)
+  const visibleGarmentTypes = GARMENTS_BY_RECIPIENT[recipientGender]
 
   // Add state inside Step2Garment:
   const [quickPhoto, setQuickPhoto] = useState<string | null>(data.fabricPhotoBase64 ?? null)
@@ -430,11 +511,16 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
       if (!data.customerId || !selectedType) return []
       return db.measurements
         .where('customerId').equals(data.customerId)
-        .filter(m => m._deleted === 0 && m.garmentType === selectedType)
+        .filter(m =>
+          m._deleted === 0 &&
+          m.garmentType === selectedType &&
+          (m.orderForRelation ?? 'self') === selectedRelation &&
+          (selectedRelation === 'self' || (m.orderForName ?? '') === (data.orderForName ?? ''))
+        )
         .reverse()
         .sortBy('takenAt')
     },
-    [data.customerId, selectedType]
+    [data.customerId, selectedType, selectedRelation, data.orderForName]
   ) ?? []
   const selectedPrevious = previousMeasurements.find(m => m.id === data.measurementId)
 
@@ -458,19 +544,108 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
     onUpdate({ styleSelections: updated })
   }
 
+  const updateRecipient = (relation: OrderRecipientRelation) => {
+    const nextGender = inferRecipientGender(relation, data.customerGender)
+    setMeasurements({})
+    setStyleSelections({})
+    onUpdate({
+      orderForRelation: relation,
+      orderForName: relation === 'self' ? undefined : relationLabel(relation),
+      recipientGender: nextGender,
+      garmentType: undefined,
+      measurements: {},
+      measurementId: undefined,
+      styleSelections: {},
+    })
+  }
+
   const filledCount = Object.values(measurements).filter(v => v && v !== '0').length
   const canProceed = !!selectedType && (!!data.measurementId || filledCount > 0)
 
   return (
     <div className="space-y-6 mb-16 lg:mb-0">
 
+      <div>
+        <p className="text-sm font-semibold text-slate-700 mb-3">
+          Ye order kis ke liye hai? <span className="text-red-500">*</span>
+        </p>
+        <div className="grid grid-cols-2 gap-2 min-[420px]:grid-cols-4">
+          {RECIPIENT_OPTIONS.map(option => {
+            const selected = selectedRelation === option.relation
+            return (
+              <button
+                key={option.relation}
+                type="button"
+                onClick={() => updateRecipient(option.relation)}
+                className={cn(
+                  'flex min-h-20 flex-col items-start justify-between rounded-2xl border-2 px-3 py-3 text-left transition-all active:scale-[0.98]',
+                  selected
+                    ? 'border-blue-500 bg-blue-50 text-blue-800'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                )}
+              >
+                <UsersRound size={17} className={selected ? 'text-blue-600' : 'text-slate-400'} />
+                <span>
+                  <span className="block text-sm font-bold">{option.label}</span>
+                  <span className="block text-[10px] text-slate-400">{option.helper}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {selectedRelation === 'other' && (
+          <div className="mt-3 grid grid-cols-1 gap-3 min-[420px]:grid-cols-[1fr_auto]">
+            <input
+              type="text"
+              value={data.orderForName ?? ''}
+              onChange={e => onUpdate({ orderForName: e.target.value.trimStart() || undefined })}
+              placeholder="Relation/name, jaise: cousin"
+              className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-500"
+            />
+            <div className="grid grid-cols-3 gap-2">
+              {(['male', 'female', 'child'] as const).map(g => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => {
+                    setMeasurements({})
+                    setStyleSelections({})
+                    onUpdate({
+                      recipientGender: g,
+                      garmentType: undefined,
+                      measurementId: undefined,
+                      measurements: {},
+                      styleSelections: {},
+                    })
+                  }}
+                  className={cn(
+                    'rounded-xl border-2 px-3 py-2 text-xs font-bold capitalize',
+                    recipientGender === g
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 bg-white text-slate-500'
+                  )}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Garment type picker — big icon buttons */}
       <div>
         <p className="text-sm font-semibold text-slate-700 mb-3">
           Kapra Kaisa Hai? <span className="text-red-500">*</span>
+          <span className="ml-2 text-xs font-normal text-slate-400">
+            ({relationLabel(selectedRelation)} - {recipientGender})
+          </span>
         </p>
         <div className="grid grid-cols-3 gap-3">
-          {(Object.entries(GARMENT_LABELS) as [GarmentType, { label: string; emoji: string }][]).map(
+          {(Object.entries(GARMENT_LABELS) as [GarmentType, { label: string; emoji: string }][])
+            .filter(([type]) => visibleGarmentTypes.includes(type))
+            .map(
             ([type, { label, emoji }]) => {
               const isSelected = type === selectedType
               return (
@@ -603,7 +778,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
                 Style Reference
               </p>
               <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                English aur Roman Urdu names select karein taake karigar ko design clear samajh aaye.
+                Sirf zaroori style choices select karein. Extra detail notes mein likh dein.
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-[10px] font-bold text-blue-700">
@@ -637,10 +812,10 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
                         )}
                       >
                         <span className={cn(
-                          'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-lg font-black',
-                          selected ? 'border-blue-200 bg-white text-blue-700' : 'border-slate-200 bg-white text-slate-500'
+                          'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border',
+                          selected ? 'border-blue-500 bg-blue-600 text-white' : 'border-slate-300 bg-white text-transparent'
                         )}>
-                          {option.icon}
+                          <CheckCircle2 size={14} />
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-xs font-bold leading-snug">{option.label}</span>

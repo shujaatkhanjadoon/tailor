@@ -51,6 +51,7 @@ export interface Database {
 export interface ShopRow {
   id:               string
   owner_phone:      string
+  owner_name?:      string
   shop_name:        string
   whatsapp_number?: string
   state_province?:  string
@@ -104,6 +105,9 @@ export interface MeasurementRow {
   id:           string
   customer_id:  string
   shop_id:      string
+  order_for_relation?: string
+  order_for_name?: string
+  recipient_gender?: 'male' | 'female' | 'child'
   garment_type: string
   values:       Record<string, string>
   notes?:       string
@@ -119,6 +123,9 @@ export interface OrderRow {
   customer_id:          string
   customer_name:        string
   customer_phone:       string
+  order_for_relation?:  string
+  order_for_name?:      string
+  recipient_gender?:    'male' | 'female' | 'child'
   measurement_id?:      string
   garment_type:         string
   status:               string

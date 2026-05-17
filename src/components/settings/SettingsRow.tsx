@@ -39,7 +39,7 @@ export function SettingsRow({
       )}
     >
       {/* Icon */}
-      <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0', iconBg)}>
+      <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', iconBg)}>
         <Icon size={17} className={iconColor} strokeWidth={2} />
       </div>
 
@@ -54,7 +54,7 @@ export function SettingsRow({
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
         {badge && (
           <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
             {badge}

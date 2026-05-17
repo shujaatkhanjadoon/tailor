@@ -11,6 +11,16 @@ export type OrderStatus =
 
 export type PaymentMethod = 'cash' | 'easypaisa' | 'jazzcash' | 'bank'
 
+export type OrderRecipientRelation =
+  | 'self'
+  | 'wife'
+  | 'husband'
+  | 'son'
+  | 'daughter'
+  | 'brother'
+  | 'sister'
+  | 'other'
+
 export type GarmentType =
   | 'shalwar_kameez'
   | 'kurta'
@@ -53,6 +63,9 @@ export interface Order {
   createdAt: string
   updatedAt: string
   specialInstructions?: string
+  orderForRelation?: OrderRecipientRelation
+  orderForName?: string
+  recipientGender?: 'male' | 'female' | 'child'
 }
 
 export interface Payment {

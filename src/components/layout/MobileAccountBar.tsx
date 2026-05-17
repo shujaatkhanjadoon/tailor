@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db/schema'
 import { usePlan } from '@/hooks/usePlan'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 
 const actions = [
   { href: '/settings',             icon: Settings,   label: 'Settings' },
@@ -57,20 +58,23 @@ export function MobileAccountBar() {
                     />
                   </Link>
                 </div>
-        <button
-          aria-label="Open user actions"
-          onClick={() => setOpen(v => !v)}
-          className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-100"
-        >
-          {open ? (
-            <X size={17} />
-          ) : showShopLogo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={shop.brandLogoUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            initials
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          <button
+            aria-label="Open user actions"
+            onClick={() => setOpen(v => !v)}
+            className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-100"
+          >
+            {open ? (
+              <X size={17} />
+            ) : showShopLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={shop.brandLogoUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initials
+            )}
+          </button>
+        </div>
       </div>
 
       {open && (

@@ -178,7 +178,9 @@ if (isLoading || !shopId) return <DashboardSkeleton />
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <PlanBadge />
-            <NotificationBell />
+            <div className="hidden lg:block">
+              <NotificationBell />
+            </div>
           </div>
         </div>
       </header>

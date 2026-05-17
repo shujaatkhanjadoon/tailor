@@ -114,7 +114,14 @@ export const OrderListCard = memo(function OrderListCard({
 
         {/* Row 2: customer name */}
         {showCustomer && (
-          <p className="font-semibold text-slate-800 mb-1">{order.customerName}</p>
+          <div className="mb-1">
+            <p className="font-semibold text-slate-800">{order.customerName}</p>
+            {order.orderForRelation && order.orderForRelation !== 'self' && (
+              <p className="text-[11px] font-semibold text-blue-600">
+                For: {order.orderForName || order.orderForRelation}
+              </p>
+            )}
+          </div>
         )}
 
         {/* Row 3: assigned karigar */}

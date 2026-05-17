@@ -25,6 +25,9 @@ const PAYMENT_METHODS: { key: PaymentMethod; label: string; emoji: string }[] = 
 interface Step3Props {
   data: {
     customerName?: string
+    orderForRelation?: string
+    orderForName?: string
+    recipientGender?: 'male' | 'female' | 'child'
     garmentType?: string
     totalPrice?: number
     advancePaid?: number
@@ -96,6 +99,11 @@ export function Step3Confirm({
           Order Summary
         </p>
         <p className="font-bold text-slate-800">{data.customerName}</p>
+        {(data.orderForRelation && data.orderForRelation !== 'self') && (
+          <p className="text-xs font-semibold text-blue-600 mt-0.5">
+            For: {data.orderForName || data.orderForRelation} ({data.recipientGender ?? 'family'})
+          </p>
+        )}
         {data.garmentType && (
           <p className="text-sm text-slate-500 mt-0.5">
             {GARMENT_LABELS[data.garmentType as keyof typeof GARMENT_LABELS]?.emoji}{' '}

@@ -6,6 +6,7 @@ import Dexie, { Table } from 'dexie'
 export interface ShopRecord {
   id: string
   shopName: string
+  ownerName?: string
   ownerPhone: string
   whatsappNumber?: string
   stateProvince?: string
@@ -60,6 +61,9 @@ export interface MeasurementRecord {
   id: string
   customerId: string
   shopId: string
+  orderForRelation?: 'self' | 'wife' | 'husband' | 'son' | 'daughter' | 'brother' | 'sister' | 'other'
+  orderForName?: string
+  recipientGender?: 'male' | 'female' | 'child'
   garmentType: string
   values: Record<string, string>   // { length: "42", chest: "38", ... }
   notes?: string
@@ -76,6 +80,9 @@ export interface OrderRecord {
   customerId: string
   customerName: string
   customerPhone: string
+  orderForRelation?: 'self' | 'wife' | 'husband' | 'son' | 'daughter' | 'brother' | 'sister' | 'other'
+  orderForName?: string
+  recipientGender?: 'male' | 'female' | 'child'
   measurementId?: string
   garmentType: string
   status: 'received' | 'cutting' | 'stitching' | 'finishing' | 'ready' | 'delivered' | 'cancelled'

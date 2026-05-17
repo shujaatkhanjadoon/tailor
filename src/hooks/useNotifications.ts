@@ -28,8 +28,11 @@ export function useNotifications() {
   const requestPermission = useCallback(async () => {
     const result = await notifPermission.request()
     setPermission(result)
+    if (result === 'granted' && shopId) {
+      notifScheduler.run(shopId)
+    }
     return result
-  }, [])
+  }, [shopId])
 
   const updateSetting = useCallback((key: keyof NotifSettings, value: boolean | string) => {
     const updated = { ...settings, [key]: value }

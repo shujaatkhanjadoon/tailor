@@ -4,7 +4,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, MessageCircle } from "lucide-react";
-import { GarmentType, PaymentMethod } from "@/types";
+import { GarmentType, OrderRecipientRelation, PaymentMethod } from "@/types";
 import { StepIndicator } from "@/components/orders/wizard/StepIndicator";
 import { Step1Customer } from "@/components/orders/wizard/Step1Customer";
 import { Step2Garment, formatStyleSelections, type StyleSelections } from "@/components/orders/wizard/Step2Garment";
@@ -38,6 +38,10 @@ interface WizardData {
   customerId: string;
   customerName: string;
   customerPhone: string;
+  customerGender: "male" | "female" | "child";
+  orderForRelation: OrderRecipientRelation;
+  orderForName?: string;
+  recipientGender: "male" | "female" | "child";
   garmentType: GarmentType;
   measurementId?: string;
   measurements: Record<string, string>;
@@ -111,6 +115,7 @@ function NewOrderWizard({
   const [data, setData] = useState<Partial<WizardData>>({
     paymentMethod: "cash",
     isUrgent: false,
+    orderForRelation: "self",
     measurements: {},
   });
 
@@ -177,6 +182,9 @@ function NewOrderWizard({
           id: measurementId,
           customerId: data.customerId!,
           shopId,
+          orderForRelation: data.orderForRelation ?? "self",
+          orderForName: data.orderForRelation === "self" ? undefined : data.orderForName,
+          recipientGender: data.recipientGender ?? data.customerGender,
           garmentType: data.garmentType!,
           values: filledMeasurements,
           takenAt: new Date().toISOString(),
@@ -192,7 +200,9 @@ function NewOrderWizard({
           .filter(
             (m) =>
               m._deleted === 0 &&
-              m.garmentType === data.garmentType,
+              m.garmentType === data.garmentType &&
+              (m.orderForRelation ?? "self") === (data.orderForRelation ?? "self") &&
+              ((data.orderForRelation ?? "self") === "self" || (m.orderForName ?? "") === (data.orderForName ?? "")),
           )
           .reverse()
           .sortBy("takenAt");
@@ -209,6 +219,9 @@ function NewOrderWizard({
         customerId: data.customerId,
         customerName: data.customerName!,
         customerPhone: data.customerPhone!,
+        orderForRelation: data.orderForRelation ?? "self",
+        orderForName: data.orderForRelation === "self" ? undefined : data.orderForName,
+        recipientGender: data.recipientGender ?? data.customerGender,
         garmentType: data.garmentType,
         measurementId,
         status: "received",

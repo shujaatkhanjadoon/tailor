@@ -24,7 +24,7 @@ function ToggleRow({ icon, label, sublabel, value, onChange, disabled }: ToggleR
       'flex items-center gap-3 py-3.5 border-b border-slate-100 last:border-0',
       disabled && 'opacity-40'
     )}>
-      <div className="flex-shrink-0">{icon}</div>
+      <div className="shrink-0">{icon}</div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-slate-800">{label}</p>
         {sublabel && <p className="text-xs text-slate-400 mt-0.5">{sublabel}</p>}
@@ -74,7 +74,7 @@ export function NotificationSettingsPanel() {
       )}>
         <div className="flex items-center gap-3">
           <div className={cn(
-            'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0',
+            'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
             isGranted ? 'bg-green-200' : isDenied ? 'bg-red-200' : 'bg-amber-200'
           )}>
             {isGranted
@@ -181,7 +181,7 @@ export function NotificationSettingsPanel() {
           { key: 'eveningTime' as const, label: 'Shaam Ka Waqt',  emoji: '🌆' },
         ].map(({ key, label, emoji }) => (
           <div key={key} className="flex items-center gap-3 py-3.5 border-b border-slate-100 last:border-0">
-            <span className="text-xl flex-shrink-0">{emoji}</span>
+            <span className="text-xl shrink-0">{emoji}</span>
             <div className="flex-1">
               <p className="text-sm font-semibold text-slate-800">{label}</p>
             </div>

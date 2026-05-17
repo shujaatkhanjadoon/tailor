@@ -14,11 +14,13 @@ interface Step1Props {
     customerId?:    string
     customerName?:  string
     customerPhone?: string
+    customerGender?: 'male' | 'female' | 'child'
   }
   onUpdate: (d: {
     customerId:    string
     customerName:  string
     customerPhone: string
+    customerGender: 'male' | 'female' | 'child'
   }) => void
   onNext: () => void
 }
@@ -63,7 +65,7 @@ export function Step1Customer({ data, onUpdate, onNext }: Step1Props) {
       })
 
   const selectCustomer = (c: CustomerRecord) => {
-    onUpdate({ customerId: c.id, customerName: c.name, customerPhone: c.phone })
+    onUpdate({ customerId: c.id, customerName: c.name, customerPhone: c.phone, customerGender: c.gender })
   }
 
   const handleNewCustomer = async () => {
@@ -86,6 +88,7 @@ export function Step1Customer({ data, onUpdate, onNext }: Step1Props) {
         customerId:    customer.id,
         customerName:  customer.name,
         customerPhone: customer.phone,
+        customerGender: customer.gender,
       })
       setShowNewForm(false)
       setNewName('')

@@ -175,6 +175,7 @@ export async function POST(req: NextRequest) {
     await sbUpsertById('shops', {
       id:                  shopId,
       shop_name:           shopName,
+      owner_name:          ownerName ?? shopName,
       owner_phone:         ownerPhone,
       owner_email:         normalizedEmail || null,
       state_province:      stateProvince ?? null,

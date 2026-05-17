@@ -54,7 +54,7 @@ export function TopCustomers({ customers }: { customers: Customer[] }) {
             >
               {/* Rank */}
               <div className={cn(
-                'w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm',
+                'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-bold text-sm',
                 isTop3 ? RANK_BG[i] : 'bg-slate-100'
               )}>
                 <span className={isTop3 ? RANK_COLORS[i] : 'text-slate-500'}>
@@ -68,7 +68,7 @@ export function TopCustomers({ customers }: { customers: Customer[] }) {
                   <p className="text-sm font-semibold text-slate-800 truncate">
                     {c.name}
                   </p>
-                  <p className="text-sm font-bold text-slate-800 ml-2 flex-shrink-0">
+                  <p className="text-sm font-bold text-slate-800 ml-2 shrink-0">
                     Rs. {c.revenue.toLocaleString()}
                   </p>
                 </div>
@@ -83,18 +83,18 @@ export function TopCustomers({ customers }: { customers: Customer[] }) {
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <span className="text-[10px] text-slate-400 flex-shrink-0">
+                  <span className="text-[10px] text-slate-400 shrink-0">
                     {c.orders} orders
                   </span>
                   {balance > 0 && (
-                    <span className="text-[10px] text-red-500 font-semibold flex-shrink-0">
+                    <span className="text-[10px] text-red-500 font-semibold shrink-0">
                       Rs. {balance.toLocaleString()} baaki
                     </span>
                   )}
                 </div>
               </div>
 
-              <ChevronRight size={13} className="text-slate-300 flex-shrink-0" />
+              <ChevronRight size={13} className="text-slate-300 shrink-0" />
             </button>
           )
         })}

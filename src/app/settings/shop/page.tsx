@@ -9,6 +9,7 @@ import {
   Image as ImageIcon, Upload, Palette, Sparkles,
 } from 'lucide-react'
 import { db } from '@/lib/db/schema'
+import { teamOps } from '@/lib/db/operations'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { cn } from '@/lib/utils'
 import { AccessNotice } from '@/components/billing/AccessNotice'
@@ -18,10 +19,11 @@ import { PAKISTAN_STATE_CITIES } from '@/lib/locations/pakistan'
 
 export default function ShopSettingsPage() {
   const router     = useRouter()
-  const { isOwner, shopId } = useAuth()
+  const { isOwner, shopId, currentUser, reinitialize } = useAuth()
   const plan = usePlan()
 
   const [shopName,   setShopName]   = useState('')
+  const [ownerName,  setOwnerName]  = useState('')
   const [whatsapp,   setWhatsapp]   = useState('')
   const [stateProvince, setStateProvince] = useState('')
   const [city,       setCity]       = useState('')
@@ -33,6 +35,7 @@ export default function ShopSettingsPage() {
   const [saving,     setSaving]     = useState(false)
   const [saved,      setSaved]      = useState(false)
   const [cityQuery, setCityQuery] = useState('')
+  const [cityDropdownOpen, setCityDropdownOpen] = useState(false)
 
   const shop = useLiveQuery(
     async () => shopId ? db.shop.get(shopId) : undefined,
@@ -42,6 +45,7 @@ export default function ShopSettingsPage() {
   useEffect(() => {
       if (!shop) return
       setShopName(shop.shopName   ?? '')
+      setOwnerName(shop.ownerName ?? currentUser?.name ?? '')
       setWhatsapp(shop.whatsappNumber ?? '')
       setStateProvince(shop.stateProvince ?? '')
       setCity(shop.city           ?? '')
@@ -49,7 +53,7 @@ export default function ShopSettingsPage() {
       setPostalCode(shop.postalCode ?? '')
       setBrandColor(shop.brandColor ?? '#2563eb')
       setBrandLogoUrl(shop.brandLogoUrl ?? '')
-  }, [shop])
+  }, [shop, currentUser?.name])
 
   const isBusiness = plan.plan === 'business' && plan.isActive
   const selectedState = useMemo(
@@ -100,13 +104,14 @@ export default function ShopSettingsPage() {
   }
 
   const handleSave = async () => {
-    if (!shopName.trim() || !shopId) return
+    if (!shopName.trim() || !ownerName.trim() || !shopId) return
     setSaving(true)
     try {
       const currentShop = await db.shop.get(shopId)
       if (currentShop) {
         await db.shop.update(currentShop.id, {
           shopName:       shopName.trim(),
+          ownerName:      ownerName.trim(),
           whatsappNumber: whatsapp || undefined,
           stateProvince:  stateProvince || undefined,
           city:           city     || undefined,
@@ -118,6 +123,10 @@ export default function ShopSettingsPage() {
           updatedAt:      new Date().toISOString(),
           _synced:        0,
         })
+        if (currentUser?.id) {
+          await teamOps.update(currentUser.id, { name: ownerName.trim() })
+          await reinitialize()
+        }
         await syncService.pushAll(currentShop.id).catch(console.error)
       }
       setSaved(true)
@@ -140,6 +149,24 @@ export default function ShopSettingsPage() {
         <div>
           <h1 className="text-lg font-bold text-slate-800">Dukaan Edit Karein</h1>
           <p className="text-xs text-slate-400">Dukaan ki details update karein</p>
+        </div>
+
+        {/* Owner name */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+            Owner Ka Naam *
+          </label>
+          <div className="flex items-center gap-2 bg-slate-50 border-2 border-slate-200
+                          rounded-2xl px-4 py-4 focus-within:border-blue-500 focus-within:bg-white transition-all">
+            <Store size={16} className="text-slate-400 shrink-0" />
+            <input
+              type="text"
+              value={ownerName}
+              onChange={e => setOwnerName(e.target.value)}
+              placeholder="Jaise: Ahmed Ali"
+              className="flex-1 text-sm font-medium text-slate-800 bg-transparent outline-none placeholder:text-slate-400"
+            />
+          </div>
         </div>
 
       </header>
@@ -295,6 +322,7 @@ export default function ShopSettingsPage() {
                   setStateProvince(e.target.value)
                   setCity('')
                   setCityQuery('')
+                  setCityDropdownOpen(false)
                 }}
                 className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-800 outline-none"
               >
@@ -313,15 +341,17 @@ export default function ShopSettingsPage() {
                 <input
                   type="text"
                   value={cityQuery}
-                  onChange={e => setCityQuery(e.target.value)}
+                  onFocus={() => setCityDropdownOpen(true)}
+                  onChange={e => { setCityQuery(e.target.value); setCityDropdownOpen(true) }}
                   placeholder={city || 'Search city ya manually type karein'}
                   className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-500"
                 />
+                {cityDropdownOpen && (
                 <div className="mt-2 max-h-44 overflow-y-auto rounded-2xl border border-slate-200 bg-white">
                   {city && (
                     <button
                       type="button"
-                      onClick={() => { setCity(''); setCityQuery('') }}
+                      onClick={() => { setCity(''); setCityQuery(''); setCityDropdownOpen(false) }}
                       className="w-full border-b border-slate-100 px-4 py-2.5 text-left text-xs font-semibold text-slate-400"
                     >
                       Selected: {city} - clear
@@ -331,7 +361,7 @@ export default function ShopSettingsPage() {
                     <button
                       key={`${stateProvince}-${c}`}
                       type="button"
-                      onClick={() => { setCity(c); setCityQuery('') }}
+                      onClick={() => { setCity(c); setCityQuery(''); setCityDropdownOpen(false) }}
                       className={cn(
                         'w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition-colors last:border-0 hover:bg-slate-50',
                         city === c ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-700'
@@ -343,7 +373,7 @@ export default function ShopSettingsPage() {
                   {canAddTypedCity && (
                     <button
                       type="button"
-                      onClick={() => { setCity(cityQuery.trim()); setCityQuery('') }}
+                      onClick={() => { setCity(cityQuery.trim()); setCityQuery(''); setCityDropdownOpen(false) }}
                       className="w-full px-4 py-3 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50"
                     >
                       Add "{cityQuery.trim()}"
@@ -353,6 +383,7 @@ export default function ShopSettingsPage() {
                     <p className="px-4 py-3 text-xs text-slate-400">City type karein.</p>
                   )}
                 </div>
+                )}
               </div>
             )}
           </div>
@@ -398,7 +429,7 @@ export default function ShopSettingsPage() {
       <div className="px-4 pt-4">
         <button
           onClick={handleSave}
-          disabled={!shopName.trim() || saving || saved}
+          disabled={!shopName.trim() || !ownerName.trim() || saving || saved}
           className={cn(
             'w-full font-bold py-4 rounded-2xl text-base transition-all active:scale-[0.98]',
             'flex items-center justify-center gap-2',

@@ -28,15 +28,24 @@ export const notifPermission = {
   },
 
   // Fire a simple notification immediately (for testing)
-  fire(title: string, body: string, tag?: string) {
-    if (Notification.permission !== 'granted') return
-    const n = new Notification(title, {
+  async fire(title: string, body: string, tag?: string) {
+    if (Notification.permission !== 'granted') return false
+    const options: NotificationOptions = {
       body,
       icon:  '/icons/icon-192.png',
       badge: '/icons/icon-96.png',
       tag:   tag ?? 'darzi-general',
       silent: false,
-    })
+    }
+
+    const registration = await navigator.serviceWorker?.getRegistration().catch(() => undefined)
+    if (registration?.showNotification) {
+      await registration.showNotification(title, options)
+      return true
+    }
+
+    const n = new Notification(title, options)
     n.onclick = () => { window.focus(); n.close() }
+    return true
   },
 }

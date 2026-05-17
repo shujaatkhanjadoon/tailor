@@ -61,7 +61,7 @@ export function OrderStatusChart({ data, total }: OrderStatusChartProps) {
 
       <div className="flex flex-col lg:flex-row items-center gap-4">
         {/* Donut */}
-        <div className="w-full lg:w-48 h-48 flex-shrink-0">
+        <div className="w-full lg:w-48 h-48 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -97,7 +97,7 @@ export function OrderStatusChart({ data, total }: OrderStatusChartProps) {
               return (
                 <div key={item.status} className="flex items-center gap-2">
                   <div
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ background: STATUS_COLORS[item.status] ?? '#94a3b8' }}
                   />
                   <span className="text-xs text-slate-500 flex-1">
