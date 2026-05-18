@@ -20,6 +20,7 @@ import { supabase } from "@/lib/supabase/client";
 import { mapMeasurement } from "@/lib/supabase/records";
 import { nowKarachiIso } from "@/lib/time";
 import { localOrderImages } from "@/lib/photos/local-order-images";
+import { isParentRelation } from "@/lib/order-recipient";
 
 // ── UUID helper ──────────────────────────────────────────────────
 const uuid = (): string => {
@@ -61,6 +62,12 @@ interface WizardData {
 }
 
 const STEPS = ["Gahak Chunein", "Kapra & Nap", "Qeemat & Tarikh"];
+
+const isRelationCheckError = (error: { message?: string } | null | undefined) =>
+  !!error?.message?.includes("violates check constraint");
+
+const measurementRelationForLegacyDb = (relation: OrderRecipientRelation) =>
+  isParentRelation(relation) ? "other" : relation;
 
 export default function NewOrderPage() {
   const { shopId, currentUser } = useAuth();
@@ -181,31 +188,47 @@ function NewOrderWizard({
       if (!measurementId && Object.keys(filledMeasurements).length > 0) {
         measurementId = uuid();
 
-        const { error } = await (supabase as any).from("measurements").insert({
+        const selectedRelation = data.orderForRelation ?? "self";
+        const measurementRow = {
           id: measurementId,
           customer_id: data.customerId!,
           shop_id: shopId,
-          order_for_relation: data.orderForRelation ?? "self",
+          order_for_relation: selectedRelation,
           order_for_name: data.orderForName?.trim() || null,
           recipient_gender: data.recipientGender ?? data.customerGender,
           garment_type: data.garmentType!,
           values: filledMeasurements,
           taken_at: nowKarachiIso(),
-        });
+        };
+
+        let { error } = await (supabase as any).from("measurements").insert(measurementRow);
+        if (error && isParentRelation(selectedRelation) && isRelationCheckError(error)) {
+          const retry = await (supabase as any).from("measurements").insert({
+            ...measurementRow,
+            order_for_relation: measurementRelationForLegacyDb(selectedRelation),
+            order_for_name: null,
+          });
+          error = retry.error;
+        }
         if (error) throw new Error(error.message)
       }
 
       if (!measurementId) {
+        const selectedRelation = data.orderForRelation ?? "self";
+        const lookupRelation = measurementRelationForLegacyDb(selectedRelation);
         let query = (supabase as any)
           .from("measurements")
           .select("*")
           .eq("customer_id", data.customerId!)
           .eq("garment_type", data.garmentType)
-          .eq("order_for_relation", data.orderForRelation ?? "self")
+          .eq("order_for_relation", lookupRelation)
           .is("deleted_at", null)
           .order("taken_at", { ascending: false })
           .limit(1);
-        if ((data.orderForRelation ?? "self") !== "self" && data.orderForName?.trim()) {
+        if (isParentRelation(selectedRelation)) {
+          query = query.eq("recipient_gender", data.recipientGender ?? data.customerGender);
+        }
+        if (selectedRelation !== "self" && data.orderForName?.trim()) {
           query = query.eq("order_for_name", data.orderForName.trim());
         }
         const { data: latestRows, error } = await query;
@@ -294,6 +317,9 @@ function NewOrderWizard({
       });
     } catch (e) {
       console.error("Order save failed:", e);
+      toast.error("Order save nahi hua", {
+        description: e instanceof Error ? e.message : "Dobara try karein.",
+      });
       // Unlock on failure so user can retry
       isSubmittingRef.current = false;
       setSaving(false);

@@ -15,7 +15,11 @@ const LABELS: Record<string, string> = {
 }
 
 export function relationNeedsName(relation?: string): boolean {
-  return !!relation && !['self', 'wife', 'husband'].includes(relation)
+  return !!relation && !['self', 'wife', 'husband', 'father', 'mother'].includes(relation)
+}
+
+export function isParentRelation(relation?: string): boolean {
+  return relation === 'father' || relation === 'mother'
 }
 
 export function recipientLabel(

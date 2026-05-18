@@ -27,7 +27,7 @@ import { getOptimisedUrl } from '@/lib/photos/cloudinary'
 import { supabase } from '@/lib/supabase/client'
 import { mapCustomer, mapMeasurement, mapShop } from '@/lib/supabase/records'
 import { localOrderImages } from '@/lib/photos/local-order-images'
-import { napOwnerLabel, recipientLabel } from '@/lib/order-recipient'
+import { isParentRelation, napOwnerLabel, recipientLabel } from '@/lib/order-recipient'
 
 const PAYMENT_METHODS = [
   { key: 'cash', label: 'Cash', emoji: '💵' },
@@ -72,16 +72,19 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         measurementRow = data
       }
       if (!measurementRow) {
+        const orderRelation = order.orderForRelation ?? 'self'
+        const measurementRelation = isParentRelation(orderRelation) ? 'other' : orderRelation
         let query = (supabase as any)
           .from('measurements')
           .select('*')
           .eq('customer_id', order.customerId)
           .eq('garment_type', order.garmentType)
-          .eq('order_for_relation', order.orderForRelation ?? 'self')
+          .eq('order_for_relation', measurementRelation)
           .is('deleted_at', null)
           .order('taken_at', { ascending: false })
           .limit(1)
-        if ((order.orderForRelation ?? 'self') !== 'self' && order.orderForName?.trim()) query = query.eq('order_for_name', order.orderForName.trim())
+        if (isParentRelation(orderRelation)) query = query.eq('recipient_gender', order.recipientGender)
+        if (orderRelation !== 'self' && order.orderForName?.trim()) query = query.eq('order_for_name', order.orderForName.trim())
         const { data } = await query
         measurementRow = data?.[0]
       }

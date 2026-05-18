@@ -11,7 +11,7 @@ import type { MeasurementRecord } from '@/lib/db/schema'
 import { ToggleSwitch } from '@/components/ui/toggle-switch'
 import { supabase } from '@/lib/supabase/client'
 import { mapMeasurement } from '@/lib/supabase/records'
-import { napOwnerLabel, recipientLabel, relationNeedsName } from '@/lib/order-recipient'
+import { isParentRelation, napOwnerLabel, recipientLabel, relationNeedsName } from '@/lib/order-recipient'
 
 // Measurement fields per garment type
 const FABRIC_HINTS: Record<GarmentType, string> = {
@@ -278,6 +278,10 @@ function measurementMatchesRecipient(
 
   if (relation === 'other' && gender === 'child') {
     return measurementGender === 'child'
+  }
+
+  if (isParentRelation(relation) && measurementRelation === 'other' && !measurementName) {
+    return measurementGender === gender
   }
 
   return false
