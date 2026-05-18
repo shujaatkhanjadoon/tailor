@@ -16,8 +16,8 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: {
-    default: "Meradarzi",
-    template: "%s | Meradarzi",
+    default: "Mera Darzi",
+    template: "%s | Mera Darzi",
   },
   description:
     "Pakistan ka tailor management app - orders, measurements, payments.",
