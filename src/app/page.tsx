@@ -1,9 +1,8 @@
 // src/app/page.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useLiveQuery } from "dexie-react-hooks";
 import { DashboardSkeleton } from '@/components/ui/Skeleton'
 import {
   ClipboardList,
@@ -19,117 +18,37 @@ import { StatsCard } from "@/components/dashboard/StatsCard";
 import { DueOrdersAlert } from "@/components/dashboard/DueOrdersAlert";
 import { RecentOrderCard } from "@/components/dashboard/RecentOrderCard";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { db, OrderRecord } from "@/lib/db/schema";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { NotificationPermissionCard } from "@/components/notifications/NotificationPermissionCard";
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { TrialBanner } from "@/components/billing/TrialBanner";
 import { ExpiryReminderBanner } from '@/components/billing/ExpiryReminderBanner'
+import { useOrders } from "@/hooks/useOrders";
+import { usePayments } from "@/hooks/usePayments";
+import { shopOps } from "@/lib/db/operations";
+import type { ShopRecord } from "@/lib/db/schema";
+import { karachiDateString } from "@/lib/time";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { shopId, isOwner } = useAuth();
+  const { shopId, isOwner, currentUser } = useAuth();
 
   const [greeting, setGreeting] = useState("Assalam o Alaikum");
   const [todayStr, setTodayStr] = useState("");
-  const cleanupDoneRef = useRef(false);
+  const [shop, setShop] = useState<ShopRecord | undefined>()
+  const today = karachiDateString();
+  const { orders: allOrders, isLoading } = useOrders(shopId, currentUser?.role === 'karigar' ? 'karigar' : 'owner', currentUser?.id)
+  const { payments: allPayments } = usePayments(shopId)
 
   useEffect(() => {
-    if (!shopId) return;
-    if (cleanupDoneRef.current) return; // ← run only once per session
-    cleanupDoneRef.current = true;
-
-    const cleanup = async () => {
-      // Remove corrupt orders (missing required fields)
-      const corrupt = await db.orders
-        .where("shopId")
-        .equals(shopId)
-        .filter((o) => !o.customerId || !o.garmentType || !o.dueDate)
-        .toArray();
-
-      if (corrupt.length > 0) {
-        console.warn(
-          `[Cleanup] Soft-deleting ${corrupt.length} corrupt orders`,
-        );
-        await Promise.all(
-          corrupt.map((o) =>
-            db.orders.update(o.id, { _deleted: 1, _synced: 1 }),
-          ),
-        );
-      }
-
-      // Backfill tracking codes for orders missing them
-      const withoutCode = await db.orders
-        .where("shopId")
-        .equals(shopId)
-        .filter((o) => o._deleted === 0 && !o.trackingCode)
-        .toArray();
-
-      if (withoutCode.length > 0) {
-        const shop = await db.shop.toCollection().first();
-        const { generateTrackingCode } = await import("@/lib/tracking");
-        await Promise.all(
-          withoutCode.map((o) =>
-            db.orders.update(o.id, {
-              trackingCode: generateTrackingCode(shop?.shopName ?? "DZ"),
-              _synced: 0,
-            }),
-          ),
-        );
-        console.log(
-          `[Cleanup] Added tracking codes to ${withoutCode.length} orders`,
-        );
-      }
-    };
-
-    cleanup().catch(console.error);
-  }, [shopId]);
-
-  const today = new Date().toISOString().split("T")[0];
-  const shop = useLiveQuery(async () => {
-    if (!shopId) return null
-    return db.shop.get(shopId)
+    if (!shopId) return
+    shopOps.get(shopId).then(setShop).catch(() => setShop(undefined))
   }, [shopId])
 
-  // ── LIVE QUERIES — all from IndexedDB ──────────────────────────
-
-  const allActiveOrders = useLiveQuery(async (): Promise<OrderRecord[]> => {
-    if (!shopId) return [];
-    return db.orders
-      .where("shopId")
-      .equals(shopId)
-      .filter(
-        (o) =>
-          o._deleted === 0 && !["delivered", "cancelled"].includes(o.status),
-      )
-      .toArray();
-  }, [shopId]);
-
-  const todayPayments = useLiveQuery(async () => {
-    if (!shopId) return [];
-    return db.payments
-      .where("shopId")
-      .equals(shopId)
-      .filter((p) => p._deleted === 0 && p.paidAt.startsWith(today))
-      .toArray();
-  }, [shopId, today]);
-
-  const recentOrders = useLiveQuery(async (): Promise<OrderRecord[]> => {
-    if (!shopId) return [];
-    const orders = await db.orders
-      .where("shopId")
-      .equals(shopId)
-      .filter((o) => o._deleted === 0)
-      .toArray();
-    return orders
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      .slice(0, 5);
-  }, [shopId]);
-
   // ── DERIVED STATS ───────────────────────────────────────────────
-  const safe = allActiveOrders ?? [];
-  const todayPay = todayPayments ?? [];
-  const recent = recentOrders ?? [];
+  const safe = allOrders.filter(o => !["delivered", "cancelled"].includes(o.status));
+  const todayPay = allPayments.filter(p => p.paidAt.startsWith(today));
+  const recent = [...allOrders].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
 
   const overdueOrders = safe.filter((o) => o.dueDate < today);
   const readyOrders = safe.filter((o) => o.status === "ready");
@@ -147,8 +66,6 @@ export default function DashboardPage() {
     incomeToday,
     pendingBalance,
   };
-
-  const isLoading = allActiveOrders === undefined;
 
   if (isLoading) {
     return (

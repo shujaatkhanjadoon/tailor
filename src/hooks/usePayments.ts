@@ -1,17 +1,21 @@
-// src/hooks/usePayments.ts
-import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo, useState } from 'react'
-import { db, PaymentRecord, OrderRecord } from '@/lib/db/schema'
+import { useEffect, useMemo, useState } from 'react'
+import type { OrderRecord, PaymentRecord } from '@/lib/db/schema'
 import { orderBalance, paymentAppliedAmount, paymentSurplusAmount, sumPayments } from '@/lib/payments/calculations'
+import { supabase } from '@/lib/supabase/client'
+import { mapOrder, mapPayment } from '@/lib/supabase/records'
+
+function uniqueChannelName(name: string) {
+  return `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
 
 export type PaymentFilter = 'all' | 'today' | 'this_week' | 'this_month'
 export type PaymentMethod = 'all' | 'cash' | 'easypaisa' | 'jazzcash' | 'bank'
 
 export interface PaymentWithOrder extends PaymentRecord {
-  orderNumber:  number
+  orderNumber: number
   customerName: string
-  garmentType:  string
-  orderTotal:   number
+  garmentType: string
+  orderTotal: number
   orderBalance: number
   appliedAmount: number
   surplusAmount: number
@@ -19,9 +23,8 @@ export interface PaymentWithOrder extends PaymentRecord {
 
 function startOf(unit: 'day' | 'week' | 'month'): string {
   const d = new Date()
-  if (unit === 'day') {
-    d.setHours(0, 0, 0, 0)
-  } else if (unit === 'week') {
+  if (unit === 'day') d.setHours(0, 0, 0, 0)
+  else if (unit === 'week') {
     d.setDate(d.getDate() - d.getDay())
     d.setHours(0, 0, 0, 0)
   } else {
@@ -32,105 +35,90 @@ function startOf(unit: 'day' | 'week' | 'month'): string {
 }
 
 export function usePayments(shopId: string | null) {
-  const [filter,        setFilter]        = useState<PaymentFilter>('all')
-  const [methodFilter,  setMethodFilter]  = useState<PaymentMethod>('all')
-  const [searchQuery,   setSearchQuery]   = useState('')
+  const [filter, setFilter] = useState<PaymentFilter>('all')
+  const [methodFilter, setMethodFilter] = useState<PaymentMethod>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [enriched, setEnriched] = useState<PaymentWithOrder[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  // All payments joined with order data
-  const enriched = useLiveQuery(
-    async (): Promise<PaymentWithOrder[]> => {
-      if (!shopId) return []
-
-      const payments = await db.payments
-        .where('shopId').equals(shopId)
-        .filter(p => p._deleted === 0)
-        .reverse()
-        .sortBy('paidAt')
-
-      // Batch fetch orders
-      const orderIds  = [...new Set(payments.map(p => p.orderId))]
-      const orders    = await db.orders.bulkGet(orderIds)
-      const orderMap  = new Map<string, OrderRecord>()
-      orders.forEach(o => { if (o) orderMap.set(o.id, o) })
-
-      return payments.map(p => {
-        const order = orderMap.get(p.orderId)
+  useEffect(() => {
+    if (!shopId) {
+      setEnriched([])
+      setIsLoading(false)
+      return
+    }
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      const [{ data: paymentRows }, { data: orderRows }] = await Promise.all([
+        (supabase as any).from('payments').select('*').eq('shop_id', shopId).is('deleted_at', null).order('paid_at', { ascending: false }),
+        (supabase as any).from('orders').select('*').eq('shop_id', shopId),
+      ])
+      const orders = new Map<string, OrderRecord>((orderRows ?? []).map((row: any) => {
+        const order = mapOrder(row)
+        return [order.id, order]
+      }))
+      const rows = (paymentRows ?? []).map((row: any) => {
+        const payment = mapPayment(row)
+        const order = orders.get(payment.orderId)
         return {
-          ...p,
-          orderNumber:  order?.orderNumber  ?? 0,
+          ...payment,
+          orderNumber: order?.orderNumber ?? 0,
           customerName: order?.customerName ?? 'Unknown',
-          garmentType:  order?.garmentType  ?? '',
-          orderTotal:   order?.totalPrice   ?? 0,
+          garmentType: order?.garmentType ?? '',
+          orderTotal: order?.totalPrice ?? 0,
           orderBalance: order ? orderBalance(order) : 0,
-          appliedAmount: paymentAppliedAmount(p),
-          surplusAmount: paymentSurplusAmount(p),
+          appliedAmount: paymentAppliedAmount(payment),
+          surplusAmount: paymentSurplusAmount(payment),
         }
-      }).sort((a, b) => b.paidAt.localeCompare(a.paidAt))
-    },
-    [shopId]
-  )
+      })
+      if (!cancelled) {
+        setEnriched(rows)
+        setIsLoading(false)
+      }
+    }
+    load()
+    const channel = supabase
+      .channel(uniqueChannelName(`payments-${shopId}`))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `shop_id=eq.${shopId}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
+      .subscribe()
+    return () => {
+      cancelled = true
+      supabase.removeChannel(channel)
+    }
+  }, [shopId])
 
-  const safe = enriched ?? []
-
-  // Filtered list
   const filtered = useMemo((): PaymentWithOrder[] => {
-    let list = safe
-
-    // Date filter
-    if (filter === 'today') {
-      const start = startOf('day')
-      list = list.filter(p => p.paidAt >= start)
-    } else if (filter === 'this_week') {
-      const start = startOf('week')
-      list = list.filter(p => p.paidAt >= start)
-    } else if (filter === 'this_month') {
-      const start = startOf('month')
-      list = list.filter(p => p.paidAt >= start)
-    }
-
-    // Method filter
-    if (methodFilter !== 'all') {
-      list = list.filter(p => p.method === methodFilter)
-    }
-
-    // Search
+    let list = enriched
+    if (filter === 'today') list = list.filter(p => p.paidAt >= startOf('day'))
+    if (filter === 'this_week') list = list.filter(p => p.paidAt >= startOf('week'))
+    if (filter === 'this_month') list = list.filter(p => p.paidAt >= startOf('month'))
+    if (methodFilter !== 'all') list = list.filter(p => p.method === methodFilter)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
-      list = list.filter(p =>
-        p.customerName.toLowerCase().includes(q) ||
-        String(p.orderNumber).includes(q)
-      )
+      list = list.filter(p => p.customerName.toLowerCase().includes(q) || String(p.orderNumber).includes(q))
     }
-
     return list
-  }, [safe, filter, methodFilter, searchQuery])
+  }, [enriched, filter, methodFilter, searchQuery])
 
-  // Summary stats
   const stats = useMemo(() => {
-    const todayStart     = startOf('day')
-    const weekStart      = startOf('week')
-    const monthStart     = startOf('month')
-
+    const todayPayments = enriched.filter(p => p.paidAt >= startOf('day'))
+    const weekPayments = enriched.filter(p => p.paidAt >= startOf('week'))
+    const monthPayments = enriched.filter(p => p.paidAt >= startOf('month'))
     const sum = (arr: PaymentWithOrder[]) => sumPayments(arr).received
-
-    const todayPayments  = safe.filter(p => p.paidAt >= todayStart)
-    const weekPayments   = safe.filter(p => p.paidAt >= weekStart)
-    const monthPayments  = safe.filter(p => p.paidAt >= monthStart)
-
-    // Method breakdown for filtered period
     const byMethod = (arr: PaymentWithOrder[]) => ({
-      cash:      arr.filter(p => p.method === 'cash').reduce((s,p) => s+p.amount, 0),
-      easypaisa: arr.filter(p => p.method === 'easypaisa').reduce((s,p) => s+p.amount, 0),
-      jazzcash:  arr.filter(p => p.method === 'jazzcash').reduce((s,p) => s+p.amount, 0),
-      bank:      arr.filter(p => p.method === 'bank').reduce((s,p) => s+p.amount, 0),
+      cash: arr.filter(p => p.method === 'cash').reduce((s, p) => s + p.amount, 0),
+      easypaisa: arr.filter(p => p.method === 'easypaisa').reduce((s, p) => s + p.amount, 0),
+      jazzcash: arr.filter(p => p.method === 'jazzcash').reduce((s, p) => s + p.amount, 0),
+      bank: arr.filter(p => p.method === 'bank').reduce((s, p) => s + p.amount, 0),
     })
-
     return {
-      todayTotal:    sum(todayPayments),
-      todayCount:    todayPayments.length,
-      weekTotal:     sum(weekPayments),
-      monthTotal:    sum(monthPayments),
-      allTimeTotal:  sum(safe),
+      todayTotal: sum(todayPayments),
+      todayCount: todayPayments.length,
+      weekTotal: sum(weekPayments),
+      monthTotal: sum(monthPayments),
+      allTimeTotal: sum(enriched),
       filteredTotal: sum(filtered),
       filteredCount: filtered.length,
       filteredApplied: sumPayments(filtered).applied,
@@ -138,44 +126,37 @@ export function usePayments(shopId: string | null) {
       filteredOverpayments: sumPayments(filtered).overpayments,
       methodBreakdown: byMethod(filter === 'all' ? monthPayments : filtered),
     }
-  }, [safe, filtered, filter])
+  }, [enriched, filtered, filter])
 
-  return {
-    payments: filtered,
-    stats,
-    filter,        setFilter,
-    methodFilter,  setMethodFilter,
-    searchQuery,   setSearchQuery,
-    isLoading: enriched === undefined,
-  }
+  return { payments: filtered, stats, filter, setFilter, methodFilter, setMethodFilter, searchQuery, setSearchQuery, isLoading }
 }
 
-// Hook for pending balances — orders with money still owed
 export function usePendingBalances(shopId: string | null) {
-  const pendingOrders = useLiveQuery(
-    async (): Promise<OrderRecord[]> => {
-      if (!shopId) return []
-      return db.orders
-        .where('shopId').equals(shopId)
-        .filter(o =>
-          o._deleted === 0 &&
-          o.status !== 'cancelled' &&
-          orderBalance(o) > 0
-        )
-        .reverse()
-        .sortBy('dueDate')
-    },
-    [shopId]
-  )
+  const [pendingOrders, setPendingOrders] = useState<OrderRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const safe = pendingOrders ?? []
-  const totalPending = safe.reduce(
-    (sum, o) => sum + orderBalance(o), 0
-  )
+  useEffect(() => {
+    if (!shopId) {
+      setPendingOrders([])
+      setIsLoading(false)
+      return
+    }
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      const { data } = await (supabase as any).from('orders').select('*').eq('shop_id', shopId).is('deleted_at', null)
+      if (!cancelled) {
+        setPendingOrders((data ?? []).map(mapOrder).filter((o: OrderRecord) => o.status !== 'cancelled' && orderBalance(o) > 0))
+        setIsLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [shopId])
 
   return {
-    pendingOrders: safe,
-    totalPending,
-    isLoading: pendingOrders === undefined,
+    pendingOrders,
+    totalPending: pendingOrders.reduce((sum, o) => sum + orderBalance(o), 0),
+    isLoading,
   }
 }

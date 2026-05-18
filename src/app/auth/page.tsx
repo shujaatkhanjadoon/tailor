@@ -22,8 +22,6 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { supabase } from "@/lib/supabase/client";
-import { syncService } from "@/lib/supabase/sync-service";
-import { db } from "@/lib/db/schema";
 import { validatePakistaniPhone } from "@/lib/security/phone";
 import { SHOP_PIN_LENGTH, KARIGAR_PIN_LENGTH, validatePIN, getPINStrength } from "@/lib/security/pin";
 import { verifyPIN } from "@/lib/security/pin";
@@ -277,9 +275,10 @@ function AuthContent() {
   const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
   // ── Helper (put near top, inside component or outside) ───────────
-  function saveSessionLocally(memberId: string) {
+  function saveSessionLocally(memberId: string, shopId: string) {
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       memberId,
+      shopId,
       expiresAt: Date.now() + SESSION_TTL_MS,
     }))
   }
@@ -528,67 +527,7 @@ function AuthContent() {
       // ── 6. Save session to localStorage ─────────────────────────
       // THIS IS THE CRITICAL MISSING STEP — without this,
       // AuthGuard sees currentUser=null and redirects back to /auth
-      saveSessionLocally(member.id)
-
-      // ── 7. Pull data to IndexedDB (background) ───────────────────
-      // Don't await — let it sync in background
-      syncService.pullAll(member.shop_id).catch(console.error)
-
-      // ── 8. Save shop + member to IndexedDB for offline use ───────
-      try {
-        // Fetch shop details
-        const shopRes = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/shops` +
-          `?id=eq.${member.shop_id}&select=*&limit=1`,
-          {
-            headers: {
-              'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-              'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-            },
-          }
-        )
-        const shops: any[] = await shopRes.json()
-        const shop = shops?.[0]
-
-        if (shop) {
-          const { db } = await import('@/lib/db/schema')
-
-          await db.shop.put({
-            id: shop.id,
-            shopName: shop.shop_name,
-            ownerPhone: shop.owner_phone,
-            whatsappNumber: shop.whatsapp_number ?? undefined,
-            city: shop.city ?? undefined,
-            isActive: shop.is_active !== false ? 1 : 0,
-            createdAt: shop.created_at,
-            updatedAt: shop.updated_at,
-            _synced: 1,
-            _deleted: 0,
-          })
-
-          await db.appSettings.put({
-            key: 'shopId',
-            value: JSON.stringify(shop.id),
-          })
-
-          // Save the member record
-          await db.teamMembers.put({
-            id: member.id,
-            shopId: member.shop_id,
-            name: member.name,
-            phone: member.phone,
-            role: member.role,
-            pin: member.pin_hash,
-            isActive: member.is_active ? 1 : 0,
-            joinedAt: member.joined_at,
-            createdAt: member.created_at,
-            _synced: 1,
-            _deleted: 0,
-          })
-        }
-      } catch (dbErr) {
-        console.warn('[Login] IndexedDB save failed (non-fatal):', dbErr)
-      }
+      saveSessionLocally(member.id, member.shop_id)
 
       // ── 9. Redirect ──────────────────────────────────────────────
       const dest = member.role === 'karigar'
@@ -869,7 +808,7 @@ function AuthContent() {
                 >
                   <AlertCircle size={14} className="text-amber-600 shrink-0" />
                   <p className="text-amber-700 text-xs">
-                    Internet nahi hai — sirf login kar sakte hain
+                    Internet connection required hai
                   </p>
                 </div>
               )}
@@ -1264,7 +1203,7 @@ function AuthContent() {
               </label>
 
               {stateProvince && (
-                <label className="mb-4 block">
+                <div className="mb-4">
                   <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                     City
                   </span>
@@ -1278,57 +1217,57 @@ function AuthContent() {
                     }}
                     placeholder={city || "Search city ya manually type karein"}
                     className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-800 outline-none transition-all focus:border-blue-500 focus:bg-white"
-                  />
-                  {cityDropdownOpen && (
-                  <div className="mt-2 max-h-40 overflow-y-auto rounded-2xl border border-slate-200 bg-white">
-                    {city && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCity("");
-                          setCityQuery("");
-                          setCityDropdownOpen(false);
-                        }}
-                        className="w-full border-b border-slate-100 px-4 py-2.5 text-left text-xs font-semibold text-slate-400"
-                      >
-                        Selected: {city} - clear
-                      </button>
-                    )}
-                    {filteredCities.map((item) => (
-                      <button
-                        key={`${stateProvince}-${item}`}
-                        type="button"
-                        onClick={() => {
-                          setCity(item);
-                          setCityQuery("");
-                          setCityDropdownOpen(false);
-                        }}
-                        className={cn(
-                          "w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition-colors last:border-0 hover:bg-slate-50",
-                          city === item
-                            ? "bg-blue-50 font-semibold text-blue-700"
-                            : "text-slate-700",
-                        )}
-                      >
-                        {item}
-                      </button>
-                    ))}
-                    {canAddTypedCity && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCity(cityQuery.trim());
-                          setCityQuery("");
-                          setCityDropdownOpen(false);
-                        }}
-                        className="w-full px-4 py-3 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50"
-                      >
-                        Add &quot;{cityQuery.trim()}&quot;
-                      </button>
-                    )}
-                  </div>
-                  )}
-                </label>
+	                  />
+	                  {cityDropdownOpen && (
+	                    <div className="mt-2 max-h-40 overflow-y-auto rounded-2xl border border-slate-200 bg-white">
+	                      {city && (
+	                        <button
+	                          type="button"
+	                          onClick={() => {
+	                            setCity("");
+	                            setCityQuery("");
+	                            setCityDropdownOpen(false);
+	                          }}
+	                          className="w-full border-b border-slate-100 px-4 py-2.5 text-left text-xs font-semibold text-slate-400"
+	                        >
+	                          Selected: {city} - clear
+	                        </button>
+	                      )}
+	                      {filteredCities.map((item) => (
+	                        <button
+	                          key={`${stateProvince}-${item}`}
+	                          type="button"
+	                          onClick={() => {
+	                            setCity(item);
+	                            setCityQuery("");
+	                            setCityDropdownOpen(false);
+	                          }}
+	                          className={cn(
+	                            "w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition-colors last:border-0 hover:bg-slate-50",
+	                            city === item
+	                              ? "bg-blue-50 font-semibold text-blue-700"
+	                              : "text-slate-700",
+	                          )}
+	                        >
+	                          {item}
+	                        </button>
+	                      ))}
+	                      {canAddTypedCity && (
+	                        <button
+	                          type="button"
+	                          onClick={() => {
+	                            setCity(cityQuery.trim());
+	                            setCityQuery("");
+	                            setCityDropdownOpen(false);
+	                          }}
+	                          className="w-full px-4 py-3 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50"
+	                        >
+	                          Add &quot;{cityQuery.trim()}&quot;
+	                        </button>
+	                      )}
+	                    </div>
+	                  )}
+                </div>
               )}
 
               {error && <p className="text-red-500 text-xs mb-3">{error}</p>}

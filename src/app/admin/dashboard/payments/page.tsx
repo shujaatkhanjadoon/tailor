@@ -117,7 +117,7 @@ function PaymentCard({
 
       {/* Header */}
       <div
-        className="flex items-start gap-3 p-4 cursor-pointer hover:bg-slate-750"
+        className="flex items-start gap-3 p-4 cursor-pointer hover:bg-slate-700/50"
         onClick={() => setExpanded(v => !v)}
       >
         <div className="w-9 h-9 bg-amber-900/50 rounded-xl flex items-center
@@ -174,7 +174,7 @@ function PaymentCard({
                   <p className="text-[10px] text-slate-500 uppercase tracking-wide font-bold">
                     {label}
                   </p>
-                  <p className="font-mono font-bold text-slate-200 text-sm mt-0.5 wrap-break-word">
+                  <p className="mt-0.5 break-words font-mono text-sm font-bold text-slate-200">
                     {value || '—'}
                   </p>
                 </div>
@@ -197,7 +197,7 @@ function PaymentCard({
           </div>
 
           {/* Other details */}
-          <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="grid grid-cols-1 gap-2 text-xs min-[420px]:grid-cols-2">
             {[
               { label: 'Shop',        value: shop?.shop_name ?? '—' },
               { label: 'Phone',       value: shop?.owner_phone ?? '—' },
@@ -235,7 +235,7 @@ function PaymentCard({
                            rounded-xl px-3 py-2.5 text-sm outline-none
                            placeholder:text-red-800"
               />
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 min-[420px]:flex-row">
                 <button
                   onClick={handleReject}
                   disabled={!rejectReason.trim() || rejecting}
@@ -262,7 +262,7 @@ function PaymentCard({
 
           {/* Action buttons */}
           {!showReject && (
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 min-[420px]:flex-row">
               <button
                 onClick={handleActivate}
                 disabled={activating}
@@ -350,9 +350,9 @@ export default function AdminPaymentsPage() {
   }
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <div className="mx-auto w-full max-w-3xl space-y-5">
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
         <div>
           <h1 className="text-xl lg:text-2xl font-bold text-white">Payments</h1>
           <p className="text-slate-400 text-sm mt-0.5">

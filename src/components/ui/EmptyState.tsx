@@ -119,6 +119,6 @@ export const EMPTY_STATES = {
   offline: {
     emoji:       '📡',
     title:       'Internet Nahi Hai',
-    description: 'Offline mode mein kaam jari hai — data safe hai',
+    description: 'Connection check karein aur dobara try karein',
   },
 }

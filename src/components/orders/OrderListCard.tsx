@@ -7,11 +7,11 @@ import { OrderRecord } from '@/lib/db/schema'
 import { ORDER_STATUS_CONFIG, GARMENT_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
 import { format, formatDistanceToNow, isToday, isTomorrow } from 'date-fns'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '@/lib/db/schema'
 import { Image } from 'lucide-react'
-import { memo } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { orderBalance, orderPaymentProgress } from '@/lib/payments/calculations'
+import { localOrderImages } from '@/lib/photos/local-order-images'
+import { recipientLabel } from '@/lib/order-recipient'
 
 interface OrderListCardProps {
   order: OrderRecord
@@ -46,11 +46,10 @@ export const OrderListCard = memo(function OrderListCard({
   const { label: dueLabel, urgent: dueUrgent } = formatDueDate(order.dueDate)
   const isTerminal = ['delivered', 'cancelled'].includes(order.status)
 
-  const photoCount = useLiveQuery(
-    () => db.photos.where('orderId').equals(order.id).count(),
-    [order.id],
-    0
-  ) ?? 0
+  const [photoCount, setPhotoCount] = useState(0)
+  useEffect(() => {
+    setPhotoCount(localOrderImages.list(order.id).length)
+  }, [order.id])
 
   const waLink = (() => {
     const phone = `92${order.customerPhone.replace(/^0/, '').replace(/\D/g, '')}`
@@ -118,7 +117,7 @@ export const OrderListCard = memo(function OrderListCard({
             <p className="font-semibold text-slate-800">{order.customerName}</p>
             {order.orderForRelation && order.orderForRelation !== 'self' && (
               <p className="text-[11px] font-semibold text-blue-600">
-                For: {order.orderForName || order.orderForRelation}
+                For: {recipientLabel(order.orderForRelation, order.orderForName)}
               </p>
             )}
           </div>

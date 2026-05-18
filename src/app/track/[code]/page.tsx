@@ -3,11 +3,12 @@
 
 import { use, useEffect, useState } from 'react'
 import { Scissors, RefreshCw, AlertCircle, Search } from 'lucide-react'
-import { db, OrderRecord }      from '@/lib/db/schema'
-import { syncService }          from '@/lib/supabase/sync-service'
+import type { OrderRecord }      from '@/lib/db/schema'
 import { ORDER_STATUS_CONFIG, GARMENT_LABELS } from '@/types'
 import { isValidTrackingCode, normaliseCode } from '@/lib/tracking'
 import { cn }                   from '@/lib/utils'
+import { supabase } from '@/lib/supabase/client'
+import { mapOrder } from '@/lib/supabase/records'
 
 const STATUS_STEPS = ['received','cutting','stitching','finishing','ready','delivered'] as const
 type Step = typeof STATUS_STEPS[number]
@@ -42,55 +43,21 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
     }
 
     try {
-      // â”€â”€ 1. Try Supabase first (cross-device, authoritative) â”€â”€â”€â”€â”€â”€
-      if (typeof navigator !== 'undefined' && navigator.onLine) {
-        const remote = await syncService.getOrderByTrackingCode(normCode)
-        if (remote) {
-          setOrder({
-            id:                  remote.id,
-            shopId:              remote.shop_id,
-            orderNumber:         remote.order_number,
-            trackingCode:        remote.tracking_code,
-            customerId:          remote.customer_id,
-            customerName:        remote.customer_name,
-            customerPhone:       remote.customer_phone,
-            garmentType:         remote.garment_type,
-            status:              remote.status,
-            totalPrice:          Number(remote.total_price),
-            amountPaid:          Number(remote.amount_paid),
-            isUrgent:            remote.is_urgent ? 1 : 0,
-            dueDate:             remote.due_date,
-            specialInstructions: remote.special_instructions,
-            createdAt:           remote.created_at,
-            updatedAt:           remote.updated_at,
-            _synced: 1, _deleted: 0,
-          } as OrderRecord)
-          const remoteShop = remote.shops
-          setShopName(remoteShop?.brand_name ?? remoteShop?.shop_name ?? 'Meradarzi')
-          setBranding({
-            name: remoteShop?.brand_name ?? remoteShop?.shop_name ?? 'Meradarzi',
-            color: remoteShop?.brand_color ?? '#1d4ed8',
-            logoUrl: remoteShop?.brand_logo_url ?? '',
-          })
-          setLoading(false)
-          return
-        }
-      }
+      const { data: remote } = await (supabase as any)
+        .from('orders')
+        .select('*, shops(shop_name, brand_name, brand_color, brand_logo_url)')
+        .eq('tracking_code', normCode)
+        .is('deleted_at', null)
+        .maybeSingle()
 
-      // â”€â”€ 2. Fallback: local IndexedDB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-      const local = await db.orders
-        .where('trackingCode').equals(normCode)
-        .filter(o => o._deleted === 0)
-        .first()
-
-      if (local) {
-        setOrder(local)
-        const shop = await db.shop.toCollection().first()
-        setShopName(shop?.brandName ?? shop?.shopName ?? '')
+      if (remote) {
+        setOrder(mapOrder(remote))
+        const shop = remote.shops
+        setShopName(shop?.brand_name ?? shop?.shop_name ?? '')
         setBranding({
-          name: shop?.brandName ?? shop?.shopName ?? 'Meradarzi',
-          color: shop?.brandColor ?? '#1d4ed8',
-          logoUrl: shop?.brandLogoUrl ?? '',
+          name: shop?.brand_name ?? shop?.shop_name ?? 'Meradarzi',
+          color: shop?.brand_color ?? '#1d4ed8',
+          logoUrl: shop?.brand_logo_url ?? '',
         })
       } else {
         setError('not_found')

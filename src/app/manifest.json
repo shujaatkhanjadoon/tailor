@@ -1,7 +1,7 @@
 {
   "name": "Meradarzi",
   "short_name": "Meradarzi",
-  "description": "Tailor shop management for Pakistan — works offline",
+  "description": "Tailor shop management for Pakistan",
   "start_url": "/",
   "orientation": "portrait",
   "categories": ["business", "productivity"],

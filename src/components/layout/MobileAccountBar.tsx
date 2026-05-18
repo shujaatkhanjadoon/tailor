@@ -1,15 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CreditCard, Lock, LogOut, Settings, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthContext'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '@/lib/db/schema'
+import type { ShopRecord } from '@/lib/db/schema'
 import { usePlan } from '@/hooks/usePlan'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
+import { shopOps } from '@/lib/db/operations'
 
 const actions = [
   { href: '/settings',             icon: Settings,   label: 'Settings' },
@@ -22,10 +22,11 @@ export function MobileAccountBar() {
   const { currentUser, logout, shopId } = useAuth()
   const plan = usePlan()
   const [open, setOpen] = useState(false)
-  const shop = useLiveQuery(
-    async () => shopId ? db.shop.get(shopId) : undefined,
-    [shopId]
-  )
+  const [shop, setShop] = useState<ShopRecord | undefined>()
+  useEffect(() => {
+    if (!shopId) return
+    shopOps.get(shopId).then(setShop).catch(() => setShop(undefined))
+  }, [shopId])
   const initials = (currentUser?.name ?? 'User')
     .trim()
     .split(/\s+/)

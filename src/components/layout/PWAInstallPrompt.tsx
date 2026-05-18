@@ -80,7 +80,7 @@ export function PWAInstallPrompt() {
             </p>
           ) : (
             <p className="text-xs text-slate-300 mt-0.5">
-              Phone par install karein — offline bhi chalega
+              Phone par install karein
             </p>
           )}
         </div>

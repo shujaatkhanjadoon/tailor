@@ -11,12 +11,15 @@ import { Step2Garment, formatStyleSelections, type StyleSelections } from "@/com
 import { Step3Confirm } from "@/components/orders/wizard/Step3Confirm";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { orderOps, paymentOps, teamOps } from "@/lib/db/operations";
-import { db, TeamMemberRecord } from "@/lib/db/schema";
+import type { TeamMemberRecord } from "@/lib/db/schema";
 import { toast } from "sonner";
 import { usePlan } from "@/hooks/usePlan";
 import { AccessNotice } from "@/components/billing/AccessNotice";
 import { getSelectableKarigarIds } from "@/lib/team/karigar-limits";
-import { syncService } from "@/lib/supabase/sync-service";
+import { supabase } from "@/lib/supabase/client";
+import { mapMeasurement } from "@/lib/supabase/records";
+import { nowKarachiIso } from "@/lib/time";
+import { localOrderImages } from "@/lib/photos/local-order-images";
 
 // ── UUID helper ──────────────────────────────────────────────────
 const uuid = (): string => {
@@ -178,36 +181,36 @@ function NewOrderWizard({
       if (!measurementId && Object.keys(filledMeasurements).length > 0) {
         measurementId = uuid();
 
-        await db.measurements.add({
+        const { error } = await (supabase as any).from("measurements").insert({
           id: measurementId,
-          customerId: data.customerId!,
-          shopId,
-          orderForRelation: data.orderForRelation ?? "self",
-          orderForName: data.orderForRelation === "self" ? undefined : data.orderForName,
-          recipientGender: data.recipientGender ?? data.customerGender,
-          garmentType: data.garmentType!,
+          customer_id: data.customerId!,
+          shop_id: shopId,
+          order_for_relation: data.orderForRelation ?? "self",
+          order_for_name: data.orderForName?.trim() || null,
+          recipient_gender: data.recipientGender ?? data.customerGender,
+          garment_type: data.garmentType!,
           values: filledMeasurements,
-          takenAt: new Date().toISOString(),
-          _synced: 0,
-          _deleted: 0,
+          taken_at: nowKarachiIso(),
         });
+        if (error) throw new Error(error.message)
       }
 
       if (!measurementId) {
-        const latestMeasurement = await db.measurements
-          .where("customerId")
-          .equals(data.customerId!)
-          .filter(
-            (m) =>
-              m._deleted === 0 &&
-              m.garmentType === data.garmentType &&
-              (m.orderForRelation ?? "self") === (data.orderForRelation ?? "self") &&
-              ((data.orderForRelation ?? "self") === "self" || (m.orderForName ?? "") === (data.orderForName ?? "")),
-          )
-          .reverse()
-          .sortBy("takenAt");
-
-        measurementId = latestMeasurement[0]?.id;
+        let query = (supabase as any)
+          .from("measurements")
+          .select("*")
+          .eq("customer_id", data.customerId!)
+          .eq("garment_type", data.garmentType)
+          .eq("order_for_relation", data.orderForRelation ?? "self")
+          .is("deleted_at", null)
+          .order("taken_at", { ascending: false })
+          .limit(1);
+        if ((data.orderForRelation ?? "self") !== "self" && data.orderForName?.trim()) {
+          query = query.eq("order_for_name", data.orderForName.trim());
+        }
+        const { data: latestRows, error } = await query;
+        if (error) throw new Error(error.message);
+        measurementId = latestRows?.[0] ? mapMeasurement(latestRows[0]).id : undefined;
       }
       // ── 1. Create the order (amountPaid starts at 0) ───────────
       const styleSummary = formatStyleSelections(data.styleSelections ?? {});
@@ -220,7 +223,7 @@ function NewOrderWizard({
         customerName: data.customerName!,
         customerPhone: data.customerPhone!,
         orderForRelation: data.orderForRelation ?? "self",
-        orderForName: data.orderForRelation === "self" ? undefined : data.orderForName,
+        orderForName: data.orderForName?.trim() || undefined,
         recipientGender: data.recipientGender ?? data.customerGender,
         garmentType: data.garmentType,
         measurementId,
@@ -235,15 +238,15 @@ function NewOrderWizard({
       });
 
       if (data.fabricPhotoBase64) {
-        await db.photos.add({
+        localOrderImages.add({
           id: uuid(),
           orderId: order.id,
           shopId,
           type: "fabric",
           base64: data.fabricPhotoBase64,
           sizeKB: Math.ceil((data.fabricPhotoBase64.length * 3) / 4 / 1024),
-          takenAt: new Date().toISOString(),
-          _synced: 0,
+          takenAt: nowKarachiIso(),
+          _synced: 1,
           _deleted: 0,
         });
       }
@@ -277,9 +280,6 @@ function NewOrderWizard({
           });
         }
       }
-
-      // ── 3. Save measurements if any fields were filled ─────────
-      await syncService.pushAll(shopId).catch(console.error);
 
       // ── 4. Store the saved order info for the success screen ───
       setSavedOrderId(order.id);

@@ -1,10 +1,10 @@
 // src/hooks/useNotifications.ts
 import { useState, useEffect, useCallback } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '@/lib/db/schema'
 import { notifPermission, NotifPermission } from '@/lib/notifications/permission'
 import { notifScheduler, notifSettings, NotifSettings } from '@/lib/notifications/scheduler'
 import { useAuth } from '@/lib/auth/AuthContext'
+import { supabase } from '@/lib/supabase/client'
+import { karachiDateString } from '@/lib/time'
 
 export function useNotifications() {
   const { shopId }  = useAuth()
@@ -61,25 +61,23 @@ export function useNotifications() {
 
 // Hook for the notification bell — counts upcoming/overdue orders
 export function useNotificationCount(shopId: string | null) {
-  const today    = new Date().toISOString().split('T')[0]
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
-
-  const count = useLiveQuery(
-    async (): Promise<number> => {
-      if (!shopId) return 0
-      const urgent = await db.orders
-        .where('shopId').equals(shopId)
-        .filter(o =>
-          o._deleted === 0 &&
-          !['delivered', 'cancelled'].includes(o.status) &&
-          (o.dueDate <= tomorrow)   // overdue + today + tomorrow
-        )
-        .count()
-      return urgent
-    },
-    [shopId, today],
-    0
-  )
-
-  return count ?? 0
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    if (!shopId) return
+    const tomorrowDate = new Date()
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1)
+    const tomorrow = karachiDateString(tomorrowDate)
+    const load = async () => {
+      const { count: total } = await (supabase as any)
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('shop_id', shopId)
+        .is('deleted_at', null)
+        .lte('due_date', tomorrow)
+        .not('status', 'in', '("delivered","cancelled")')
+      setCount(total ?? 0)
+    }
+    load()
+  }, [shopId])
+  return count
 }

@@ -64,7 +64,7 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
       '30 orders per month',
       '50 customers',
       'Measurements + payments',
-      'Offline mode',
+      'Cloud database',
       'WhatsApp manual links',
     ],
   },

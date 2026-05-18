@@ -19,6 +19,8 @@ export type OrderRecipientRelation =
   | 'daughter'
   | 'brother'
   | 'sister'
+  | 'father'
+  | 'mother'
   | 'other'
 
 export type GarmentType =

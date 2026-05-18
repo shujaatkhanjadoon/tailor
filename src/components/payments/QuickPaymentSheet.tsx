@@ -3,14 +3,14 @@
 
 import { useState } from "react";
 import { X, Search, Loader2, CheckCircle2 } from "lucide-react";
-import { useLiveQuery } from "dexie-react-hooks";
-import { db, OrderRecord } from "@/lib/db/schema";
+import type { OrderRecord } from "@/lib/db/schema";
 import { paymentOps } from "@/lib/db/operations";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { GARMENT_LABELS } from "@/types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { orderBalance, orderPaymentProgress } from "@/lib/payments/calculations";
+import { useOrders } from "@/hooks/useOrders";
 
 const METHODS = [
   { key: "cash", label: "Cash", emoji: "💵" },
@@ -43,24 +43,12 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
     preOrder ? "amount" : "pick",
   );
 
-  // Orders with pending balance, including delivered orders.
-  // Completed orders can still have receivable balance if the owner delivered with a warning.
-  const pendingOrders = useLiveQuery(async (): Promise<OrderRecord[]> => {
-    if (!shopId) return [];
-    return db.orders
-      .where("shopId")
-      .equals(shopId)
-      .filter(
-        (o) =>
-          o._deleted === 0 &&
-          o.status !== "cancelled" &&
-          orderBalance(o) > 0,
-      )
-      .reverse()
-      .sortBy("dueDate");
-  }, [shopId]);
+  const { orders } = useOrders(shopId, "owner", currentUser?.id);
+  const pendingOrders = orders
+    .filter(o => o.status !== "cancelled" && orderBalance(o) > 0)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
-  const filteredOrders = (pendingOrders ?? []).filter((o) => {
+  const filteredOrders = pendingOrders.filter((o) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -73,7 +61,7 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
   const enteredAmount = parseInt(amount || "0");
   const surplus = selectedOrder ? Math.max(0, enteredAmount - balance) : 0;
   const appliedToSelected = selectedOrder ? Math.min(enteredAmount, balance) : 0;
-  const transferTargets = (pendingOrders ?? [])
+  const transferTargets = pendingOrders
     .filter((o) =>
       selectedOrder &&
       o.id !== selectedOrder.id &&

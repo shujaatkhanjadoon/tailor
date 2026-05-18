@@ -5,8 +5,6 @@ import { useState, useCallback, useRef } from 'react'
 import { useRouter }                     from 'next/navigation'
 import { ArrowLeft, CheckCircle2, Lock, Eye, EyeOff } from 'lucide-react'
 import { useAuth }                       from '@/lib/auth/AuthContext'
-import { db }                            from '@/lib/db/schema'
-import { syncQueue }                     from '@/lib/db/sync'
 import {
   KARIGAR_PIN_LENGTH,
   SHOP_PIN_LENGTH,
@@ -167,14 +165,7 @@ export default function ChangePinPage() {
         // Hash the new PIN
         const hashed = await hashPIN(val)
 
-        // Update in IndexedDB
-        await db.teamMembers.update(currentUser.id, {
-          pin:     hashed,
-          _synced: 0,
-        })
-
-        // Update in Supabase via service role (non-blocking)
-        fetch('/api/auth/update-pin', {
+        const res = await fetch('/api/auth/update-pin', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({
@@ -182,9 +173,9 @@ export default function ChangePinPage() {
             pinHash:  hashed,
             pinPlain: val,
           }),
-        }).catch(console.error)
+        })
+        if (!res.ok) throw new Error('PIN update failed')
 
-        syncQueue.push('update', 'teamMembers', currentUser.id, { pin: hashed })
         await reinitialize()
         setStep('done')
         setTimeout(() => router.back(), 1800)

@@ -2,12 +2,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
 import { Search, UserPlus, Phone, ChevronRight, Check, Loader2 } from 'lucide-react'
-import { db, CustomerRecord } from '@/lib/db/schema'
+import type { CustomerRecord } from '@/lib/db/schema'
 import { customerOps } from '@/lib/db/operations'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { cn } from '@/lib/utils'
+import { useCustomers } from '@/hooks/useCustomers'
 
 interface Step1Props {
   data: {
@@ -35,19 +35,8 @@ export function Step1Customer({ data, onUpdate, onNext }: Step1Props) {
   const [saving, setSaving]  = useState(false)
   const [saveError, setSaveError] = useState('')
 
-  // ── Live query from real IndexedDB ─────────────────────────────
-  const allCustomers = useLiveQuery(
-    async (): Promise<CustomerRecord[]> => {
-      if (!shopId) return []
-      return db.customers
-        .where({ shopId, _deleted: 0 })
-        .toArray()
-    },
-    [shopId]
-  )
-
-  const isLoading = allCustomers === undefined
-  const safe      = allCustomers ?? []
+  const { customers: allCustomers, isLoading } = useCustomers(shopId)
+  const safe = allCustomers
 
   // Filter by search query
   const filtered = query.trim()

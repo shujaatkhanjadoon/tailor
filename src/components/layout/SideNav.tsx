@@ -3,16 +3,17 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useEffect, useState } from 'react'
 import {
   Home, ClipboardList, Users, Wallet,
   Settings, Plus, BarChart3, LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { db } from '@/lib/db/schema'
 import { useAuth } from '@/lib/auth/AuthContext'
 import Image from 'next/image'
 import { usePlan } from '@/hooks/usePlan'
+import { shopOps } from '@/lib/db/operations'
+import type { ShopRecord } from '@/lib/db/schema'
 
 const navItems = [
   { href: '/', icon: Home, label: 'Dashboard' },
@@ -28,10 +29,11 @@ export function SideNav() {
   const router = useRouter()
   const { shopId, currentUser, logout } = useAuth()
   const plan = usePlan()
-  const shop = useLiveQuery(
-    async () => shopId ? db.shop.get(shopId) : undefined,
-    [shopId]
-  )
+  const [shop, setShop] = useState<ShopRecord | undefined>()
+  useEffect(() => {
+    if (!shopId) return
+    shopOps.get(shopId).then(setShop).catch(() => setShop(undefined))
+  }, [shopId])
   const userInitials = (currentUser?.name ?? 'User')
     .trim()
     .split(/\s+/)

@@ -1,9 +1,8 @@
 // src/app/orders/[id]/page.tsx
 'use client'
 
-import { use, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useLiveQuery } from 'dexie-react-hooks'
 import { QuickPaymentSheet } from '@/components/payments/QuickPaymentSheet'
 import { QRCodeDisplay } from '@/components/orders/QRCodeDisplay'
 import {
@@ -14,7 +13,7 @@ import {
 import { useOrder } from '@/hooks/useOrders'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { paymentOps } from '@/lib/db/operations'
-import { db } from '@/lib/db/schema'
+import type { CustomerRecord, MeasurementRecord, PhotoRecord, ShopRecord } from '@/lib/db/schema'
 import { ORDER_STATUS_CONFIG, GARMENT_LABELS, OrderStatus } from '@/types'
 import { StatusUpdateSheet } from '@/components/orders/StatusUpdateSheet'
 import { AssignSheet } from '@/components/orders/AssignSheet'
@@ -25,6 +24,10 @@ import { usePlan } from '@/hooks/usePlan'
 import { AccessNotice } from '@/components/billing/AccessNotice'
 import { orderFinancialSummary, orderPaymentProgress } from '@/lib/payments/calculations'
 import { getOptimisedUrl } from '@/lib/photos/cloudinary'
+import { supabase } from '@/lib/supabase/client'
+import { mapCustomer, mapMeasurement, mapShop } from '@/lib/supabase/records'
+import { localOrderImages } from '@/lib/photos/local-order-images'
+import { napOwnerLabel, recipientLabel } from '@/lib/order-recipient'
 
 const PAYMENT_METHODS = [
   { key: 'cash', label: 'Cash', emoji: '💵' },
@@ -39,41 +42,54 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const { isOwner, currentUser } = useAuth()
   const plan = usePlan()
   const { order, payments, history, balance } = useOrder(id)
-  const shop = useLiveQuery(async () => db.shop.toCollection().first(), [])
-  const customer = useLiveQuery(
-    async () => order?.customerId ? db.customers.get(order.customerId) : undefined,
-    [order?.customerId]
-  )
-  const measurement = useLiveQuery(
-    async () => {
+  const [shop, setShop] = useState<ShopRecord | undefined>()
+  const [customer, setCustomer] = useState<CustomerRecord | undefined>()
+  const [measurement, setMeasurement] = useState<MeasurementRecord | undefined>()
+  const [photos, setPhotos] = useState<PhotoRecord[]>([])
+
+  useEffect(() => {
+    if (!order) return
+    let cancelled = false
+    const load = async () => {
+      const [{ data: shopRow }, { data: customerRow }] = await Promise.all([
+        (supabase as any).from('shops').select('*').eq('id', order.shopId).maybeSingle(),
+        (supabase as any).from('customers').select('*').eq('id', order.customerId).maybeSingle(),
+      ])
+      if (!cancelled) {
+        setShop(shopRow ? mapShop(shopRow) : undefined)
+        setCustomer(customerRow ? mapCustomer(customerRow) : undefined)
+        setPhotos(localOrderImages.list(order.id))
+      }
+      let measurementRow: any
       if (!order) return undefined
       if (order.measurementId) {
-        const linked = await db.measurements.get(order.measurementId)
-        if (linked) return linked
+        const { data } = await (supabase as any)
+          .from('measurements')
+          .select('*')
+          .eq('id', order.measurementId)
+          .is('deleted_at', null)
+          .maybeSingle()
+        measurementRow = data
       }
-
-      const matches = await db.measurements
-        .where('customerId').equals(order.customerId)
-        .filter(m =>
-          m._deleted === 0 &&
-          m.garmentType === order.garmentType &&
-          (m.orderForRelation ?? 'self') === (order.orderForRelation ?? 'self') &&
-          ((order.orderForRelation ?? 'self') === 'self' || (m.orderForName ?? '') === (order.orderForName ?? ''))
-        )
-        .reverse()
-        .sortBy('takenAt')
-
-      return matches[0]
-    },
-    [order?.id, order?.measurementId, order?.customerId, order?.garmentType]
-  )
-  const photos = useLiveQuery(
-    async () => db.photos
-      .where('orderId').equals(id)
-      .filter(p => p._deleted !== 1)
-      .sortBy('takenAt'),
-    [id]
-  ) ?? []
+      if (!measurementRow) {
+        let query = (supabase as any)
+          .from('measurements')
+          .select('*')
+          .eq('customer_id', order.customerId)
+          .eq('garment_type', order.garmentType)
+          .eq('order_for_relation', order.orderForRelation ?? 'self')
+          .is('deleted_at', null)
+          .order('taken_at', { ascending: false })
+          .limit(1)
+        if ((order.orderForRelation ?? 'self') !== 'self' && order.orderForName?.trim()) query = query.eq('order_for_name', order.orderForName.trim())
+        const { data } = await query
+        measurementRow = data?.[0]
+      }
+      if (!cancelled) setMeasurement(measurementRow ? mapMeasurement(measurementRow) : undefined)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [order])
 
   const [showStatusSheet, setShowStatusSheet] = useState(false)
   const [showAssignSheet, setShowAssignSheet] = useState(false)
@@ -416,7 +432,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               icon: User2,
               label: 'Order For',
               value: order.orderForRelation && order.orderForRelation !== 'self'
-                ? `${order.orderForName || order.orderForRelation}${order.recipientGender ? ` (${order.recipientGender})` : ''}`
+                ? recipientLabel(order.orderForRelation, order.orderForName)
                 : 'Self',
               valueClass: 'text-blue-700 font-medium',
             },
@@ -511,7 +527,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               Clothes Type
             </p>
             <p className="text-sm font-bold text-blue-800">
-              {gc?.emoji} {gc?.label ?? order.garmentType}
+              {napOwnerLabel({ relation: order.orderForRelation, name: order.orderForName, garmentType: order.garmentType })}
             </p>
           </div>
 

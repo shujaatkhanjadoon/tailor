@@ -129,7 +129,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* â”€â”€ Main content area â”€â”€ */}
-      <div className="flex-1 lg:ml-60 flex flex-col min-h-screen">
+      <div className="flex-1 lg:ml-60 flex min-w-0 flex-col min-h-screen">
 
         {/* Top bar */}
         <header className="bg-slate-900 border-b border-slate-800 px-4 lg:px-6 py-3
@@ -158,7 +158,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 pb-24 lg:p-6 overflow-x-hidden">
+        <main className="flex-1 w-full min-w-0 overflow-x-hidden p-3 pb-24 sm:p-4 lg:p-6">
           {children}
         </main>
       </div>
@@ -178,7 +178,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 )}
               >
                 <item.icon size={19} strokeWidth={isActive ? 2.5 : 1.8} />
-                <span className="leading-none">{item.label.replace('All ', '').replace('Audit ', '')}</span>
+                <span className="max-w-full truncate leading-none">{item.label.replace('All ', '').replace('Audit ', '')}</span>
               </button>
             )
           })}

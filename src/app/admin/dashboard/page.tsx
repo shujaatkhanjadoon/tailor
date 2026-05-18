@@ -152,10 +152,10 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="mx-auto w-full max-w-screen-2xl space-y-5 sm:space-y-6">
 
       {/* Title */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl lg:text-2xl font-bold text-white">Platform Overview</h1>
           <p className="text-slate-400 text-sm mt-0.5">
@@ -228,7 +228,7 @@ export default function AdminDashboardPage() {
       )}
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+      <div className="grid grid-cols-1 min-[420px]:grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-4">
         <StatCard
           label="Total Revenue"
           value={`Rs. ${((summary?.total ?? 0)/1000).toFixed(1)}k`}
@@ -290,8 +290,7 @@ export default function AdminDashboardPage() {
             return (
               <div
                 key={shop.id}
-                className="flex items-center justify-between
-                           px-4 lg:px-5 py-3.5 hover:bg-slate-800/50 transition-colors"
+                className="flex flex-col gap-3 px-4 py-3.5 transition-colors hover:bg-slate-800/50 min-[520px]:flex-row min-[520px]:items-center min-[520px]:justify-between lg:px-5"
               >
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-slate-200 text-sm truncate">
@@ -301,7 +300,7 @@ export default function AdminDashboardPage() {
                     {shop.owner_phone}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0 ml-3">
+                <div className="flex shrink-0 flex-wrap items-center gap-2 min-[520px]:ml-3 min-[520px]:justify-end">
                   <span className={cn(
                     'text-[10px] font-bold px-2 py-1 rounded-full hidden sm:block',
                     plan === 'professional' ? 'bg-blue-900 text-blue-300' :

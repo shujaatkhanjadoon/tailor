@@ -7,6 +7,7 @@ import { PaymentMethod, GARMENT_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
 import { addDays, format } from 'date-fns'
 import type { TeamMemberRecord } from '@/lib/db/schema'
+import { recipientLabel } from '@/lib/order-recipient'
 
 const QUICK_DATES = [
   { label: '3 Din', days: 3 },
@@ -101,7 +102,7 @@ export function Step3Confirm({
         <p className="font-bold text-slate-800">{data.customerName}</p>
         {(data.orderForRelation && data.orderForRelation !== 'self') && (
           <p className="text-xs font-semibold text-blue-600 mt-0.5">
-            For: {data.orderForName || data.orderForRelation} ({data.recipientGender ?? 'family'})
+            For: {recipientLabel(data.orderForRelation, data.orderForName)}
           </p>
         )}
         {data.garmentType && (

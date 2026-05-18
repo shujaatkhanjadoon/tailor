@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { format, formatDistanceToNow } from 'date-fns'
 import { QuickPaymentSheet } from '@/components/payments/QuickPaymentSheet'
 import { orderBalance, orderPaymentProgress } from '@/lib/payments/calculations'
+import { recipientLabel } from '@/lib/order-recipient'
 
 export default function CustomerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id }   = use(params)
@@ -231,7 +232,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                   <p className="text-sm text-slate-500 mb-2">
                     {gc?.emoji} {gc?.label}
                     {order.orderForRelation && order.orderForRelation !== 'self' && (
-                      <span className="ml-2 text-blue-600">For: {order.orderForName || order.orderForRelation}</span>
+                      <span className="ml-2 text-blue-600">For: {recipientLabel(order.orderForRelation, order.orderForName)}</span>
                     )}
                     {order.assignedToName && (
                       <span className="ml-2 text-blue-600">· {order.assignedToName}</span>
@@ -321,7 +322,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                     </p>
                     {order.orderForRelation && order.orderForRelation !== 'self' && (
                       <p className="text-[11px] font-semibold text-blue-600">
-                        For: {order.orderForName || order.orderForRelation}
+                        For: {recipientLabel(order.orderForRelation, order.orderForName)}
                       </p>
                     )}
                     <p className="text-xs text-slate-400">

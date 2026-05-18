@@ -3,19 +3,19 @@
 
 import { useState, useEffect, useMemo, type ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ArrowLeft, Store, MapPin, MessageCircle, CheckCircle2,
   Image as ImageIcon, Upload, Palette, Sparkles,
 } from 'lucide-react'
-import { db } from '@/lib/db/schema'
-import { teamOps } from '@/lib/db/operations'
+import { shopOps, teamOps } from '@/lib/db/operations'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { cn } from '@/lib/utils'
 import { AccessNotice } from '@/components/billing/AccessNotice'
 import { usePlan } from '@/hooks/usePlan'
-import { syncService } from '@/lib/supabase/sync-service'
 import { PAKISTAN_STATE_CITIES } from '@/lib/locations/pakistan'
+import { supabase } from '@/lib/supabase/client'
+import type { ShopRecord } from '@/lib/db/schema'
+import { nowKarachiIso } from '@/lib/time'
 
 export default function ShopSettingsPage() {
   const router     = useRouter()
@@ -37,10 +37,12 @@ export default function ShopSettingsPage() {
   const [cityQuery, setCityQuery] = useState('')
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false)
 
-  const shop = useLiveQuery(
-    async () => shopId ? db.shop.get(shopId) : undefined,
-    [shopId]
-  )
+  const [shop, setShop] = useState<ShopRecord | undefined>()
+
+  useEffect(() => {
+    if (!shopId) return
+    shopOps.get(shopId).then(setShop).catch(() => setShop(undefined))
+  }, [shopId])
 
   useEffect(() => {
       if (!shop) return
@@ -107,28 +109,26 @@ export default function ShopSettingsPage() {
     if (!shopName.trim() || !ownerName.trim() || !shopId) return
     setSaving(true)
     try {
-      const currentShop = await db.shop.get(shopId)
-      if (currentShop) {
-        await db.shop.update(currentShop.id, {
-          shopName:       shopName.trim(),
-          ownerName:      ownerName.trim(),
-          whatsappNumber: whatsapp || undefined,
-          stateProvince:  stateProvince || undefined,
-          city:           city     || undefined,
-          addressLine:    addressLine.trim() || undefined,
-          postalCode:     postalCode.trim() || undefined,
-          brandName:      isBusiness ? shopName.trim() : undefined,
-          brandColor:     isBusiness ? brandColor || undefined : undefined,
-          brandLogoUrl:   isBusiness ? brandLogoUrl || undefined : undefined,
-          updatedAt:      new Date().toISOString(),
-          _synced:        0,
-        })
+      const { error } = await (supabase as any).from('shops').update({
+        shop_name: shopName.trim(),
+        owner_name: ownerName.trim(),
+        whatsapp_number: whatsapp || null,
+        state_province: stateProvince || null,
+        city: city || null,
+        address_line: addressLine.trim() || null,
+        postal_code: postalCode.trim() || null,
+        brand_name: isBusiness ? shopName.trim() : null,
+        brand_color: isBusiness ? brandColor || null : null,
+        brand_logo_url: isBusiness ? brandLogoUrl || null : null,
+        updated_at: nowKarachiIso(),
+      }).eq('id', shopId)
+      if (error) throw new Error(error.message)
         if (currentUser?.id) {
           await teamOps.update(currentUser.id, { name: ownerName.trim() })
           await reinitialize()
         }
-        await syncService.pushAll(currentShop.id).catch(console.error)
-      }
+      const fresh = await shopOps.get(shopId)
+      setShop(fresh)
       setSaved(true)
       setTimeout(() => { setSaved(false); router.back() }, 1200)
     } finally {

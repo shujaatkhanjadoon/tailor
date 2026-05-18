@@ -71,7 +71,7 @@ export function Footer() {
               <span className="text-lg font-bold text-white">Meradarzi</span>
             </Link>
             <p className="text-sm leading-relaxed mb-5 max-w-xs">
-              Pakistan ka pehla offline-first tailor management app.
+              Pakistan ka tailor management app.
               Har darzi ke liye, har phone par.
             </p>
 

@@ -27,7 +27,7 @@ export default async function AuditLogPage() {
   const logs = await getAuditLog(200)
 
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="mx-auto w-full max-w-screen-xl space-y-5">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
           <ScrollText size={22} className="text-blue-400" />
@@ -60,7 +60,7 @@ export default async function AuditLogPage() {
               return (
                 <div
                   key={log.id}
-                  className="flex items-start gap-3 sm:gap-4 px-3 sm:px-5 py-4 hover:bg-slate-800/50 transition-colors"
+                  className="flex items-start gap-3 px-3 py-4 transition-colors hover:bg-slate-800/50 sm:gap-4 sm:px-5"
                 >
                   <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
                     <Icon size={14} className={cfg.color} />
@@ -72,7 +72,7 @@ export default async function AuditLogPage() {
                         {cfg.label}
                       </span>
                       {shop?.shop_name && (
-                        <span className="text-slate-400 text-sm truncate max-w-full">
+                        <span className="min-w-0 max-w-full truncate text-sm text-slate-400">
                           - {shop.shop_name}
                         </span>
                       )}
@@ -85,7 +85,7 @@ export default async function AuditLogPage() {
                     )}
 
                     {log.details && Object.keys(log.details).length > 0 && (
-                      <p className="text-slate-600 text-[10px] mt-1 font-mono wrap-break-words">
+                      <p className="mt-1 break-words font-mono text-[10px] text-slate-600">
                         {JSON.stringify(log.details).slice(0, 160)}
                       </p>
                     )}

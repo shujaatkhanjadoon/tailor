@@ -1,37 +1,7 @@
 // next.config.ts
 import type { NextConfig } from 'next'
 
-process.env.TIMEZ = process.env.TIMEZ ?? 'Asia/Karachi'
-
-const withPWA = require('next-pwa')({
-  dest:        'public',
-  register:    true,
-  skipWaiting: true,
-  disable:     process.env.NODE_ENV !== 'production',
-  runtimeCaching: [
-    {
-      urlPattern: /^https:\/\/fonts\.googleapis\.com/,
-      handler:    'StaleWhileRevalidate',
-      options:    { cacheName: 'google-fonts-stylesheets' },
-    },
-    {
-      urlPattern: /^https:\/\/fonts\.gstatic\.com/,
-      handler:    'CacheFirst',
-      options:    {
-        cacheName: 'google-fonts-webfonts',
-        expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
-      },
-    },
-    {
-      urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/,
-      handler:    'CacheFirst',
-      options:    {
-        cacheName: 'images',
-        expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 },
-      },
-    },
-  ],
-})
+process.env.TZ = process.env.TZ ?? 'Asia/Karachi'
 
 const nextConfig: NextConfig = {
   // Compress output
@@ -66,4 +36,4 @@ const nextConfig: NextConfig = {
   }),
 }
 
-module.exports = withPWA(nextConfig)
+module.exports = nextConfig

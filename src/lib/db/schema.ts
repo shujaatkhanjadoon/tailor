@@ -61,7 +61,7 @@ export interface MeasurementRecord {
   id: string
   customerId: string
   shopId: string
-  orderForRelation?: 'self' | 'wife' | 'husband' | 'son' | 'daughter' | 'brother' | 'sister' | 'other'
+  orderForRelation?: 'self' | 'wife' | 'husband' | 'son' | 'daughter' | 'brother' | 'sister' | 'father' | 'mother' | 'other'
   orderForName?: string
   recipientGender?: 'male' | 'female' | 'child'
   garmentType: string
@@ -80,7 +80,7 @@ export interface OrderRecord {
   customerId: string
   customerName: string
   customerPhone: string
-  orderForRelation?: 'self' | 'wife' | 'husband' | 'son' | 'daughter' | 'brother' | 'sister' | 'other'
+  orderForRelation?: 'self' | 'wife' | 'husband' | 'son' | 'daughter' | 'brother' | 'sister' | 'father' | 'mother' | 'other'
   orderForName?: string
   recipientGender?: 'male' | 'female' | 'child'
   measurementId?: string

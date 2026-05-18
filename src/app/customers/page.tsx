@@ -3,17 +3,17 @@
 
 import { useState, useMemo }          from 'react'
 import { useRouter }                  from 'next/navigation'
-import { useLiveQuery }               from 'dexie-react-hooks'
 import {
   Plus, Search, X,
   Users, Phone, ChevronRight,
   ShoppingBag, TrendingUp,
 } from 'lucide-react'
-import { db, CustomerRecord }         from '@/lib/db/schema'
+import type { CustomerRecord }        from '@/lib/db/schema'
 import { useAuth }                    from '@/lib/auth/AuthContext'
 import { CustomerCardSkeleton }       from '@/components/ui/Skeleton'
 import { cn }                         from '@/lib/utils'
 import { format, isToday, isYesterday } from 'date-fns'
+import { useCustomers } from '@/hooks/useCustomers'
 
 // ── Gender filter config ─────────────────────────────────────────
 
@@ -131,21 +131,7 @@ export default function CustomersPage() {
   const [gender,  setGender]  = useState<GenderFilter>('all')
   const [sortBy,  setSortBy]  = useState<'name' | 'orders' | 'recent'>('recent')
 
-  // undefined = loading, array = loaded
-  const rawCustomers = useLiveQuery(
-    async (): Promise<CustomerRecord[]> => {
-      if (!shopId) return []
-      return db.customers
-        .where('shopId').equals(shopId)
-        .filter(c => c._deleted === 0)
-        .toArray()
-    },
-    [shopId]
-  )
-
-  // isLoading: undefined means Dexie hasn't resolved yet
-  const isLoading    = rawCustomers === undefined
-  const allCustomers = rawCustomers ?? []
+  const { customers: allCustomers, isLoading } = useCustomers(shopId)
 
   // ── Filter + sort ─────────────────────────────────────────────
   const filtered = useMemo(() => {

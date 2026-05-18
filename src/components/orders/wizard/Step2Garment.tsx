@@ -2,14 +2,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
 import { AlertCircle, CheckCircle2, Loader2, UsersRound } from 'lucide-react'
 import { GarmentType, GARMENT_LABELS, OrderRecipientRelation } from '@/types'
 import { cn } from '@/lib/utils'
 import { Camera } from 'lucide-react'
 import { compressImage } from '@/lib/photos/compress'
-import { db } from '@/lib/db/schema'
+import type { MeasurementRecord } from '@/lib/db/schema'
 import { ToggleSwitch } from '@/components/ui/toggle-switch'
+import { supabase } from '@/lib/supabase/client'
+import { mapMeasurement } from '@/lib/supabase/records'
+import { napOwnerLabel, recipientLabel, relationNeedsName } from '@/lib/order-recipient'
 
 // Measurement fields per garment type
 const FABRIC_HINTS: Record<GarmentType, string> = {
@@ -172,13 +174,15 @@ const RECIPIENT_OPTIONS: {
   { relation: 'daughter', label: 'Daughter', helper: 'Beti ke liye', gender: 'child' },
   { relation: 'brother', label: 'Brother', helper: 'Bhai ke liye', gender: 'male' },
   { relation: 'sister', label: 'Sister', helper: 'Behen ke liye', gender: 'female' },
+  { relation: 'father', label: 'Father', helper: 'Abu ke liye', gender: 'male' },
+  { relation: 'mother', label: 'Mother', helper: 'Ammi ke liye', gender: 'female' },
   { relation: 'other', label: 'Other', helper: 'Kisi aur ke liye', gender: 'custom' },
 ]
 
 const RECIPIENTS_BY_CUSTOMER: Record<'male' | 'female' | 'child', OrderRecipientRelation[]> = {
-  male: ['self', 'wife', 'son', 'daughter', 'brother', 'sister', 'other'],
-  female: ['self', 'husband', 'son', 'daughter', 'brother', 'sister', 'other'],
-  child: ['self', 'brother', 'sister', 'other'],
+  male: ['self', 'wife', 'son', 'daughter', 'brother', 'sister', 'father', 'mother', 'other'],
+  female: ['self', 'husband', 'son', 'daughter', 'brother', 'sister', 'father', 'mother', 'other'],
+  child: ['self', 'brother', 'sister', 'father', 'mother', 'other'],
 }
 
 const GARMENTS_BY_RECIPIENT: Record<'male' | 'female' | 'child', GarmentType[]> = {
@@ -230,8 +234,8 @@ function inferRecipientGender(
   selected?: 'male' | 'female' | 'child',
 ): 'male' | 'female' | 'child' {
   if (relation === 'self') return customerGender ?? 'male'
-  if (relation === 'wife' || relation === 'sister') return 'female'
-  if (relation === 'husband' || relation === 'brother') return 'male'
+  if (relation === 'wife' || relation === 'sister' || relation === 'mother') return 'female'
+  if (relation === 'husband' || relation === 'brother' || relation === 'father') return 'male'
   if (relation === 'son' || relation === 'daughter') return 'child'
   return selected ?? customerGender ?? 'male'
 }
@@ -612,22 +616,27 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
   const selectedType = data.garmentType
   const fields = selectedType ? MEASUREMENT_FIELDS[selectedType] : []
   const visibleStyleGroups = getStyleGroupsForGarment(selectedType)
-  const previousMeasurements = useLiveQuery(
-    async () => {
+  const [previousMeasurements, setPreviousMeasurements] = useState<MeasurementRecord[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
       if (!data.customerId || !selectedType) return []
-      return db.measurements
-        .where('customerId').equals(data.customerId)
-        .filter(m =>
-          m._deleted === 0 &&
-          m.garmentType === selectedType &&
-          (m.orderForRelation ?? 'self') === selectedRelation &&
-          (selectedRelation === 'self' || (m.orderForName ?? '') === (data.orderForName ?? ''))
-        )
-        .reverse()
-        .sortBy('takenAt')
-    },
-    [data.customerId, selectedType, selectedRelation, data.orderForName]
-  ) ?? []
+      let query = (supabase as any)
+        .from('measurements')
+        .select('*')
+        .eq('customer_id', data.customerId)
+        .eq('garment_type', selectedType)
+        .eq('order_for_relation', selectedRelation)
+        .is('deleted_at', null)
+        .order('taken_at', { ascending: false })
+      if (selectedRelation !== 'self' && data.orderForName?.trim()) query = query.eq('order_for_name', data.orderForName.trim())
+      const { data: rows } = await query
+      if (!cancelled) setPreviousMeasurements((rows ?? []).map(mapMeasurement))
+    }
+    load()
+    return () => { cancelled = true }
+  }, [data.customerId, selectedType, selectedRelation, data.orderForName])
   const selectedPrevious = previousMeasurements.find(m => m.id === data.measurementId)
 
   const updateMeasurement = (key: string, value: string) => {
@@ -686,7 +695,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
     setStyleSelections({})
     onUpdate({
       orderForRelation: relation,
-      orderForName: relation === 'self' ? undefined : relationLabel(relation),
+      orderForName: relationNeedsName(relation) ? '' : undefined,
       recipientGender: nextGender,
       garmentType: undefined,
       measurements: {},
@@ -730,15 +739,20 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
           })}
         </div>
 
-        {selectedRelation === 'other' && (
+        {relationNeedsName(selectedRelation) && (
           <div className="mt-3 grid grid-cols-1 gap-3 min-[420px]:grid-cols-[1fr_auto]">
-            <input
-              type="text"
-              value={data.orderForName ?? ''}
-              onChange={e => onUpdate({ orderForName: e.target.value.trimStart() || undefined })}
-              placeholder="Relation/name, jaise: cousin"
-              className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-500"
-            />
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold text-slate-500">
+                {selectedRelation === 'other' ? 'Relation / Name' : `${relationLabel(selectedRelation)} ka naam (optional)`}
+              </span>
+              <input
+                type="text"
+                value={data.orderForName ?? ''}
+                onChange={e => onUpdate({ orderForName: e.target.value.trimStart() || undefined })}
+                placeholder={selectedRelation === 'other' ? 'Jaise: Cousin Ahmed' : 'Jaise: Ahmed'}
+                className="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-blue-50/30 focus:ring-4 focus:ring-blue-100"
+              />
+            </label>
             <div className="grid grid-cols-3 gap-2">
               {(['male', 'female', 'child'] as const).map(g => (
                 <button
@@ -835,7 +849,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
       {selectedType && (
         <div>
           <p className="text-sm font-semibold text-slate-700 mb-1">
-            Nap (Measurements)
+            {napOwnerLabel({ relation: selectedRelation, name: data.orderForName, garmentType: selectedType })}
           </p>
           <p className="text-xs text-slate-400 mb-3">
             Naye customer/order ke liye nap zaroori hai. Purani nap use karein ya nayi nap bharein.
@@ -859,7 +873,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
                   )}
                 >
                   <span className="block text-xs font-bold text-slate-700">
-                    {idx === 0 ? 'Latest nap' : `Purani nap ${idx + 1}`}
+                    {idx === 0 ? `Latest ${recipientLabel(m.orderForRelation, m.orderForName)} nap` : `${recipientLabel(m.orderForRelation, m.orderForName)} nap ${idx + 1}`}
                   </span>
                   <span className="mt-0.5 block text-[11px] text-slate-400">
                     {new Date(m.takenAt).toLocaleDateString('en-PK')} · {Object.values(m.values).filter(Boolean).length} fields
@@ -976,9 +990,29 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
             ))}
           </div>
           {formatStyleSelections(styleSelections) && (
-            <p className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-[11px] leading-relaxed text-blue-700">
-              {formatStyleSelections(styleSelections)}
-            </p>
+            <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/70 p-3">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-blue-700">Selected Style Summary</p>
+              <div className="flex flex-wrap gap-2">
+                {visibleStyleGroups.flatMap(group => {
+                  const value = styleSelections[group.key]
+                  const values = Array.isArray(value) ? value : value ? [value] : []
+                  return values.map(item => (
+                    <span
+                      key={`${group.key}-${item}`}
+                      className={cn(
+                        'rounded-full border px-3 py-1.5 text-[11px] font-semibold',
+                        isOtherStyleValue(item)
+                          ? 'border-amber-200 bg-amber-50 text-amber-800'
+                          : 'border-blue-200 bg-white text-blue-800'
+                      )}
+                    >
+                      <span className="text-slate-500">{group.title}:</span>{' '}
+                      {isOtherStyleValue(item) ? otherStyleText(item) || 'Custom style' : item}
+                    </span>
+                  ))
+                })}
+              </div>
+            </div>
           )}
         </div>
       )}

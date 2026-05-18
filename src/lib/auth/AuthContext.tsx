@@ -5,10 +5,11 @@ import {
   createContext, useContext, useEffect,
   useState, useCallback, ReactNode,
 } from 'react'
-import { db, TeamMemberRecord } from '../db/schema'
-import { teamOps, shopOps }     from '../db/operations'
+import type { TeamMemberRecord } from '../db/schema'
+import { teamOps }     from '../db/operations'
 import { supabase }             from '../supabase/client'
 import { hashPIN, verifyPIN }   from '@/lib/security/pin'
+import { mapTeamMember } from '@/lib/supabase/records'
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ const SESSION_TTL  = 30 * 24 * 60 * 60 * 1000   // 30 days
 
 // ── Session helpers ───────────────────────────────────────────────
 
-function getSession(): { memberId: string; expiresAt?: number } | null {
+function getSession(): { memberId: string; shopId: string; expiresAt?: number } | null {
   if (typeof localStorage === 'undefined') return null
   try {
     const raw = localStorage.getItem(SESSION_KEY)
@@ -61,10 +62,11 @@ function getSession(): { memberId: string; expiresAt?: number } | null {
   }
 }
 
-function saveSession(memberId: string): void {
+function saveSession(memberId: string, shopId: string): void {
   if (typeof localStorage === 'undefined') return
   localStorage.setItem(SESSION_KEY, JSON.stringify({
     memberId,
+    shopId,
     expiresAt: Date.now() + SESSION_TTL,
   }))
 }
@@ -86,29 +88,32 @@ async function isRemoteShopActive(shopId: string): Promise<boolean> {
   }
 }
 
-// ── Core: read auth state from IndexedDB ──────────────────────────
+// ── Core: read auth state from Supabase ──────────────────────────
 
 async function readStateFromDB(): Promise<Partial<AuthState>> {
   try {
-    const shopId = await shopOps.getShopId()
-    if (!shopId) return { isSetupDone: false, shopId: null, currentUser: null }
-
     const session = getSession()
-    if (session?.memberId) {
+    if (session?.memberId && session.shopId) {
       // Refresh TTL on active use
-      saveSession(session.memberId)
+      saveSession(session.memberId, session.shopId)
 
-      const member = await db.teamMembers.get(session.memberId)
+      const { data: memberRow } = await (supabase as any)
+        .from('team_members')
+        .select('*')
+        .eq('id', session.memberId)
+        .eq('is_active', true)
+        .is('deleted_at', null)
+        .maybeSingle()
+      const member = memberRow ? mapTeamMember(memberRow) : null
       if (member?.isActive) {
         const active = await isRemoteShopActive(member.shopId)
         if (!active) {
           localStorage.removeItem(SESSION_KEY)
-          await db.shop.update(member.shopId, { isActive: 0 }).catch(() => {})
-          return { isSetupDone: true, shopId, currentUser: null }
+          return { isSetupDone: true, shopId: session.shopId, currentUser: null }
         }
         return {
           isSetupDone: true,
-          shopId,
+          shopId: session.shopId,
           currentUser: member,
           isOwner:     member.role === 'owner',
           isKarigar:   member.role === 'karigar',
@@ -116,7 +121,7 @@ async function readStateFromDB(): Promise<Partial<AuthState>> {
       }
     }
 
-    return { isSetupDone: true, shopId, currentUser: null }
+    return { isSetupDone: false, shopId: null, currentUser: null }
   } catch {
     return { isSetupDone: false, shopId: null, currentUser: null }
   }
@@ -156,17 +161,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const active = await isRemoteShopActive(member.shopId)
     if (!active) {
       localStorage.removeItem(SESSION_KEY)
-      await db.shop.update(member.shopId, { isActive: 0 }).catch(() => {})
       return false
     }
 
-    saveSession(member.id)
-    const shopId = await shopOps.getShopId()
+    saveSession(member.id, member.shopId)
 
     setState(s => ({
       ...s,
       isSetupDone: true,
-      shopId:      shopId ?? s.shopId,
+      shopId:      member.shopId,
       currentUser: member,
       isOwner:     member.role === 'owner',
       isKarigar:   member.role === 'karigar',
@@ -237,23 +240,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const actualMemberId = apiData.memberId
 
-    // ── Also save to IndexedDB for offline use ───────────────────
-    await shopOps.setupWithId(shopId, shopName, ownerPhone)
-    await db.shop.update(shopId, {
-      ownerName: ownerName?.trim() || shopName + ' (Owner)',
-      city: city?.trim() || undefined,
-      stateProvince: stateProvince?.trim() || undefined,
-      _synced: 1,
-    })
+    const { data: ownerRow } = await (supabase as any)
+      .from('team_members')
+      .select('*')
+      .eq('id', actualMemberId)
+      .single()
+    const owner = ownerRow
+      ? mapTeamMember(ownerRow)
+      : await teamOps.addWithId(shopId, actualMemberId, {
+          name:  ownerName?.trim() || shopName + ' (Owner)',
+          phone: ownerPhone,
+          role:  'owner',
+          pin:   pinHash,
+        })
 
-    const owner = await teamOps.addWithId(shopId, actualMemberId, {
-      name:  ownerName?.trim() || shopName + ' (Owner)',
-      phone: ownerPhone,
-      role:  'owner',
-      pin:   pinHash,   // hashed
-    })
-
-    saveSession(owner.id)
+    saveSession(owner.id, shopId)
 
     setState({
       isLoading:   false,
@@ -269,19 +270,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Clear All Data ───────────────────────────────────────────
   const clearAllData = useCallback(async () => {
-    await Promise.all([
-      db.orders.clear(),
-      db.customers.clear(),
-      db.measurements.clear(),
-      db.payments.clear(),
-      db.orderStatusHistory.clear(),
-      db.syncQueue.clear(),
-      db.photos.clear(),
-      db.teamMembers.clear(),
-      db.shop.clear(),
-      db.appSettings.clear(),
-    ])
-    localStorage.clear()
+    localStorage.removeItem(SESSION_KEY)
     setState({
       isLoading:   false,
       isSetupDone: false,

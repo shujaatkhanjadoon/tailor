@@ -348,7 +348,7 @@ function VerificationCard({
       {expanded && (
         <div className="px-4 pb-4 border-t border-amber-900/50 pt-3 space-y-3">
           {/* Details */}
-          <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="grid grid-cols-1 gap-2 text-xs min-[420px]:grid-cols-2">
             {[
               { label: "Owner", value: request.owner_name },
               { label: "Phone", value: request.owner_phone },
@@ -386,7 +386,7 @@ function VerificationCard({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 min-[420px]:flex-row">
             <button
               onClick={() => handle("approved")}
               disabled={processing}
@@ -637,7 +637,7 @@ function ShopCard({
 
           {/* Usage */}
           {usage && (
-            <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-600">
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-slate-600">
               <span>📋 {usage.orders_this_month}/mo</span>
               <span>👥 {usage.customers_total}</span>
               <span>✂️ {usage.karigar_count}</span>
@@ -709,7 +709,7 @@ function ShopCard({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2 min-[520px]:grid-cols-4">
+          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 min-[760px]:grid-cols-4">
             {[
               { label: "Phone", value: shop.owner_phone },
               { label: "PIN", value: shop.owner_pin_available ? shop.owner_pin : "Reset required" },
@@ -744,7 +744,7 @@ function ShopCard({
             >
               Change Plan
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 min-[520px]:flex-row">
               <select
                 disabled={changing}
                 defaultValue=""
@@ -777,7 +777,7 @@ function ShopCard({
               >
                 Verification
               </label>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 min-[420px]:flex-row">
                 <button
                   onClick={() => onVerifyAction(shop.id, "approved")}
                   className="flex-1 flex items-center justify-center gap-1.5
@@ -842,7 +842,7 @@ function ShopCard({
               )}
             >
               <MessageCircle size={12} />
-              {warnExpiry ? "⚠️ WA Reminder" : "WhatsApp"}
+              {warnExpiry ? "WA Reminder" : "WhatsApp"}
             </a>
 
             {/* Activate / Deactivate */}
@@ -1088,9 +1088,9 @@ export default function AdminShopsPage() {
   };
 
   return (
-    <div className="space-y-5 max-w-4xl">
+    <div className="mx-auto w-full max-w-screen-xl space-y-5">
       {/* Page header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
         <div>
           <h1 className="text-xl lg:text-2xl font-bold text-white">
             All Shops
@@ -1159,7 +1159,7 @@ export default function AdminShopsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 overflow-x-auto bg-slate-900 rounded-2xl p-1">
+      <div className="flex gap-2 overflow-x-auto rounded-2xl bg-slate-900 p-1 [scrollbar-width:thin]">
         {PLAN_TABS.map((tab) => (
           <button
             key={tab.key}
@@ -1214,7 +1214,7 @@ export default function AdminShopsPage() {
             <div
               key={i}
               className="bg-slate-800 border border-slate-700 rounded-2xl
-                         p-4 animate-pulse h-19"
+                         h-20 p-4 animate-pulse"
             />
           ))}
         </div>

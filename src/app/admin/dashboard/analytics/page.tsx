@@ -100,7 +100,7 @@ export default async function AnalyticsPage() {
   const maxRevenue = Math.max(...data.monthlyRevenue.map(m => m.revenue), 1)
 
   return (
-      <div className="space-y-8">
+      <div className="mx-auto w-full max-w-screen-2xl space-y-6 sm:space-y-8">
 
         <div>
           <h1 className="text-2xl font-bold text-white">Analytics</h1>
@@ -108,7 +108,7 @@ export default async function AnalyticsPage() {
         </div>
 
         {/* Key metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:gap-4 xl:grid-cols-4">
           <StatCard
             label="Total Revenue"
             value={`Rs. ${(data.totalRevenue / 1000).toFixed(1)}k`}
@@ -138,16 +138,16 @@ export default async function AnalyticsPage() {
         </div>
 
         {/* Monthly revenue bar chart */}
-        <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6">
+        <div className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6">
           <h2 className="font-bold text-white mb-6 flex items-center gap-2">
             <BarChart2 size={18} className="text-blue-400" />
             Monthly Revenue (Last 6 Months)
           </h2>
-          <div className="flex items-end gap-3 h-48">
+          <div className="flex h-48 items-end gap-2 overflow-x-auto pb-1 sm:gap-3">
             {data.monthlyRevenue.map(m => {
               const pct = Math.round((m.revenue / maxRevenue) * 100)
               return (
-                <div key={m.label} className="flex-1 flex flex-col items-center gap-2">
+                <div key={m.label} className="flex min-w-12 flex-1 flex-col items-center gap-2">
                   <p className="text-xs font-bold text-slate-300">
                     {m.revenue > 0 ? `${(m.revenue/1000).toFixed(1)}k` : '—'}
                   </p>
@@ -168,20 +168,20 @@ export default async function AnalyticsPage() {
         </div>
 
         {/* Revenue breakdown */}
-        <div className="grid lg:grid-cols-2 gap-4">
+        <div className="grid gap-4 lg:grid-cols-2">
 
           {/* By plan */}
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-5">
             <h3 className="font-bold text-white mb-4">Revenue by Plan</h3>
             {[
-              { label: '⭐ Professional', value: data.revenueByPlan.professional, color: 'bg-blue-600' },
-              { label: '👑 Business',     value: data.revenueByPlan.business,     color: 'bg-purple-600' },
+              { label: 'Professional', value: data.revenueByPlan.professional, color: 'bg-blue-600' },
+              { label: 'Business',     value: data.revenueByPlan.business,     color: 'bg-purple-600' },
             ].map(item => {
               const pct = data.totalRevenue > 0
                 ? Math.round((item.value / data.totalRevenue) * 100) : 0
               return (
                 <div key={item.label} className="mb-4 last:mb-0">
-                  <div className="flex justify-between text-sm mb-1.5">
+                  <div className="mb-1.5 flex flex-col gap-1 text-sm min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
                     <span className="text-slate-300 font-medium">{item.label}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-slate-500 text-xs">{pct}%</span>
@@ -200,17 +200,17 @@ export default async function AnalyticsPage() {
           </div>
 
           {/* By cycle */}
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-5">
             <h3 className="font-bold text-white mb-4">Revenue by Billing Cycle</h3>
             {[
-              { label: '📅 Monthly', value: data.revenueByCycle.monthly, color: 'bg-green-600'  },
-              { label: '🗓️ Yearly',  value: data.revenueByCycle.yearly,  color: 'bg-amber-600'  },
+              { label: 'Monthly', value: data.revenueByCycle.monthly, color: 'bg-green-600'  },
+              { label: 'Yearly',  value: data.revenueByCycle.yearly,  color: 'bg-amber-600'  },
             ].map(item => {
               const pct = data.totalRevenue > 0
                 ? Math.round((item.value / data.totalRevenue) * 100) : 0
               return (
                 <div key={item.label} className="mb-4 last:mb-0">
-                  <div className="flex justify-between text-sm mb-1.5">
+                  <div className="mb-1.5 flex flex-col gap-1 text-sm min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
                     <span className="text-slate-300 font-medium">{item.label}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-slate-500 text-xs">{pct}%</span>

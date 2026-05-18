@@ -3,15 +3,17 @@
 
 import { useState, useEffect } from 'react'
 import { Bell, BellOff, X, Clock, AlertTriangle, CheckCircle } from 'lucide-react'
-import { useLiveQuery } from 'dexie-react-hooks'
 import { useRouter } from 'next/navigation'
-import { db, OrderRecord } from '@/lib/db/schema'
+import type { OrderRecord } from '@/lib/db/schema'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { useNotificationCount } from '@/hooks/useNotifications'
 import { notifPermission } from '@/lib/notifications/permission'
 import { ORDER_STATUS_CONFIG } from '@/types'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
+import { supabase } from '@/lib/supabase/client'
+import { mapOrder } from '@/lib/supabase/records'
+import { karachiDateString } from '@/lib/time'
 
 export function NotificationBell() {
   const router            = useRouter()
@@ -24,28 +26,29 @@ export function NotificationBell() {
     setHasPermission(notifPermission.current() === 'granted')
   }, [])
 
-  const today    = new Date().toISOString().split('T')[0]
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+  const today    = karachiDateString()
+  const tomorrowDate = new Date()
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1)
+  const tomorrow = karachiDateString(tomorrowDate)
+  const [alertOrders, setAlertOrders] = useState<OrderRecord[]>([])
 
-  // Fetch the actual orders for the dropdown
-  const alertOrders = useLiveQuery(
-    async (): Promise<OrderRecord[]> => {
+  useEffect(() => {
+    const load = async () => {
       if (!shopId) return []
-      return db.orders
-        .where('shopId').equals(shopId)
-        .filter(o =>
-          o._deleted === 0 &&
-          !['delivered', 'cancelled'].includes(o.status) &&
-          o.dueDate <= tomorrow
-        )
-        .reverse()
-        .sortBy('dueDate')
-    },
-    [shopId, today],
-    []
-  )
+      const { data } = await (supabase as any)
+        .from('orders')
+        .select('*')
+        .eq('shop_id', shopId)
+        .is('deleted_at', null)
+        .lte('due_date', tomorrow)
+        .not('status', 'in', '("delivered","cancelled")')
+        .order('due_date', { ascending: true })
+      setAlertOrders((data ?? []).map(mapOrder))
+    }
+    load()
+  }, [shopId, tomorrow])
 
-  const safe     = alertOrders ?? []
+  const safe     = alertOrders
   const overdue  = safe.filter(o => o.dueDate < today)
   const dueToday = safe.filter(o => o.dueDate === today)
   const dueTomr  = safe.filter(o => o.dueDate === tomorrow)

@@ -1,15 +1,18 @@
 // src/app/customers/[id]/measurements/page.tsx
 'use client'
 
-import { use, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowLeft, Plus, Ruler, Copy, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
-import { db, MeasurementRecord } from '@/lib/db/schema'
+import type { CustomerRecord, MeasurementRecord } from '@/lib/db/schema'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { GarmentType, GARMENT_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
+import { supabase } from '@/lib/supabase/client'
+import { mapCustomer, mapMeasurement } from '@/lib/supabase/records'
+import { nowKarachiIso } from '@/lib/time'
+import { napOwnerLabel } from '@/lib/order-recipient'
 
 // All fields per garment type
 const MEASUREMENT_FIELDS: Partial<Record<GarmentType, { key: string; label: string; labelUrdu: string }[]>> = {
@@ -61,18 +64,29 @@ const MEASUREMENT_FIELDS: Partial<Record<GarmentType, { key: string; label: stri
 }
 
 const uuid = () => crypto.randomUUID()
-const now  = () => new Date().toISOString()
+const now  = () => nowKarachiIso()
 
 export default function MeasurementsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id }     = use(params)
   const router     = useRouter()
   const { shopId } = useAuth()
 
-  const customer = useLiveQuery(() => db.customers.get(id), [id])
-  const measurements = useLiveQuery(
-    () => db.measurements.where('customerId').equals(id).reverse().sortBy('takenAt'),
-    [id], []
-  )
+  const [customer, setCustomer] = useState<CustomerRecord | undefined>()
+  const [measurements, setMeasurements] = useState<MeasurementRecord[]>([])
+
+  const load = async () => {
+    const [{ data: customerRow }, { data: measurementRows }] = await Promise.all([
+      (supabase as any).from('customers').select('*').eq('id', id).maybeSingle(),
+      (supabase as any).from('measurements').select('*').eq('customer_id', id).is('deleted_at', null).order('taken_at', { ascending: false }),
+    ])
+    setCustomer(customerRow ? mapCustomer(customerRow) : undefined)
+    setMeasurements((measurementRows ?? []).map(mapMeasurement))
+  }
+
+  useEffect(() => {
+    load().catch(console.error)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
 
   const [showForm,      setShowForm]      = useState(false)
   const [selectedType,  setSelectedType]  = useState<GarmentType>('shalwar_kameez')
@@ -84,7 +98,7 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
   const [categoryFilter,setCategoryFilter]= useState<GarmentType | 'all'>('all')
 
   const fields = MEASUREMENT_FIELDS[selectedType] ?? MEASUREMENT_FIELDS.other ?? []
-  const visibleMeasurements = (measurements ?? []).filter(m =>
+  const visibleMeasurements = measurements.filter(m =>
     categoryFilter === 'all' || m.garmentType === categoryFilter
   )
 
@@ -100,21 +114,34 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
         values,
         notes:       notes || undefined,
         takenAt:     editingId
-          ? (measurements ?? []).find(m => m.id === editingId)?.takenAt ?? now()
+          ? measurements.find(m => m.id === editingId)?.takenAt ?? now()
           : now(),
-        _synced:     0,
+        _synced:     1,
         _deleted:    0,
       }
       if (editingId) {
-        await db.measurements.update(editingId, {
-          garmentType: record.garmentType,
+        const { error } = await (supabase as any).from('measurements').update({
+          garment_type: record.garmentType,
           values: record.values,
           notes: record.notes,
-          _synced: 0,
-        })
+        }).eq('id', editingId)
+        if (error) throw new Error(error.message)
       } else {
-        await db.measurements.add(record)
+        const { error } = await (supabase as any).from('measurements').insert({
+          id: record.id,
+          customer_id: record.customerId,
+          shop_id: record.shopId,
+          order_for_relation: record.orderForRelation ?? 'self',
+          order_for_name: record.orderForName ?? null,
+          recipient_gender: record.recipientGender ?? customer?.gender ?? null,
+          garment_type: record.garmentType,
+          values: record.values,
+          notes: record.notes ?? null,
+          taken_at: record.takenAt,
+        })
+        if (error) throw new Error(error.message)
       }
+      await load()
       setShowForm(false)
       setEditingId(null)
       setValues({})
@@ -164,7 +191,7 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
               <h1 className="text-base font-bold text-slate-800">
                 {customer?.name || '...'} — Nap
               </h1>
-              <p className="text-xs text-slate-400">{measurements?.length ?? 0} nap records</p>
+      <p className="text-xs text-slate-400">{measurements.length} nap records</p>
             </div>
           </div>
           <button
@@ -329,7 +356,7 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
           </div>
         )}
 
-        {(!measurements || measurements.length === 0) && !showForm ? (
+        {measurements.length === 0 && !showForm ? (
           <div className="text-center py-16">
             <Ruler size={48} className="text-slate-200 mx-auto mb-4" />
             <p className="font-semibold text-slate-500">Koi nap record nahi</p>
@@ -360,7 +387,9 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
                     <span className="text-2xl shrink-0">{gc?.emoji}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold text-slate-800 text-sm">{gc?.label}</p>
+                        <p className="font-semibold text-slate-800 text-sm">
+                          {napOwnerLabel({ relation: m.orderForRelation, name: m.orderForName, garmentType: m.garmentType })}
+                        </p>
                         {isLatest && (
                           <span className="text-[9px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
                             LATEST

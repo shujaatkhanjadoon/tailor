@@ -8,22 +8,20 @@ import {
   LogOut,
   Info,
   Wifi,
-  WifiOff,
   Bell,
   Scissors,
-  RefreshCw,
   CreditCard,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { SettingsRow } from "@/components/settings/SettingsRow";
 import { DangerZone } from "@/components/settings/DangerZone";
-import { db } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
-import { useLiveQuery } from "dexie-react-hooks";
 import { Image } from "lucide-react";
-import { syncService } from "@/lib/supabase/sync-service";
 import { usePlan } from "@/hooks/usePlan";
 import { PLANS } from "@/lib/billing/plans";
+import { supabase } from "@/lib/supabase/client";
+import { shopOps } from "@/lib/db/operations";
+import type { ShopRecord } from "@/lib/db/schema";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -32,23 +30,13 @@ export default function SettingsPage() {
 
   const [memberCount, setMemberCount] = useState(0);
   const [orderCount, setOrderCount] = useState(0);
-  const [pendingSync, setPendingSync] = useState(0);
   const [isOnline, setIsOnline] = useState(() =>
     typeof navigator === "undefined" ? true : navigator.onLine,
   );
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [photoStats] = useState({ count: 0, totalKB: 0 });
+  const [shop, setShop] = useState<ShopRecord | undefined>();
 
-  const photoStats = useLiveQuery(async () => {
-    if (!shopId) return { count: 0, totalKB: 0 };
-    const photos = await db.photos.where("shopId").equals(shopId).toArray();
-    const totalKB = photos.reduce((s, p) => s + p.sizeKB, 0);
-    return { count: photos.length, totalKB };
-  }, [shopId]);
-  const shop = useLiveQuery(
-    async () => shopId ? db.shop.get(shopId) : undefined,
-    [shopId]
-  );
   const shopName = shop?.shopName ?? "";
 
   useEffect(() => {
@@ -65,77 +53,22 @@ export default function SettingsPage() {
   useEffect(() => {
     const load = async () => {
       if (shopId) {
-        // Count members
-        const members = await db.teamMembers
-          .where({ shopId, isActive: 1 })
-          .count();
-        setMemberCount(members);
-
-        // Count orders
-        const orders = await db.orders
-          .where("shopId")
-          .equals(shopId)
-          .filter((o) => o._deleted === 0)
-          .count();
-        setOrderCount(orders);
-
-        // â”€â”€ FIXED: count actual unsynced records, not syncQueue â”€â”€
-        const [
-          unsyncedOrders,
-          unsyncedCustomers,
-          unsyncedPayments,
-          unsyncedMeasurements,
-          unsyncedMembers,
-          unsyncedHistory,
-        ] = await Promise.all([
-          db.orders
-            .where("shopId")
-            .equals(shopId)
-            .filter((o) => o._synced === 0)
-            .count(),
-          db.customers
-            .where("shopId")
-            .equals(shopId)
-            .filter((c) => c._synced === 0)
-            .count(),
-          db.payments
-            .where("shopId")
-            .equals(shopId)
-            .filter((p) => p._synced === 0)
-            .count(),
-          db.measurements
-            .where("shopId")
-            .equals(shopId)
-            .filter((m) => m._synced === 0)
-            .count(),
-          db.teamMembers
-            .where("shopId")
-            .equals(shopId)
-            .filter((m) => m._synced === 0)
-            .count(),
-          db.orderStatusHistory
-            .where("shopId")
-            .equals(shopId)
-            .filter((h) => h._synced === 0)
-            .count(),
+        shopOps.get(shopId).then(setShop).catch(() => setShop(undefined));
+        const [{ count: members }, { count: orders }] = await Promise.all([
+          (supabase as any)
+          .from("team_members")
+          .select("id", { count: "exact", head: true })
+          .eq("shop_id", shopId)
+          .eq("is_active", true)
+          .is("deleted_at", null),
+          (supabase as any)
+            .from("orders")
+            .select("id", { count: "exact", head: true })
+            .eq("shop_id", shopId)
+            .is("deleted_at", null),
         ]);
-
-        const total =
-          unsyncedOrders +
-          unsyncedCustomers +
-          unsyncedPayments +
-          unsyncedMeasurements +
-          unsyncedMembers +
-          unsyncedHistory;
-        setPendingSync(total);
-
-        const queueCount = await db.syncQueue.count();
-        if (queueCount > 0) {
-          await db.syncQueue.clear();
-          console.log(
-            `[Settings] Cleared ${queueCount} stale syncQueue entries`,
-          );
-        }
+        setMemberCount(members ?? 0);
+        setOrderCount(orders ?? 0);
       }
     };
     load();
@@ -144,22 +77,6 @@ export default function SettingsPage() {
   const handleLogout = () => {
     logout();
     router.replace("/auth");
-  };
-
-  const [syncResult, setSyncResult] = useState<{
-    success: boolean;
-    errors: string[];
-  } | null>(null);
-
-  const handleManualSync = async () => {
-    if (!shopId) return;
-    setSyncing(true);
-    setSyncResult(null);
-    const result = await syncService.pushAll(shopId);
-    setSyncing(false);
-    setSyncResult(result);
-    // Auto-clear after 5 seconds
-    setTimeout(() => setSyncResult(null), 5000);
   };
 
   return (
@@ -216,7 +133,7 @@ export default function SettingsPage() {
                     </>
                   ) : (
                     <>
-                      <WifiOff size={9} /> Offline
+                      <Wifi size={9} /> No connection
                     </>
                   )}
                 </span>
@@ -313,60 +230,25 @@ export default function SettingsPage() {
           />
         </div>
 
-        {/* â”€â”€ SYNC STATUS â”€â”€ */}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-4 pt-3 pb-2">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Data & Sync
+              Data
             </p>
           </div>
           <SettingsRow
-            icon={isOnline ? Wifi : WifiOff}
+            icon={Wifi}
             iconBg={isOnline ? "bg-green-100" : "bg-slate-100"}
             iconColor={isOnline ? "text-green-600" : "text-slate-400"}
-            label={isOnline ? "Online — Connected" : "Offline Mode"}
+            label={isOnline ? "Connected to Supabase" : "No internet connection"}
             sublabel={
               isOnline
-                ? "Data sync ho raha hai"
-                : "Internet nahi — data local hai"
+                ? "All app data is saved in Supabase"
+                : "Internet wapas aane par app use karein"
             }
-            value={pendingSync > 0 ? `${pendingSync} pending` : "Sab synced ✓"}
+            value="Cloud"
+            last
           />
-          {isOwner && (
-            <button
-              onClick={handleManualSync}
-              disabled={syncing}
-              className="cursor-pointer w-full px-4 py-3 text-left border-t border-slate-100 active:bg-slate-50"
-            >
-              <p className="text-sm font-semibold text-blue-600 flex items-center gap-2">
-                {syncing ? (
-                  <>
-                    <RefreshCw size={14} className="animate-spin" /> Syncing...
-                  </>
-                ) : (
-                  <>Abhi Sync Karein</>
-                )}
-              </p>
-            </button>
-          )}
-          {syncResult && (
-            <div
-              className={cn(
-                "mx-4 my-2 rounded-2xl px-4 py-3 text-sm",
-                syncResult.success
-                  ? "bg-green-50 border border-green-200 text-green-700"
-                  : "bg-red-50 border border-red-200 text-red-700",
-              )}
-            >
-              {syncResult.success
-                ? "✓ Sab data sync ho gaya!"
-                : syncResult.errors.map((e) => (
-                    <p key={e} className="text-xs">
-                      {e}
-                    </p>
-                  ))}
-            </div>
-          )}
         </div>
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-4 pt-3 pb-2">

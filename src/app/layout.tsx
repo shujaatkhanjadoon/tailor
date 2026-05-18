@@ -4,7 +4,6 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 import { AuthProvider } from "@/lib/auth/AuthContext";
-import { OfflineBanner } from "@/components/layout/OfflineBanner";
 import { Toaster } from "@/components/ui/sonner";
 import { PageErrorBoundary } from "@/components/ui/ErrorBoundary";
 
@@ -21,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s | Meradarzi",
   },
   description:
-    "Pakistan ka pehla tailor management app â€” orders, measurements, payments. Offline bhi kaam kare.",
+    "Pakistan ka tailor management app - orders, measurements, payments.",
   keywords: ["tailor", "darzi", "pakistan", "order management", "kapra"],
   openGraph: {
     title: "Meradarzi",
@@ -66,7 +65,6 @@ export default function RootLayout({
         className={`${poppins.variable} min-w-0 overflow-x-clip font-sans antialiased`}
       >
         <AuthProvider>
-          <OfflineBanner />
           <AppShell>
             <PageErrorBoundary>{children}</PageErrorBoundary>
           </AppShell>
