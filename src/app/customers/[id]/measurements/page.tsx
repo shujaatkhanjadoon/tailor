@@ -15,7 +15,7 @@ import { nowKarachiIso } from '@/lib/time'
 import { napOwnerLabel } from '@/lib/order-recipient'
 
 // All fields per garment type
-const MEASUREMENT_FIELDS: Partial<Record<GarmentType, { key: string; label: string; labelUrdu: string }[]>> = {
+const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; labelUrdu: string }[]> = {
   shalwar_kameez: [
     { key: 'length',         label: 'Length',        labelUrdu: 'Lambai'    },
     { key: 'chest',          label: 'Chest',         labelUrdu: 'Seena'     },
@@ -23,11 +23,33 @@ const MEASUREMENT_FIELDS: Partial<Record<GarmentType, { key: string; label: stri
     { key: 'hip',            label: 'Hip',           labelUrdu: 'Sirin'     },
     { key: 'shoulder',       label: 'Shoulder',      labelUrdu: 'Kandha'    },
     { key: 'sleeve',         label: 'Sleeve',        labelUrdu: 'Bazoo'     },
+    { key: 'armhole',        label: 'Armhole',       labelUrdu: 'Baazu Golai' },
+    { key: 'bicep',          label: 'Bicep',         labelUrdu: 'Bazoo'     },
     { key: 'collar',         label: 'Collar',        labelUrdu: 'Gireban'   },
+    { key: 'front_neck',     label: 'Front Neck',    labelUrdu: 'Agla Gala' },
+    { key: 'back_neck',      label: 'Back Neck',     labelUrdu: 'Pichla Gala' },
     { key: 'trouser_length', label: 'Shalwar Length',labelUrdu: 'Shalwar'   },
     { key: 'trouser_waist',  label: 'Shalwar Waist', labelUrdu: 'Shalwar Kamar' },
+    { key: 'thigh',          label: 'Thigh',         labelUrdu: 'Raan'      },
     { key: 'knee',           label: 'Knee',          labelUrdu: 'Ghutna'    },
     { key: 'bottom',         label: 'Bottom',        labelUrdu: 'Paincha'   },
+  ],
+  kurta: [
+    { key: 'length', label: 'Length', labelUrdu: 'Lambai' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'Seena' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'Kamar' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'Kandha' },
+    { key: 'sleeve', label: 'Sleeve', labelUrdu: 'Bazoo' },
+    { key: 'collar', label: 'Collar', labelUrdu: 'Gala' },
+    { key: 'bottom', label: 'Daman Width', labelUrdu: 'Daman' },
+  ],
+  kurti: [
+    { key: 'length', label: 'Length', labelUrdu: 'Lambai' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'Seena' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'Kamar' },
+    { key: 'hip', label: 'Hip', labelUrdu: 'Sirin' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'Kandha' },
+    { key: 'sleeve', label: 'Sleeve', labelUrdu: 'Bazoo' },
   ],
   shirt: [
     { key: 'length',   label: 'Length',   labelUrdu: 'Lambai'  },
@@ -36,13 +58,22 @@ const MEASUREMENT_FIELDS: Partial<Record<GarmentType, { key: string; label: stri
     { key: 'shoulder', label: 'Shoulder', labelUrdu: 'Kandha'  },
     { key: 'sleeve',   label: 'Sleeve',   labelUrdu: 'Bazoo'   },
     { key: 'collar',   label: 'Collar',   labelUrdu: 'Gireban' },
+    { key: 'cuff',     label: 'Cuff',     labelUrdu: 'Kaf'     },
   ],
   trouser: [
     { key: 'trouser_length', label: 'Length',  labelUrdu: 'Lambai'  },
     { key: 'trouser_waist',  label: 'Waist',   labelUrdu: 'Kamar'   },
     { key: 'hip',            label: 'Hip',     labelUrdu: 'Sirin'   },
+    { key: 'thigh',          label: 'Thigh',   labelUrdu: 'Raan'    },
     { key: 'knee',           label: 'Knee',    labelUrdu: 'Ghutna'  },
     { key: 'bottom',         label: 'Bottom',  labelUrdu: 'Paincha' },
+  ],
+  pajama: [
+    { key: 'trouser_length', label: 'Length', labelUrdu: 'Lambai' },
+    { key: 'trouser_waist', label: 'Waist', labelUrdu: 'Nara' },
+    { key: 'hip', label: 'Hip', labelUrdu: 'Sirin' },
+    { key: 'thigh', label: 'Thigh', labelUrdu: 'Raan' },
+    { key: 'bottom', label: 'Bottom', labelUrdu: 'Paincha' },
   ],
   sherwani: [
     { key: 'length',   label: 'Length',   labelUrdu: 'Lambai'  },
@@ -50,16 +81,66 @@ const MEASUREMENT_FIELDS: Partial<Record<GarmentType, { key: string; label: stri
     { key: 'waist',    label: 'Waist',    labelUrdu: 'Kamar'   },
     { key: 'shoulder', label: 'Shoulder', labelUrdu: 'Kandha'  },
     { key: 'sleeve',   label: 'Sleeve',   labelUrdu: 'Bazoo'   },
+    { key: 'hip',      label: 'Hip',      labelUrdu: 'Sirin'   },
+  ],
+  waistcoat: [
+    { key: 'length', label: 'Length', labelUrdu: 'Lambai' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'Seena' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'Kamar' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'Kandha' },
+  ],
+  prince_coat: [
+    { key: 'length', label: 'Length', labelUrdu: 'Lambai' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'Seena' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'Kamar' },
+    { key: 'hip', label: 'Hip', labelUrdu: 'Sirin' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'Kandha' },
+    { key: 'sleeve', label: 'Sleeve', labelUrdu: 'Bazoo' },
+  ],
+  pant_coat: [
+    { key: 'length', label: 'Coat Length', labelUrdu: 'Coat Lambai' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'Seena' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'Kamar' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'Kandha' },
+    { key: 'sleeve', label: 'Sleeve', labelUrdu: 'Bazoo' },
+    { key: 'trouser_length', label: 'Pant Length', labelUrdu: 'Pant Lambai' },
+    { key: 'trouser_waist', label: 'Pant Waist', labelUrdu: 'Pant Kamar' },
+  ],
+  lehenga: [
+    { key: 'length', label: 'Lehenga Length', labelUrdu: 'Lehenga' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'Kamar' },
+    { key: 'hip', label: 'Hip', labelUrdu: 'Sirin' },
+    { key: 'chest', label: 'Blouse Chest', labelUrdu: 'Blouse Seena' },
+    { key: 'shoulder', label: 'Blouse Shoulder', labelUrdu: 'Kandha' },
+    { key: 'sleeve', label: 'Blouse Sleeve', labelUrdu: 'Bazoo' },
+  ],
+  maxi: [
+    { key: 'length', label: 'Full Length', labelUrdu: 'Lambai' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'Seena' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'Kamar' },
+    { key: 'hip', label: 'Hip', labelUrdu: 'Sirin' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'Kandha' },
+    { key: 'sleeve', label: 'Sleeve', labelUrdu: 'Bazoo' },
   ],
   blazer: [
     { key: 'length',   label: 'Length',   labelUrdu: 'Lambai'  },
     { key: 'chest',    label: 'Chest',    labelUrdu: 'Seena'   },
+    { key: 'waist',    label: 'Waist',    labelUrdu: 'Kamar'   },
     { key: 'shoulder', label: 'Shoulder', labelUrdu: 'Kandha'  },
     { key: 'sleeve',   label: 'Sleeve',   labelUrdu: 'Bazoo'   },
   ],
+  jacket: [
+    { key: 'length', label: 'Length', labelUrdu: 'Lambai' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'Seena' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'Kamar' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'Kandha' },
+    { key: 'sleeve', label: 'Sleeve', labelUrdu: 'Bazoo' },
+  ],
   other: [
     { key: 'length', label: 'Length', labelUrdu: 'Lambai' },
-    { key: 'chest',  label: 'Chest',  labelUrdu: 'Seena'  },
+    { key: 'chest', label: 'Chest', labelUrdu: 'Seena' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'Kandha' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'Kamar' },
   ],
 }
 
@@ -237,7 +318,11 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
                     return (
                       <button
                         key={type}
-                        onClick={() => { setSelectedType(type); setValues({}) }}
+                        onClick={() => {
+                          if (type === selectedType) return
+                          setSelectedType(type)
+                          setValues({})
+                        }}
                         className={cn(
                           'flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors',
                           selectedType === type

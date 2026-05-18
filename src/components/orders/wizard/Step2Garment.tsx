@@ -240,6 +240,31 @@ function inferRecipientGender(
   return selected ?? customerGender ?? 'male'
 }
 
+function normalizeRecipientName(value?: string) {
+  return value?.trim().toLowerCase().replace(/\s+/g, ' ') ?? ''
+}
+
+function measurementMatchesRecipient(
+  measurement: MeasurementRecord,
+  relation: OrderRecipientRelation,
+  name: string | undefined,
+  gender: 'male' | 'female' | 'child',
+) {
+  const measurementRelation = measurement.orderForRelation ?? 'self'
+  const selectedName = normalizeRecipientName(name)
+  const measurementName = normalizeRecipientName(measurement.orderForName)
+
+  if (selectedName || measurementName) {
+    return selectedName !== '' && selectedName === measurementName
+  }
+
+  if (measurementRelation === relation) return true
+
+  // Child customers often have older nap saved as "self"; show those when
+  // creating a son/daughter order for the same customer and garment.
+  return measurementRelation === 'self' && gender === 'child' && (relation === 'son' || relation === 'daughter')
+}
+
 export type StyleSelections = {
   neck?: string
   daman?: string
@@ -622,21 +647,24 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
     let cancelled = false
     const load = async () => {
       if (!data.customerId || !selectedType) return []
-      let query = (supabase as any)
+      const { data: rows, error } = await (supabase as any)
         .from('measurements')
         .select('*')
         .eq('customer_id', data.customerId)
         .eq('garment_type', selectedType)
-        .eq('order_for_relation', selectedRelation)
         .is('deleted_at', null)
         .order('taken_at', { ascending: false })
-      if (selectedRelation !== 'self' && data.orderForName?.trim()) query = query.eq('order_for_name', data.orderForName.trim())
-      const { data: rows } = await query
-      if (!cancelled) setPreviousMeasurements((rows ?? []).map(mapMeasurement))
+      if (error) throw new Error(error.message)
+      const matching = (rows ?? [])
+        .map(mapMeasurement)
+        .filter((measurement: MeasurementRecord) =>
+          measurementMatchesRecipient(measurement, selectedRelation, data.orderForName, recipientGender)
+        )
+      if (!cancelled) setPreviousMeasurements(matching)
     }
-    load()
+    load().catch(console.error)
     return () => { cancelled = true }
-  }, [data.customerId, selectedType, selectedRelation, data.orderForName])
+  }, [data.customerId, selectedType, selectedRelation, data.orderForName, recipientGender])
   const selectedPrevious = previousMeasurements.find(m => m.id === data.measurementId)
 
   const updateMeasurement = (key: string, value: string) => {
@@ -802,6 +830,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
                 <button
                   key={type}
                   onClick={() => {
+                    if (type === selectedType) return
                     setMeasurements({})
                     setStyleSelections({})
                     onUpdate({ garmentType: type, measurements: {}, measurementId: undefined, styleSelections: {} })
