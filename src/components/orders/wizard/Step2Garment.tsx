@@ -244,6 +244,12 @@ function normalizeRecipientName(value?: string) {
   return value?.trim().toLowerCase().replace(/\s+/g, ' ') ?? ''
 }
 
+type KnownRecipient = {
+  name: string
+  gender?: 'male' | 'female' | 'child'
+  lastUsedAt: string
+}
+
 function measurementMatchesRecipient(
   measurement: MeasurementRecord,
   relation: OrderRecipientRelation,
@@ -654,6 +660,70 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
   const fields = selectedType ? MEASUREMENT_FIELDS[selectedType] : []
   const visibleStyleGroups = getStyleGroupsForGarment(selectedType)
   const [previousMeasurements, setPreviousMeasurements] = useState<MeasurementRecord[]>([])
+  const [knownRecipients, setKnownRecipients] = useState<KnownRecipient[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      if (!data.customerId || !relationNeedsName(selectedRelation)) {
+        setKnownRecipients([])
+        return
+      }
+
+      const [measurementRes, orderRes] = await Promise.all([
+        (supabase as any)
+          .from('measurements')
+          .select('order_for_name,recipient_gender,taken_at')
+          .eq('customer_id', data.customerId)
+          .eq('order_for_relation', selectedRelation)
+          .not('order_for_name', 'is', null)
+          .is('deleted_at', null)
+          .order('taken_at', { ascending: false }),
+        (supabase as any)
+          .from('orders')
+          .select('order_for_name,recipient_gender,created_at')
+          .eq('customer_id', data.customerId)
+          .eq('order_for_relation', selectedRelation)
+          .not('order_for_name', 'is', null)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false }),
+      ])
+
+      if (measurementRes.error) throw new Error(measurementRes.error.message)
+      if (orderRes.error) throw new Error(orderRes.error.message)
+
+      const byName = new Map<string, KnownRecipient>()
+      ;[
+        ...(measurementRes.data ?? []).map((row: any) => ({
+          name: row.order_for_name,
+          gender: row.recipient_gender,
+          lastUsedAt: row.taken_at,
+        })),
+        ...(orderRes.data ?? []).map((row: any) => ({
+          name: row.order_for_name,
+          gender: row.recipient_gender,
+          lastUsedAt: row.created_at,
+        })),
+      ].forEach((item: KnownRecipient) => {
+        const cleanName = item.name?.trim()
+        if (!cleanName) return
+        const key = normalizeRecipientName(cleanName)
+        const current = byName.get(key)
+        if (!current || item.lastUsedAt > current.lastUsedAt) {
+          byName.set(key, { ...item, name: cleanName })
+        }
+      })
+
+      if (!cancelled) {
+        setKnownRecipients(
+          [...byName.values()].sort((a, b) => b.lastUsedAt.localeCompare(a.lastUsedAt))
+        )
+      }
+    }
+
+    load().catch(console.error)
+    return () => { cancelled = true }
+  }, [data.customerId, selectedRelation])
 
   useEffect(() => {
     let cancelled = false
@@ -747,6 +817,29 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
     })
   }
 
+  const selectKnownRecipient = (recipient: KnownRecipient) => {
+    setMeasurements({})
+    setStyleSelections({})
+    onUpdate({
+      orderForName: recipient.name,
+      recipientGender: recipient.gender ?? inferRecipientGender(selectedRelation, data.customerGender, data.recipientGender),
+      measurementId: undefined,
+      measurements: {},
+      styleSelections: {},
+    })
+  }
+
+  const addNewRecipient = () => {
+    setMeasurements({})
+    setStyleSelections({})
+    onUpdate({
+      orderForName: '',
+      measurementId: undefined,
+      measurements: {},
+      styleSelections: {},
+    })
+  }
+
   const filledCount = Object.values(measurements).filter(v => v && v !== '0').length
   const canProceed = !!selectedType && (!!data.measurementId || filledCount > 0)
 
@@ -783,52 +876,89 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
         </div>
 
         {relationNeedsName(selectedRelation) && (
-          <div className="mt-3 grid grid-cols-1 gap-3 min-[420px]:grid-cols-[1fr_auto]">
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-slate-500">
-                {selectedRelation === 'other' ? 'Relation / Name' : `${relationLabel(selectedRelation)} ka naam (optional)`}
-              </span>
-              <input
-                type="text"
-                value={data.orderForName ?? ''}
-                onChange={e => {
-                  setMeasurements({})
-                  onUpdate({
-                    orderForName: e.target.value.trimStart() || undefined,
-                    measurementId: undefined,
-                    measurements: {},
-                  })
-                }}
-                placeholder={selectedRelation === 'other' ? 'Jaise: Cousin Ahmed' : 'Jaise: Ahmed'}
-                className="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-blue-50/30 focus:ring-4 focus:ring-blue-100"
-              />
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['male', 'female', 'child'] as const).map(g => (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => {
+          <div className="mt-3 space-y-3">
+            {knownRecipients.length > 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p className="mb-2 text-xs font-bold text-slate-500">
+                  Purane {relationLabel(selectedRelation)} select karein
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {knownRecipients.map(recipient => {
+                    const selected = normalizeRecipientName(data.orderForName) === normalizeRecipientName(recipient.name)
+                    return (
+                      <button
+                        key={normalizeRecipientName(recipient.name)}
+                        type="button"
+                        onClick={() => selectKnownRecipient(recipient)}
+                        className={cn(
+                          'rounded-xl border px-3 py-2 text-xs font-bold transition-colors',
+                          selected
+                            ? 'border-blue-500 bg-blue-600 text-white'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300'
+                        )}
+                      >
+                        {recipient.name}
+                      </button>
+                    )
+                  })}
+                  <button
+                    type="button"
+                    onClick={addNewRecipient}
+                    className="rounded-xl border border-dashed border-blue-300 bg-white px-3 py-2 text-xs font-bold text-blue-700"
+                  >
+                    Naya {relationLabel(selectedRelation)}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-[1fr_auto]">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-bold text-slate-500">
+                  {selectedRelation === 'other' ? 'Relation / Name' : `${relationLabel(selectedRelation)} ka naam (optional)`}
+                </span>
+                <input
+                  type="text"
+                  value={data.orderForName ?? ''}
+                  onChange={e => {
                     setMeasurements({})
-                    setStyleSelections({})
                     onUpdate({
-                      recipientGender: g,
-                      garmentType: undefined,
+                      orderForName: e.target.value.trimStart() || undefined,
                       measurementId: undefined,
                       measurements: {},
-                      styleSelections: {},
                     })
                   }}
-                  className={cn(
-                    'rounded-xl border-2 px-3 py-2 text-xs font-bold capitalize',
-                    recipientGender === g
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-slate-200 bg-white text-slate-500'
-                  )}
-                >
-                  {g}
-                </button>
-              ))}
+                  placeholder={selectedRelation === 'other' ? 'Jaise: Cousin Ahmed' : 'Jaise: Ahmed'}
+                  className="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-blue-50/30 focus:ring-4 focus:ring-blue-100"
+                />
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['male', 'female', 'child'] as const).map(g => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => {
+                      setMeasurements({})
+                      setStyleSelections({})
+                      onUpdate({
+                        recipientGender: g,
+                        garmentType: undefined,
+                        measurementId: undefined,
+                        measurements: {},
+                        styleSelections: {},
+                      })
+                    }}
+                    className={cn(
+                      'rounded-xl border-2 px-3 py-2 text-xs font-bold capitalize',
+                      recipientGender === g
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-slate-200 bg-white text-slate-500'
+                    )}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
