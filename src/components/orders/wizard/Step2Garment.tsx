@@ -253,16 +253,28 @@ function measurementMatchesRecipient(
   const measurementRelation = measurement.orderForRelation ?? 'self'
   const selectedName = normalizeRecipientName(name)
   const measurementName = normalizeRecipientName(measurement.orderForName)
+  const measurementGender = measurement.recipientGender
 
-  if (selectedName || measurementName) {
-    return selectedName !== '' && selectedName === measurementName
+  if (selectedName) {
+    return selectedName === measurementName
   }
 
   if (measurementRelation === relation) return true
 
-  // Child customers often have older nap saved as "self"; show those when
-  // creating a son/daughter order for the same customer and garment.
-  return measurementRelation === 'self' && gender === 'child' && (relation === 'son' || relation === 'daughter')
+  if (gender === 'child' && (relation === 'son' || relation === 'daughter')) {
+    return (
+      measurementGender === 'child' ||
+      measurementRelation === 'son' ||
+      measurementRelation === 'daughter' ||
+      measurementRelation === 'self'
+    )
+  }
+
+  if (relation === 'other' && gender === 'child') {
+    return measurementGender === 'child'
+  }
+
+  return false
 }
 
 export type StyleSelections = {
@@ -646,7 +658,10 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
   useEffect(() => {
     let cancelled = false
     const load = async () => {
-      if (!data.customerId || !selectedType) return []
+      if (!data.customerId || !selectedType) {
+        setPreviousMeasurements([])
+        return
+      }
       const { data: rows, error } = await (supabase as any)
         .from('measurements')
         .select('*')
@@ -776,7 +791,14 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
               <input
                 type="text"
                 value={data.orderForName ?? ''}
-                onChange={e => onUpdate({ orderForName: e.target.value.trimStart() || undefined })}
+                onChange={e => {
+                  setMeasurements({})
+                  onUpdate({
+                    orderForName: e.target.value.trimStart() || undefined,
+                    measurementId: undefined,
+                    measurements: {},
+                  })
+                }}
                 placeholder={selectedRelation === 'other' ? 'Jaise: Cousin Ahmed' : 'Jaise: Ahmed'}
                 className="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-blue-50/30 focus:ring-4 focus:ring-blue-100"
               />
