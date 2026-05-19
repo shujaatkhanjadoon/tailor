@@ -17,6 +17,7 @@ import { SettingsRow } from "@/components/settings/SettingsRow";
 import { DangerZone } from "@/components/settings/DangerZone";
 import { cn } from "@/lib/utils";
 import { Image } from "lucide-react";
+import NextImage from "next/image";
 import { usePlan } from "@/hooks/usePlan";
 import { PLANS } from "@/lib/billing/plans";
 import { supabase } from "@/lib/supabase/client";
@@ -38,6 +39,12 @@ export default function SettingsPage() {
   const [shop, setShop] = useState<ShopRecord | undefined>();
 
   const shopName = shop?.shopName ?? "";
+  const initials = (currentUser?.name ?? "User")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part.charAt(0).toUpperCase())
+    .join("") || "?";
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -95,12 +102,17 @@ export default function SettingsPage() {
           <div className="flex items-center gap-4">
             <div
               className="w-14 h-14 bg-white/20 rounded-full flex items-center
-                            justify-center font-bold text-xl text-white border border-white/30"
+                            justify-center overflow-hidden font-bold text-xl text-white border border-white/30"
             >
-              {currentUser?.name?.charAt(0)?.toUpperCase() ?? "?"}
+              {shop?.brandLogoUrl ? (
+                <NextImage src={shop.brandLogoUrl} alt="" width={56} height={56} className="h-full w-full object-cover" />
+              ) : (
+                initials
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-white text-base truncate">
+                {/* {shop?.brandName || shopName ? `${shop?.brandName || shopName} · ` : ""} */}
                 {currentUser?.name ?? "—"}
               </p>
               <p className="text-blue-200 text-xs mt-0.5">

@@ -4,7 +4,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  Scissors,
   Phone,
   User,
   Store,

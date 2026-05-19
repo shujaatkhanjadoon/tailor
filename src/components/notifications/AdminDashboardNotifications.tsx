@@ -1,19 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bell, Eye, EyeOff, X } from 'lucide-react'
+import { Bell, Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatKarachiDateTime } from '@/lib/time'
 
 type AdminNotification = {
   id: string
   title: string
   message: string
+  type?: 'info' | 'success' | 'warning' | 'urgent'
   target_plan: string
   expires_at: string
 }
 
-const dismissedKey = (shopId: string) => `md_admin_notifications_dismissed_${shopId}`
 const visibleKey = (shopId: string) => `md_admin_notifications_visible_${shopId}`
+const seenKey = (shopId: string) => `md_admin_notifications_seen_${shopId}`
 
 function readJson<T>(key: string, fallback: T): T {
   if (typeof localStorage === 'undefined') return fallback
@@ -27,26 +29,34 @@ function readJson<T>(key: string, fallback: T): T {
 export function AdminDashboardNotifications({ shopId }: { shopId: string | null }) {
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [showNotifications, setShowNotifications] = useState(true)
-  const [dismissed, setDismissed] = useState<string[]>([])
 
   useEffect(() => {
     if (!shopId) return
     setShowNotifications(localStorage.getItem(visibleKey(shopId)) !== 'false')
-    setDismissed(readJson<string[]>(dismissedKey(shopId), []))
 
     const load = async () => {
       const res = await fetch(`/api/notifications?shopId=${encodeURIComponent(shopId)}`, { cache: 'no-store' })
       const json = await res.json()
-      if (res.ok) setNotifications(json.data ?? [])
+      if (res.ok) {
+        const nextNotifications = json.data ?? []
+        setNotifications(nextNotifications)
+        const nextIds = nextNotifications.map((item: AdminNotification) => item.id)
+        const hadNew = nextIds.some((id: string) => !readJson<string[]>(seenKey(shopId), []).includes(id))
+        if (hadNew) {
+          setShowNotifications(true)
+          localStorage.setItem(visibleKey(shopId), 'true')
+          localStorage.setItem(seenKey(shopId), JSON.stringify(nextIds))
+        }
+      }
     }
     load()
+    const interval = window.setInterval(load, 60_000)
+    return () => window.clearInterval(interval)
   }, [shopId])
 
   if (!shopId) return null
 
-  const visible = notifications.filter(item =>
-    !dismissed.includes(item.id) && new Date(item.expires_at) > new Date()
-  )
+  const visible = notifications.filter(item => new Date(item.expires_at) > new Date())
 
   const toggleVisible = () => {
     const next = !showNotifications
@@ -54,11 +64,12 @@ export function AdminDashboardNotifications({ shopId }: { shopId: string | null 
     localStorage.setItem(visibleKey(shopId), String(next))
   }
 
-  const dismiss = (id: string) => {
-    const next = [...dismissed, id]
-    setDismissed(next)
-    localStorage.setItem(dismissedKey(shopId), JSON.stringify(next))
-  }
+  const styles = {
+    info: 'border-blue-200 bg-blue-50 text-blue-700',
+    success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    warning: 'border-amber-200 bg-amber-50 text-amber-700',
+    urgent: 'border-red-200 bg-red-50 text-red-700',
+  } as const
 
   if (!showNotifications) {
     return (
@@ -79,10 +90,10 @@ export function AdminDashboardNotifications({ shopId }: { shopId: string | null 
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-sm font-bold text-slate-700">
           <Bell size={16} className="text-blue-600" />
-          Admin Updates
+          Admin Updates ({visible.length})
         </p>
         <button
           onClick={toggleVisible}
@@ -96,26 +107,23 @@ export function AdminDashboardNotifications({ shopId }: { shopId: string | null 
         <div
           key={item.id}
           className={cn(
-            'relative overflow-hidden rounded-2xl border p-4 shadow-sm',
-            index === 0
-              ? 'border-blue-200 bg-blue-50'
-              : 'border-slate-200 bg-white'
+            'overflow-hidden rounded-2xl border p-4 shadow-sm',
+            styles[item.type ?? 'info'],
+            index > 0 && 'bg-opacity-70'
           )}
         >
-          <button
-            aria-label="Dismiss notification"
-            onClick={() => dismiss(item.id)}
-            className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-slate-500"
-          >
-            <X size={14} />
-          </button>
-          <div className="pr-9">
-            <p className="font-bold text-slate-900">{item.title}</p>
+          <div>
+            <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+              <p className="font-bold text-slate-900">{item.title}</p>
+              <span className="rounded-full bg-white/70 px-2 py-1 text-[10px] font-bold uppercase">
+                {item.type ?? 'info'}
+              </span>
+            </div>
             <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-slate-600">
               {item.message}
             </p>
             <p className="mt-3 text-[11px] font-medium text-slate-400">
-              Visible until {new Date(item.expires_at).toLocaleString('en-PK')}
+              Visible until {formatKarachiDateTime(item.expires_at, { dateStyle: 'medium', timeStyle: 'short' })}
             </p>
           </div>
         </div>

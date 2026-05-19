@@ -12,7 +12,7 @@ import { useSearchParams } from "next/navigation";
 import { BillingHistory } from "@/components/billing/BillingHistory";
 import { BillingSkeleton } from '@/components/ui/Skeleton'
 
-const ADMIN_WA = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? "923135931459";
+const ADMIN_WA = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? "923135634667";
 
 export default function BillingPage() {
   const router = useRouter();
@@ -245,7 +245,7 @@ export default function BillingPage() {
           <p className="text-xs text-slate-500 text-center">
             Billing ka koi masla hai?{" "}
             <a
-              href="https://wa.me/923135931459"
+              href="https://wa.me/923135634667"
               className="text-blue-600 font-semibold underline"
             >
               WhatsApp karein

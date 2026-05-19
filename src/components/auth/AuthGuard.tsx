@@ -4,7 +4,7 @@
 import { useEffect, ReactNode }       from 'react'
 import { usePathname }                from 'next/navigation'
 import { useAuth }                    from '@/lib/auth/AuthContext'
-import { Scissors }                   from 'lucide-react'
+import Image                          from 'next/image'
 
 const PUBLIC_ROUTES = [
   '/auth', '/login', '/setup', '/track',
@@ -23,7 +23,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   const { isLoading, currentUser } = useAuth()
   const pathname = usePathname()
   const isPublic = isPublicPath(pathname)
-  const karigarAllowed = currentUser?.role !== 'karigar' || ['/karigar', '/orders', '/settings'].some(r => pathname.startsWith(r))
+  const karigarAllowed = currentUser?.role !== 'karigar' || ['/karigar', '/orders'].some(r => pathname.startsWith(r))
 
   useEffect(() => {
     if (isLoading) return
@@ -38,7 +38,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     }
 
     if (currentUser.role === 'karigar') {
-      const allowed = ['/karigar', '/orders', '/settings']
+      const allowed = ['/karigar', '/orders']
       if (!allowed.some(r => pathname.startsWith(r))) {
         window.location.href = '/karigar'
       }
@@ -49,9 +49,9 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center
-                          justify-center shadow-lg">
-            <Scissors size={24} className="text-white" strokeWidth={1.5} />
+          <div className="flex items-center
+                          justify-center">
+            <Image src="/icon.svg" alt="MeraDarzi" width={64} height={64} />
           </div>
           <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent
                           rounded-full animate-spin" />

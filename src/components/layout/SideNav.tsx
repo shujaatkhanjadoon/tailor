@@ -11,7 +11,6 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth/AuthContext'
 import Image from 'next/image'
-import { usePlan } from '@/hooks/usePlan'
 import { shopOps } from '@/lib/db/operations'
 import type { ShopRecord } from '@/lib/db/schema'
 
@@ -28,7 +27,6 @@ export function SideNav() {
   const pathname = usePathname()
   const router = useRouter()
   const { shopId, currentUser, logout } = useAuth()
-  const plan = usePlan()
   const [shop, setShop] = useState<ShopRecord | undefined>()
   useEffect(() => {
     if (!shopId) return
@@ -40,7 +38,7 @@ export function SideNav() {
     .slice(0, 2)
     .map(part => part.charAt(0).toUpperCase())
     .join('') || '?'
-  const showShopLogo = plan.plan === 'business' && plan.isActive && !!shop?.brandLogoUrl
+  const showShopLogo = !!shop?.brandLogoUrl
 
   const handleLogout = () => {
     logout()
@@ -114,7 +112,10 @@ export function SideNav() {
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-white">{currentUser?.name ?? 'User'}</p>
+            <p className="truncate text-sm font-semibold text-white">
+              {/* {shop?.brandName || shop?.shopName ? `${shop?.brandName || shop?.shopName} · ` : ''} */}
+              {currentUser?.name ?? 'User'}
+            </p>
             <p className="mt-0.5 truncate text-[11px] font-medium text-slate-400">
               {currentUser?.role === 'owner' ? 'Owner' : 'Karigar'}
             </p>

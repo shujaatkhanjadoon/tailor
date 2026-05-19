@@ -7,7 +7,6 @@ import { useAuth } from '@/lib/auth/AuthContext'
 import Image from 'next/image'
 import Link from 'next/link'
 import type { ShopRecord } from '@/lib/db/schema'
-import { usePlan } from '@/hooks/usePlan'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { shopOps } from '@/lib/db/operations'
 
@@ -20,7 +19,6 @@ const actions = [
 export function MobileAccountBar() {
   const router = useRouter()
   const { currentUser, logout, shopId } = useAuth()
-  const plan = usePlan()
   const [open, setOpen] = useState(false)
   const [shop, setShop] = useState<ShopRecord | undefined>()
   useEffect(() => {
@@ -33,7 +31,10 @@ export function MobileAccountBar() {
     .slice(0, 2)
     .map(part => part.charAt(0).toUpperCase())
     .join('') || '?'
-  const showShopLogo = plan.plan === 'business' && plan.isActive && !!shop?.brandLogoUrl
+  const showShopLogo = !!shop?.brandLogoUrl
+  const visibleActions = currentUser?.role === 'karigar'
+    ? []
+    : actions
 
   const go = (href: string) => {
     setOpen(false)
@@ -81,7 +82,7 @@ export function MobileAccountBar() {
       {open && (
         <div className="border-t border-slate-100 py-3">
           <button
-            onClick={() => go('/settings')}
+            onClick={() => currentUser?.role === 'karigar' ? go('/karigar') : go('/settings')}
             className="flex w-full items-center gap-3 rounded-2xl bg-slate-50 p-3 text-left active:bg-slate-100"
           >
             <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white text-sm font-bold text-slate-600 shadow-sm">
@@ -93,15 +94,19 @@ export function MobileAccountBar() {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-800">{currentUser?.name ?? 'User'}</p>
+              <p className="truncate text-sm font-semibold text-slate-800">
+                {/* {shop?.brandName || shop?.shopName ? `${shop?.brandName || shop?.shopName} · ` : ''} */}
+                {currentUser?.name ?? 'User'}
+              </p>
               <p className="truncate text-xs text-slate-400">{currentUser?.phone}</p>
             </div>
             <span className="rounded-full bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
               {currentUser?.role === 'owner' ? 'Owner' : 'Karigar'}
             </span>
           </button>
+          {visibleActions.length > 0 && (
           <div className="mt-2 grid grid-cols-3 gap-2">
-            {actions.map(({ href, icon: Icon, label }) => (
+            {visibleActions.map(({ href, icon: Icon, label }) => (
               <button
                 key={href}
                 onClick={() => go(href)}
@@ -112,6 +117,7 @@ export function MobileAccountBar() {
               </button>
             ))}
           </div>
+          )}
           <button
             onClick={handleLogout}
             className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 px-3 py-3 text-sm font-semibold text-red-600 active:bg-red-100"

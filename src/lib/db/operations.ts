@@ -412,7 +412,6 @@ export const orderOps = {
       (supabase as any).from('order_status_history').insert({
         id: uuid(),
         order_id: orderId,
-        shop_id: current.shop_id,
         old_status: current.status,
         new_status: newStatus,
         changed_by: changedBy,

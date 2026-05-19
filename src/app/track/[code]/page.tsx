@@ -2,7 +2,7 @@
 'use client'
 
 import { use, useEffect, useState } from 'react'
-import { Scissors, RefreshCw, AlertCircle, Search } from 'lucide-react'
+import { RefreshCw, AlertCircle, Search, StickyNote, Wallet } from 'lucide-react'
 import type { OrderRecord }      from '@/lib/db/schema'
 import { ORDER_STATUS_CONFIG, GARMENT_LABELS } from '@/types'
 import { isValidTrackingCode, normaliseCode } from '@/lib/tracking'
@@ -73,14 +73,13 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
 
   useEffect(() => { loadOrder() }, [normCode])
 
-  // â”€â”€ Loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  if (loading) {
+ if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center
-                          justify-center mx-auto mb-4 shadow-lg shadow-blue-200">
-            <Scissors size={26} className="text-white" />
+          <div className="flex items-center
+                          justify-center mx-auto mb-4">
+            <Image src="/icon.svg" alt="MeraDarzi" width={56} height={56} />
           </div>
           <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent
                           rounded-full animate-spin mx-auto mb-3" />
@@ -91,8 +90,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
     )
   }
 
-  // â”€â”€ Invalid / Not found â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  if (error || !order) {
+ if (error || !order) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center
                       justify-center px-6 text-center">
@@ -143,6 +141,9 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
   const stepIdx     = STATUS_STEPS.indexOf(order.status as Step)
   const isCancelled = order.status === 'cancelled'
   const isDelivered = order.status === 'delivered'
+  const totalAmount = Number(order.totalPrice ?? 0)
+  const advancePaid = Number(order.amountPaid ?? 0)
+  const remainingBalance = Math.max(0, totalAmount - advancePaid)
 
   const statusDesc: Record<string, string> = {
     received:  'Aapka kapra hamare paas aa gaya hai',
@@ -274,9 +275,6 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
               { label:'Kapra',     value: gc ? `${gc.emoji} ${gc.label}` : order.garmentType },
               { label:'Due Date',  value: new Date(order.dueDate).toLocaleDateString('en-PK',{
                   weekday:'long', day:'numeric', month:'long' }) },
-              ...(order.specialInstructions
-                ? [{ label:'Note', value: order.specialInstructions }]
-                : []),
             ].map(row => (
               <div key={row.label} className="flex items-start justify-between px-5 py-3.5 gap-4">
                 <p className="text-sm text-slate-400 font-medium shrink-0">{row.label}</p>
@@ -287,6 +285,56 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
             ))}
           </div>
         </div>
+
+        {/* Payment details */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+            <p className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
+              <Wallet size={14} className="text-emerald-600" />
+              Payment Details
+            </p>
+          </div>
+          <div className="grid grid-cols-3 divide-x divide-slate-100">
+            {[
+              { label: 'Total', value: totalAmount },
+              { label: 'Advance', value: advancePaid },
+              { label: 'Balance', value: remainingBalance },
+            ].map(item => (
+              <div key={item.label} className="px-3 py-4 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{item.label}</p>
+                <p className={cn(
+                  'mt-1 text-sm font-black',
+                  item.label === 'Balance' && item.value > 0 ? 'text-red-600' : 'text-slate-800'
+                )}>
+                  Rs. {item.value.toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className={cn(
+            'mx-4 mb-4 rounded-xl px-4 py-3 text-center text-xs font-bold',
+            remainingBalance > 0
+              ? 'bg-amber-50 text-amber-700'
+              : 'bg-emerald-50 text-emerald-700'
+          )}>
+            {remainingBalance > 0 ? `Rs. ${remainingBalance.toLocaleString()} abhi baaki hai` : 'Payment complete'}
+          </div>
+        </div>
+
+        {/* Notes */}
+        {order.specialInstructions && (
+          <div className="bg-white rounded-2xl border border-amber-200 overflow-hidden shadow-sm">
+            <div className="px-5 py-4 border-b border-amber-100 bg-amber-50">
+              <p className="flex items-center gap-2 text-xs font-bold text-amber-700 uppercase tracking-wider">
+                <StickyNote size={14} />
+                Notes
+              </p>
+            </div>
+            <p className="whitespace-pre-line px-5 py-4 text-sm leading-relaxed text-slate-700">
+              {order.specialInstructions}
+            </p>
+          </div>
+        )}
 
         {/* Ready celebration */}
         {order.status === 'ready' && (

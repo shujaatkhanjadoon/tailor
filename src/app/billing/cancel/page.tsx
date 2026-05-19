@@ -20,7 +20,7 @@ const CANCEL_REASONS = [
   'Other',
 ]
 
-const ADMIN_WA = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? '923135931459'
+const ADMIN_WA = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? '923135634667'
 
 export default function CancelPage() {
   const router              = useRouter()

@@ -1,10 +1,7 @@
 // src/app/api/auth/create-shop/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import {
-  generateOTP,
-  hashOTP,
   sendAdminShopRegistrationEmail,
-  sendOTPEmail,
   sendShopOwnerAccountCreated,
   sendShopVerificationAlert,
 } from '@/lib/security/email-otp'
@@ -213,25 +210,6 @@ export async function POST(req: NextRequest) {
       joined_at:      new Date().toISOString().split('T')[0],
       created_at:     new Date().toISOString(),
     })
-
-    if (normalizedEmail) {
-      const otp = generateOTP()
-      await sbFetch(
-        `email_verifications?phone=eq.${ownerPhone}&email=eq.${encodeURIComponent(normalizedEmail)}&verified_at=is.null`,
-        {
-          method: 'PATCH',
-          headers: { ...HEADERS, 'Prefer': 'return=minimal' },
-          body: JSON.stringify({ expires_at: new Date(0).toISOString() }),
-        }
-      )
-      await sbPost('email_verifications', {
-        phone:      ownerPhone,
-        email:      normalizedEmail,
-        otp_hash:   hashOTP(otp),
-        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-      })
-      await sendOTPEmail(normalizedEmail, otp, 'login')
-    }
 
     // ── 4. Upsert subscription (starter) ─────────────────────────
     await sbUpsertByShopId('subscriptions', {

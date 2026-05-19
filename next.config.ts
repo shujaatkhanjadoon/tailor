@@ -1,9 +1,13 @@
 // next.config.ts
 import type { NextConfig } from 'next'
 
-process.env.TZ = process.env.TZ ?? 'Asia/Karachi'
+const appTimeZone = process.env.TIMEZONE ?? process.env.TIMEZ ?? process.env.TZ ?? 'Asia/Karachi'
+process.env.TZ = appTimeZone
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_TIMEZONE: appTimeZone,
+  },
   // Compress output
   compress: true,
 

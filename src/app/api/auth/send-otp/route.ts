@@ -25,7 +25,8 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { phone, email, purpose = 'signup' } = await req.json()
+  const { phone, email } = await req.json()
+  const purpose = 'signup'
 
   // ── Validate phone ────────────────────────────────────────────
   const phoneResult = validatePakistaniPhone(phone ?? '')

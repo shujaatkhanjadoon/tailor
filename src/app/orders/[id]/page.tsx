@@ -13,7 +13,7 @@ import {
 import { useOrder } from '@/hooks/useOrders'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { paymentOps } from '@/lib/db/operations'
-import type { CustomerRecord, MeasurementRecord, PhotoRecord, ShopRecord } from '@/lib/db/schema'
+import { db, type CustomerRecord, type MeasurementRecord, type PhotoRecord, type ShopRecord } from '@/lib/db/schema'
 import { ORDER_STATUS_CONFIG, GARMENT_LABELS, OrderStatus } from '@/types'
 import { StatusUpdateSheet } from '@/components/orders/StatusUpdateSheet'
 import { AssignSheet } from '@/components/orders/AssignSheet'
@@ -53,14 +53,30 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     if (!order) return
     let cancelled = false
     const load = async () => {
-      const [{ data: shopRow }, { data: customerRow }] = await Promise.all([
+      const [{ data: shopRow }, { data: customerRow }, { data: photoRows }] = await Promise.all([
         (supabase as any).from('shops').select('*').eq('id', order.shopId).maybeSingle(),
         (supabase as any).from('customers').select('*').eq('id', order.customerId).maybeSingle(),
+        (supabase as any).from('order_photos').select('*').eq('order_id', order.id).is('deleted_at', null).order('taken_at', { ascending: false }),
       ])
       if (!cancelled) {
         setShop(shopRow ? mapShop(shopRow) : undefined)
         setCustomer(customerRow ? mapCustomer(customerRow) : undefined)
-        setPhotos(localOrderImages.list(order.id))
+        const remotePhotos = (photoRows ?? []).map((p: any) => ({
+          id: p.id,
+          orderId: p.order_id,
+          shopId: p.shop_id,
+          type: p.type,
+          base64: '',
+          cloudUrl: p.cloud_url,
+          publicId: p.public_id,
+          cloudSizeKB: p.cloud_size_kb ?? undefined,
+          sizeKB: p.size_kb ?? 0,
+          takenAt: p.taken_at,
+          _synced: 1 as const,
+          _deleted: 0 as const,
+        }))
+        const localPhotos = await db.photos.where('orderId').equals(order.id).filter(p => p._deleted !== 1).toArray()
+        setPhotos(remotePhotos.length > 0 ? remotePhotos : localPhotos.length > 0 ? localPhotos : localOrderImages.list(order.id))
       }
       let measurementRow: any
       if (!order) return undefined
@@ -188,7 +204,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           .eq('id', order.id)
       } else {
         localOrderImages.remove(photo.id)
-        setPhotos(localOrderImages.list(order.id))
+        await db.photos.update(photo.id, { _deleted: 1, _synced: 1 }).catch(() => undefined)
+        await (supabase as any).from('order_photos').update({ deleted_at: new Date().toISOString() }).eq('id', photo.id)
+        setPhotos(prev => prev.filter(item => item.id !== photo.id))
       }
       if (previewPhoto?.src === photo.src) setPreviewPhoto(null)
     } finally {
