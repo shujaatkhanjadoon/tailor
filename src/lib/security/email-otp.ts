@@ -7,6 +7,21 @@ const FROM    = process.env.RESEND_FROM_EMAIL ?? 'no-reply@meradarzi.pk'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.meradarzi.pk'
 const SUPPORT_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL ?? 'darzihub9@gmail.com'
 const SUPPORT_PHONE = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ??  '+92 313 5931459'
+const emailLastSentAt = new Map<string, number>()
+const SYSTEM_EMAIL_INTERVAL_MS = 60_000
+
+async function sendSystemEmail(args: Parameters<typeof resend.emails.send>[0], key?: string) {
+  const recipients = Array.isArray(args.to) ? args.to.join(',') : String(args.to)
+  const rateKey = key ?? recipients.toLowerCase()
+  const now = Date.now()
+  const lastSentAt = emailLastSentAt.get(rateKey) ?? 0
+  if (now - lastSentAt < SYSTEM_EMAIL_INTERVAL_MS) {
+    console.warn(`[Email] Skipped rate-limited system email for ${rateKey}`)
+    return { data: null, error: null }
+  }
+  emailLastSentAt.set(rateKey, now)
+  return resend.emails.send(args)
+}
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -194,7 +209,7 @@ export async function sendShopVerificationAlert(opts: {
   )}`
 
   try {
-    await resend.emails.send({
+    await sendSystemEmail({
       from:    FROM,
       to:      adminEmail,
       subject: `🔔 New Shop Verification: ${opts.shopName}`,
@@ -240,7 +255,7 @@ export async function sendShopOwnerAccountCreated(opts: {
 }): Promise<void> {
   if (!opts.ownerEmail || opts.ownerEmail === 'N/A') return
 
-  await resend.emails.send({
+  await sendSystemEmail({
     from: FROM,
     to: opts.ownerEmail,
     subject: `Welcome to Meradarzi, ${opts.shopName}`,
@@ -277,7 +292,7 @@ export async function sendAdminShopRegistrationEmail(opts: {
   const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
   if (!adminEmail) return
 
-  await resend.emails.send({
+  await sendSystemEmail({
     from: FROM,
     to: adminEmail,
     subject: `New Shop Registration: ${opts.shopName}`,
@@ -319,7 +334,7 @@ export async function sendShopOwnerAdminActionEmail(opts: {
   const [owner] = await res.json()
   if (!owner?.email) return
 
-  await resend.emails.send({
+  await sendSystemEmail({
     from: FROM,
     to: owner.email,
     subject: opts.title,
@@ -392,7 +407,7 @@ export async function sendAdminSubscriptionEventEmail(opts: {
     payment_submitted: 'Subscription Payment Submitted',
   }
 
-  await resend.emails.send({
+  await sendSystemEmail({
     from: FROM,
     to: adminEmail,
     subject: `${eventLabel[opts.event]}: ${shop?.shop_name ?? opts.shopId}`,

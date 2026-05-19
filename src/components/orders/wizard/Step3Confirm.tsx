@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Calendar, Wallet, CheckCircle2, Scissors } from 'lucide-react'
 import { PaymentMethod, GARMENT_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
+import { formatAmount } from '@/lib/format/currency'
 import { addDays, format } from 'date-fns'
 import type { TeamMemberRecord } from '@/lib/db/schema'
 import { recipientLabel } from '@/lib/order-recipient'
@@ -207,7 +208,7 @@ export function Step3Confirm({
                   : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
               )}
             >
-              {amt >= 1000 ? `${amt / 1000}k` : amt}
+              {formatAmount(amt)}
             </button>
           ))}
         </div>

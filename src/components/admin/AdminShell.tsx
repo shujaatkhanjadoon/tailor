@@ -6,7 +6,7 @@ import { useRouter, usePathname }  from 'next/navigation'
 import {
   Scissors, LayoutDashboard, CreditCard,
   Store, BarChart2, ScrollText, LogOut,
-  Shield, Menu, X, ChevronRight,
+  Shield, Menu, X, ChevronRight, Bell,
 } from 'lucide-react'
 import { SessionTimer } from './SessionTimer'
 import { cn }           from '@/lib/utils'
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: '/admin/dashboard',           label: 'Dashboard',  icon: LayoutDashboard },
   { href: '/admin/dashboard/payments',  label: 'Payments',   icon: CreditCard      },
   { href: '/admin/dashboard/shops',     label: 'All Shops',  icon: Store           },
+  { href: '/admin/dashboard/notifications', label: 'Notify', icon: Bell            },
   { href: '/admin/dashboard/analytics', label: 'Analytics',  icon: BarChart2       },
   { href: '/admin/dashboard/logs',      label: 'Audit Log',  icon: ScrollText      },
 ]
@@ -164,7 +165,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </div>
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900 border-t border-slate-800 lg:hidden">
-        <div className="grid grid-cols-5 h-16">
+        <div className="grid grid-cols-6 h-16">
           {NAV_ITEMS.map(item => {
             const isActive = pathname === item.href ||
               (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))

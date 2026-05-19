@@ -7,6 +7,7 @@ import {
   Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import { cn } from '@/lib/utils'
+import { formatAmount } from '@/lib/format/currency'
 
 interface DataPoint {
   label:   string
@@ -104,7 +105,7 @@ export function IncomeChart({ monthly, weekly }: IncomeChartProps) {
             tick={{ fontSize: 10, fill: '#94a3b8' }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={v => v >= 1000 ? `${v/1000}k` : v}
+            tickFormatter={v => formatAmount(Number(v))}
           />
           <Tooltip content={<CustomTooltip />} />
 

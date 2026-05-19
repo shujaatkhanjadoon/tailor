@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { orderBalance, orderPaymentProgress } from "@/lib/payments/calculations";
 import { useOrders } from "@/hooks/useOrders";
+import { formatAmount, formatRupees } from "@/lib/format/currency";
 
 const METHODS = [
   { key: "cash", label: "Cash", emoji: "💵" },
@@ -88,7 +89,7 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
           notes: [
             notes.trim(),
             surplus > 0
-              ? `Received Rs. ${amt.toLocaleString()}; Rs. ${appliedToSelected.toLocaleString()} applied to this order.`
+              ? `Received ${formatRupees(amt)}; ${formatRupees(appliedToSelected)} applied to this order.`
               : "",
           ].filter(Boolean).join(" · ") || undefined,
         });
@@ -374,19 +375,19 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
                         {amt === balance
                           ? "Sab Baaki"
                           : amt >= 1000
-                            ? `${amt / 1000}k`
-                            : amt}
+                            ? formatAmount(amt)
+                            : formatAmount(amt)}
                       </button>
                     ))}
                 </div>
                 {surplus > 0 && (
                   <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3">
                     <p className="text-xs font-semibold text-amber-800">
-                      Rs. {surplus.toLocaleString()} zyada receive hua. Isay kaise handle karein?
+                      {formatRupees(surplus)} zyada receive hua. Isay kaise handle karein?
                     </p>
                     <div className="mt-2 rounded-xl bg-white/70 px-3 py-2 text-[11px] font-medium text-amber-800">
-                      Rs. {appliedToSelected.toLocaleString()} is order par apply hoga
-                      {surplus > 0 ? ` · Rs. ${surplus.toLocaleString()} extra hai` : ""}
+                      {formatRupees(appliedToSelected)} is order par apply hoga
+                      {surplus > 0 ? ` · ${formatRupees(surplus)} extra hai` : ""}
                     </div>
                     <div className="mt-2 grid grid-cols-1 gap-2 min-[380px]:grid-cols-3">
                       {[

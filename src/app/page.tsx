@@ -19,6 +19,7 @@ import { DueOrdersAlert } from "@/components/dashboard/DueOrdersAlert";
 import { RecentOrderCard } from "@/components/dashboard/RecentOrderCard";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { AdminDashboardNotifications } from "@/components/notifications/AdminDashboardNotifications";
 import { NotificationPermissionCard } from "@/components/notifications/NotificationPermissionCard";
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { TrialBanner } from "@/components/billing/TrialBanner";
@@ -105,6 +106,7 @@ if (isLoading || !shopId) return <DashboardSkeleton />
       <div className="px-4 lg:px-0 space-y-5">
         <TrialBanner />
         <ExpiryReminderBanner />
+        <AdminDashboardNotifications shopId={shopId} />
         <NotificationPermissionCard />
 
         {/* STATS GRID */}

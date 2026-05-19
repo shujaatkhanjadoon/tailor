@@ -29,6 +29,7 @@ import { supabase } from '@/lib/supabase/client'
 import { mapCustomer, mapMeasurement, mapShop } from '@/lib/supabase/records'
 import { localOrderImages } from '@/lib/photos/local-order-images'
 import { isParentRelation, napOwnerLabel, recipientLabel } from '@/lib/order-recipient'
+import { formatAmount } from '@/lib/format/currency'
 
 const PAYMENT_METHODS = [
   { key: 'cash', label: 'Cash', emoji: '💵' },
@@ -369,7 +370,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                           : 'bg-white text-slate-600 border-slate-200'
                       )}
                     >
-                      {amt === balance ? 'Baaki Sab' : `${amt >= 1000 ? amt / 1000 + 'k' : amt}`}
+                      {amt === balance ? 'Baaki Sab' : formatAmount(amt)}
                     </button>
                   ))}
                 </div>
@@ -583,7 +584,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <ImageIcon size={15} className="text-blue-600" />
               Uploaded Images
             </h2>
-            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               {displayPhotos.map(photo => (
                 <div
                   key={photo.id}

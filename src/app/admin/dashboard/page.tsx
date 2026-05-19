@@ -9,6 +9,7 @@ import {
   RefreshCw, ArrowRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatRupees } from '@/lib/format/currency'
 
 interface Summary {
   total:                number
@@ -231,8 +232,8 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 min-[420px]:grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-4">
         <StatCard
           label="Total Revenue"
-          value={`Rs. ${((summary?.total ?? 0)/1000).toFixed(1)}k`}
-          sub={`Rs. ${(summary?.thisMonthRevenue ?? 0).toLocaleString()} this month`}
+          value={formatRupees(summary?.total ?? 0)}
+          sub={`${formatRupees(summary?.thisMonthRevenue ?? 0)} this month`}
           icon={TrendingUp}
           color="green"
         />

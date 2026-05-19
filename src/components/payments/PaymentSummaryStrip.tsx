@@ -1,6 +1,7 @@
 // src/components/payments/PaymentSummaryStrip.tsx
 import { TrendingUp, Calendar, CalendarDays, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatAmount, formatRupees } from '@/lib/format/currency'
 
 interface Props {
   todayTotal:   number
@@ -78,9 +79,7 @@ export function PaymentSummaryStrip({
                 'text-base font-bold leading-tight',
                 isActive ? 'text-blue-700' : c.valCol
               )}>
-                {c.value >= 1000
-                  ? `${(c.value / 1000).toFixed(1)}k`
-                  : c.value.toLocaleString()}
+                {formatAmount(c.value)}
               </p>
               <p className={cn(
                 'text-[10px] font-medium mt-0.5',
@@ -104,7 +103,7 @@ export function PaymentSummaryStrip({
             </span>
           </div>
           <span className="text-base font-bold text-red-700">
-            Rs. {totalPending.toLocaleString()}
+            {formatRupees(totalPending)}
           </span>
         </div>
       )}

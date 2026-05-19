@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/auth/AuthContext'
 import { ORDER_STATUS_CONFIG, GARMENT_LABELS } from '@/types'
 import { customerOps } from '@/lib/db/operations'
 import { cn } from '@/lib/utils'
+import { formatRupees } from '@/lib/format/currency'
 import { format, formatDistanceToNow } from 'date-fns'
 import { QuickPaymentSheet } from '@/components/payments/QuickPaymentSheet'
 import { orderBalance, orderPaymentProgress } from '@/lib/payments/calculations'
@@ -110,8 +111,8 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
         <div className="grid grid-cols-3 gap-3 mt-5">
           {[
             { label: 'Total Orders', value: orders.length },
-            { label: 'Total Diya',   value: `Rs.${(totalSpent/1000).toFixed(1)}k` },
-            { label: 'Baaki',        value: pendingBalance > 0 ? `Rs.${(pendingBalance/1000).toFixed(1)}k` : '—',
+            { label: 'Total Diya',   value: formatRupees(totalSpent) },
+            { label: 'Baaki',        value: pendingBalance > 0 ? formatRupees(pendingBalance) : '—',
               danger: pendingBalance > 0 },
           ].map(s => (
             <div key={s.label} className="bg-white/15 rounded-xl px-3 py-2.5 text-center">

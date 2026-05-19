@@ -16,6 +16,7 @@ import { ReportSkeleton } from "@/components/ui/Skeleton";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { AccessNotice } from "@/components/billing/AccessNotice";
 import { usePlan } from "@/hooks/usePlan";
+import { formatRupees } from "@/lib/format/currency";
 import dynamic from "next/dynamic";
 
 const PERIODS: { key: ReportPeriod; label: string }[] = [
@@ -445,7 +446,7 @@ function ReportsContent({
                       label: "Avg Revenue",
                       value:
                         summary.totalCustomers > 0
-                          ? `${Math.round(summary.totalRevenue / summary.totalCustomers / 1000)}k`
+                          ? formatRupees(Math.round(summary.totalRevenue / summary.totalCustomers))
                           : "—",
                       color: "text-purple-700",
                       bg: "bg-purple-50",

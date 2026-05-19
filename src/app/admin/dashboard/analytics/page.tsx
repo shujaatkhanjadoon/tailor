@@ -1,6 +1,7 @@
 // src/app/admin/dashboard/analytics/page.tsx
 import { createClient } from '@supabase/supabase-js'
 import { StatCard }   from '@/components/admin/StatCard'
+import { formatRupees } from '@/lib/format/currency'
 import {
   TrendingUp, Users, CreditCard,
   Package, BarChart2, Calendar,
@@ -111,7 +112,7 @@ export default async function AnalyticsPage() {
         <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:gap-4 xl:grid-cols-4">
           <StatCard
             label="Total Revenue"
-            value={`Rs. ${(data.totalRevenue / 1000).toFixed(1)}k`}
+            value={formatRupees(data.totalRevenue)}
             icon={TrendingUp}
             color="green"
           />
@@ -149,7 +150,7 @@ export default async function AnalyticsPage() {
               return (
                 <div key={m.label} className="flex min-w-12 flex-1 flex-col items-center gap-2">
                   <p className="text-xs font-bold text-slate-300">
-                    {m.revenue > 0 ? `${(m.revenue/1000).toFixed(1)}k` : '—'}
+                    {m.revenue > 0 ? formatRupees(m.revenue) : '—'}
                   </p>
                   <div className="w-full flex items-end" style={{ height: '140px' }}>
                     <div
