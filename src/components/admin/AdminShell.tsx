@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { SessionTimer } from './SessionTimer'
 import { cn }           from '@/lib/utils'
+import Image from 'next/image'
 
 const NAV_ITEMS = [
   { href: '/admin/dashboard',           label: 'Dashboard',  icon: LayoutDashboard },
@@ -38,12 +39,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
       {/* Logo */}
       <div className="px-5 py-5 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center
+          <div className="w-8 h-8 flex items-center
                           justify-center shrink-0">
-            <Scissors size={16} className="text-white" />
+            <Image
+            src="/icon.svg"
+            alt="MeraDarzi"
+            width={32}
+            height={32} 
+            />
           </div>
           <div>
-            <p className="font-bold text-white text-sm leading-tight">Meradarzi</p>
+            <p className="font-bold text-white text-sm leading-tight">MeraDarzi</p>
             <p className="text-slate-500 text-[10px]">Super Admin</p>
           </div>
         </div>

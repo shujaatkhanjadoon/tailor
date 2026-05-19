@@ -93,7 +93,7 @@ export default function AdminNotificationsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-screen-xl space-y-5">
+    <div className="mx-auto w-full max-w-7xl space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-white">Notifications</h1>
         <p className="mt-1 text-sm text-slate-400">Send dashboard announcements and prepare WhatsApp bulk messages.</p>

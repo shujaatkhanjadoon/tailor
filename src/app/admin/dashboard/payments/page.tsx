@@ -88,7 +88,7 @@ function PaymentCard({
         </div>
         {shop?.owner_phone && (
           <a
-            href={`https://wa.me/92${shop.owner_phone.replace(/^0/,'').replace(/\D/g,'')}?text=${encodeURIComponent(`Assalam o Alaikum! Aapka ${payment.plan} plan activate ho gaya. Meradarzi kholein aur use karein!`)}`}
+            href={`https://wa.me/92${shop.owner_phone.replace(/^0/,'').replace(/\D/g,'')}?text=${encodeURIComponent(`Assalam o Alaikum! Aapka ${payment.plan} plan activate ho gaya. MeraDarzi kholein aur use karein!`)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="ml-auto flex items-center gap-1.5 bg-green-800 text-green-200
@@ -174,7 +174,7 @@ function PaymentCard({
                   <p className="text-[10px] text-slate-500 uppercase tracking-wide font-bold">
                     {label}
                   </p>
-                  <p className="mt-0.5 break-words font-mono text-sm font-bold text-slate-200">
+                  <p className="mt-0.5 wrap-break-word font-mono text-sm font-bold text-slate-200">
                     {value || '—'}
                   </p>
                 </div>

@@ -222,7 +222,7 @@ function buildExpiredWhatsApp(
   const dayTxt = daysLeft === 1 ? "1 din" : `${daysLeft} din`;
   const msg = encodeURIComponent(
     `Assalam o Alaikum ${shopName}!\n\n` +
-      `Aapki Meradarzi subscription ${daysLeft !== null ? `${dayTxt} mein` : "jaldi"} expire ho rahi hai.` +
+      `Aapki MeraDarzi subscription ${daysLeft !== null ? `${dayTxt} mein` : "jaldi"} expire ho rahi hai.` +
       (expiryDate ? `\nExpiry: ${formatDate(expiryDate)}` : "") +
       `\n\nService continue rakhne ke liye renewal karein:\n${process.env.NEXT_PUBLIC_APP_URL ?? "https://mydarzi.vercel.app"}/billing/upgrade\n\nShukriya!`,
   );
@@ -248,7 +248,7 @@ function VerificationCard({
   const [done, setDone] = useState<"approved" | "rejected" | null>(null);
 
   const waLink = `https://wa.me/92${request.owner_phone.replace(/^0/, "").replace(/\D/g, "")}?text=${encodeURIComponent(
-    `Assalam o Alaikum ${request.owner_name}! Aapki Meradarzi shop (${request.shop_name ?? request.owner_phone}) ki verification request review ho rahi hai. Hum aapko jald batayenge. Shukriya!`,
+    `Assalam o Alaikum ${request.owner_name}! Aapki MeraDarzi shop (${request.shop_name ?? request.owner_phone}) ki verification request review ho rahi hai. Hum aapko jald batayenge. Shukriya!`,
   )}`;
 
   const handle = async (status: "approved" | "rejected") => {
@@ -722,7 +722,7 @@ function ShopCard({
             ].map(item => (
               <div key={item.label} className="rounded-xl border border-slate-700 bg-slate-900/40 p-3">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{item.label}</p>
-                <p className="mt-1 break-words text-xs font-semibold text-slate-300">{item.value}</p>
+                <p className="mt-1 wrap-break-word text-xs font-semibold text-slate-300">{item.value}</p>
               </div>
             ))}
           </div>
@@ -1088,7 +1088,7 @@ export default function AdminShopsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-screen-xl space-y-5">
+    <div className="mx-auto w-full max-w-7xl space-y-5">
       {/* Page header */}
       <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
         <div>

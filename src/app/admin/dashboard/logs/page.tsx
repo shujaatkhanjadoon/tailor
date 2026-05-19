@@ -27,7 +27,7 @@ export default async function AuditLogPage() {
   const logs = await getAuditLog(200)
 
   return (
-    <div className="mx-auto w-full max-w-screen-xl space-y-5">
+    <div className="mx-auto w-full max-w-7xl space-y-5">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
           <ScrollText size={22} className="text-blue-400" />
@@ -85,7 +85,7 @@ export default async function AuditLogPage() {
                     )}
 
                     {log.details && Object.keys(log.details).length > 0 && (
-                      <p className="mt-1 break-words font-mono text-[10px] text-slate-600">
+                      <p className="mt-1 wrap-break-word font-mono text-[10px] text-slate-600">
                         {JSON.stringify(log.details).slice(0, 160)}
                       </p>
                     )}

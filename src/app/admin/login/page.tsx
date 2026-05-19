@@ -9,6 +9,7 @@ import {
   Smartphone, Key, RefreshCw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import Image from 'next/image'
 
 function getSafeAdminRedirect(value: string | null) {
   if (!value) return '/admin/dashboard'
@@ -242,11 +243,16 @@ function LoginContent() {
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center
-                          justify-center mx-auto mb-4 shadow-xl shadow-blue-900/50">
-            <Scissors size={28} className="text-white" strokeWidth={1.5} />
+          <div className="w-16 h-16 flex items-center
+                          justify-center mx-auto mb-4">
+            <Image
+            src="/icon.svg"
+            alt="MeraDarzi"
+            width={64}
+            height={64} 
+            />
           </div>
-          <h1 className="text-2xl font-bold text-white">Meradarzi</h1>
+          <h1 className="text-2xl font-bold text-white">MeraDarzi</h1>
           <p className="text-slate-400 text-sm mt-1">Super Admin Panel</p>
         </div>
 
@@ -416,7 +422,7 @@ function LoginContent() {
         </div>
 
         <p className="text-center text-slate-600 text-xs mt-6">
-          Meradarzi · Super Admin · Secure Session
+          MeraDarzi · Super Admin · Secure Session
         </p>
       </div>
     </div>
