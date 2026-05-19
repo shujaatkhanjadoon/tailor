@@ -16,7 +16,7 @@ export default function TrackNotFound() {
         <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center">
           <Scissors size={12} className="text-white" />
         </div>
-        <span className="text-sm font-semibold text-slate-600">Meradarzi</span>
+        <span className="text-sm font-semibold text-slate-600">MeraDarzi</span>
       </div>
     </div>
   )

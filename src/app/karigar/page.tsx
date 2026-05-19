@@ -24,6 +24,7 @@ import {
   isWithinInterval, endOfDay,
   differenceInDays,
 } from 'date-fns'
+import Image from 'next/image'
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -580,7 +581,7 @@ function HomeTab({
             </h2>
             <p className="text-slate-500 text-xs mt-1 flex items-center gap-1">
               <Scissors size={10} />
-              Karigar · Meradarzi
+              Karigar · MeraDarzi
             </p>
           </div>
           <div className="bg-blue-600 w-12 h-12 rounded-2xl flex items-center
@@ -1171,14 +1172,19 @@ export default function KarigarPage() {
                          sticky top-0 z-20 lg:pt-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center">
-              <Scissors size={16} className="text-white" />
+            <div className="w-8 h-8 flex items-center justify-center">
+              <Image
+              src="/icon.svg"
+              alt="MeraDarzi"
+              width={32}
+              height={32}
+            />
             </div>
             <div>
               <p className="font-bold text-slate-800 text-sm leading-tight">
                 {currentUser?.name ?? 'Karigar'}
               </p>
-              <p className="text-slate-400 text-[10px]">Meradarzi</p>
+              <p className="text-slate-400 text-[10px]">MeraDarzi</p>
             </div>
           </div>
 

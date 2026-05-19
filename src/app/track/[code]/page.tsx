@@ -9,6 +9,7 @@ import { isValidTrackingCode, normaliseCode } from '@/lib/tracking'
 import { cn }                   from '@/lib/utils'
 import { supabase } from '@/lib/supabase/client'
 import { mapOrder } from '@/lib/supabase/records'
+import Image from 'next/image'
 
 const STATUS_STEPS = ['received','cutting','stitching','finishing','ready','delivered'] as const
 type Step = typeof STATUS_STEPS[number]
@@ -55,7 +56,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
         const shop = remote.shops
         setShopName(shop?.brand_name ?? shop?.shop_name ?? '')
         setBranding({
-          name: shop?.brand_name ?? shop?.shop_name ?? 'Meradarzi',
+          name: shop?.brand_name ?? shop?.shop_name ?? 'MeraDarzi',
           color: shop?.brand_color ?? '#1d4ed8',
           logoUrl: shop?.brand_logo_url ?? '',
         })
@@ -123,10 +124,15 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
           Dobara Try Karein
         </button>
         <div className="flex items-center gap-2 mt-10">
-          <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center">
-            <Scissors size={12} className="text-white" />
+          <div className="w-6 h-6 flex items-center justify-center">
+            <Image
+              src="/icon.svg"
+              alt="MeraDarzi"
+              width={24}
+              height={24}
+            />
           </div>
-          <span className="text-sm font-bold text-slate-600">Meradarzi</span>
+          <span className="text-sm font-bold text-slate-600">MeraDarzi</span>
         </div>
       </div>
     )
@@ -312,9 +318,9 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
                 <Scissors size={12} className="text-white" />
               )}
             </div>
-            <span className="text-sm font-bold text-slate-700">{branding.name || 'Meradarzi'}</span>
+            <span className="text-sm font-bold text-slate-700">{branding.name || 'MeraDarzi'}</span>
           </div>
-          <p className="text-xs text-slate-400">Powered by Meradarzi · Pakistan 🇵🇰</p>
+          <p className="text-xs text-slate-400">Powered by MeraDarzi · Pakistan 🇵🇰</p>
         </div>
       </div>
     </div>

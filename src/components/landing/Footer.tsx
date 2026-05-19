@@ -1,6 +1,7 @@
 // src/components/landing/Footer.tsx
 import Link       from 'next/link'
 import { Scissors } from 'lucide-react'
+import Image from 'next/image'
 
 const LINKS = {
   Product:  [
@@ -64,11 +65,16 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-2 lg:col-span-2">
             <Link href="/" className="flex items-center gap-2.5 mb-5">
-              <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center
+              <div className="w-9 h-9 flex items-center
                               justify-center">
-                <Scissors size={18} className="text-white" strokeWidth={1.8} />
+                <Image
+              src="/icon.svg"
+              alt="MeraDarzi"
+              width={36}
+              height={36}
+            />
               </div>
-              <span className="text-lg font-bold text-white">Meradarzi</span>
+              <span className="text-lg font-bold text-white">MeraDarzi</span>
             </Link>
             <p className="text-sm leading-relaxed mb-5 max-w-xs">
               Pakistan ka tailor management app.
@@ -118,7 +124,7 @@ export function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between
                         gap-3 py-6 text-xs">
           <p>
-            © {year} Meradarzi. Made with ❤️ in Pakistan 🇵🇰
+            © {year} MeraDarzi. Made with ❤️ in Pakistan 🇵🇰
           </p>
           <div className="flex items-center gap-4">
             <Link href="/privacy-policy" className="hover:text-white transition-colors">

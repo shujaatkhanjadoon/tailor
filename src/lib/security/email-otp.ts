@@ -54,7 +54,7 @@ function brandedEmailTemplate(opts: {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e2e8f0;">
           <tr>
             <td style="background:#0f172a;padding:24px;">
-              <img src="/logo.png" width="48" height="48" alt="Meradarzi" style="display:block;border-radius:12px;">
+              <img src="https://app.meradarzi.pk/logo.png" width="150" height="25" alt="MeraDarzi" style="display:block;border-radius:12px;">
               <h1 style="margin:18px 0 4px;color:#ffffff;font-size:24px;line-height:1.2;">${escapeHtml(opts.title)}</h1>
               ${opts.preview ? `<p style="margin:0;color:#cbd5e1;font-size:14px;line-height:1.6;">${escapeHtml(opts.preview)}</p>` : ''}
             </td>
@@ -73,7 +73,7 @@ function brandedEmailTemplate(opts: {
           </tr>
           <tr>
             <td style="background:#f8fafc;padding:20px 28px;border-top:1px solid #e2e8f0;">
-              <p style="margin:0 0 8px;color:#475569;font-size:13px;font-weight:700;">Meradarzi Support</p>
+              <p style="margin:0 0 8px;color:#475569;font-size:13px;font-weight:700;">MeraDarzi Support</p>
               <p style="margin:0;color:#64748b;font-size:12px;line-height:1.7;">
                 Email: <a href="mailto:${SUPPORT_EMAIL}" style="color:#2563eb;">${SUPPORT_EMAIL}</a><br>
                 Phone: ${escapeHtml(SUPPORT_PHONE)}<br>
@@ -106,8 +106,8 @@ export async function sendOTPEmail(
   purpose:   'signup' | 'login' = 'signup'
 ): Promise<{ success: boolean; error?: string }> {
   const subject = purpose === 'signup'
-    ? 'Meradarzi — Account Verify Karein'
-    : 'Meradarzi — Login OTP'
+    ? 'MeraDarzi — Account Verify Karein'
+    : 'MeraDarzi — Login OTP'
 
   const html = `
 <!DOCTYPE html>
@@ -122,7 +122,7 @@ export async function sendOTPEmail(
     <!-- Header -->
     <div style="background:#1d4ed8;border-radius:16px 16px 0 0;padding:24px;text-align:center;">
       <div style="display:inline-flex;align-items:center;gap:10px;">
-        <span style="font-size:24px;">✂️</span>
+        <span style="font-size:24px;"><image src="https://app.meradarzi.pk/icon.svg"/>"</span>
         <span style="color:white;font-size:20px;font-weight:700;">MeraDarzi</span>
       </div>
     </div>
@@ -137,8 +137,8 @@ export async function sendOTPEmail(
 
       <p style="color:#64748b;margin:0 0 24px;font-size:14px;line-height:1.6;">
         ${purpose === 'signup'
-          ? 'Meradarzi account create karne ke liye neeche wala code use karein:'
-          : 'Meradarzi mein login karne ke liye yeh code use karein:'
+          ? 'MeraDarzi account create karne ke liye neeche wala code use karein:'
+          : 'MeraDarzi mein login karne ke liye yeh code use karein:'
         }
       </p>
 
@@ -162,7 +162,7 @@ export async function sendOTPEmail(
       </div>
 
       <p style="color:#94a3b8;font-size:11px;margin:0;line-height:1.5;">
-        Meradarzi — Pakistan ka pehla tailor management app<br>
+        MeraDarzi — Pakistan ka pehla tailor management app<br>
         <a href="${APP_URL}" style="color:#3b82f6;">${APP_URL}</a>
       </p>
     </div>
@@ -258,15 +258,15 @@ export async function sendShopOwnerAccountCreated(opts: {
   await sendSystemEmail({
     from: FROM,
     to: opts.ownerEmail,
-    subject: `Welcome to Meradarzi, ${opts.shopName}`,
+    subject: `Welcome to MeraDarzi, ${opts.shopName}`,
     html: brandedEmailTemplate({
       title: 'Account Created Successfully',
       preview: 'Your shop account has been created and is pending admin review.',
-      ctaLabel: 'Open Meradarzi',
+      ctaLabel: 'Open MeraDarzi',
       ctaUrl: APP_URL,
       body: `
         <p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:1.7;">
-          Assalam o Alaikum ${escapeHtml(opts.ownerName)}, your Meradarzi shop account has been created.
+          Assalam o Alaikum ${escapeHtml(opts.ownerName)}, your MeraDarzi shop account has been created.
           Admin review is pending; you will be notified after approval.
         </p>
         ${detailTable([

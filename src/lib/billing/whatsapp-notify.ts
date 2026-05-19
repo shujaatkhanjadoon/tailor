@@ -21,7 +21,7 @@ export function buildActivationWhatsApp(
 
   const message = encodeURIComponent(
     `Assalam o Alaikum! 🎉\n\n` +
-    `*Meradarzi — Payment Confirm!*\n\n` +
+    `*MeraDarzi — Payment Confirm!*\n\n` +
     `Aapki payment successfully verify ho gayi.\n\n` +
     `✅ Plan: *${planName}*\n` +
     `🔄 Billing: ${cycle}${expiryText}\n\n` +
@@ -41,7 +41,7 @@ export function buildRejectionWhatsApp(
 
   const message = encodeURIComponent(
     `Assalam o Alaikum,\n\n` +
-    `*Meradarzi — Payment Verification*\n\n` +
+    `*MeraDarzi — Payment Verification*\n\n` +
     `Aapki payment verify nahi ho saki.\n\n` +
     `❌ Reason: ${reason}\n\n` +
     `Kripaya dobara try karein ya support se contact karein:\n` +
@@ -62,7 +62,7 @@ export function buildExpiryReminderWhatsApp(
 
   const message = encodeURIComponent(
     `Assalam o Alaikum ${shopName}! ⏰\n\n` +
-    `*Meradarzi — Plan Reminder*\n\n` +
+    `*MeraDarzi — Plan Reminder*\n\n` +
     `Aapka *${planName}* plan ${daysLeft} din mein expire ho raha hai.\n\n` +
     `Renew karne ke liye:\n` +
     `${APP_URL}/billing/upgrade\n\n` +

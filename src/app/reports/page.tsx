@@ -6,8 +6,6 @@ import { BarChart3, Download, RefreshCw, Calendar } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useReports, ReportPeriod } from "@/hooks/useReports";
 import { SummaryCards } from "@/components/reports/SummaryCards";
-import { IncomeChart } from "@/components/reports/IncomeChart";
-import { OrderStatusChart } from "@/components/reports/OrderStatusChart";
 import { TopCustomers } from "@/components/reports/TopCustomers";
 import { GarmentBreakdown } from "@/components/reports/GarmentBreakdown";
 import { cn } from "@/lib/utils";

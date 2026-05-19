@@ -45,7 +45,7 @@ export function generatePaymentRef(shopId: string): string {
 export function buildRaastQRData(config: RaastConfig, amount: number, ref: string): string {
   // Plain payment details. Custom raast:// deep links are rejected by many bank scanners.
   return [
-    'Meradarzi subscription payment',
+    'MeraDarzi subscription payment',
     `Raast ID: ${config.raastId}`,
     `Account: ${config.accountTitle}`,
     `Bank: ${config.bankName}`,
@@ -56,5 +56,5 @@ export function buildRaastQRData(config: RaastConfig, amount: number, ref: strin
 
 // Format amount with note for payment description
 export function buildPaymentNote(planId: string, cycle: string, ref: string): string {
-  return `Meradarzi ${planId} ${cycle} ${ref}`
+  return `MeraDarzi ${planId} ${cycle} ${ref}`
 }

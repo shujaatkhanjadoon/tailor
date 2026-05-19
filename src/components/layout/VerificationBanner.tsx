@@ -39,7 +39,7 @@ export function VerificationBanner() {
   if (status === 'rejected') {
     const waLink = ADMIN_WA
       ? `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(
-          'Assalam o Alaikum, mera Meradarzi account reject ho gaya hai. Kripaya help karein.'
+          'Assalam o Alaikum, mera MeraDarzi account reject ho gaya hai. Kripaya help karein.'
         )}`
       : null
 

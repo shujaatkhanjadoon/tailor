@@ -11,7 +11,6 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  CheckCircle2,
   Mail,
   ShieldCheck,
   AlertCircle,
@@ -27,6 +26,7 @@ import { SHOP_PIN_LENGTH, KARIGAR_PIN_LENGTH, validatePIN, getPINStrength } from
 import { verifyPIN } from "@/lib/security/pin";
 import { cn } from "@/lib/utils";
 import { PAKISTAN_STATE_CITIES } from "@/lib/locations/pakistan";
+import Image from "next/image";
 
 const ADMIN_WA = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? "";
 
@@ -216,12 +216,12 @@ function AuthContent() {
   const rawRedirect = searchParams.get("redirect") ?? "/";
 
   const redirectTo = (
-  rawRedirect.startsWith('/auth') ||
-  rawRedirect.startsWith('/login') ||
-  rawRedirect.startsWith('/setup') ||
-  rawRedirect.startsWith('/admin') ||
-  rawRedirect.startsWith('/dashboard')
-) ? '/' : rawRedirect
+    rawRedirect.startsWith('/auth') ||
+    rawRedirect.startsWith('/login') ||
+    rawRedirect.startsWith('/setup') ||
+    rawRedirect.startsWith('/admin') ||
+    rawRedirect.startsWith('/dashboard')
+  ) ? '/' : rawRedirect
 
   const {
     currentUser,
@@ -752,8 +752,8 @@ function AuthContent() {
   const pinStrength = getPINStrength(pin);
   const adminWhatsAppLink = ADMIN_WA
     ? `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(
-        `Assalam o Alaikum, nayi shop registration verify kar dein.\n\nShop: ${shopName.trim()}\nOwner: ${ownerName.trim()}\nPhone: ${phone.replace(/\D/g, "")}\nCity: ${city.trim() || "N/A"}`,
-      )}`
+      `Assalam o Alaikum, nayi shop registration verify kar dein.\n\nShop: ${shopName.trim()}\nOwner: ${ownerName.trim()}\nPhone: ${phone.replace(/\D/g, "")}\nCity: ${city.trim() || "N/A"}`,
+    )}`
     : null;
 
   // ── Render ────────────────────────────────────────────────────
@@ -779,10 +779,15 @@ function AuthContent() {
         {/* Logo */}
         <div className="text-center mb-6">
           <div
-            className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center
-                          justify-center mx-auto mb-4 shadow-xl shadow-blue-900/50"
+            className="flex items-center
+                          justify-center mx-auto mb-4"
           >
-            <Scissors size={28} className="text-white" strokeWidth={1.5} />
+            <Image
+              src="/icon.svg"
+              alt="MeraDarzi"
+              width={64}
+              height={64}
+            />
           </div>
           <h1 className="text-2xl font-bold text-white">MeraDarzi</h1>
           <p className="text-slate-400 text-sm mt-1">
@@ -1217,56 +1222,56 @@ function AuthContent() {
                     }}
                     placeholder={city || "Search city ya manually type karein"}
                     className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-800 outline-none transition-all focus:border-blue-500 focus:bg-white"
-	                  />
-	                  {cityDropdownOpen && (
-	                    <div className="mt-2 max-h-40 overflow-y-auto rounded-2xl border border-slate-200 bg-white">
-	                      {city && (
-	                        <button
-	                          type="button"
-	                          onClick={() => {
-	                            setCity("");
-	                            setCityQuery("");
-	                            setCityDropdownOpen(false);
-	                          }}
-	                          className="w-full border-b border-slate-100 px-4 py-2.5 text-left text-xs font-semibold text-slate-400"
-	                        >
-	                          Selected: {city} - clear
-	                        </button>
-	                      )}
-	                      {filteredCities.map((item) => (
-	                        <button
-	                          key={`${stateProvince}-${item}`}
-	                          type="button"
-	                          onClick={() => {
-	                            setCity(item);
-	                            setCityQuery("");
-	                            setCityDropdownOpen(false);
-	                          }}
-	                          className={cn(
-	                            "w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition-colors last:border-0 hover:bg-slate-50",
-	                            city === item
-	                              ? "bg-blue-50 font-semibold text-blue-700"
-	                              : "text-slate-700",
-	                          )}
-	                        >
-	                          {item}
-	                        </button>
-	                      ))}
-	                      {canAddTypedCity && (
-	                        <button
-	                          type="button"
-	                          onClick={() => {
-	                            setCity(cityQuery.trim());
-	                            setCityQuery("");
-	                            setCityDropdownOpen(false);
-	                          }}
-	                          className="w-full px-4 py-3 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50"
-	                        >
-	                          Add &quot;{cityQuery.trim()}&quot;
-	                        </button>
-	                      )}
-	                    </div>
-	                  )}
+                  />
+                  {cityDropdownOpen && (
+                    <div className="mt-2 max-h-40 overflow-y-auto rounded-2xl border border-slate-200 bg-white">
+                      {city && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCity("");
+                            setCityQuery("");
+                            setCityDropdownOpen(false);
+                          }}
+                          className="w-full border-b border-slate-100 px-4 py-2.5 text-left text-xs font-semibold text-slate-400"
+                        >
+                          Selected: {city} - clear
+                        </button>
+                      )}
+                      {filteredCities.map((item) => (
+                        <button
+                          key={`${stateProvince}-${item}`}
+                          type="button"
+                          onClick={() => {
+                            setCity(item);
+                            setCityQuery("");
+                            setCityDropdownOpen(false);
+                          }}
+                          className={cn(
+                            "w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition-colors last:border-0 hover:bg-slate-50",
+                            city === item
+                              ? "bg-blue-50 font-semibold text-blue-700"
+                              : "text-slate-700",
+                          )}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                      {canAddTypedCity && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCity(cityQuery.trim());
+                            setCityQuery("");
+                            setCityDropdownOpen(false);
+                          }}
+                          className="w-full px-4 py-3 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50"
+                        >
+                          Add &quot;{cityQuery.trim()}&quot;
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1549,7 +1554,7 @@ function AuthContent() {
 
         {/* Footer */}
         <p className="text-center text-slate-600 text-xs mt-5">
-          Meradarzi · Secure & Verified ✓
+          MeraDarzi · Secure & Verified ✓
         </p>
       </div>
     </div>
@@ -1565,7 +1570,7 @@ export default function AuthPage() {
         </div>
       }
     >
-      
+
       <AuthContent />
     </Suspense>
   );

@@ -7,6 +7,7 @@ import { Scissors, Check, X as XIcon, ArrowRight } from 'lucide-react'
 import { PLANS, PlanId, yearlySaving } from '@/lib/billing/plans'
 import { BillingCycleToggle }          from '@/components/billing/BillingCycleToggle'
 import { cn }                          from '@/lib/utils'
+import Image from 'next/image'
 
 const FEATURE_ROWS = [
   { label: 'Orders per month',  starter: '30',         pro: 'Unlimited',    biz: 'Unlimited'    },
@@ -40,10 +41,15 @@ export default function PricingPage() {
       <nav className="border-b border-slate-200 px-6 py-4 flex items-center
                       justify-between max-w-7xl mx-auto">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <Scissors size={16} className="text-white" />
+          <div className="w-8 h-8 flex items-center justify-center">
+            <Image
+              src="/icon.svg"
+              alt="MeraDarzi"
+              width={32}
+              height={32}
+            />
           </div>
-          <span className="font-bold text-slate-800 text-lg">Meradarzi</span>
+          <span className="font-bold text-slate-800 text-lg">MeraDarzi</span>
         </Link>
         <div className="flex items-center gap-3">
           <Link href="/auth" className="text-sm font-semibold text-slate-600 hover:text-slate-800">
@@ -268,7 +274,7 @@ export default function PricingPage() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 py-8 text-center text-sm text-slate-400">
-        © {new Date().getFullYear()} Meradarzi • Made with ❤️ for Pakistan 🇵🇰
+        © {new Date().getFullYear()} MeraDarzi • Made with ❤️ for Pakistan 🇵🇰
       </footer>
     </div>
   )
