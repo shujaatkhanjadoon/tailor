@@ -8,7 +8,7 @@ import { QRCodeDisplay } from '@/components/orders/QRCodeDisplay'
 import {
   ArrowLeft, MessageCircle, Clock, Wallet,
   User2, QrCode, ChevronRight, Plus,
-  Ruler, Image as ImageIcon, StickyNote, Phone, X,
+  Ruler, Image as ImageIcon, StickyNote, Phone, Trash2, X,
 } from 'lucide-react'
 import { useOrder } from '@/hooks/useOrders'
 import { useAuth } from '@/lib/auth/AuthContext'
@@ -17,6 +17,7 @@ import type { CustomerRecord, MeasurementRecord, PhotoRecord, ShopRecord } from 
 import { ORDER_STATUS_CONFIG, GARMENT_LABELS, OrderStatus } from '@/types'
 import { StatusUpdateSheet } from '@/components/orders/StatusUpdateSheet'
 import { AssignSheet } from '@/components/orders/AssignSheet'
+import { SpecialInstructionsSummary } from '@/components/orders/SpecialInstructionsSummary'
 import { OrderPhotoSection } from '@/components/photos/OrderPhotoSection'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -102,6 +103,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [savingPay, setSavingPay] = useState(false)
   const [showPaySheet, setShowPaySheet] = useState(false)
   const [showQR, setShowQR] = useState(false)
+  const [deletingDisplayPhotoId, setDeletingDisplayPhotoId] = useState<string | null>(null)
   const [previewPhoto, setPreviewPhoto] = useState<{
     src: string
     label: string
@@ -140,9 +142,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         src: photo.cloudUrl ? getOptimisedUrl(photo.cloudUrl, { width: 800 }) : photo.base64,
         label: `${photo.type} photo`,
         type: photo.type,
+        source: 'local' as const,
       }))
     : order.fabricPhotoUrl
-      ? [{ id: 'fabric-photo-url', src: order.fabricPhotoUrl, label: 'fabric photo', type: 'fabric' }]
+      ? [{ id: 'fabric-photo-url', src: order.fabricPhotoUrl, label: 'fabric photo', type: 'fabric', source: 'order' as const }]
       : []
 
   const waLink = (() => {
@@ -171,6 +174,24 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       setShowPayForm(false)
     } finally {
       setSavingPay(false)
+    }
+  }
+
+  const handleDeleteDisplayPhoto = async (photo: (typeof displayPhotos)[number]) => {
+    setDeletingDisplayPhotoId(photo.id)
+    try {
+      if (photo.source === 'order') {
+        await (supabase as any)
+          .from('orders')
+          .update({ fabric_photo_url: null, updated_at: new Date().toISOString() })
+          .eq('id', order.id)
+      } else {
+        localOrderImages.remove(photo.id)
+        setPhotos(localOrderImages.list(order.id))
+      }
+      if (previewPhoto?.src === photo.src) setPreviewPhoto(null)
+    } finally {
+      setDeletingDisplayPhotoId(null)
     }
   }
 
@@ -473,10 +494,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* Special instructions */}
           {order.specialInstructions && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-1">
-              <p className="text-xs font-semibold text-amber-700 mb-1">📝 Khaas Hidayat</p>
-              <p className="text-sm text-amber-800">{order.specialInstructions}</p>
-            </div>
+            <SpecialInstructionsSummary value={order.specialInstructions} className="mt-1" />
           )}
         </div>
 
@@ -567,24 +585,42 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </h2>
             <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3">
               {displayPhotos.map(photo => (
-                <button
+                <div
                   key={photo.id}
-                  type="button"
-                  onClick={() => setPreviewPhoto({
-                    src: photo.src,
-                    label: photo.label,
-                  })}
-                  className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-left"
+                  className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
                 >
-                  <img
-                    src={photo.src}
-                    alt={photo.label}
-                    className="aspect-[4/3] w-full object-cover"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setPreviewPhoto({
+                      src: photo.src,
+                      label: photo.label,
+                    })}
+                    className="block w-full text-left"
+                  >
+                    <img
+                      src={photo.src}
+                      alt={photo.label}
+                      className="aspect-[4/3] w-full object-cover"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Delete ${photo.label}`}
+                    title={`Delete ${photo.label}`}
+                    onClick={() => handleDeleteDisplayPhoto(photo)}
+                    disabled={deletingDisplayPhotoId === photo.id}
+                    className="absolute right-2 top-2 flex min-h-10 min-w-10 items-center justify-center rounded-full bg-red-500 text-white shadow-lg shadow-red-950/20 active:scale-95 disabled:opacity-60"
+                  >
+                    {deletingDisplayPhotoId === photo.id ? (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : (
+                      <Trash2 size={18} />
+                    )}
+                  </button>
                   <p className="px-3 py-2 text-xs font-semibold capitalize text-slate-600">
                     {photo.type}
                   </p>
-                </button>
+                </div>
               ))}
             </div>
           </div>

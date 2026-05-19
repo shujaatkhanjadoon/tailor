@@ -102,6 +102,19 @@ export function PhotoCapture({
                 loading="lazy"
               />
 
+              <button
+                aria-label={`Delete ${label} photo`}
+                title={`Delete ${label} photo`}
+                onClick={() => deletePhoto(photo)}
+                disabled={isDeleting}
+                className="absolute right-1.5 top-1.5 z-10 flex min-h-10 min-w-10 items-center justify-center rounded-full bg-red-500 text-white shadow-lg shadow-red-950/20 transition-all active:scale-90 disabled:opacity-60 sm:right-2 sm:top-2"
+              >
+                {isDeleting
+                  ? <Loader2 size={16} className="animate-spin" />
+                  : <Trash2 size={16} />
+                }
+              </button>
+
               {/* Hover overlay */}
               <div className={cn(
                 'absolute inset-0 transition-all duration-200',
@@ -117,21 +130,6 @@ export function PhotoCapture({
                              transition-all active:scale-90"
                 >
                   <Expand size={15} className="text-slate-700" />
-                </button>
-
-                {/* Delete */}
-                <button
-                  aria-label={`Delete ${label} photo`}
-                  onClick={() => deletePhoto(photo)}
-                  disabled={isDeleting}
-                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 w-9 h-9 sm:w-11 sm:h-11 bg-red-500
-                             rounded-full flex items-center justify-center
-                             transition-all active:scale-90 disabled:opacity-50"
-                >
-                  {isDeleting
-                    ? <Loader2 size={15} className="text-white animate-spin" />
-                    : <Trash2  size={15} className="text-white" />
-                  }
                 </button>
               </div>
 

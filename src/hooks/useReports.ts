@@ -1,10 +1,14 @@
-// src/hooks/useReports.ts
-import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo, useState } from 'react'
-import { db, OrderRecord, PaymentRecord } from '@/lib/db/schema'
+import { useEffect, useMemo, useState } from 'react'
+import type { CustomerRecord, OrderRecord, PaymentRecord, TeamMemberRecord } from '@/lib/db/schema'
 import { orderBalance, sumPayments } from '@/lib/payments/calculations'
+import { supabase } from '@/lib/supabase/client'
+import { mapCustomer, mapOrder, mapPayment, mapTeamMember } from '@/lib/supabase/records'
 
 export type ReportPeriod = '7d' | '30d' | '90d' | '365d' | 'all'
+
+function uniqueChannelName(name: string) {
+  return `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
 
 function periodStart(period: ReportPeriod): string | null {
   if (period === 'all') return null
@@ -32,62 +36,90 @@ function lastNMonths(n: number): { key: string; label: string }[] {
 
 export function useReports(shopId: string | null) {
   const [period, setPeriod] = useState<ReportPeriod>('30d')
+  const [allOrders, setAllOrders] = useState<OrderRecord[]>([])
+  const [allPayments, setAllPayments] = useState<PaymentRecord[]>([])
+  const [allCustomers, setAllCustomers] = useState<CustomerRecord[]>([])
+  const [teamMembers, setTeamMembers] = useState<TeamMemberRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  // ── Raw data ────────────────────────────────────────────────────
-  const allOrders = useLiveQuery(
-    async (): Promise<OrderRecord[]> => {
-      if (!shopId) return []
-      return db.orders
-        .where('shopId').equals(shopId)
-        .filter(o => o._deleted === 0)
-        .toArray()
-    },
-    [shopId]
-  )
+  useEffect(() => {
+    if (!shopId) {
+      setAllOrders([])
+      setAllPayments([])
+      setAllCustomers([])
+      setTeamMembers([])
+      setIsLoading(false)
+      return
+    }
 
-  const allPayments = useLiveQuery(
-    async (): Promise<PaymentRecord[]> => {
-      if (!shopId) return []
-      return db.payments
-        .where('shopId').equals(shopId)
-        .filter(p => p._deleted === 0)
-        .toArray()
-    },
-    [shopId]
-  )
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      try {
+        const [ordersRes, paymentsRes, customersRes, teamRes] = await Promise.all([
+          (supabase as any)
+            .from('orders')
+            .select('*')
+            .eq('shop_id', shopId)
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false }),
+          (supabase as any)
+            .from('payments')
+            .select('*')
+            .eq('shop_id', shopId)
+            .is('deleted_at', null)
+            .order('paid_at', { ascending: true }),
+          (supabase as any)
+            .from('customers')
+            .select('*')
+            .eq('shop_id', shopId)
+            .is('deleted_at', null),
+          (supabase as any)
+            .from('team_members')
+            .select('*')
+            .eq('shop_id', shopId)
+            .eq('is_active', true)
+            .is('deleted_at', null),
+        ])
 
-  const allCustomers = useLiveQuery(
-    async () => {
-      if (!shopId) return []
-      return db.customers
-        .where('shopId').equals(shopId)
-        .filter(c => c._deleted === 0)
-        .toArray()
-    },
-    [shopId]
-  )
+        const error = ordersRes.error ?? paymentsRes.error ?? customersRes.error ?? teamRes.error
+        if (error) throw new Error(error.message)
+        if (!cancelled) {
+          setAllOrders((ordersRes.data ?? []).map(mapOrder))
+          setAllPayments((paymentsRes.data ?? []).map(mapPayment))
+          setAllCustomers((customersRes.data ?? []).map(mapCustomer))
+          setTeamMembers((teamRes.data ?? []).map(mapTeamMember))
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
 
-  const teamMembers = useLiveQuery(
-    async () => {
-      if (!shopId) return []
-      return db.teamMembers
-        .where('shopId').equals(shopId)
-        .filter(m => m.isActive === 1 && m._deleted === 0)
-        .toArray()
-    },
-    [shopId]
-  )
+    load()
+    const channel = supabase
+      .channel(uniqueChannelName(`reports-${shopId}`))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `shop_id=eq.${shopId}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `shop_id=eq.${shopId}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members', filter: `shop_id=eq.${shopId}` }, load)
+      .subscribe()
+
+    return () => {
+      cancelled = true
+      supabase.removeChannel(channel)
+    }
+  }, [shopId])
 
   // ── Filtered by period ──────────────────────────────────────────
   const filteredOrders = useMemo(() => {
-    const orders = allOrders ?? []
+    const orders = allOrders
     const start  = periodStart(period)
     if (!start) return orders
     return orders.filter(o => o.createdAt >= start)
   }, [allOrders, period])
 
   const filteredPayments = useMemo(() => {
-    const payments = allPayments ?? []
+    const payments = allPayments
     const start    = periodStart(period)
     if (!start) return payments
     return payments.filter(p => p.paidAt >= start)
@@ -97,7 +129,7 @@ export function useReports(shopId: string | null) {
   const summary = useMemo(() => {
     const orders   = filteredOrders
     const payments = filteredPayments
-    const allO     = allOrders ?? []
+    const allO     = allOrders
 
     const paymentTotals  = sumPayments(payments)
     const totalRevenue   = paymentTotals.received
@@ -126,7 +158,7 @@ export function useReports(shopId: string | null) {
       return d.toISOString()
     })()
 
-    const prevPayments = (allPayments ?? []).filter(p =>
+    const prevPayments = allPayments.filter(p =>
       prevStart && p.paidAt >= prevStart && p.paidAt < (periodStart(period) ?? '')
     )
     const prevRevenue = sumPayments(prevPayments).received
@@ -146,14 +178,14 @@ export function useReports(shopId: string | null) {
       appliedRevenue: paymentTotals.applied,
       tips: paymentTotals.tips,
       overpayments: paymentTotals.overpayments,
-      totalCustomers: (allCustomers ?? []).length,
+      totalCustomers: allCustomers.length,
     }
   }, [filteredOrders, filteredPayments, allOrders, allPayments, allCustomers, period])
 
   // ── Monthly income chart data (last 12 months) ──────────────────
   const monthlyIncome = useMemo(() => {
     const months   = lastNMonths(12)
-    const payments = allPayments ?? []
+    const payments = allPayments
 
     return months.map(({ key, label }) => {
       const monthPayments = payments.filter(p => p.paidAt.startsWith(key))
@@ -166,7 +198,7 @@ export function useReports(shopId: string | null) {
 
   // ── Weekly income (last 8 weeks) ─────────────────────────────────
   const weeklyIncome = useMemo(() => {
-    const payments = allPayments ?? []
+    const payments = allPayments
     const result   = []
 
     for (let i = 7; i >= 0; i--) {
@@ -240,7 +272,7 @@ export function useReports(shopId: string | null) {
   // ── Karigar productivity ─────────────────────────────────────────
   const karigarStats = useMemo(() => {
     const orders  = filteredOrders
-    const members = teamMembers ?? []
+    const members = teamMembers
 
     return members
       .filter(m => m.role === 'karigar')
@@ -289,8 +321,8 @@ export function useReports(shopId: string | null) {
 
   // ── Daily heatmap (last 30 days) ─────────────────────────────────
   const dailyActivity = useMemo(() => {
-    const orders   = allOrders ?? []
-    const payments = allPayments ?? []
+    const orders   = allOrders
+    const payments = allPayments
     const result   = []
 
     for (let i = 29; i >= 0; i--) {
@@ -324,6 +356,6 @@ export function useReports(shopId: string | null) {
     paymentMethods,
     paymentSummary,
     dailyActivity,
-    isLoading: allOrders === undefined || allPayments === undefined,
+    isLoading,
   }
 }

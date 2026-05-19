@@ -1157,15 +1157,21 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
                           )}
                         </button>
                         {otherSelected && (
-                          <input
-                            type="text"
-                            value={Array.isArray(value)
-                              ? otherStyleText(value.find(isOtherStyleValue))
-                              : otherStyleText(value)}
-                            onChange={e => updateOtherStyle(group.key, e.target.value, multi)}
-                            placeholder="Apna style likhein..."
-                            className="w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
-                          />
+                          <label className="block rounded-2xl border border-blue-200 bg-white p-2.5 shadow-sm focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
+                            <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-blue-700">
+                              <AlertCircle size={11} />
+                              Custom style
+                            </span>
+                            <input
+                              type="text"
+                              value={Array.isArray(value)
+                                ? otherStyleText(value.find(isOtherStyleValue))
+                                : otherStyleText(value)}
+                              onChange={e => updateOtherStyle(group.key, e.target.value, multi)}
+                              placeholder="Apna style likhein..."
+                              className="w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+                            />
+                          </label>
                         )}
                       </div>
                     )

@@ -5,6 +5,7 @@ import { uploadToCloudinary, deleteFromCloudinary, cloudinaryEnabled } from '@/l
 import { db, PhotoRecord }               from '@/lib/db/schema'
 import { useAuth }                       from '@/lib/auth/AuthContext'
 import { usePlan }                       from '@/hooks/usePlan'
+import { supabase }                      from '@/lib/supabase/client'
 
 interface UsePhotoCaptureOptions {
   orderId:  string
@@ -16,6 +17,24 @@ export interface PhotoUploadState {
   sizeKB?:  number
   quality?: number
   error?:   string
+}
+
+async function upsertPhotoMetadata(photo: PhotoRecord) {
+  if (!photo.cloudUrl || !photo.publicId) return
+  await (supabase as any)
+    .from('order_photos')
+    .upsert({
+      id: photo.id,
+      order_id: photo.orderId,
+      shop_id: photo.shopId,
+      type: photo.type,
+      cloud_url: photo.cloudUrl,
+      public_id: photo.publicId,
+      cloud_size_kb: photo.cloudSizeKB ?? null,
+      size_kb: photo.sizeKB,
+      taken_at: photo.takenAt,
+      deleted_at: null,
+    }, { onConflict: 'id' })
 }
 
 export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
@@ -69,13 +88,18 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
         )
 
         if (uploaded) {
+          const cloudSizeKB = Math.round(uploaded.bytes / 1024)
           await db.photos.update(photo.id, {
             cloudUrl:  uploaded.url,
             publicId:  uploaded.publicId,
-            cloudSizeKB: Math.round(uploaded.bytes / 1024),
-            _synced:   0,
+            cloudSizeKB,
+            _synced:   1,
           })
           photo.cloudUrl = uploaded.url
+          photo.publicId = uploaded.publicId
+          photo.cloudSizeKB = cloudSizeKB
+          photo._synced = 1
+          await upsertPhotoMetadata(photo)
         }
       }
 
@@ -119,10 +143,17 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
     try {
       // Delete from Cloudinary if uploaded
       if (photo.publicId) {
-        await deleteFromCloudinary(photo.publicId)
+        const deletedFromCloud = await deleteFromCloudinary(photo.publicId)
+        if (!deletedFromCloud) throw new Error('Cloud photo delete failed')
+      }
+      if (photo.cloudUrl || photo.publicId) {
+        await (supabase as any)
+          .from('order_photos')
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('id', photo.id)
       }
       if (photo.cloudUrl && photo.publicId) {
-        await db.photos.update(photo.id, { _deleted: 1, _synced: 0 })
+        await db.photos.update(photo.id, { _deleted: 1, _synced: 1 })
       } else {
         await db.photos.delete(photo.id)
       }
@@ -145,11 +176,19 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
         photo.type
       )
       if (uploaded) {
+        const cloudSizeKB = Math.round(uploaded.bytes / 1024)
         await db.photos.update(photo.id, {
           cloudUrl: uploaded.url,
           publicId: uploaded.publicId,
-          cloudSizeKB: Math.round(uploaded.bytes / 1024),
-          _synced: 0,
+          cloudSizeKB,
+          _synced: 1,
+        })
+        await upsertPhotoMetadata({
+          ...photo,
+          cloudUrl: uploaded.url,
+          publicId: uploaded.publicId,
+          cloudSizeKB,
+          _synced: 1,
         })
         setState({ phase: 'done', sizeKB: photo.sizeKB })
       } else {

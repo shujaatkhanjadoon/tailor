@@ -3,20 +3,20 @@
 
 import { useState, useMemo }      from 'react'
 import { useRouter }              from 'next/navigation'
-import { useLiveQuery }           from 'dexie-react-hooks'
 import {
   Scissors, LogOut, CheckCircle2,
   Clock, AlertTriangle, TrendingUp,
-  Package, ChevronRight, Search,
-  X, Filter, Calendar, Star,
+  ChevronRight, Search,
+  X, Calendar, Star,
   BarChart2, Zap, RefreshCw,
   User, Phone, MessageCircle,
 } from 'lucide-react'
-import { db, OrderRecord }        from '@/lib/db/schema'
-import { orderOps }               from '@/lib/db/operations'
+import type { OrderRecord }       from '@/lib/db/schema'
 import { useAuth }                from '@/lib/auth/AuthContext'
+import { useOrders }              from '@/hooks/useOrders'
 import { ORDER_STATUS_CONFIG, GARMENT_LABELS, OrderStatus } from '@/types'
 import { StatusUpdateSheet }      from '@/components/orders/StatusUpdateSheet'
+import { SpecialInstructionsSummary } from '@/components/orders/SpecialInstructionsSummary'
 import { cn }                     from '@/lib/utils'
 import {
   format, isToday, isYesterday,
@@ -189,9 +189,11 @@ function ActiveOrderCard({
               <Phone size={10} /> {order.customerPhone || 'No phone'}
             </span>
             {order.specialInstructions && (
-              <span className="inline-flex max-w-full whitespace-pre-line rounded-xl bg-amber-50 px-2 py-1 font-medium leading-relaxed text-amber-700">
-                {order.specialInstructions}
-              </span>
+              <SpecialInstructionsSummary
+                value={order.specialInstructions}
+                compact
+                className="mt-1 w-full"
+              />
             )}
           </div>
           {order.fabricPhotoUrl && (
@@ -1137,18 +1139,11 @@ export default function KarigarPage() {
   const [activeTab, setActiveTab] = useState<TabId>('home')
   const [statusSheet, setStatusSheet] = useState<OrderRecord | null>(null)
 
-  // Load all assigned orders
-  const allOrders = useLiveQuery(
-    async (): Promise<OrderRecord[]> => {
-      if (!currentUser?.id) return []
-      return db.orders
-        .where('assignedTo').equals(currentUser.id)
-        .filter(o => o._deleted === 0)
-        .reverse()
-        .sortBy('createdAt')
-    },
-    [currentUser?.id]
-  ) ?? []
+  const { orders: allOrders, isLoading } = useOrders(
+    shopId,
+    'karigar',
+    currentUser?.id
+  )
 
   const activeCount = allOrders.filter(o =>
     ACTIVE_STATUSES.includes(o.status as OrderStatus)
@@ -1252,30 +1247,38 @@ export default function KarigarPage() {
 
       {/* ── Content ── */}
       <main className="flex-1 px-4 pt-4">
-        {activeTab === 'home' && (
-          <HomeTab
-            currentUser={currentUser}
-            allOrders={allOrders}
-            onStatusTap={setStatusSheet}
-            onDetailTap={handleDetailTap}
-            onTabChange={setActiveTab}
-          />
-        )}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <RefreshCw size={24} className="animate-spin text-blue-600" />
+          </div>
+        ) : (
+          <>
+            {activeTab === 'home' && (
+              <HomeTab
+                currentUser={currentUser}
+                allOrders={allOrders}
+                onStatusTap={setStatusSheet}
+                onDetailTap={handleDetailTap}
+                onTabChange={setActiveTab}
+              />
+            )}
 
-        {activeTab === 'active' && (
-          <ActiveTab
-            orders={allOrders}
-            onStatusTap={setStatusSheet}
-            onDetailTap={handleDetailTap}
-          />
-        )}
+            {activeTab === 'active' && (
+              <ActiveTab
+                orders={allOrders}
+                onStatusTap={setStatusSheet}
+                onDetailTap={handleDetailTap}
+              />
+            )}
 
-        {activeTab === 'history' && (
-          <HistoryTab orders={allOrders} />
-        )}
+            {activeTab === 'history' && (
+              <HistoryTab orders={allOrders} />
+            )}
 
-        {activeTab === 'stats' && (
-          <StatsSection orders={allOrders} />
+            {activeTab === 'stats' && (
+              <StatsSection orders={allOrders} />
+            )}
+          </>
         )}
       </main>
 

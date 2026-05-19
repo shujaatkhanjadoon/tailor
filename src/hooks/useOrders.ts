@@ -12,6 +12,7 @@ function uniqueChannelName(name: string) {
 }
 
 async function fetchOrders(shopId: string, role: 'owner' | 'karigar', memberId?: string) {
+  if (role === 'karigar' && !memberId) return []
   let query = (supabase as any)
     .from('orders')
     .select('*')
