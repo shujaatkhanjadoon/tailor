@@ -601,7 +601,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     <img
                       src={photo.src}
                       alt={photo.label}
-                      className="aspect-[4/3] w-full object-cover"
+                      className="aspect-4/3 w-full object-cover"
                     />
                   </button>
                   <button

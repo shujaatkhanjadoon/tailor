@@ -138,7 +138,6 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
     )
   }
 
-  // â”€â”€ Found â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const sc          = ORDER_STATUS_CONFIG[order.status as keyof typeof ORDER_STATUS_CONFIG]
   const gc          = GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS]
   const stepIdx     = STATUS_STEPS.indexOf(order.status as Step)
@@ -169,7 +168,12 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
             // eslint-disable-next-line @next/next/no-img-element
             <img src={branding.logoUrl} alt="" className="w-full h-full object-cover" />
           ) : (
-            <Scissors size={24} className="text-white" />
+             <Image
+              src="/icon.svg"
+              alt="MeraDarzi"
+              width={56}
+              height={56}
+            />
           )}
         </div>
         <h1 className="text-lg font-bold text-white mb-0.5">{branding.name || shopName}</h1>
@@ -310,12 +314,17 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
         {/* Footer */}
         <div className="text-center pt-2 pb-4">
           <div className="flex items-center justify-center gap-2 mb-1">
-            <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center">
+            <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center">
               {branding.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={branding.logoUrl} alt="" className="w-full h-full object-cover rounded-md" />
               ) : (
-                <Scissors size={12} className="text-white" />
+                 <Image
+              src="/icon.svg"
+              alt="MeraDarzi"
+              width={20}
+              height={20}
+            />
               )}
             </div>
             <span className="text-sm font-bold text-slate-700">{branding.name || 'MeraDarzi'}</span>

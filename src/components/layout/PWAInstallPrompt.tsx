@@ -65,10 +65,10 @@ export function PWAInstallPrompt() {
   return (
     // Bottom banner — sits above BottomNav
     <div className="fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2
-                    w-[calc(100%-2rem)] max-w-[400px] z-40">
+                    w-[calc(100%-2rem)] max-w-100 z-40">
       <div className="bg-slate-900 text-white rounded-2xl px-4 py-4 shadow-2xl
                       flex items-center gap-3">
-        <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+        <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
           <Smartphone size={20} className="text-white" />
         </div>
 
@@ -85,7 +85,7 @@ export function PWAInstallPrompt() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {!isIOS && (
             <button
               onClick={handleInstall}
