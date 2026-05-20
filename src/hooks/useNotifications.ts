@@ -78,6 +78,13 @@ export function useNotificationCount(shopId: string | null) {
       setCount(total ?? 0)
     }
     load()
+    const channel = supabase
+      .channel(`notification-count-${shopId}-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [shopId])
   return count
 }

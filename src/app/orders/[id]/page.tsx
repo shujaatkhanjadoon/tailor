@@ -30,6 +30,7 @@ import { mapCustomer, mapMeasurement, mapShop } from '@/lib/supabase/records'
 import { localOrderImages } from '@/lib/photos/local-order-images'
 import { isParentRelation, napOwnerLabel, recipientLabel } from '@/lib/order-recipient'
 import { formatAmount } from '@/lib/format/currency'
+import { AppFooter } from '@/components/layout/AppFooter'
 
 const PAYMENT_METHODS = [
   { key: 'cash', label: 'Cash', emoji: '💵' },
@@ -674,6 +675,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         )}
 
         <OrderPhotoSection orderId={id} />
+        <AppFooter />
 
       </div>
 

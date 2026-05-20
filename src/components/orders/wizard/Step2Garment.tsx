@@ -161,6 +161,42 @@ const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; unit
   ],
 }
 
+const SHALWAR_KAMEEZ_KAMEEZ_KEYS = new Set([
+  'length',
+  'chest',
+  'waist',
+  'hip',
+  'shoulder',
+  'sleeve',
+  'armhole',
+  'bicep',
+  'collar',
+  'front_neck',
+  'back_neck',
+])
+
+function measurementSections(
+  type: GarmentType,
+  fields: { key: string; label: string; unit: string }[],
+) {
+  if (type !== 'shalwar_kameez') {
+    return [{ title: 'Nap / Measurements', helper: '', fields }]
+  }
+
+  return [
+    {
+      title: 'Kameez Nap',
+      helper: 'Kameez ke upper-body measurements',
+      fields: fields.filter(field => SHALWAR_KAMEEZ_KAMEEZ_KEYS.has(field.key)),
+    },
+    {
+      title: 'Shalwar Nap',
+      helper: 'Shalwar ke lower measurements',
+      fields: fields.filter(field => !SHALWAR_KAMEEZ_KAMEEZ_KEYS.has(field.key)),
+    },
+  ]
+}
+
 const RECIPIENT_OPTIONS: {
   relation: OrderRecipientRelation
   label: string
@@ -662,6 +698,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
 
   const selectedType = data.garmentType
   const fields = selectedType ? MEASUREMENT_FIELDS[selectedType] : []
+  const sections = selectedType ? measurementSections(selectedType, fields) : []
   const visibleStyleGroups = getStyleGroupsForGarment(selectedType)
   const [previousMeasurements, setPreviousMeasurements] = useState<MeasurementRecord[]>([])
   const [knownRecipients, setKnownRecipients] = useState<KnownRecipient[]>([])
@@ -1079,26 +1116,43 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
               )}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            {fields.map(({ key, label, unit }) => (
-              <div key={key} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                <label className="block text-[11px] font-medium text-slate-500 mb-1">
-                  {label}
-                </label>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    placeholder="0"
-                    value={measurements[key] || ''}
-                    disabled={!!selectedPrevious}
-                    onChange={e => updateMeasurement(key, e.target.value)}
-                    className="flex-1 w-full text-sm font-semibold text-slate-800
-                               bg-transparent outline-none disabled:text-slate-500"
-                  />
-                  <span className="text-[10px] text-slate-400 shrink-0">{unit}</span>
+          <div className="space-y-4">
+            {sections.map(section => (
+              <section key={section.title} className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">{section.title}</p>
+                    {section.helper && (
+                      <p className="mt-0.5 text-[11px] text-slate-400">{section.helper}</p>
+                    )}
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">
+                    {section.fields.filter(field => measurements[field.key]).length}/{section.fields.length}
+                  </span>
                 </div>
-              </div>
+                <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2">
+                  {section.fields.map(({ key, label, unit }) => (
+                    <div key={key} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-500">
+                        {label}
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="0"
+                          value={measurements[key] || ''}
+                          disabled={!!selectedPrevious}
+                          onChange={e => updateMeasurement(key, e.target.value)}
+                          className="w-full flex-1 bg-transparent text-sm font-semibold text-slate-800
+                                     outline-none disabled:text-slate-500"
+                        />
+                        <span className="shrink-0 text-[10px] text-slate-400">{unit}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         </div>
@@ -1271,8 +1325,8 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
       </div>
 
       {/* Next button */}
-      <div className="fixed inset-x-0 bottom-0 w-full bg-white border-t border-slate-100 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]
-                      lg:static lg:max-w-none lg:pb-4 mb-16 lg:mb-0">
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 w-full bg-white border-t border-slate-100 px-4 py-4
+                      lg:static lg:max-w-none lg:pb-4">
         <button
           onClick={onNext}
           disabled={!canProceed}
@@ -1283,7 +1337,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
           {canProceed ? 'Payment Details →' : selectedType ? 'Nap select ya fill karein' : 'Pehle Kapra Chunein'}
         </button>
       </div>
-      <div className="h-24 lg:h-0" />
+      <div className="h-44 lg:h-0" />
     </div>
   )
 }

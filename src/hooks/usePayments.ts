@@ -151,7 +151,15 @@ export function usePendingBalances(shopId: string | null) {
       }
     }
     load()
-    return () => { cancelled = true }
+    const channel = supabase
+      .channel(uniqueChannelName(`pending-balances-${shopId}`))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `shop_id=eq.${shopId}` }, load)
+      .subscribe()
+    return () => {
+      cancelled = true
+      supabase.removeChannel(channel)
+    }
   }, [shopId])
 
   return {

@@ -14,6 +14,7 @@ import { ORDER_STATUS_CONFIG, OrderStatus } from '@/types'
 import { cn }                         from '@/lib/utils'
 import { OrderCardSkeleton }          from '@/components/ui/Skeleton'
 import { usePlan }                    from '@/hooks/usePlan'
+import { AppFooter }                  from '@/components/layout/AppFooter'
 
 const QUICK_FILTERS: { key: OrderFilter; label: string; emoji: string }[] = [
   { key: 'all',        label: 'Sab',         emoji: '📋' },
@@ -313,6 +314,7 @@ function OrdersContent() {
             )}
           </div>
         )}
+        {!isLoading && <AppFooter className="mt-4" />}
       </main>
 
 

@@ -14,6 +14,7 @@ import { CustomerCardSkeleton }       from '@/components/ui/Skeleton'
 import { cn }                         from '@/lib/utils'
 import { format, isToday, isYesterday } from 'date-fns'
 import { useCustomers } from '@/hooks/useCustomers'
+import { AppFooter } from '@/components/layout/AppFooter'
 
 // ── Gender filter config ─────────────────────────────────────────
 
@@ -380,6 +381,7 @@ export default function CustomersPage() {
             )}
           </div>
         )}
+        {!isLoading && <AppFooter className="mt-4" />}
       </main>
 
     </div>

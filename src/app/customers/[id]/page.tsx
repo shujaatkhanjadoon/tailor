@@ -18,6 +18,7 @@ import { format, formatDistanceToNow } from 'date-fns'
 import { QuickPaymentSheet } from '@/components/payments/QuickPaymentSheet'
 import { orderBalance, orderPaymentProgress } from '@/lib/payments/calculations'
 import { recipientLabel } from '@/lib/order-recipient'
+import { AppFooter } from '@/components/layout/AppFooter'
 
 export default function CustomerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id }   = use(params)
@@ -359,6 +360,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
           onSaved={() => setPaymentOrderId(null)}
         />
       )}
+      <AppFooter className="mt-6" />
     </div>
   )
 }

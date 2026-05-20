@@ -2,7 +2,7 @@
 'use client'
 
 import { use, useEffect, useState } from 'react'
-import { RefreshCw, AlertCircle, Search, StickyNote, Wallet } from 'lucide-react'
+import { RefreshCw, AlertCircle, Search, StickyNote, Wallet, UserRound, CalendarDays, Shirt } from 'lucide-react'
 import type { OrderRecord }      from '@/lib/db/schema'
 import { ORDER_STATUS_CONFIG, GARMENT_LABELS } from '@/types'
 import { isValidTrackingCode, normaliseCode } from '@/lib/tracking'
@@ -10,6 +10,7 @@ import { cn }                   from '@/lib/utils'
 import { supabase } from '@/lib/supabase/client'
 import { mapOrder } from '@/lib/supabase/records'
 import Image from 'next/image'
+import { recipientLabel } from '@/lib/order-recipient'
 
 const STATUS_STEPS = ['received','cutting','stitching','finishing','ready','delivered'] as const
 type Step = typeof STATUS_STEPS[number]
@@ -72,6 +73,17 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
   }
 
   useEffect(() => { loadOrder() }, [normCode])
+
+  useEffect(() => {
+    if (!isValidTrackingCode(normCode)) return
+    const channel = supabase
+      .channel(`public-track-${normCode}-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `tracking_code=eq.${normCode}` }, loadOrder)
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [normCode])
 
  if (loading) {
     return (
@@ -144,6 +156,9 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
   const totalAmount = Number(order.totalPrice ?? 0)
   const advancePaid = Number(order.amountPaid ?? 0)
   const remainingBalance = Math.max(0, totalAmount - advancePaid)
+  const orderForText = order.orderForRelation && order.orderForRelation !== 'self'
+    ? recipientLabel(order.orderForRelation, order.orderForName)
+    : 'Self'
 
   const statusDesc: Record<string, string> = {
     received:  'Aapka kapra hamare paas aa gaya hai',
@@ -185,17 +200,15 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
         </code>
       </div>
 
-      <div className="max-w-md mx-auto px-4 -mt-5 pb-12 space-y-4">
+      <div className="mx-auto grid max-w-5xl gap-4 px-4 pb-12 lg:-mt-5 lg:grid-cols-[1.1fr_0.9fr]">
 
         {/* Status card */}
-        <div className="bg-white rounded-3xl shadow-lg shadow-slate-200/50
-                        border border-slate-100 overflow-hidden">
+        <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-lg shadow-slate-200/50">
 
           {/* Big status display */}
-          <div className="px-6 py-8 text-center border-b border-slate-100">
-            <div className="text-6xl mb-4 animate-bounce"
-                 style={{ animationDuration: '2s' }}>
-              {sc?.emoji}
+          <div className="border-b border-slate-100 px-6 py-7 text-center">
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-50 text-5xl ring-1 ring-slate-100">
+              <span>{sc?.emoji}</span>
             </div>
             <h2 className={cn('text-2xl font-bold mb-2', sc?.color)}>
               {sc?.label}
@@ -262,25 +275,45 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
           )}
         </div>
 
+        <div className="space-y-4">
+        {/* Order For */}
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-slate-50 px-5 py-4">
+            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+              <UserRound size={14} className="text-blue-600" />
+              Order For
+            </p>
+          </div>
+          <div className="px-5 py-4">
+            <p className="text-lg font-black capitalize text-slate-900">{orderForText}</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {order.orderForRelation && order.orderForRelation !== 'self'
+                ? 'Yeh order customer ke kisi aur family member ke liye hai.'
+                : 'Yeh order customer ke apne liye hai.'}
+            </p>
+          </div>
+        </div>
+
         {/* Order details */}
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-slate-50 px-5 py-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Order Details
             </p>
           </div>
-          <div className="divide-y divide-slate-100">
+          <div className="grid grid-cols-1 divide-y divide-slate-100 min-[420px]:grid-cols-3 min-[420px]:divide-x min-[420px]:divide-y-0">
             {[
-              { label:'Order #',   value: `#${String(order.orderNumber).padStart(3,'0')}` },
-              { label:'Kapra',     value: gc ? `${gc.emoji} ${gc.label}` : order.garmentType },
-              { label:'Due Date',  value: new Date(order.dueDate).toLocaleDateString('en-PK',{
-                  weekday:'long', day:'numeric', month:'long' }) },
-            ].map(row => (
-              <div key={row.label} className="flex items-start justify-between px-5 py-3.5 gap-4">
-                <p className="text-sm text-slate-400 font-medium shrink-0">{row.label}</p>
-                <p className="text-sm text-slate-800 font-semibold text-right leading-snug">
-                  {row.value}
-                </p>
+              { icon: Search, label:'Order #', value: `#${String(order.orderNumber).padStart(3,'0')}` },
+              { icon: Shirt, label:'Kapra', value: gc ? `${gc.emoji} ${gc.label}` : order.garmentType },
+              { icon: CalendarDays, label:'Due Date', value: new Date(order.dueDate).toLocaleDateString('en-PK', {
+                  weekday:'short', day:'numeric', month:'long' }) },
+            ].map(({ icon: Icon, label, value }) => (
+              <div key={label} className="px-5 py-4">
+                <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                  <Icon size={15} />
+                </div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p>
+                <p className="mt-1 text-sm font-bold leading-snug text-slate-800">{value}</p>
               </div>
             ))}
           </div>
@@ -346,21 +379,22 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
             <p className="text-green-600 text-sm">Dukaan mein aa kar apna kapra le jaiye</p>
           </div>
         )}
+        </div>
 
         {/* Refresh */}
         <button
           onClick={loadOrder}
-          className="w-full flex items-center justify-center gap-2 bg-white
+          className="flex w-full items-center justify-center gap-2 bg-white
                      border border-slate-200 text-slate-500 font-medium py-3.5
                      rounded-2xl text-sm transition-colors hover:bg-slate-50
-                     active:scale-[0.98]"
+                     active:scale-[0.98] lg:col-span-2"
         >
           <RefreshCw size={14} />
           Status Refresh Karein
         </button>
 
         {/* Footer */}
-        <div className="text-center pt-2 pb-4">
+        <div className="pt-2 pb-4 text-center lg:col-span-2">
           <div className="flex items-center justify-center gap-2 mb-1">
             <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center">
               {branding.logoUrl ? (

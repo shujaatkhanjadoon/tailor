@@ -4,13 +4,15 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { X, Check, Scissors, UserX, Plus } from 'lucide-react'
-import { db, TeamMemberRecord, OrderRecord } from '@/lib/db/schema'
+import { TeamMemberRecord, OrderRecord } from '@/lib/db/schema'
 import { teamOps, orderOps } from '@/lib/db/operations'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { cn } from '@/lib/utils'
 import { usePlan } from '@/hooks/usePlan'
 import { getKarigarLimitMessage, getSelectableKarigarIds } from '@/lib/team/karigar-limits'
 import { GARMENT_LABELS, GarmentType } from '@/types'
+import { supabase } from '@/lib/supabase/client'
+import { mapOrder } from '@/lib/supabase/records'
 
 interface AssignSheetProps {
   orderId:         string
@@ -52,7 +54,10 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
 
   useEffect(() => {
     if (shopId) {
-      Promise.all([teamOps.getAll(shopId), db.orders.get(orderId)]).then(([all, orderRecord]) => {
+      Promise.all([
+        teamOps.getAll(shopId),
+        (supabase as any).from('orders').select('*').eq('id', orderId).eq('shop_id', shopId).is('deleted_at', null).maybeSingle(),
+      ]).then(([all, orderRes]) => {
         const karigars = all
           .filter(m => m.role === 'karigar')
           .sort((a, b) => {
@@ -61,7 +66,7 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
             return a.createdAt.localeCompare(b.createdAt)
           })
         setMembers(karigars)
-        setOrder(orderRecord ?? null)
+        setOrder(orderRes.data ? mapOrder(orderRes.data) : null)
       })
     }
   }, [shopId, orderId])
@@ -84,6 +89,8 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
       if (selected) {
         const member = members.find(m => m.id === selected)
         if (member) await orderOps.assign(orderId, selected, member.name)
+      } else {
+        await orderOps.assign(orderId, null)
       }
       onAssigned()
       onClose()

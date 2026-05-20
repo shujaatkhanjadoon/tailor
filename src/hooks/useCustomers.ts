@@ -102,6 +102,7 @@ export function useCustomer(id: string) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `id=eq.${id}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `customer_id=eq.${id}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'measurements', filter: `customer_id=eq.${id}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, load)
       .subscribe()
     return () => {
       cancelled = true

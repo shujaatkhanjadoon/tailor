@@ -420,11 +420,11 @@ export const orderOps = {
     )
   },
 
-  async assign(orderId: string, memberId: string, memberName: string): Promise<void> {
+  async assign(orderId: string, memberId: string | null, memberName?: string): Promise<void> {
     await requireOk(
       (supabase as any).from('orders').update({
         assigned_to: memberId,
-        assigned_to_name: memberName,
+        assigned_to_name: memberId ? memberName ?? null : null,
         updated_at: nowKarachiIso(),
       }).eq('id', orderId)
     )

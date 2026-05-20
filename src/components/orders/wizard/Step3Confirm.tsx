@@ -323,8 +323,8 @@ export function Step3Confirm({
       </div>
 
       {/* Submit */}
-      <div className="fixed inset-x-0 bottom-0 w-full bg-white border-t border-slate-100 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]
-                      lg:static lg:max-w-none lg:pb-4 mb-16 lg:mb-0">
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 w-full bg-white border-t border-slate-100 px-4 py-4
+                      lg:static lg:max-w-none lg:pb-4">
         <button
           onClick={onSubmit}
           disabled={!canSubmit || saving}
@@ -337,7 +337,7 @@ export function Step3Confirm({
           )}
         </button>
       </div>
-      <div className="h-24 lg:h-0" />
+      <div className="h-44 lg:h-0" />
     </div>
   )
 }

@@ -10,6 +10,7 @@ import { PaymentSummaryStrip }    from '@/components/payments/PaymentSummaryStri
 import { QuickPaymentSheet }      from '@/components/payments/QuickPaymentSheet'
 import { cn }                     from '@/lib/utils'
 import { PaymentCardSkeleton } from '@/components/ui/Skeleton'
+import { AppFooter } from '@/components/layout/AppFooter'
 
 const DATE_FILTERS: { key: PaymentFilter; label: string }[] = [
   { key: 'all',        label: 'Sab'       },
@@ -296,6 +297,7 @@ export default function PaymentsPage() {
           ))
         )}
         </div>
+        {!isLoading && <AppFooter />}
       </main>
 
 

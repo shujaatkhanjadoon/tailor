@@ -29,6 +29,7 @@ import { usePayments } from "@/hooks/usePayments";
 import { shopOps } from "@/lib/db/operations";
 import type { ShopRecord } from "@/lib/db/schema";
 import { karachiDateString } from "@/lib/time";
+import { AppFooter } from "@/components/layout/AppFooter";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -255,6 +256,7 @@ if (isLoading || !shopId) return <DashboardSkeleton />
             </div>
           </div>
         </div>
+        <AppFooter />
       </div>
     </div>
   );
