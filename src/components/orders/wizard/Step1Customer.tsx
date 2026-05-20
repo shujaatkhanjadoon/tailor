@@ -272,8 +272,8 @@ export function Step1Customer({ data, onUpdate, onNext }: Step1Props) {
       </div>
 
       {/* Sticky Next button */}
-      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 w-full bg-white border-t border-slate-100 px-4 py-4
-                      lg:static lg:max-w-none lg:pb-4">
+      <div className="fixed inset-x-0 bottom-[calc(2.5rem+env(safe-area-inset-bottom))] z-40 w-full bg-white border-t border-slate-100 px-4 py-4
+                      lg:static lg:max-w-none lg:pb-2.5">
         <button
           onClick={onNext}
           disabled={!selectedId}
@@ -287,7 +287,7 @@ export function Step1Customer({ data, onUpdate, onNext }: Step1Props) {
           }
         </button>
       </div>
-      <div className="h-44 lg:h-0" />
+      <div className="h-25 lg:h-0" />
     </div>
   )
 }
