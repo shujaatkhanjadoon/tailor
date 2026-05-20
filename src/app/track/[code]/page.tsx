@@ -200,13 +200,13 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
         </code>
       </div>
 
-      <div className="mx-auto grid max-w-5xl gap-4 px-4 pb-12 lg:-mt-5 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="mx-auto max-w-3xl gap-4 px-4 pb-12 lg:-mt-5">
 
         {/* Status card */}
-        <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-lg shadow-slate-200/50">
+        <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-lg shadow-slate-200/50 mb-4 ">
 
           {/* Big status display */}
-          <div className="border-b border-slate-100 px-6 py-7 text-center">
+          <div className="border-b border-slate-100 px-6 py-7 text-center mx-auto">
             <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-50 text-5xl ring-1 ring-slate-100">
               <span>{sc?.emoji}</span>
             </div>
@@ -384,7 +384,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
         {/* Refresh */}
         <button
           onClick={loadOrder}
-          className="flex w-full items-center justify-center gap-2 bg-white
+          className="my-4 flex w-full items-center justify-center gap-2 bg-white
                      border border-slate-200 text-slate-500 font-medium py-3.5
                      rounded-2xl text-sm transition-colors hover:bg-slate-50
                      active:scale-[0.98] lg:col-span-2"

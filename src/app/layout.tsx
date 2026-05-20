@@ -89,10 +89,10 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/icons/icon-32.png", sizes: "32x32" },
-      { url: "/icons/icon-96.png", sizes: "96x96" },
-      { url: "/icons/icon-192.png", sizes: "192x192" },
+      { url: "/icon-96.png", sizes: "96x96" },
+      { url: "/icon-192.png", sizes: "192x192" },
     ],
-    apple: [{ url: "/icons/icon-152.png", sizes: "152x152" }],
+    apple: [{ url: "/icon-152.png", sizes: "152x152" }],
   },
 };
 
