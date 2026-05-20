@@ -216,7 +216,7 @@ export function NotificationSettingsPanel() {
       )}
 
       {/* Info box */}
-      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-10 lg:mb-0">
         <p className="text-xs text-slate-500 leading-relaxed">
           💡 Notifications tabhi aati hain jab app khulli ho ya background mein chale.
           App band ho to agle khulne par check hoga. PWA install karne se better results milte hain.

@@ -139,38 +139,38 @@ export default function BillingPage() {
 
           {[
             {
-              label:   'Orders',
-              used:    plan.ordersThisMonth,
-              limit:   plan.ordersLimit,         // null = unlimited
-              color:   'bg-blue-500',
+              label: 'Orders',
+              used: plan.ordersThisMonth,
+              limit: plan.ordersLimit,         // null = unlimited
+              color: 'bg-blue-500',
             },
             {
-              label:   'Customers',
-              used:    plan.customersTotal,
-              limit:   plan.customersLimit,       // null = unlimited
-              color:   'bg-green-500',
+              label: 'Customers',
+              used: plan.customersTotal,
+              limit: plan.customersLimit,       // null = unlimited
+              color: 'bg-green-500',
             },
             {
-              label:   'Karigar',
-              used:    plan.karigarCount,
+              label: 'Karigar',
+              used: plan.karigarCount,
               // For starter: maxKarigar = 0 (none allowed)
               // For professional: maxKarigar = 3
               // For business: maxKarigar = 999 (show as unlimited)
-              limit:   plan.karigarLimit >= 999 ? null : plan.karigarLimit,
-              color:   'bg-purple-500',
+              limit: plan.karigarLimit >= 999 ? null : plan.karigarLimit,
+              color: 'bg-purple-500',
               // Special case: starter has 0 karigar allowed
               disallowed: plan.karigarLimit === 0,
             },
           ].map(m => {
-            const pct        = m.limit && m.limit > 0
+            const pct = m.limit && m.limit > 0
               ? Math.min(100, Math.round((m.used / m.limit) * 100))
               : 0
             const isNearLimit = m.limit && m.limit > 0 && pct >= 80
-            const valueText   = m.disallowed
+            const valueText = m.disallowed
               ? 'Not allowed on this plan'
               : m.limit === null
-              ? `${m.used} (unlimited)`
-              : `${m.used} / ${m.limit}`
+                ? `${m.used} (unlimited)`
+                : `${m.used} / ${m.limit}`
 
             return (
               <div key={m.label}>
@@ -178,10 +178,10 @@ export default function BillingPage() {
                   <span className="text-sm font-medium text-slate-600">{m.label}</span>
                   <span className={cn(
                     'text-xs font-bold',
-                    m.disallowed      ? 'text-slate-400'  :
-                    isNearLimit       ? 'text-amber-600'  :
-                    m.limit === null  ? 'text-green-600'  :
-                                        'text-slate-700'
+                    m.disallowed ? 'text-slate-400' :
+                      isNearLimit ? 'text-amber-600' :
+                        m.limit === null ? 'text-green-600' :
+                          'text-slate-700'
                   )}>
                     {valueText}
                   </span>
@@ -252,9 +252,20 @@ export default function BillingPage() {
             </a>
           </p>
         </div>
+
+         <BillingHistory />
+        {/* History link */}
+        <button
+          onClick={() => router.push("/billing/history")}
+          className="w-full flex items-center justify-center gap-2 bg-slate-100
+             text-slate-600 font-semibold py-3 rounded-2xl text-sm"
+        >
+          Payment History Dekhein →
+        </button>
+
       </div>
 
-      <BillingHistory />
+     
 
       {/* Cancel link — only for paid active plans */}
       {plan.plan !== "starter" && plan.isActive && !plan.isTrial && (
@@ -266,14 +277,7 @@ export default function BillingPage() {
         </button>
       )}
 
-      {/* History link */}
-      <button
-        onClick={() => router.push("/billing/history")}
-        className="w-full flex items-center justify-center gap-2 bg-slate-100
-             text-slate-600 font-semibold py-3 rounded-2xl text-sm"
-      >
-        Payment History Dekhein →
-      </button>
+
 
     </div>
   );
