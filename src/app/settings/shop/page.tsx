@@ -18,22 +18,22 @@ import type { ShopRecord } from '@/lib/db/schema'
 import { nowKarachiIso } from '@/lib/time'
 
 export default function ShopSettingsPage() {
-  const router     = useRouter()
+  const router = useRouter()
   const { isOwner, shopId, currentUser, reinitialize } = useAuth()
   const plan = usePlan()
 
-  const [shopName,   setShopName]   = useState('')
-  const [ownerName,  setOwnerName]  = useState('')
-  const [whatsapp,   setWhatsapp]   = useState('')
+  const [shopName, setShopName] = useState('')
+  const [ownerName, setOwnerName] = useState('')
+  const [whatsapp, setWhatsapp] = useState('')
   const [stateProvince, setStateProvince] = useState('')
-  const [city,       setCity]       = useState('')
+  const [city, setCity] = useState('')
   const [addressLine, setAddressLine] = useState('')
   const [postalCode, setPostalCode] = useState('')
   const [brandColor, setBrandColor] = useState('#2563eb')
   const [brandLogoUrl, setBrandLogoUrl] = useState('')
   const [logoError, setLogoError] = useState('')
-  const [saving,     setSaving]     = useState(false)
-  const [saved,      setSaved]      = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [cityQuery, setCityQuery] = useState('')
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false)
 
@@ -45,16 +45,16 @@ export default function ShopSettingsPage() {
   }, [shopId])
 
   useEffect(() => {
-      if (!shop) return
-      setShopName(shop.shopName   ?? '')
-      setOwnerName(shop.ownerName ?? currentUser?.name ?? '')
-      setWhatsapp(shop.whatsappNumber ?? '')
-      setStateProvince(shop.stateProvince ?? '')
-      setCity(shop.city           ?? '')
-      setAddressLine(shop.addressLine ?? '')
-      setPostalCode(shop.postalCode ?? '')
-      setBrandColor(shop.brandColor ?? '#2563eb')
-      setBrandLogoUrl(shop.brandLogoUrl ?? '')
+    if (!shop) return
+    setShopName(shop.shopName ?? '')
+    setOwnerName(shop.ownerName ?? currentUser?.name ?? '')
+    setWhatsapp(shop.whatsappNumber ?? '')
+    setStateProvince(shop.stateProvince ?? '')
+    setCity(shop.city ?? '')
+    setAddressLine(shop.addressLine ?? '')
+    setPostalCode(shop.postalCode ?? '')
+    setBrandColor(shop.brandColor ?? '#2563eb')
+    setBrandLogoUrl(shop.brandLogoUrl ?? '')
   }, [shop, currentUser?.name])
 
   const isBusiness = plan.plan === 'business' && plan.isActive
@@ -123,10 +123,10 @@ export default function ShopSettingsPage() {
         updated_at: nowKarachiIso(),
       }).eq('id', shopId)
       if (error) throw new Error(error.message)
-        if (currentUser?.id) {
-          await teamOps.update(currentUser.id, { name: ownerName.trim() })
-          await reinitialize()
-        }
+      if (currentUser?.id) {
+        await teamOps.update(currentUser.id, { name: ownerName.trim() })
+        await reinitialize()
+      }
       const fresh = await shopOps.get(shopId)
       setShop(fresh)
       setSaved(true)
@@ -137,38 +137,64 @@ export default function ShopSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col pb-8">
-      <header className="px-4 pt-12 lg:pt-6 pb-4 border-b border-slate-100 flex items-center gap-3">
-        <button
-          aria-label="Go back"
-          onClick={() => router.back()}
-          className="w-11 h-11 flex items-center justify-center rounded-full bg-slate-100"
-        >
-          <ArrowLeft size={18} className="text-slate-600" />
-        </button>
-        <div>
-          <h1 className="text-lg font-bold text-slate-800">Dukaan Edit Karein</h1>
-          <p className="text-xs text-slate-400">Dukaan ki details update karein</p>
-        </div>
+    <div className="min-h-screen bg-white flex flex-col pb-8 mb-14 lg:mb-0">
+      <header className="w-full px-4 py-3 lg:py-4 border-b border-slate-100">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
 
-        {/* Owner name */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-            Owner Ka Naam *
-          </label>
-          <div className="flex items-center gap-2 bg-slate-50 border-2 border-slate-200
-                          rounded-2xl px-4 py-4 focus-within:border-blue-500 focus-within:bg-white transition-all">
-            <Store size={16} className="text-slate-400 shrink-0" />
-            <input
-              type="text"
-              value={ownerName}
-              onChange={e => setOwnerName(e.target.value)}
-              placeholder="Jaise: Ahmed Ali"
-              className="flex-1 text-sm font-medium text-slate-800 bg-transparent outline-none placeholder:text-slate-400"
-            />
+          {/* Left Section */}
+          <div className="flex items-center gap-3">
+            <button
+              aria-label="Go back"
+              onClick={() => router.back()}
+              className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-slate-100 shrink-0"
+            >
+              <ArrowLeft size={18} className="text-slate-600" />
+            </button>
+
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold text-slate-800 truncate">
+                Dukaan Edit Karein
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-400">
+                Dukaan ki details update karein
+              </p>
+            </div>
           </div>
-        </div>
 
+          {/* Owner Name */}
+          <div className="w-full sm:max-w-sm lg:max-w-md">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+              Owner Ka Naam *
+            </label>
+
+            <div
+              className="
+          flex items-center gap-2
+          bg-slate-50 border-2 border-slate-200
+          rounded-2xl px-4 py-3
+          focus-within:border-blue-500
+          focus-within:bg-white
+          transition-all
+        "
+            >
+              <Store size={16} className="text-slate-400 shrink-0" />
+
+              <input
+                type="text"
+                value={ownerName}
+                onChange={(e) => setOwnerName(e.target.value)}
+                placeholder="Jaise: Ahmed Ali"
+                className="
+            flex-1 min-w-0
+            text-sm font-medium text-slate-800
+            bg-transparent outline-none
+            placeholder:text-slate-400
+          "
+              />
+            </div>
+          </div>
+
+        </div>
       </header>
 
       <div className="flex-1 px-4 pt-6 space-y-5">
@@ -297,7 +323,7 @@ export default function ShopSettingsPage() {
               type="tel"
               inputMode="numeric"
               value={whatsapp}
-              onChange={e => setWhatsapp(e.target.value.replace(/\D/g,'').slice(0,11))}
+              onChange={e => setWhatsapp(e.target.value.replace(/\D/g, '').slice(0, 11))}
               placeholder="03XX-XXXXXXX"
               className="flex-1 text-sm font-mono text-slate-800 bg-transparent outline-none placeholder:text-slate-400"
             />
@@ -347,42 +373,42 @@ export default function ShopSettingsPage() {
                   className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-500"
                 />
                 {cityDropdownOpen && (
-                <div className="mt-2 max-h-44 overflow-y-auto rounded-2xl border border-slate-200 bg-white">
-                  {city && (
-                    <button
-                      type="button"
-                      onClick={() => { setCity(''); setCityQuery(''); setCityDropdownOpen(false) }}
-                      className="w-full border-b border-slate-100 px-4 py-2.5 text-left text-xs font-semibold text-slate-400"
-                    >
-                      Selected: {city} - clear
-                    </button>
-                  )}
-                  {filteredCities.map(c => (
-                    <button
-                      key={`${stateProvince}-${c}`}
-                      type="button"
-                      onClick={() => { setCity(c); setCityQuery(''); setCityDropdownOpen(false) }}
-                      className={cn(
-                        'w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition-colors last:border-0 hover:bg-slate-50',
-                        city === c ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-700'
-                      )}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                  {canAddTypedCity && (
-                    <button
-                      type="button"
-                      onClick={() => { setCity(cityQuery.trim()); setCityQuery(''); setCityDropdownOpen(false) }}
-                      className="w-full px-4 py-3 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50"
-                    >
-                      Add "{cityQuery.trim()}"
-                    </button>
-                  )}
-                  {filteredCities.length === 0 && !canAddTypedCity && (
-                    <p className="px-4 py-3 text-xs text-slate-400">City type karein.</p>
-                  )}
-                </div>
+                  <div className="mt-2 max-h-44 overflow-y-auto rounded-2xl border border-slate-200 bg-white">
+                    {city && (
+                      <button
+                        type="button"
+                        onClick={() => { setCity(''); setCityQuery(''); setCityDropdownOpen(false) }}
+                        className="w-full border-b border-slate-100 px-4 py-2.5 text-left text-xs font-semibold text-slate-400"
+                      >
+                        Selected: {city} - clear
+                      </button>
+                    )}
+                    {filteredCities.map(c => (
+                      <button
+                        key={`${stateProvince}-${c}`}
+                        type="button"
+                        onClick={() => { setCity(c); setCityQuery(''); setCityDropdownOpen(false) }}
+                        className={cn(
+                          'w-full border-b border-slate-100 px-4 py-3 text-left text-sm transition-colors last:border-0 hover:bg-slate-50',
+                          city === c ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-700'
+                        )}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                    {canAddTypedCity && (
+                      <button
+                        type="button"
+                        onClick={() => { setCity(cityQuery.trim()); setCityQuery(''); setCityDropdownOpen(false) }}
+                        className="w-full px-4 py-3 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50"
+                      >
+                        Add "{cityQuery.trim()}"
+                      </button>
+                    )}
+                    {filteredCities.length === 0 && !canAddTypedCity && (
+                      <p className="px-4 py-3 text-xs text-slate-400">City type karein.</p>
+                    )}
+                  </div>
                 )}
               </div>
             )}

@@ -88,8 +88,8 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 pb-20 lg:pb-8">
-      {/* â”€â”€ HEADER â”€â”€ */}
-      <header className="bg-white border-b border-slate-100 px-5 pt-12 lg:pt-6 pb-5">
+     
+      <header className="bg-white border-b border-slate-100 px-5 pt-2 lg:pt-0 pb-5">
         <h1 className="text-xl font-bold text-slate-800">Settings</h1>
         <p className="text-xs text-slate-400 mt-0.5">
           App aur account manage karein

@@ -23,8 +23,8 @@ export default function TeamSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-8">
-      <header className="bg-white border-b border-slate-100 px-4 pt-12 lg:pt-6 pb-4
+    <div className="min-h-screen bg-slate-50 pb-8 mb-14 lg:mb-0">
+      <header className="bg-white border-b border-slate-100 px-4 pt-2 lg:pt-0 pb-4
                          flex items-center gap-3">
         <button
           aria-label="Go back"
