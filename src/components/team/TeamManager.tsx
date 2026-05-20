@@ -102,7 +102,7 @@ function OverLimitWarning({
           </p>
           <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
             Aapke {current} karigar hain lekin {planName} plan mein sirf {limit} allowed hain.
-            Naye karigar add nahi ho sakte. Kripaya {current - limit} karigar
+            Naye karigar add nahi ho sakte. Barah-e-karam {current - limit} karigar
             deactivate karein.
           </p>
         </div>
