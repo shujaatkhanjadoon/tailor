@@ -51,7 +51,7 @@ function UpgradeContent() {
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 pt-6 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 pt-6 space-y-6 my-10 lg:my-10">
 
         {/* Trial info banner */}
         {plan.isTrial && (
