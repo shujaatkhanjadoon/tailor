@@ -58,7 +58,7 @@ export function DangerZone() {
 
       {/* Modal overlay */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center">
+        <div className="fixed bottom-[calc(3rem+env(safe-area-inset-bottom))] inset-0 z-50 flex items-end justify-center lg:items-center lg:bottom-[calc(0rem+env(safe-area-inset-bottom))]">
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => !deleting && setShowModal(false)}
