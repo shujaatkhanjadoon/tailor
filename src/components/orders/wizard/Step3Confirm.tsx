@@ -323,21 +323,29 @@ export function Step3Confirm({
       </div>
 
       {/* Submit */}
-      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 w-full bg-white border-t border-slate-100 px-4 py-4
-                      lg:static lg:max-w-none lg:pb-4">
+      <div className="fixed inset-x-0 bottom-[calc(2.7rem+env(safe-area-inset-bottom))] z-40 w-full bg-white border-t border-slate-100 px-4 py-2
+                      lg:static lg:max-w-none lg:pb-2.7">
         <button
           onClick={onSubmit}
           disabled={!canSubmit || saving}
-          className="text-white w-full bg-green-600 disabled:bg-slate-300 ... pb-4 rounded-2xl"
+          className="w-full bg-green-600 text-white disabled:bg-slate-300 rounded-2xl flex items-center justify-center gap-2"
         >
           {saving ? (
-            <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Order Save Ho Raha Hai...</>
+            <>
+              <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              <span>Order Save Ho Raha Hai...</span>
+            </>
           ) : (
-            <><CheckCircle2 size={20} /> {canSubmit ? 'Order Save Karein ✓' : 'Price aur date daalein'}</>
+            <>
+              <CheckCircle2 size={20} />
+              <span>
+                {canSubmit ? 'Order Save Karein ✓' : 'Price aur date daalein'}
+              </span>
+            </>
           )}
         </button>
       </div>
-      <div className="h-44 lg:h-0" />
+      <div className="h-25 lg:h-0" />
     </div>
   )
 }
