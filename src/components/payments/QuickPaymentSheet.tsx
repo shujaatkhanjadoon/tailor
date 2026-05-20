@@ -158,7 +158,7 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
       <div
-        className="relative z-10 flex max-h-[92dvh] w-full max-w-[min(100vw,34rem)] flex-col bg-white shadow-2xl rounded-t-3xl lg:rounded-2xl"
+        className="mb-16 lg:mb-0 relative z-10 flex max-h-[80dvh] lg:max-h-[90dvh] w-full max-w-[min(100vw,34rem)] flex-col bg-white shadow-2xl rounded-t-3xl lg:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Handle */}

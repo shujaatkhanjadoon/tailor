@@ -1,12 +1,13 @@
 ﻿// src/app/track/[code]/page.tsx
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { use, useCallback, useEffect, useState } from 'react'
 import {
   AlertCircle,
   CalendarDays,
   CheckCircle2,
   Clock3,
+  Circle,
   PackageCheck,
   RefreshCw,
   Search,
@@ -32,6 +33,21 @@ type Branding = {
   color: string
   logoUrl: string
 }
+type TrackShop = {
+  shop_name?: string | null
+  brand_name?: string | null
+  brand_color?: string | null
+  brand_logo_url?: string | null
+}
+type TrackOrderRow = Record<string, unknown> & {
+  shops?: TrackShop | null
+}
+type TrackOrderQuery = {
+  select: (columns: string) => TrackOrderQuery
+  eq: (column: string, value: string) => TrackOrderQuery
+  is: (column: string, value: null) => TrackOrderQuery
+  maybeSingle: () => Promise<{ data: TrackOrderRow | null; error: unknown }>
+}
 
 function formatTrackDate(date: string) {
   return new Intl.DateTimeFormat('en-PK', {
@@ -41,6 +57,10 @@ function formatTrackDate(date: string) {
     year: 'numeric',
     timeZone: 'Asia/Karachi',
   }).format(new Date(`${date}T00:00:00+05:00`))
+}
+
+function money(value: number) {
+  return `Rs. ${value.toLocaleString('en-PK')}`
 }
 
 export default function TrackPage({ params }: { params: Promise<{ code: string }> }) {
@@ -57,7 +77,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
   const [loading,   setLoading]  = useState(true)
   const [error,     setError]    = useState<'invalid' | 'not_found' | null>(null)
 
-  const loadOrder = async () => {
+  const loadOrder = useCallback(async () => {
     setLoading(true)
     setError(null)
 
@@ -68,8 +88,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
     }
 
     try {
-      const { data: remote } = await (supabase as any)
-        .from('orders')
+      const { data: remote } = await (supabase.from('orders') as unknown as TrackOrderQuery)
         .select('*, shops(shop_name, brand_name, brand_color, brand_logo_url)')
         .eq('tracking_code', normCode)
         .is('deleted_at', null)
@@ -77,7 +96,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
 
       if (remote) {
         setOrder(mapOrder(remote))
-        const shop = remote.shops
+        const shop = remote.shops as TrackShop | null | undefined
         setShopName(shop?.brand_name ?? shop?.shop_name ?? '')
         setBranding({
           name: shop?.brand_name ?? shop?.shop_name ?? 'MeraDarzi',
@@ -93,9 +112,12 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
     } finally {
       setLoading(false)
     }
-  }
+  }, [normCode])
 
-  useEffect(() => { loadOrder() }, [normCode])
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void loadOrder() }, 0)
+    return () => window.clearTimeout(timer)
+  }, [loadOrder])
 
   useEffect(() => {
     if (!isValidTrackingCode(normCode)) return
@@ -106,19 +128,55 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [normCode])
+  }, [loadOrder, normCode])
 
  if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6">
-        <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-white p-6 text-center shadow-2xl shadow-slate-950/30">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50">
-            <Image src="/icon.svg" alt="MeraDarzi" width={48} height={48} />
+      <div className="min-h-dvh overflow-x-clip bg-slate-50">
+        <div className="bg-slate-950">
+          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                <Image src="/icon.svg" alt="MeraDarzi" width={32} height={32} />
+              </div>
+              <div className="min-w-0">
+                <div className="h-3 w-28 rounded-full bg-white/20" />
+                <div className="mt-2 h-2 w-20 rounded-full bg-white/10" />
+              </div>
+            </div>
+            <div className="h-7 w-24 rounded-full bg-white/10 sm:w-36" />
           </div>
-          <div className="mx-auto mb-4 h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-          <p className="text-sm font-bold text-slate-800">Order dhoondh raha hai</p>
-          <p className="mt-1 font-mono text-xs text-slate-400">{normCode}</p>
         </div>
+
+        <main className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+          <div className="mb-5 rounded-2xl bg-slate-900 p-5 text-white sm:p-6">
+            <div className="mb-4 h-6 w-24 animate-pulse rounded-full bg-white/15" />
+            <div className="h-8 w-48 max-w-full animate-pulse rounded-xl bg-white/20 sm:h-10 sm:w-72" />
+            <div className="mt-4 h-3 w-full max-w-md animate-pulse rounded-full bg-white/10" />
+            <div className="mt-2 h-3 w-2/3 max-w-sm animate-pulse rounded-full bg-white/10" />
+          </div>
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <div className="h-4 w-28 animate-pulse rounded-full bg-slate-100" />
+              <div className="mt-3 h-5 w-64 max-w-full animate-pulse rounded-full bg-slate-100" />
+              <div className="mt-6 h-2 w-full animate-pulse rounded-full bg-slate-100" />
+              <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-14 animate-pulse rounded-xl bg-slate-100" />
+                ))}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="h-4 w-24 animate-pulse rounded-full bg-slate-100" />
+              <div className="mt-4 space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-12 animate-pulse rounded-xl bg-slate-100" />
+                ))}
+              </div>
+            </div>
+          </div>
+          <p className="mt-5 text-center font-mono text-xs text-slate-400">{normCode}</p>
+        </main>
       </div>
     )
   }
@@ -175,7 +233,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
     cutting:   'Kapra kaat raha hai',
     stitching: 'Silai ho rahi hai',
     finishing: 'Finishing ho rahi hai',
-    ready:     'Bilkul tayyar! — Aa jaiye dukaan par',
+    ready:     'Bilkul tayyar! Aa jaiye dukaan par',
     delivered: 'Order de diya gaya. Shukriya!',
     cancelled: 'Yeh order cancel ho gaya',
   }
@@ -189,52 +247,55 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
   const paymentPct = totalAmount > 0 ? Math.min(100, Math.round((advancePaid / totalAmount) * 100)) : 0
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-950">
-      <section
-        className="relative overflow-hidden px-5 pb-28 pt-10 text-white"
-        style={{ background: `linear-gradient(140deg, ${brandColor}, #0f172a 72%)` }}
-      >
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
+    <div className="min-h-dvh overflow-x-clip bg-slate-50 text-slate-950">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/15 ring-1 ring-white/20">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/15">
               {branding.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={branding.logoUrl} alt="" className="h-full w-full object-cover" />
               ) : (
-                <Image src="/icon.svg" alt="MeraDarzi" width={40} height={40} />
+                <Image src="/icon.svg" alt="MeraDarzi" width={32} height={32} />
               )}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold">{branding.name || shopName || 'MeraDarzi'}</p>
-              <p className="text-xs text-white/65">Order tracking</p>
+              <p className="truncate text-sm font-bold text-white">{branding.name || shopName || 'MeraDarzi'}</p>
+              <p className="text-xs text-white/55">Order tracking</p>
             </div>
           </div>
-          <code className="shrink-0 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 font-mono text-xs text-white/80">
+          <code className="min-w-0 max-w-[45vw] truncate rounded-full border border-white/15 bg-white/10 px-3 py-1.5 font-mono text-[11px] text-white/80 sm:max-w-none sm:text-xs">
             {order.trackingCode ?? normCode}
           </code>
         </div>
+      </header>
 
-        <div className="mx-auto mt-10 grid max-w-5xl gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
-          <div>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow-lg shadow-slate-950/10">
+      <section
+        className="relative text-white"
+        style={{ background: `linear-gradient(140deg, ${brandColor}, #111827 78%)` }}
+      >
+        <div className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] lg:px-8 lg:py-12">
+          <div className="min-w-0">
+            <div className="mb-4 inline-flex max-w-full items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow-lg shadow-slate-950/10">
               {isCancelled ? <AlertCircle size={14} /> : isDelivered ? <PackageCheck size={14} /> : <Clock3 size={14} />}
               {isCancelled ? 'Cancelled' : isDelivered ? 'Delivered' : 'In progress'}
             </div>
-            <h1 className="max-w-2xl text-3xl font-black leading-tight sm:text-4xl">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-white/55">Current status</p>
+            <h1 className="max-w-2xl text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
               {sc?.label ?? 'Order Status'}
             </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-white/75 sm:text-base">
+            <p className="mt-3 max-w-xl text-sm leading-6 text-white/75 sm:text-base lg:text-lg">
               {statusDesc[order.status]}
             </p>
           </div>
 
-          <div className="rounded-3xl border border-white/15 bg-white/10 p-4 shadow-2xl shadow-slate-950/20 backdrop-blur">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-white p-4 text-slate-900">
+          <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3 shadow-xl shadow-slate-950/20 backdrop-blur">
+            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+              <div className="rounded-xl bg-white p-4 text-slate-900">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Order</p>
                 <p className="mt-1 text-xl font-black">#{String(order.orderNumber).padStart(3,'0')}</p>
               </div>
-              <div className="rounded-2xl bg-white p-4 text-slate-900">
+              <div className="rounded-xl bg-white p-4 text-slate-900">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Due Date</p>
                 <p className="mt-1 text-sm font-black">{formatTrackDate(order.dueDate)}</p>
               </div>
@@ -243,21 +304,22 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
         </div>
       </section>
 
-      <main className="mx-auto -mt-20 max-w-5xl px-4 pb-12">
-        <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/70">
+      <main className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] lg:items-start">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 p-5 sm:p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Live progress</p>
-                  <h2 className="mt-1 text-lg font-black text-slate-900">{statusDesc[order.status]}</h2>
+                  <h2 className="mt-1 text-lg font-black leading-snug text-slate-900">{statusDesc[order.status]}</h2>
                 </div>
                 <button
                   onClick={loadOrder}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 sm:w-auto"
                   aria-label="Refresh status"
                 >
                   <RefreshCw size={15} />
+                  <span className="sm:hidden">Refresh</span>
                 </button>
               </div>
 
@@ -269,7 +331,40 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
                       style={{ width: `${progressPct}%`, backgroundColor: brandColor }}
                     />
                   </div>
-                  <div className="mt-5 grid grid-cols-5 gap-2">
+                  <div className="mt-5 space-y-4 sm:hidden">
+                    {visibleSteps.map((s, i) => {
+                      const cfg = ORDER_STATUS_CONFIG[s]
+                      const isDone = isDelivered || stepIdx > i
+                      const isCurr = !isDelivered && stepIdx === i
+                      const isActive = isDone || isCurr
+
+                      return (
+                        <div key={s} className="relative flex gap-3">
+                          {i < visibleSteps.length - 1 && (
+                            <div className="absolute left-4 top-9 h-[calc(100%+0.25rem)] w-px bg-slate-200" />
+                          )}
+                          <div
+                            className={cn(
+                              'relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border bg-white text-xs font-black',
+                              isActive ? 'border-transparent text-white' : 'border-slate-200 text-slate-300'
+                            )}
+                            style={isActive ? { backgroundColor: brandColor } : undefined}
+                          >
+                            {isDone ? <CheckCircle2 size={16} /> : isCurr ? cfg?.emoji : <Circle size={12} />}
+                          </div>
+                          <div className="min-w-0 pb-1">
+                            <p className={cn('text-sm font-black', isActive ? 'text-slate-900' : 'text-slate-400')}>
+                              {cfg?.label}
+                            </p>
+                            {isCurr && (
+                              <p className="mt-0.5 text-xs font-medium text-slate-500">Current step</p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="mt-5 hidden grid-cols-5 gap-2 sm:grid">
                     {visibleSteps.map((s, i) => {
                       const cfg = ORDER_STATUS_CONFIG[s]
                       const isDone = isDelivered || stepIdx > i
@@ -288,7 +383,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
                             {isDone ? <CheckCircle2 size={17} /> : cfg?.emoji}
                           </div>
                           <p className={cn(
-                            'mt-2 truncate text-[10px] font-bold',
+                            'mt-2 text-center text-[10px] font-bold leading-tight',
                             isDone || isCurr ? 'text-slate-800' : 'text-slate-300'
                           )}>
                             {cfg?.label}
@@ -310,25 +405,25 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
               </div>
             )}
 
-            <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            <div className="grid grid-cols-1 divide-y divide-slate-100 md:grid-cols-3 md:divide-x md:divide-y-0">
               {[
                 { icon: UserRound, label:'Order For', value: orderForText },
                 { icon: Shirt, label:'Kapra', value: gc ? `${gc.emoji} ${gc.label}` : order.garmentType },
                 { icon: CalendarDays, label:'Due Date', value: formatTrackDate(order.dueDate) },
               ].map(({ icon: Icon, label, value }) => (
-                <div key={label} className="p-5">
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                <div key={label} className="min-w-0 p-5">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                     <Icon size={16} />
                   </div>
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
-                  <p className="mt-1 text-sm font-black leading-snug text-slate-800">{value}</p>
+                  <p className="mt-1 break-words text-sm font-black leading-snug text-slate-800">{value}</p>
                 </div>
               ))}
             </div>
           </section>
 
-          <aside className="space-y-4">
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <aside className="min-w-0 space-y-5">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-400">
                   <Wallet size={15} className="text-emerald-600" />
@@ -347,9 +442,9 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
                   { label: 'Advance', value: advancePaid, color: 'text-emerald-700' },
                   { label: 'Balance', value: remainingBalance, color: remainingBalance > 0 ? 'text-red-600' : 'text-slate-400' },
                 ].map(item => (
-                  <div key={item.label} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                  <div key={item.label} className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3">
                     <span className="text-xs font-bold uppercase tracking-wide text-slate-400">{item.label}</span>
-                    <span className={cn('text-sm font-black', item.color)}>Rs. {item.value.toLocaleString()}</span>
+                    <span className={cn('shrink-0 text-sm font-black', item.color)}>{money(item.value)}</span>
                   </div>
                 ))}
               </div>
@@ -362,12 +457,12 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
             </section>
 
             {order.specialInstructions && (
-              <section className="rounded-3xl border border-amber-200 bg-white p-5 shadow-sm">
+              <section className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
                 <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-amber-700">
                   <StickyNote size={15} />
                   Notes
                 </p>
-                <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
+                <p className="whitespace-pre-line break-words text-sm leading-relaxed text-slate-700">
                   {order.specialInstructions}
                 </p>
               </section>
@@ -377,7 +472,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
 
         <button
           onClick={loadOrder}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3.5 text-sm font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 active:scale-[0.98]"
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3.5 text-sm font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 active:scale-[0.98]"
         >
           <RefreshCw size={14} />
           Status Refresh Karein

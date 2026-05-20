@@ -328,7 +328,7 @@ export function Step3Confirm({
         <button
           onClick={onSubmit}
           disabled={!canSubmit || saving}
-          className="w-full bg-green-600 text-white disabled:bg-slate-300 rounded-2xl flex items-center justify-center gap-2"
+          className="w-full bg-green-600 text-white disabled:bg-slate-300 rounded-2xl flex items-center justify-center gap-2 h-5"
         >
           {saving ? (
             <>
