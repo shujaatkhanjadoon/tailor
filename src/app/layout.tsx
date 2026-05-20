@@ -16,8 +16,7 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: {
-    default:
-      "Mera Darzi - Best Tailor Management Software in Pakistan",
+    default: "Mera Darzi - Best Tailor Management Software in Pakistan",
     template: "%s | Mera Darzi",
   },
 
@@ -40,23 +39,30 @@ export const metadata: Metadata = {
   ],
 
   openGraph: {
-    title:
-      "Mera Darzi - Pakistan’s #1 Tailor Management App",
+    title: "Mera Darzi - Pakistan’s #1 Tailor Management App",
     description:
       "Manage tailoring orders, customer measurements, payments, and delivery tracking with Mera Darzi — Pakistan’s modern tailoring management solution.",
 
-    url: "https://app.meradarzi.pk/",
+    url: "https://app.meradarzi.pk",
     siteName: "Mera Darzi",
     locale: "en_PK",
     type: "website",
+     images: [
+      {
+        url: '/og-images/MeraDarzi.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Mera Darzi',
+      },
+    ],
   },
 
   twitter: {
     card: "summary_large_image",
-    title:
-      "Mera Darzi - Tailor Management Software Pakistan",
+    title: "Mera Darzi - Tailor Management Software Pakistan",
     description:
       "All-in-one tailoring management system for darzis and boutiques in Pakistan.",
+       images: ['/og-images/MeraDarzi.jpg'],
   },
 
   manifest: "/manifest.json",
@@ -72,9 +78,12 @@ export const metadata: Metadata = {
   },
 
   metadataBase: new URL("https://app.meradarzi.pk"),
-
   alternates: {
     canonical: "/",
+    languages: {
+      en: "/",
+      "x-default": "/",
+    },
   },
 
   icons: {
@@ -109,11 +118,7 @@ export default function RootLayout({
             <PageErrorBoundary>{children}</PageErrorBoundary>
           </AppShell>
         </AuthProvider>
-        <Toaster
-          position="top-right"
-          richColors
-          closeButton
-        />
+        <Toaster position="top-right" richColors closeButton />
       </body>
     </html>
   );
