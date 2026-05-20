@@ -2,7 +2,19 @@
 'use client'
 
 import { use, useEffect, useState } from 'react'
-import { RefreshCw, AlertCircle, Search, StickyNote, Wallet, UserRound, CalendarDays, Shirt } from 'lucide-react'
+import {
+  AlertCircle,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  PackageCheck,
+  RefreshCw,
+  Search,
+  Shirt,
+  StickyNote,
+  UserRound,
+  Wallet,
+} from 'lucide-react'
 import type { OrderRecord }      from '@/lib/db/schema'
 import { ORDER_STATUS_CONFIG, GARMENT_LABELS } from '@/types'
 import { isValidTrackingCode, normaliseCode } from '@/lib/tracking'
@@ -14,10 +26,21 @@ import { recipientLabel } from '@/lib/order-recipient'
 
 const STATUS_STEPS = ['received','cutting','stitching','finishing','ready','delivered'] as const
 type Step = typeof STATUS_STEPS[number]
+const STATUS_ACCENT = '#2563eb'
 type Branding = {
   name: string
   color: string
   logoUrl: string
+}
+
+function formatTrackDate(date: string) {
+  return new Intl.DateTimeFormat('en-PK', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Karachi',
+  }).format(new Date(`${date}T00:00:00+05:00`))
 }
 
 export default function TrackPage({ params }: { params: Promise<{ code: string }> }) {
@@ -87,16 +110,14 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
 
  if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="flex items-center
-                          justify-center mx-auto mb-4">
-            <Image src="/icon.svg" alt="MeraDarzi" width={56} height={56} />
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6">
+        <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-white p-6 text-center shadow-2xl shadow-slate-950/30">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50">
+            <Image src="/icon.svg" alt="MeraDarzi" width={48} height={48} />
           </div>
-          <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent
-                          rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-slate-500">Order dhoondh raha hai...</p>
-          <p className="text-xs text-slate-400 mt-1 font-mono">{normCode}</p>
+          <div className="mx-auto mb-4 h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+          <p className="text-sm font-bold text-slate-800">Order dhoondh raha hai</p>
+          <p className="mt-1 font-mono text-xs text-slate-400">{normCode}</p>
         </div>
       </div>
     )
@@ -104,45 +125,34 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
 
  if (error || !order) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center
-                      justify-center px-6 text-center">
-        <div className="w-16 h-16 bg-slate-200 rounded-2xl flex items-center
-                        justify-center mb-5">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-6 text-center">
+        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
           {error === 'invalid'
-            ? <Search size={28} className="text-slate-400" />
-            : <AlertCircle size={28} className="text-slate-400" />
+            ? <Search size={28} className="text-white" />
+            : <AlertCircle size={28} className="text-white" />
           }
         </div>
-        <h1 className="text-xl font-bold text-slate-800 mb-2">
+        <h1 className="mb-2 text-xl font-bold text-white">
           {error === 'invalid' ? 'Galat Link' : 'Order Nahi Mila'}
         </h1>
-        <p className="text-slate-500 text-sm max-w-xs leading-relaxed mb-2">
+        <p className="mb-3 max-w-xs text-sm leading-relaxed text-slate-300">
           {error === 'invalid'
             ? 'Yeh tracking link sahi nahi hai. Apne darzi se dobara link maangein.'
             : 'Order mil nahi raha. Thodi der baad dobara try karein.'}
         </p>
-        <code className="text-xs bg-slate-200 text-slate-600 px-3 py-1.5
-                         rounded-lg font-mono mb-6">
+        <code className="mb-6 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 font-mono text-xs text-slate-200">
           {normCode}
         </code>
         <button
           onClick={loadOrder}
-          className="flex items-center gap-2 bg-blue-600 text-white font-semibold
-                     px-6 py-3 rounded-xl text-sm active:scale-95 transition-transform"
+          className="flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-bold text-slate-950 transition-transform active:scale-95"
         >
           <RefreshCw size={15} />
           Dobara Try Karein
         </button>
-        <div className="flex items-center gap-2 mt-10">
-          <div className="w-6 h-6 flex items-center justify-center">
-            <Image
-              src="/icon.svg"
-              alt="MeraDarzi"
-              width={24}
-              height={24}
-            />
-          </div>
-          <span className="text-sm font-bold text-slate-600">MeraDarzi</span>
+        <div className="mt-10 flex items-center gap-2 text-white/70">
+          <Image src="/icon.svg" alt="MeraDarzi" width={24} height={24} />
+          <span className="text-sm font-bold">MeraDarzi</span>
         </div>
       </div>
     )
@@ -169,251 +179,225 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
     delivered: 'Order de diya gaya. Shukriya!',
     cancelled: 'Yeh order cancel ho gaya',
   }
+  const brandColor = branding.color || STATUS_ACCENT
+  const visibleSteps = STATUS_STEPS.filter(s => s !== 'delivered')
+  const progressPct = isCancelled
+    ? 100
+    : isDelivered
+      ? 100
+      : Math.max(8, ((Math.max(stepIdx, 0) + 1) / visibleSteps.length) * 100)
+  const paymentPct = totalAmount > 0 ? Math.min(100, Math.round((advancePaid / totalAmount) * 100)) : 0
 
   return (
-    <div className="min-h-screen bg-linear-to-b from-slate-50 to-white">
-
-      {/* Header */}
-      <div
-        className="px-5 pt-12 pb-10 text-center"
-        style={{ background: `linear-gradient(135deg, ${branding.color}, #0f172a)` }}
+    <div className="min-h-screen bg-slate-100 text-slate-950">
+      <section
+        className="relative overflow-hidden px-5 pb-28 pt-10 text-white"
+        style={{ background: `linear-gradient(140deg, ${brandColor}, #0f172a 72%)` }}
       >
-        <div className="w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center
-                        mx-auto mb-4 border border-white/20 shadow-lg overflow-hidden">
-          {branding.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={branding.logoUrl} alt="" className="w-full h-full object-cover" />
-          ) : (
-             <Image
-              src="/icon.svg"
-              alt="MeraDarzi"
-              width={56}
-              height={56}
-            />
-          )}
-        </div>
-        <h1 className="text-lg font-bold text-white mb-0.5">{branding.name || shopName}</h1>
-        <p className="text-blue-200 text-sm">Order Tracking</p>
-        <code className="inline-block mt-2 bg-white/15 text-blue-100 text-xs
-                         font-mono px-3 py-1 rounded-full border border-white/20">
-          {order.trackingCode ?? normCode}
-        </code>
-      </div>
-
-      <div className="mx-auto max-w-3xl gap-4 px-4 pb-12 lg:-mt-5">
-
-        {/* Status card */}
-        <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-lg shadow-slate-200/50 mb-4 ">
-
-          {/* Big status display */}
-          <div className="border-b border-slate-100 px-6 py-7 text-center mx-auto">
-            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-50 text-5xl ring-1 ring-slate-100">
-              <span>{sc?.emoji}</span>
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/15 ring-1 ring-white/20">
+              {branding.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={branding.logoUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <Image src="/icon.svg" alt="MeraDarzi" width={40} height={40} />
+              )}
             </div>
-            <h2 className={cn('text-2xl font-bold mb-2', sc?.color)}>
-              {sc?.label}
-            </h2>
-            <p className="text-slate-400 text-sm leading-relaxed">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold">{branding.name || shopName || 'MeraDarzi'}</p>
+              <p className="text-xs text-white/65">Order tracking</p>
+            </div>
+          </div>
+          <code className="shrink-0 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 font-mono text-xs text-white/80">
+            {order.trackingCode ?? normCode}
+          </code>
+        </div>
+
+        <div className="mx-auto mt-10 grid max-w-5xl gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
+          <div>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow-lg shadow-slate-950/10">
+              {isCancelled ? <AlertCircle size={14} /> : isDelivered ? <PackageCheck size={14} /> : <Clock3 size={14} />}
+              {isCancelled ? 'Cancelled' : isDelivered ? 'Delivered' : 'In progress'}
+            </div>
+            <h1 className="max-w-2xl text-3xl font-black leading-tight sm:text-4xl">
+              {sc?.label ?? 'Order Status'}
+            </h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-white/75 sm:text-base">
               {statusDesc[order.status]}
             </p>
           </div>
 
-          {/* Progress stepper */}
-          {!isCancelled && (
-            <div className="px-5 py-6">
-              <div className="flex items-start">
-                {STATUS_STEPS
-                  .filter(s => s !== 'delivered')
-                  .map((s, i, arr) => {
-                    const cfg    = ORDER_STATUS_CONFIG[s]
-                    const isDone = isDelivered || stepIdx > i
-                    const isCurr = !isDelivered && stepIdx === i
-                    const isLast = i === arr.length - 1
+          <div className="rounded-3xl border border-white/15 bg-white/10 p-4 shadow-2xl shadow-slate-950/20 backdrop-blur">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-white p-4 text-slate-900">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Order</p>
+                <p className="mt-1 text-xl font-black">#{String(order.orderNumber).padStart(3,'0')}</p>
+              </div>
+              <div className="rounded-2xl bg-white p-4 text-slate-900">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Due Date</p>
+                <p className="mt-1 text-sm font-black">{formatTrackDate(order.dueDate)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-                    return (
-                      <div key={s} className="flex items-center flex-1 min-w-0">
-                        <div className="flex flex-col items-center shrink-0">
-                          <div className={cn(
-                            'w-9 h-9 rounded-full flex items-center justify-center',
-                            'text-sm font-bold border-2 transition-all',
-                            isDone
-                              ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-200'
-                              : isCurr
-                              ? 'bg-white border-blue-600 text-blue-600 ring-4 ring-blue-100'
-                              : 'bg-white border-slate-200 text-slate-300'
-                          )}>
-                            {isDone ? '✓' : cfg?.emoji}
+      <main className="mx-auto -mt-20 max-w-5xl px-4 pb-12">
+        <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/70">
+            <div className="border-b border-slate-100 p-5 sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Live progress</p>
+                  <h2 className="mt-1 text-lg font-black text-slate-900">{statusDesc[order.status]}</h2>
+                </div>
+                <button
+                  onClick={loadOrder}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50"
+                  aria-label="Refresh status"
+                >
+                  <RefreshCw size={15} />
+                </button>
+              </div>
+
+              {!isCancelled && (
+                <div className="mt-6">
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${progressPct}%`, backgroundColor: brandColor }}
+                    />
+                  </div>
+                  <div className="mt-5 grid grid-cols-5 gap-2">
+                    {visibleSteps.map((s, i) => {
+                      const cfg = ORDER_STATUS_CONFIG[s]
+                      const isDone = isDelivered || stepIdx > i
+                      const isCurr = !isDelivered && stepIdx === i
+                      return (
+                        <div key={s} className="min-w-0 text-center">
+                          <div
+                            className={cn(
+                              'mx-auto flex h-9 w-9 items-center justify-center rounded-full border text-sm font-black',
+                              isDone || isCurr
+                                ? 'border-transparent text-white'
+                                : 'border-slate-200 bg-slate-50 text-slate-300'
+                            )}
+                            style={isDone || isCurr ? { backgroundColor: brandColor } : undefined}
+                          >
+                            {isDone ? <CheckCircle2 size={17} /> : cfg?.emoji}
                           </div>
                           <p className={cn(
-                            'text-[9px] mt-1.5 font-medium text-center w-12 leading-tight',
-                            isCurr  ? 'text-blue-700 font-bold' :
-                            isDone  ? 'text-slate-600' : 'text-slate-300'
+                            'mt-2 truncate text-[10px] font-bold',
+                            isDone || isCurr ? 'text-slate-800' : 'text-slate-300'
                           )}>
                             {cfg?.label}
                           </p>
                         </div>
-                        {!isLast && (
-                          <div className={cn(
-                            'flex-1 h-0.5 mb-5 mx-0.5 rounded-full transition-all',
-                            isDone ? 'bg-blue-600' : 'bg-slate-200'
-                          )} />
-                        )}
-                      </div>
-                    )
-                  })}
-              </div>
-
-              {isDelivered && (
-                <div className="mt-4 text-center">
-                  <div className="inline-flex items-center gap-2 bg-green-100 text-green-700
-                                  font-bold px-5 py-2.5 rounded-full text-sm">
-                    📦 De Diya Gaya — Shukriya!
+                      )
+                    })}
                   </div>
                 </div>
               )}
             </div>
-          )}
-        </div>
 
-        <div className="space-y-4">
-        {/* Order For */}
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 bg-slate-50 px-5 py-4">
-            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-              <UserRound size={14} className="text-blue-600" />
-              Order For
-            </p>
-          </div>
-          <div className="px-5 py-4">
-            <p className="text-lg font-black capitalize text-slate-900">{orderForText}</p>
-            <p className="mt-1 text-sm text-slate-500">
-              {order.orderForRelation && order.orderForRelation !== 'self'
-                ? 'Yeh order customer ke kisi aur family member ke liye hai.'
-                : 'Yeh order customer ke apne liye hai.'}
-            </p>
-          </div>
-        </div>
-
-        {/* Order details */}
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 bg-slate-50 px-5 py-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Order Details
-            </p>
-          </div>
-          <div className="grid grid-cols-1 divide-y divide-slate-100 min-[420px]:grid-cols-3 min-[420px]:divide-x min-[420px]:divide-y-0">
-            {[
-              { icon: Search, label:'Order #', value: `#${String(order.orderNumber).padStart(3,'0')}` },
-              { icon: Shirt, label:'Kapra', value: gc ? `${gc.emoji} ${gc.label}` : order.garmentType },
-              { icon: CalendarDays, label:'Due Date', value: new Date(order.dueDate).toLocaleDateString('en-PK', {
-                  weekday:'short', day:'numeric', month:'long' }) },
-            ].map(({ icon: Icon, label, value }) => (
-              <div key={label} className="px-5 py-4">
-                <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-                  <Icon size={15} />
-                </div>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p>
-                <p className="mt-1 text-sm font-bold leading-snug text-slate-800">{value}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Payment details */}
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-            <p className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-              <Wallet size={14} className="text-emerald-600" />
-              Payment Details
-            </p>
-          </div>
-          <div className="grid grid-cols-3 divide-x divide-slate-100">
-            {[
-              { label: 'Total', value: totalAmount },
-              { label: 'Advance', value: advancePaid },
-              { label: 'Balance', value: remainingBalance },
-            ].map(item => (
-              <div key={item.label} className="px-3 py-4 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{item.label}</p>
-                <p className={cn(
-                  'mt-1 text-sm font-black',
-                  item.label === 'Balance' && item.value > 0 ? 'text-red-600' : 'text-slate-800'
-                )}>
-                  Rs. {item.value.toLocaleString()}
+            {order.status === 'ready' && (
+              <div className="border-b border-emerald-100 bg-emerald-50 px-5 py-4 sm:px-6">
+                <p className="flex items-center gap-2 text-sm font-black text-emerald-800">
+                  <PackageCheck size={17} />
+                  Tayyar hai. Dukaan mein aa kar apna kapra le jaiye.
                 </p>
               </div>
-            ))}
-          </div>
-          <div className={cn(
-            'mx-4 mb-4 rounded-xl px-4 py-3 text-center text-xs font-bold',
-            remainingBalance > 0
-              ? 'bg-amber-50 text-amber-700'
-              : 'bg-emerald-50 text-emerald-700'
-          )}>
-            {remainingBalance > 0 ? `Rs. ${remainingBalance.toLocaleString()} abhi baaki hai` : 'Payment complete'}
-          </div>
-        </div>
+            )}
 
-        {/* Notes */}
-        {order.specialInstructions && (
-          <div className="bg-white rounded-2xl border border-amber-200 overflow-hidden shadow-sm">
-            <div className="px-5 py-4 border-b border-amber-100 bg-amber-50">
-              <p className="flex items-center gap-2 text-xs font-bold text-amber-700 uppercase tracking-wider">
-                <StickyNote size={14} />
-                Notes
-              </p>
+            <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+              {[
+                { icon: UserRound, label:'Order For', value: orderForText },
+                { icon: Shirt, label:'Kapra', value: gc ? `${gc.emoji} ${gc.label}` : order.garmentType },
+                { icon: CalendarDays, label:'Due Date', value: formatTrackDate(order.dueDate) },
+              ].map(({ icon: Icon, label, value }) => (
+                <div key={label} className="p-5">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                    <Icon size={16} />
+                  </div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
+                  <p className="mt-1 text-sm font-black leading-snug text-slate-800">{value}</p>
+                </div>
+              ))}
             </div>
-            <p className="whitespace-pre-line px-5 py-4 text-sm leading-relaxed text-slate-700">
-              {order.specialInstructions}
-            </p>
-          </div>
-        )}
+          </section>
 
-        {/* Ready celebration */}
-        {order.status === 'ready' && (
-          <div className="bg-linear-to-r from-green-50 to-emerald-50
-                          border-2 border-green-300 rounded-2xl px-5 py-6 text-center
-                          shadow-sm">
-            <p className="text-4xl mb-3">🎉</p>
-            <p className="font-bold text-green-800 text-lg mb-1">Tayyar Hai!</p>
-            <p className="text-green-600 text-sm">Dukaan mein aa kar apna kapra le jaiye</p>
-          </div>
-        )}
+          <aside className="space-y-4">
+            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-400">
+                  <Wallet size={15} className="text-emerald-600" />
+                  Payment
+                </p>
+                <p className={cn(
+                  'rounded-full px-3 py-1 text-xs font-black',
+                  remainingBalance > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+                )}>
+                  {remainingBalance > 0 ? 'Balance due' : 'Paid'}
+                </p>
+              </div>
+              <div className="space-y-3">
+                {[
+                  { label: 'Total', value: totalAmount, color: 'text-slate-900' },
+                  { label: 'Advance', value: advancePaid, color: 'text-emerald-700' },
+                  { label: 'Balance', value: remainingBalance, color: remainingBalance > 0 ? 'text-red-600' : 'text-slate-400' },
+                ].map(item => (
+                  <div key={item.label} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-400">{item.label}</span>
+                    <span className={cn('text-sm font-black', item.color)}>Rs. {item.value.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className={cn('h-full rounded-full', paymentPct === 100 ? 'bg-emerald-500' : 'bg-amber-500')}
+                  style={{ width: `${paymentPct}%` }}
+                />
+              </div>
+            </section>
+
+            {order.specialInstructions && (
+              <section className="rounded-3xl border border-amber-200 bg-white p-5 shadow-sm">
+                <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-amber-700">
+                  <StickyNote size={15} />
+                  Notes
+                </p>
+                <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
+                  {order.specialInstructions}
+                </p>
+              </section>
+            )}
+          </aside>
         </div>
 
-        {/* Refresh */}
         <button
           onClick={loadOrder}
-          className="my-4 flex w-full items-center justify-center gap-2 bg-white
-                     border border-slate-200 text-slate-500 font-medium py-3.5
-                     rounded-2xl text-sm transition-colors hover:bg-slate-50
-                     active:scale-[0.98] lg:col-span-2"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3.5 text-sm font-bold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 active:scale-[0.98]"
         >
           <RefreshCw size={14} />
           Status Refresh Karein
         </button>
 
-        {/* Footer */}
-        <div className="pt-2 pb-4 text-center lg:col-span-2">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center">
+        <footer className="pt-8 text-center">
+          <div className="mb-1 flex items-center justify-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-md bg-blue-600">
               {branding.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={branding.logoUrl} alt="" className="w-full h-full object-cover rounded-md" />
+                <img src={branding.logoUrl} alt="" className="h-full w-full object-cover" />
               ) : (
-                 <Image
-              src="/icon.svg"
-              alt="MeraDarzi"
-              width={20}
-              height={20}
-            />
+                <Image src="/icon.svg" alt="MeraDarzi" width={20} height={20} />
               )}
             </div>
             <span className="text-sm font-bold text-slate-700">{branding.name || 'MeraDarzi'}</span>
           </div>
-          <p className="text-xs text-slate-400">Powered by MeraDarzi · Pakistan 🇵🇰</p>
-        </div>
-      </div>
+          <p className="text-xs text-slate-400">Powered by MeraDarzi</p>
+        </footer>
+      </main>
     </div>
   )
 }

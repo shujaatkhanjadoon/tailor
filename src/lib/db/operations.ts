@@ -287,17 +287,36 @@ export const customerOps = {
   },
 
   async update(id: string, data: Partial<CustomerRecord>): Promise<void> {
-    await requireOk(
-      (supabase as any).from('customers').update(clean({
+    const ts = nowKarachiIso()
+    const customerPatch = clean({
         name: data.name,
         phone: data.phone,
         whatsapp: data.whatsapp ?? null,
         gender: data.gender,
         notes: data.notes ?? null,
         photo_url: data.photoUrl ?? null,
-        updated_at: nowKarachiIso(),
-      })).eq('id', id)
+        updated_at: ts,
+      })
+
+    await requireOk(
+      (supabase as any).from('customers').update(customerPatch).eq('id', id)
     )
+
+    const orderPatch = clean({
+      customer_name: data.name,
+      customer_phone: data.phone,
+      updated_at: data.name !== undefined || data.phone !== undefined ? ts : undefined,
+    })
+
+    if (Object.keys(orderPatch).length > 0) {
+      await requireOk(
+        (supabase as any)
+          .from('orders')
+          .update(orderPatch)
+          .eq('customer_id', id)
+          .is('deleted_at', null)
+      )
+    }
   },
 
   async softDelete(id: string): Promise<void> {

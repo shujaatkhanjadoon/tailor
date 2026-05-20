@@ -112,6 +112,7 @@ export default function RootLayout({
     <html lang="en" data-scroll-behavior="smooth">
       <body
         className={`${poppins.variable} min-w-0 overflow-x-clip font-sans antialiased`}
+        suppressHydrationWarning
       >
         <AuthProvider>
           <AppShell>
