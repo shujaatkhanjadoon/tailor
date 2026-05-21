@@ -1,29 +1,40 @@
 // src/lib/security/email-otp.ts
-import { Resend }  from 'resend'
+import { Resend } from 'resend'
 import { createHash, randomInt } from 'crypto'
 
-const resend  = new Resend(process.env.RESEND_API_KEY)
-const FROM    = process.env.RESEND_FROM_EMAIL ?? 'no-reply@meradarzi.pk'
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.meradarzi.pk'
-const SUPPORT_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL ?? 'darzihub9@gmail.com'
-const SUPPORT_PHONE = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? '03135634667'
-const emailLastSentAt = new Map<string, number>()
-const SYSTEM_EMAIL_INTERVAL_MS = 60_000
+const resend = new Resend(process.env.RESEND_API_KEY)
 
-async function sendSystemEmail(args: Parameters<typeof resend.emails.send>[0], key?: string) {
+// ── Sender: display name shows "MeraDarzi" in inbox ──────────────
+const FROM_ADDR     = process.env.RESEND_FROM_EMAIL ?? 'no-reply@meradarzi.pk'
+const FROM          = `MeraDarzi <${FROM_ADDR}>`
+
+const APP_URL       = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.meradarzi.pk'
+const SUPPORT_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL ?? 'darzihub9@gmail.com'
+const WA_DISPLAY    = '031356344667'
+const WA_LINK       = '923135634667'
+
+const emailLastSentAt       = new Map<string, number>()
+const SYSTEM_EMAIL_INTERVAL = 60_000
+
+// ── Rate-limited system mailer ────────────────────────────────────
+async function sendSystemEmail(
+  args: Parameters<typeof resend.emails.send>[0],
+  key?: string
+) {
   const recipients = Array.isArray(args.to) ? args.to.join(',') : String(args.to)
-  const rateKey = key ?? recipients.toLowerCase()
-  const now = Date.now()
-  const lastSentAt = emailLastSentAt.get(rateKey) ?? 0
-  if (now - lastSentAt < SYSTEM_EMAIL_INTERVAL_MS) {
-    console.warn(`[Email] Skipped rate-limited system email for ${rateKey}`)
+  const rateKey    = key ?? recipients.toLowerCase()
+  const now        = Date.now()
+  const last       = emailLastSentAt.get(rateKey) ?? 0
+  if (now - last < SYSTEM_EMAIL_INTERVAL) {
+    console.warn(`[Email] Rate-limited: ${rateKey}`)
     return { data: null, error: null }
   }
   emailLastSentAt.set(rateKey, now)
   return resend.emails.send(args)
 }
 
-function escapeHtml(value: unknown): string {
+// ── HTML escape ───────────────────────────────────────────────────
+function esc(value: unknown): string {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -32,161 +43,211 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", '&#039;')
 }
 
-// ── Brand palette ─────────────────────────────────────────────────
-const C = {
-  // Primary - deep navy
-  navy:         '#0F172B',
-  navyMid:      '#1e293b',
-  navyLight:    '#334155',
+// ─────────────────────────────────────────────────────────────────
+//  DESIGN TOKENS
+// ─────────────────────────────────────────────────────────────────
+const T = {
+  // ── Header
+  headerBg:     '#0F172B',
+  accentBar:    'linear-gradient(90deg,#3b82f6 0%,#60a5fa 55%,#93c5fd 100%)',
 
-  // Accent - electric blue
+  // ── Blues
   blue:         '#3b82f6',
   blueDark:     '#2563eb',
   bluePale:     '#eff6ff',
   blueBorder:   '#bfdbfe',
+  blueDeep:     '#1e40af',
 
-  // Neutrals
+  // ── Neutrals
   white:        '#ffffff',
-  offWhite:     '#f8fafc',
-  surface:      '#f1f5f9',
+  bgPage:       '#f0f4f8',
+  bgCard:       '#ffffff',
+  bgSection:    '#f8fafc',
   border:       '#e2e8f0',
-  borderDark:   '#cbd5e1',
 
-  // Text
-  textPrimary:  '#0f172a',
+  // ── Text
+  textHeading:  '#0f172a',
   textBody:     '#475569',
   textMuted:    '#64748b',
   textFaint:    '#94a3b8',
 
-  // Status
-  amber:        '#fffbeb',
+  // ── Status — amber
+  amberBg:      '#fffbeb',
   amberBorder:  '#fde68a',
+  amberLeft:    '#f59e0b',
   amberText:    '#78350f',
-  green:        '#f0fdf4',
+
+  // ── Status — green
+  greenBg:      '#f0fdf4',
   greenBorder:  '#bbf7d0',
+  greenLeft:    '#16a34a',
   greenText:    '#14532d',
 
-  // Label
-  labelBg:      '#f8fafc',
+  // ── Typography
+  fontSans:     `'Inter','Segoe UI',Helvetica,Arial,sans-serif`,
+  fontMono:     `'Courier New',Courier,monospace`,
+  fontImport:   `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');`,
 } as const
 
-// ── Typography ────────────────────────────────────────────────────
-const FONT_HEADING = `'Inter', 'Segoe UI', Arial, sans-serif`
-const FONT_BODY    = `'Inter', 'Segoe UI', Arial, sans-serif`
-const FONT_MONO    = `'Courier New', Courier, monospace`
+// ─────────────────────────────────────────────────────────────────
+//  RESPONSIVE CSS  (single source of truth)
+// ─────────────────────────────────────────────────────────────────
+const CSS = `
+  /* ── Reset ── */
+  body,table,td,a { -webkit-text-size-adjust:100%;-ms-text-size-adjust:100%; }
+  table,td        { mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse; }
+  img             { -ms-interpolation-mode:bicubic;border:0;outline:none;text-decoration:none;display:block; }
+  body            { margin:0!important;padding:0!important;width:100%!important;background-color:${T.bgPage}; }
+  a[x-apple-data-detectors] { color:inherit!important;text-decoration:none!important; }
 
-const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');`
+  /* ── Base element styles ── */
+  .email-shell  { background-color:${T.bgPage}; }
+  .email-wrap   { width:95%;max-width:640px;margin:0 auto; }
 
-// ── Header colours ────────────────────────────────────────────────
-const HEADER_BG       = `#0F172B`
-const ACCENT_BAR      = `linear-gradient(90deg, #3b82f6 0%, #60a5fa 50%, #93c5fd 100%)`
-const BADGE_BG        = `rgba(59,130,246,0.18)`
-const BADGE_BORDER    = `rgba(96,165,250,0.35)`
+  /* ── Mobile — ≤ 600px ── */
+  @media only screen and (max-width:600px) {
 
-// ── Responsive CSS ────────────────────────────────────────────────
-const RESPONSIVE_CSS = `
-  body, table, td, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
-  table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; border-collapse:collapse; }
-  img { -ms-interpolation-mode:bicubic; border:0; outline:none; text-decoration:none; display:block; }
-  body { margin:0!important; padding:0!important; width:100%!important; background-color:#eef2f7; }
-  a[x-apple-data-detectors] { color:inherit!important; text-decoration:none!important; }
+    /* Fluid container */
+    .email-wrap   { width:100%!important;max-width:100%!important; }
 
-  @media only screen and (max-width:620px) {
-    .email-container { width:100%!important; max-width:100%!important; }
-    .hero-pad  { padding:24px 20px!important; }
-    .body-pad  { padding:28px 20px!important; }
-    .footer-pad { padding:22px 20px 28px!important; }
+    /* Header padding */
+    .hdr-pad      { padding:22px 18px 10px!important; }
+    .hdr-title    { padding:16px 18px 28px!important; }
 
-    /* ── CTA button goes full-width on mobile ── */
-    .cta-wrapper { width:100%!important; }
-    .cta-btn {
+    /* Body / footer */
+    .body-pad     { padding:26px 18px!important; }
+    .footer-pad   { padding:22px 18px 28px!important; }
+
+    /* Logo + badge: stack vertically */
+    .logo-cell    { display:block!important;width:100%!important;padding-bottom:10px!important; }
+    .badge-cell   { display:block!important;width:100%!important;text-align:left!important; }
+
+    /* CTA: full width */
+    .cta-td       { width:100%!important;display:block!important; }
+    .cta-btn      {
       display:block!important;
       width:100%!important;
-      text-align:center!important;
       box-sizing:border-box!important;
-      padding:15px 20px!important;
+      text-align:center!important;
+      padding:15px 18px!important;
     }
 
-    /* ── Badge pill stacks under logo on mobile ── */
-    .badge-cell {
+    /* OTP digit */
+    .otp-code     { font-size:40px!important;letter-spacing:10px!important; }
+
+    /* Detail table */
+    .dl-label     { width:36%!important;font-size:11px!important; }
+    .dl-value     { font-size:12px!important; }
+
+    /* Headings */
+    .email-title  { font-size:20px!important;line-height:1.35!important; }
+
+    /* Footer links: stack */
+    .f-link-cell  {
       display:block!important;
       width:100%!important;
-      text-align:left!important;
-      padding-top:10px!important;
-    }
-
-    /* ── OTP digit shrinks gracefully ── */
-    .otp-digit { font-size:38px!important; letter-spacing:8px!important; }
-
-    /* ── Detail table font sizes ── */
-    .detail-label { width:38%!important; font-size:11px!important; }
-    .detail-value { font-size:12px!important; }
-
-    /* ── Page title ── */
-    h1.email-title { font-size:20px!important; line-height:1.35!important; }
-
-    /* ── Step numbers align top ── */
-    .step-num { width:28px!important; }
-
-    /* ── Footer link cells stack ── */
-    .footer-link-cell {
-      display:block!important;
-      border-right:none!important;
-      border-bottom:1px solid #e2e8f0!important;
-      padding:6px 0!important;
       text-align:center!important;
+      border-right:none!important;
+      padding:7px 0!important;
     }
+  }
+
+  /* ── Tablet — 601 – 768px ── */
+  @media only screen and (min-width:601px) and (max-width:768px) {
+    .email-wrap   { width:96%!important; }
+    .email-title  { font-size:22px!important; }
+    .otp-code     { font-size:44px!important; }
   }
 `
 
-// ── Pixel-perfect detail table ────────────────────────────────────
-function detailTable(rows: [string, unknown][]) {
-  return `
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
-           style="border-collapse:collapse;margin:0 0 8px;border-radius:10px;overflow:hidden;border:1px solid ${C.border};">
-      ${rows.map(([label, value], i) => `
-        <tr>
-          <td class="detail-label" width="34%"
-              style="padding:11px 14px;background:${C.labelBg};color:${C.textMuted};
-                     font-size:11px;font-family:${FONT_BODY};font-weight:600;
-                     text-transform:uppercase;letter-spacing:0.07em;
-                     border-bottom:${i === rows.length - 1 ? 'none' : `1px solid ${C.border}`};
-                     vertical-align:top;">
-            ${escapeHtml(label)}
-          </td>
-          <td class="detail-value"
-              style="padding:11px 14px;background:${C.white};color:${C.textPrimary};
-                     font-size:13px;font-family:${FONT_BODY};font-weight:500;
-                     border-left:1px solid ${C.border};
-                     border-bottom:${i === rows.length - 1 ? 'none' : `1px solid ${C.border}`};
-                     vertical-align:top;word-break:break-word;">
-            ${escapeHtml(value)}
-          </td>
-        </tr>
-      `).join('')}
-    </table>
-  `
+// ─────────────────────────────────────────────────────────────────
+//  SHARED BUILDING BLOCKS
+// ─────────────────────────────────────────────────────────────────
+
+/** Key–value detail table (email-safe) */
+function detailTable(rows: [string, unknown][]): string {
+  return /* html */`
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+         style="border-collapse:collapse;border-radius:10px;overflow:hidden;
+                border:1px solid ${T.border};margin:0 0 4px;">
+    ${rows.map(([label, val], i) => {
+      const last = i === rows.length - 1
+      const borderBottom = last ? 'none' : `1px solid ${T.border}`
+      return /* html */`
+      <tr>
+        <td class="dl-label" width="32%"
+            style="padding:11px 14px;background:${T.bgSection};color:${T.textMuted};
+                   font-family:${T.fontSans};font-size:11px;font-weight:600;
+                   text-transform:uppercase;letter-spacing:0.07em;vertical-align:top;
+                   border-bottom:${borderBottom};">
+          ${esc(label)}
+        </td>
+        <td class="dl-value"
+            style="padding:11px 14px;background:${T.white};color:${T.textHeading};
+                   font-family:${T.fontSans};font-size:13px;font-weight:500;
+                   border-left:1px solid ${T.border};border-bottom:${borderBottom};
+                   vertical-align:top;word-break:break-word;">
+          ${esc(val)}
+        </td>
+      </tr>`
+    }).join('')}
+  </table>`
 }
 
-// ── Shared footer ─────────────────────────────────────────────────
-function sharedFooter() {
-  return `
+/** VML + HTML CTA button — renders in Outlook AND mobile */
+function ctaButton(label: string, url: string): string {
+  return /* html */`
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0"
+         style="margin-top:28px;">
+    <tr>
+      <td class="cta-td" align="left">
+        <!--[if mso]>
+        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml"
+                     xmlns:w="urn:schemas-microsoft-com:office:word"
+                     href="${url}"
+                     style="height:48px;v-text-anchor:middle;width:240px;"
+                     arcsize="20%" stroke="f" fillcolor="${T.blue}">
+          <w:anchorlock/>
+          <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;">
+            ${esc(label)} &#8594;
+          </center>
+        </v:roundrect>
+        <![endif]-->
+        <!--[if !mso]><!-->
+        <a href="${url}" class="cta-btn"
+           style="display:inline-block;padding:14px 34px;
+                  background-color:${T.blue};color:${T.white};
+                  font-family:${T.fontSans};font-size:14px;font-weight:700;
+                  text-decoration:none;border-radius:10px;letter-spacing:0.02em;
+                  box-shadow:0 4px 16px rgba(59,130,246,0.32);mso-hide:all;">
+          ${esc(label)} &#8594;
+        </a>
+        <!--<![endif]-->
+      </td>
+    </tr>
+  </table>`
+}
+
+/** Shared footer */
+function footer(): string {
+  return /* html */`
   <tr>
     <td class="footer-pad"
-        style="padding:26px 40px 32px;background:${C.offWhite};
-               border-radius:0 0 16px 16px;border-top:1px solid ${C.border};">
+        style="padding:26px 36px 32px;background:${T.bgSection};
+               border-radius:0 0 14px 14px;border-top:1px solid ${T.border};">
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
 
-        <!-- Logo row -->
+        <!-- Logo -->
         <tr>
           <td align="center" style="padding-bottom:14px;">
             <a href="${APP_URL}" style="display:inline-block;text-decoration:none;line-height:0;">
-              <img src="https://app.meradarzi.pk/logo.png" width="110" height="auto" alt="MeraDarzi"
-                   style="display:block;width:110px;max-width:110px;height:auto;opacity:0.8;">
+              <img src="https://app.meradarzi.pk/logo.png" width="108" height="auto" alt="MeraDarzi"
+                   style="width:108px;max-width:108px;height:auto;opacity:0.75;">
             </a>
-            <p style="margin:8px 0 0;color:${C.textFaint};font-family:${FONT_BODY};
-                      font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;">
-              Pakistan's #1 Tailor Management App
+            <p style="margin:8px 0 0;color:${T.textFaint};font-family:${T.fontSans};
+                      font-size:10px;font-weight:600;letter-spacing:0.09em;
+                      text-transform:uppercase;">
+              Pakistan&rsquo;s #1 Tailor Management App
             </p>
           </td>
         </tr>
@@ -194,30 +255,31 @@ function sharedFooter() {
         <!-- Divider -->
         <tr>
           <td style="padding-bottom:16px;">
-            <div style="height:1px;background:${C.border};font-size:0;line-height:0;">&nbsp;</div>
+            <div style="height:1px;background:${T.border};font-size:0;line-height:0;">&nbsp;</div>
           </td>
         </tr>
 
-        <!-- Support links -->
+        <!-- Links row -->
         <tr>
           <td align="center">
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0"
+                   style="margin:0 auto;">
               <tr>
-                <td class="footer-link-cell"
-                    style="padding:0 14px;border-right:1px solid ${C.border};">
+                <td class="f-link-cell"
+                    style="padding:0 14px;border-right:1px solid ${T.border};">
                   <a href="mailto:${SUPPORT_EMAIL}"
-                     style="color:${C.blue};font-family:${FONT_BODY};font-size:12px;
+                     style="color:${T.blue};font-family:${T.fontSans};font-size:12px;
                             font-weight:500;text-decoration:none;">${SUPPORT_EMAIL}</a>
                 </td>
-                <td class="footer-link-cell"
-                    style="padding:0 14px;border-right:1px solid ${C.border};">
-                  <a href="https://wa.me/923135634667"
-                     style="color:${C.textBody};font-family:${FONT_BODY};font-size:12px;
-                            font-weight:500;text-decoration:none;">${escapeHtml(SUPPORT_PHONE)}</a>
+                <td class="f-link-cell"
+                    style="padding:0 14px;border-right:1px solid ${T.border};">
+                  <a href="https://wa.me/${WA_LINK}"
+                     style="color:${T.textBody};font-family:${T.fontSans};font-size:12px;
+                            font-weight:500;text-decoration:none;">${WA_DISPLAY}</a>
                 </td>
-                <td class="footer-link-cell" style="padding:0 14px;">
+                <td class="f-link-cell" style="padding:0 14px;">
                   <a href="${APP_URL}"
-                     style="color:${C.blue};font-family:${FONT_BODY};font-size:12px;
+                     style="color:${T.blue};font-family:${T.fontSans};font-size:12px;
                             font-weight:500;text-decoration:none;">meradarzi.pk</a>
                 </td>
               </tr>
@@ -227,16 +289,16 @@ function sharedFooter() {
 
         <!-- Divider -->
         <tr>
-          <td style="padding:16px 0 14px;">
-            <div style="height:1px;background:${C.border};font-size:0;line-height:0;">&nbsp;</div>
+          <td style="padding:16px 0 13px;">
+            <div style="height:1px;background:${T.border};font-size:0;line-height:0;">&nbsp;</div>
           </td>
         </tr>
 
         <!-- Copyright -->
         <tr>
           <td align="center">
-            <p style="margin:0;color:${C.textFaint};font-family:${FONT_BODY};
-                      font-size:11px;line-height:1.8;">
+            <p style="margin:0;color:${T.textFaint};font-family:${T.fontSans};
+                      font-size:11px;line-height:1.85;">
               &copy; ${new Date().getFullYear()} MeraDarzi. All rights reserved.<br>
               This email was sent because you have an account with MeraDarzi.
             </p>
@@ -245,55 +307,24 @@ function sharedFooter() {
 
       </table>
     </td>
-  </tr>
-  `
+  </tr>`
 }
 
-// ── CTA button (MSO + HTML) ───────────────────────────────────────
-function ctaButton(label: string, url: string) {
-  return `
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0"
-           class="cta-wrapper" style="margin-top:28px;">
-      <tr>
-        <td align="left">
-          <!--[if mso]>
-          <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml"
-                       xmlns:w="urn:schemas-microsoft-com:office:word"
-                       href="${url}" style="height:48px;v-text-anchor:middle;width:220px;"
-                       arcsize="25%" stroke="f" fillcolor="#3b82f6">
-            <w:anchorlock/>
-            <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;">
-              ${escapeHtml(label)} &rarr;
-            </center>
-          </v:roundrect>
-          <![endif]-->
-          <!--[if !mso]><!-->
-          <a href="${url}" class="cta-btn"
-             style="display:inline-block;padding:14px 32px;background-color:#3b82f6;
-                    color:#ffffff;font-family:${FONT_BODY};font-size:14px;font-weight:700;
-                    text-decoration:none;border-radius:10px;letter-spacing:0.02em;
-                    box-shadow:0 4px 14px rgba(59,130,246,0.35);mso-hide:all;">
-            ${escapeHtml(label)} &rarr;
-          </a>
-          <!--<![endif]-->
-        </td>
-      </tr>
-    </table>
-  `
-}
-
-// ── Master branded template ───────────────────────────────────────
-function brandedEmailTemplate(opts: {
+// ─────────────────────────────────────────────────────────────────
+//  MASTER BRANDED TEMPLATE
+// ─────────────────────────────────────────────────────────────────
+function brandedTemplate(opts: {
   title:        string
   preview?:     string
   body:         string
   ctaLabel?:    string
   ctaUrl?:      string
   accentBadge?: string
-}) {
-  return `
+}): string {
+  return /* html */`
 <!doctype html>
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml"
+<html lang="en"
+      xmlns="http://www.w3.org/1999/xhtml"
       xmlns:v="urn:schemas-microsoft-com:vml"
       xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -301,95 +332,99 @@ function brandedEmailTemplate(opts: {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
-  <title>${escapeHtml(opts.title)}</title>
-  <!--[if mso]>
-  <noscript>
-    <xml>
-      <o:OfficeDocumentSettings>
-        <o:AllowPNG/>
-        <o:PixelsPerInch>96</o:PixelsPerInch>
-      </o:OfficeDocumentSettings>
-    </xml>
-  </noscript>
-  <![endif]-->
-  <style>
-    ${FONT_IMPORT}
-    ${RESPONSIVE_CSS}
-  </style>
+  <title>${esc(opts.title)}</title>
+  <!--[if mso]><noscript><xml>
+    <o:OfficeDocumentSettings>
+      <o:AllowPNG/>
+      <o:PixelsPerInch>96</o:PixelsPerInch>
+    </o:OfficeDocumentSettings>
+  </xml></noscript><![endif]-->
+  <style>${T.fontImport}${CSS}</style>
 </head>
-<body style="margin:0;padding:0;background-color:#eef2f7;font-family:${FONT_BODY};word-break:break-word;">
 
-  <!-- Preheader -->
+<body class="email-shell"
+      style="margin:0;padding:0;background-color:${T.bgPage};
+             font-family:${T.fontSans};word-break:break-word;">
+
+  <!-- Preheader (hidden) -->
   <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">
-    ${escapeHtml(opts.preview ?? opts.title)}&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;
+    ${esc(opts.preview ?? opts.title)}&#847;&#847;&#847;&#847;&#847;&#847;&#847;&#847;&#847;&#847;
   </div>
 
+  <!-- Outer wrapper -->
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"
-         style="background-color:#eef2f7;">
+         style="background-color:${T.bgPage};">
     <tr>
-      <td align="center" style="padding:40px 12px;">
+      <td align="center" style="padding:36px 0 48px;">
 
-        <!-- Email container -->
-        <table role="presentation" class="email-container" cellspacing="0" cellpadding="0" border="0"
-               width="620" style="max-width:620px;width:100%;">
+        <!-- ╔══════════════════════ EMAIL CARD ══════════════════════╗ -->
+        <table role="presentation" class="email-wrap" cellspacing="0" cellpadding="0" border="0"
+               style="width:95%;max-width:640px;border-radius:14px;
+                      box-shadow:0 8px 40px rgba(15,23,43,0.13);">
 
-          <!-- ══ HEADER ══ -->
+          <!-- ══ HEADER ══════════════════════════════════════════ -->
           <tr>
-            <td style="border-radius:16px 16px 0 0;overflow:hidden;background:${HEADER_BG};">
+            <td style="border-radius:14px 14px 0 0;background:${T.headerBg};overflow:hidden;">
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
 
-                <!-- Top accent bar -->
+                <!-- Accent stripe -->
                 <tr>
-                  <td style="height:3px;background:${ACCENT_BAR};font-size:0;line-height:0;">&nbsp;</td>
+                  <td style="height:3px;background:${T.accentBar};font-size:0;line-height:0;">&nbsp;</td>
                 </tr>
 
-                <!-- Logo + badge -->
+                <!-- Logo + badge row -->
                 <tr>
-                  <td class="hero-pad" style="padding:30px 40px 12px;">
+                  <td class="hdr-pad" style="padding:28px 36px 12px;">
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                       <tr>
-                        <td style="vertical-align:middle;">
+                        <!-- Logo -->
+                        <td class="logo-cell" style="vertical-align:middle;">
                           <a href="${APP_URL}" style="display:inline-block;text-decoration:none;line-height:0;">
-                            <img src="https://app.meradarzi.pk/logo.png" width="148" height="auto"
-                                 alt="MeraDarzi"
-                                 style="display:block;width:148px;max-width:148px;height:auto;">
+                            <img src="https://app.meradarzi.pk/logo.png"
+                                 width="144" height="auto" alt="MeraDarzi"
+                                 style="display:block;width:144px;max-width:144px;height:auto;">
                           </a>
                         </td>
-                        ${opts.accentBadge ? `
+                        ${opts.accentBadge ? /* html */`
+                        <!-- Badge -->
                         <td class="badge-cell" align="right" style="vertical-align:middle;">
-                          <span style="display:inline-block;background:${BADGE_BG};
-                                       color:#93c5fd;font-family:${FONT_BODY};font-size:10px;
-                                       font-weight:700;padding:5px 14px;border-radius:20px;
+                          <span style="display:inline-block;
+                                       background:rgba(59,130,246,0.15);
+                                       color:#93c5fd;
+                                       font-family:${T.fontSans};font-size:10px;font-weight:700;
+                                       padding:5px 14px;border-radius:20px;
                                        letter-spacing:0.1em;text-transform:uppercase;
-                                       border:1px solid ${BADGE_BORDER};">
-                            ${escapeHtml(opts.accentBadge)}
+                                       border:1px solid rgba(96,165,250,0.30);">
+                            ${esc(opts.accentBadge)}
                           </span>
-                        </td>
-                        ` : ''}
+                        </td>` : ''}
                       </tr>
                     </table>
                   </td>
                 </tr>
 
-                <!-- Divider -->
+                <!-- Subtle rule -->
                 <tr>
-                  <td style="padding:0 40px;">
-                    <div style="height:1px;background:rgba(255,255,255,0.08);font-size:0;line-height:0;">&nbsp;</div>
+                  <td style="padding:0 36px;">
+                    <div style="height:1px;background:rgba(255,255,255,0.07);
+                                font-size:0;line-height:0;">&nbsp;</div>
                   </td>
                 </tr>
 
                 <!-- Title block -->
                 <tr>
-                  <td class="hero-pad" style="padding:22px 40px 34px;">
+                  <td class="hdr-title" style="padding:20px 36px 32px;">
                     <h1 class="email-title"
-                        style="margin:0 0 10px;color:#f8fafc;font-family:${FONT_HEADING};
-                               font-size:24px;font-weight:700;line-height:1.3;letter-spacing:-0.4px;">
-                      ${escapeHtml(opts.title)}
+                        style="margin:0 0 10px;color:#f1f5f9;
+                               font-family:${T.fontSans};font-size:24px;font-weight:700;
+                               line-height:1.3;letter-spacing:-0.4px;">
+                      ${esc(opts.title)}
                     </h1>
-                    ${opts.preview ? `
-                    <p style="margin:0;color:rgba(248,250,252,0.60);font-family:${FONT_BODY};
-                               font-size:14px;font-weight:400;line-height:1.7;">
-                      ${escapeHtml(opts.preview)}
+                    ${opts.preview ? /* html */`
+                    <p style="margin:0;color:rgba(241,245,249,0.58);
+                               font-family:${T.fontSans};font-size:14px;
+                               font-weight:400;line-height:1.75;">
+                      ${esc(opts.preview)}
                     </p>` : ''}
                   </td>
                 </tr>
@@ -398,19 +433,19 @@ function brandedEmailTemplate(opts: {
             </td>
           </tr>
 
-          <!-- ══ BODY ══ -->
+          <!-- ══ BODY ════════════════════════════════════════════ -->
           <tr>
-            <td class="body-pad" style="padding:36px 40px;background:${C.white};">
+            <td class="body-pad" style="padding:36px;background:${T.bgCard};">
               ${opts.body}
               ${opts.ctaUrl && opts.ctaLabel ? ctaButton(opts.ctaLabel, opts.ctaUrl) : ''}
             </td>
           </tr>
 
-          <!-- ══ FOOTER ══ -->
-          ${sharedFooter()}
+          <!-- ══ FOOTER ══════════════════════════════════════════ -->
+          ${footer()}
 
         </table>
-        <!-- /container -->
+        <!-- ╚═══════════════════════════════════════════════════╝ -->
 
       </td>
     </tr>
@@ -419,31 +454,34 @@ function brandedEmailTemplate(opts: {
 </html>`
 }
 
-// ── Generate 6-digit OTP ──────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+//  PUBLIC HELPERS
+// ─────────────────────────────────────────────────────────────────
 export function generateOTP(): string {
   return String(randomInt(100000, 999999))
 }
 
-// ── Hash OTP for storage ──────────────────────────────────────────
 export function hashOTP(otp: string): string {
   return createHash('sha256').update(otp + process.env.ADMIN_SECRET).digest('hex')
 }
 
-// ── Send OTP email ────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+//  OTP EMAIL  (standalone template — keeps OTP-specific layout)
+// ─────────────────────────────────────────────────────────────────
 export async function sendOTPEmail(
   email:   string,
   otp:     string,
   purpose: 'signup' | 'login' = 'signup'
 ): Promise<{ success: boolean; error?: string }> {
   const isSignup = purpose === 'signup'
-
-  const subject = isSignup
+  const subject  = isSignup
     ? 'MeraDarzi — Account Verify Karein'
     : 'MeraDarzi — Login OTP'
 
-  const html = `
+  const html = /* html */`
 <!doctype html>
-<html lang="ur" xmlns="http://www.w3.org/1999/xhtml"
+<html lang="ur"
+      xmlns="http://www.w3.org/1999/xhtml"
       xmlns:v="urn:schemas-microsoft-com:vml"
       xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -452,73 +490,75 @@ export async function sendOTPEmail(
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
   <title>${subject}</title>
-  <!--[if mso]>
-  <noscript>
-    <xml>
-      <o:OfficeDocumentSettings>
-        <o:AllowPNG/>
-        <o:PixelsPerInch>96</o:PixelsPerInch>
-      </o:OfficeDocumentSettings>
-    </xml>
-  </noscript>
-  <![endif]-->
-  <style>
-    ${FONT_IMPORT}
-    ${RESPONSIVE_CSS}
-  </style>
+  <!--[if mso]><noscript><xml>
+    <o:OfficeDocumentSettings>
+      <o:AllowPNG/>
+      <o:PixelsPerInch>96</o:PixelsPerInch>
+    </o:OfficeDocumentSettings>
+  </xml></noscript><![endif]-->
+  <style>${T.fontImport}${CSS}</style>
 </head>
-<body style="margin:0;padding:0;background-color:#eef2f7;font-family:${FONT_BODY};word-break:break-word;">
+
+<body class="email-shell"
+      style="margin:0;padding:0;background-color:${T.bgPage};
+             font-family:${T.fontSans};word-break:break-word;">
 
   <!-- Preheader -->
   <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">
-    ${isSignup ? 'Verification code:' : 'Login OTP:'} ${otp} — 10 minute mein expire hoga.&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;
+    ${isSignup ? 'Verification code:' : 'Login OTP:'} ${otp}
+    — 10 minute mein expire hoga.&#847;&#847;&#847;&#847;&#847;
   </div>
 
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"
-         style="background:#eef2f7;">
+         style="background:${T.bgPage};">
     <tr>
-      <td align="center" style="padding:40px 12px;">
-        <table role="presentation" class="email-container" cellspacing="0" cellpadding="0" border="0"
-               width="580" style="max-width:580px;width:100%;">
+      <td align="center" style="padding:36px 0 48px;">
+
+        <table role="presentation" class="email-wrap" cellspacing="0" cellpadding="0" border="0"
+               style="width:95%;max-width:600px;border-radius:14px;
+                      box-shadow:0 8px 40px rgba(15,23,43,0.13);">
 
           <!-- ══ HEADER ══ -->
           <tr>
-            <td style="border-radius:16px 16px 0 0;overflow:hidden;background:${HEADER_BG};">
+            <td style="border-radius:14px 14px 0 0;background:${T.headerBg};overflow:hidden;">
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
 
-                <!-- Accent bar -->
+                <!-- Accent stripe -->
                 <tr>
-                  <td style="height:3px;background:${ACCENT_BAR};font-size:0;line-height:0;">&nbsp;</td>
+                  <td style="height:3px;background:${T.accentBar};font-size:0;line-height:0;">&nbsp;</td>
                 </tr>
 
                 <!-- Logo -->
                 <tr>
-                  <td class="hero-pad" style="padding:28px 36px 16px;">
+                  <td class="hdr-pad" style="padding:26px 34px 14px;">
                     <a href="${APP_URL}" style="display:inline-block;text-decoration:none;line-height:0;">
-                      <img src="https://app.meradarzi.pk/logo.png" width="140" height="auto"
-                           alt="MeraDarzi"
-                           style="display:block;width:140px;max-width:140px;height:auto;">
+                      <img src="https://app.meradarzi.pk/logo.png"
+                           width="136" height="auto" alt="MeraDarzi"
+                           style="display:block;width:136px;max-width:136px;height:auto;">
                     </a>
                   </td>
                 </tr>
 
-                <!-- Divider -->
+                <!-- Rule -->
                 <tr>
-                  <td style="padding:0 36px;">
-                    <div style="height:1px;background:rgba(255,255,255,0.08);font-size:0;line-height:0;">&nbsp;</div>
+                  <td style="padding:0 34px;">
+                    <div style="height:1px;background:rgba(255,255,255,0.07);
+                                font-size:0;line-height:0;">&nbsp;</div>
                   </td>
                 </tr>
 
                 <!-- Title -->
                 <tr>
-                  <td class="hero-pad" style="padding:20px 36px 32px;">
+                  <td class="hdr-title" style="padding:18px 34px 30px;">
                     <h1 class="email-title"
-                        style="margin:0 0 10px;color:#f8fafc;font-family:${FONT_HEADING};
-                               font-size:22px;font-weight:700;line-height:1.3;letter-spacing:-0.3px;">
+                        style="margin:0 0 9px;color:#f1f5f9;
+                               font-family:${T.fontSans};font-size:22px;font-weight:700;
+                               line-height:1.3;letter-spacing:-0.3px;">
                       ${isSignup ? 'Aapka Account Verify Karein' : 'Login Verification Code'}
                     </h1>
-                    <p style="margin:0;color:rgba(248,250,252,0.60);font-family:${FONT_BODY};
-                               font-size:13px;font-weight:400;line-height:1.75;">
+                    <p style="margin:0;color:rgba(241,245,249,0.58);
+                               font-family:${T.fontSans};font-size:13px;
+                               font-weight:400;line-height:1.75;">
                       ${isSignup
                         ? 'MeraDarzi account activate karne ke liye yeh one-time code use karein.'
                         : 'Apne MeraDarzi account mein securely login karne ke liye yeh code use karein.'}
@@ -532,66 +572,73 @@ export async function sendOTPEmail(
 
           <!-- ══ BODY ══ -->
           <tr>
-            <td class="body-pad" style="padding:36px;background:${C.white};">
+            <td class="body-pad" style="padding:34px;background:${T.bgCard};">
 
-              <!-- OTP card -->
+              <!-- ── OTP card ── -->
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"
-                     style="margin:0 0 24px;">
+                     style="margin:0 0 22px;">
                 <tr>
                   <td align="center"
-                      style="background:${C.bluePale};border:1.5px solid ${C.blueBorder};
-                             border-radius:14px;padding:32px 24px;">
-                    <p style="margin:0 0 6px;color:${C.textMuted};font-family:${FONT_BODY};
-                               font-size:11px;font-weight:600;text-transform:uppercase;
-                               letter-spacing:0.12em;">
+                      style="background:${T.bluePale};border:1.5px solid ${T.blueBorder};
+                             border-radius:12px;padding:30px 20px;">
+
+                    <!-- Label -->
+                    <p style="margin:0 0 8px;color:${T.textMuted};
+                               font-family:${T.fontSans};font-size:11px;font-weight:600;
+                               text-transform:uppercase;letter-spacing:0.12em;">
                       Your One-Time Code
                     </p>
-                    <div class="otp-digit"
-                         style="font-family:${FONT_MONO};font-size:48px;font-weight:900;
-                                letter-spacing:14px;color:${C.navy};line-height:1.1;
-                                margin:8px 0 20px;padding-left:14px;">
+
+                    <!-- Digits -->
+                    <div class="otp-code"
+                         style="font-family:${T.fontMono};font-size:50px;font-weight:900;
+                                letter-spacing:14px;color:${T.headerBg};line-height:1.1;
+                                margin:4px 0 18px;padding-left:14px;">
                       ${otp}
                     </div>
+
                     <!-- Expiry pill -->
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0"
                            style="margin:0 auto;">
                       <tr>
                         <td style="background:#dbeafe;border-radius:20px;padding:6px 16px;">
-                          <p style="margin:0;color:#1e40af;font-family:${FONT_BODY};
+                          <p style="margin:0;color:${T.blueDeep};font-family:${T.fontSans};
                                     font-size:12px;font-weight:600;">
                             &#9201;&nbsp; Expires in 10 minutes
                           </p>
                         </td>
                       </tr>
                     </table>
+
                   </td>
                 </tr>
               </table>
 
-              <!-- Steps -->
+              <!-- ── How to use ── -->
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"
-                     style="margin:0 0 22px;">
+                     style="margin:0 0 20px;">
                 <tr>
-                  <td style="background:${C.surface};border-radius:12px;padding:20px 22px;">
-                    <p style="margin:0 0 14px;color:${C.textPrimary};font-family:${FONT_HEADING};
-                               font-size:13px;font-weight:600;">
+                  <td style="background:${T.bgSection};border-radius:10px;padding:18px 20px;">
+                    <p style="margin:0 0 13px;color:${T.textHeading};
+                               font-family:${T.fontSans};font-size:13px;font-weight:600;">
                       How to use this code:
                     </p>
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                      ${['Open the MeraDarzi app or website.', 'Enter the 6-digit code above when prompted.', 'Code is valid for one-time use only.'].map((step, i) => `
+                      ${['Open the MeraDarzi app or website.',
+                         'Enter the 6-digit code above when prompted.',
+                         'Code is valid for one-time use only.'].map((step, i) => /* html */`
                       <tr>
-                        <td class="step-num" width="30"
-                            style="vertical-align:top;padding:3px 12px 3px 0;">
-                          <div style="background:${HEADER_BG};color:#93c5fd;
-                                      font-family:${FONT_BODY};font-size:11px;font-weight:700;
-                                      width:22px;height:22px;border-radius:50%;
-                                      text-align:center;line-height:22px;min-width:22px;">
+                        <td width="30" style="vertical-align:top;padding:4px 12px 4px 0;">
+                          <div style="background:${T.headerBg};color:#93c5fd;
+                                      font-family:${T.fontSans};font-size:11px;font-weight:700;
+                                      width:22px;height:22px;min-width:22px;
+                                      border-radius:50%;text-align:center;line-height:22px;">
                             ${i + 1}
                           </div>
                         </td>
-                        <td style="vertical-align:top;padding:3px 0;color:${C.textBody};
-                                   font-family:${FONT_BODY};font-size:13px;font-weight:400;
-                                   line-height:1.65;">
+                        <td style="vertical-align:top;padding:4px 0;
+                                   color:${T.textBody};font-family:${T.fontSans};
+                                   font-size:13px;font-weight:400;line-height:1.65;">
                           ${step}
                         </td>
                       </tr>`).join('')}
@@ -600,13 +647,13 @@ export async function sendOTPEmail(
                 </tr>
               </table>
 
-              <!-- Security notice -->
+              <!-- ── Security notice ── -->
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
-                  <td style="background:${C.amber};border:1px solid ${C.amberBorder};
-                             border-left:4px solid #f59e0b;border-radius:0 10px 10px 0;
-                             padding:14px 16px;">
-                    <p style="margin:0;color:${C.amberText};font-family:${FONT_BODY};
+                  <td style="background:${T.amberBg};border:1px solid ${T.amberBorder};
+                             border-left:4px solid ${T.amberLeft};
+                             border-radius:0 10px 10px 0;padding:14px 16px;">
+                    <p style="margin:0;color:${T.amberText};font-family:${T.fontSans};
                                font-size:12px;font-weight:500;line-height:1.7;">
                       <strong>&#9888; Security Notice:</strong> Yeh code sirf aapke liye hai.
                       Kisi ke saath share mat karein — MeraDarzi ka koi bhi staff member kabhi
@@ -621,29 +668,21 @@ export async function sendOTPEmail(
           </tr>
 
           <!-- ══ FOOTER ══ -->
-          ${sharedFooter()}
+          ${footer()}
 
         </table>
       </td>
     </tr>
   </table>
 </body>
-</html>
-  `
+</html>`
 
   try {
-    const { error } = await resend.emails.send({
-      from:    FROM,
-      to:      email,
-      subject,
-      html,
-    })
-
+    const { error } = await resend.emails.send({ from: FROM, to: email, subject, html })
     if (error) {
       console.error('[Email OTP] Send error:', error)
       return { success: false, error: error.message }
     }
-
     return { success: true }
   } catch (e) {
     console.error('[Email OTP] Unexpected error:', e)
@@ -651,7 +690,9 @@ export async function sendOTPEmail(
   }
 }
 
-// ── Admin: shop verification alert ───────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+//  ADMIN — new shop verification alert
+// ─────────────────────────────────────────────────────────────────
 export async function sendShopVerificationAlert(opts: {
   shopName:   string
   ownerName:  string
@@ -664,51 +705,55 @@ export async function sendShopVerificationAlert(opts: {
   if (!adminEmail) return
 
   const adminUrl = `${APP_URL}/admin/dashboard/shops`
-  const waLink   = `https://wa.me/923135634667?text=${encodeURIComponent(
+  const waText   = encodeURIComponent(
     `New shop verification request:\n\nShop: ${opts.shopName}\nOwner: ${opts.ownerName}\nPhone: ${opts.ownerPhone}\nCity: ${opts.city ?? 'N/A'}\n\nReview: ${adminUrl}`
-  )}`
+  )
+  const waLink   = `https://wa.me/${WA_LINK}?text=${waText}`
 
   try {
     await sendSystemEmail({
       from:    FROM,
       to:      adminEmail,
       subject: `New Shop Verification: ${opts.shopName}`,
-      html: brandedEmailTemplate({
+      html: brandedTemplate({
         title:       'New Shop Verification',
         preview:     `${opts.shopName} needs admin review before going live.`,
         accentBadge: 'Action Required',
         ctaLabel:    'Review in Admin Panel',
         ctaUrl:      adminUrl,
-        body: `
-          <p style="margin:0 0 22px;color:${C.textBody};font-family:${FONT_BODY};
+        body: /* html */`
+          <p style="margin:0 0 20px;color:${T.textBody};font-family:${T.fontSans};
                     font-size:14px;font-weight:400;line-height:1.75;">
-            A new shop has registered on MeraDarzi and is awaiting your verification. Please
-            review the details below and approve or reject the account from the admin panel.
+            A new shop has registered on MeraDarzi and is awaiting your verification.
+            Please review the details below and approve or reject the account from the admin panel.
           </p>
           ${detailTable([
-            ['Shop Name',  opts.shopName],
-            ['Owner',      opts.ownerName],
-            ['Phone',      opts.ownerPhone],
-            ['Email',      opts.ownerEmail],
-            ['City',       opts.city ?? 'N/A'],
-            ['Shop ID',    opts.shopId],
+            ['Shop Name', opts.shopName],
+            ['Owner',     opts.ownerName],
+            ['Phone',     opts.ownerPhone],
+            ['Email',     opts.ownerEmail],
+            ['City',      opts.city ?? 'N/A'],
+            ['Shop ID',   opts.shopId],
           ])}
-          <p style="margin:20px 0 0;color:${C.textMuted};font-family:${FONT_BODY};
+          <p style="margin:18px 0 0;color:${T.textMuted};font-family:${T.fontSans};
                     font-size:12px;line-height:1.7;">
-            You can also review via WhatsApp:
-            <a href="${waLink}" style="color:${C.blue};font-weight:600;text-decoration:none;">
-              Open WhatsApp
+            Quick review via WhatsApp:&nbsp;
+            <a href="${waLink}"
+               style="color:${T.blue};font-weight:600;text-decoration:none;">
+              Open WhatsApp &#8594;
             </a>
           </p>
         `,
       }),
     })
   } catch (e) {
-    console.error('[Email] Admin notification failed:', e)
+    console.error('[Email] Admin shop verification alert failed:', e)
   }
 }
 
-// ── Shop owner: account created ───────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+//  SHOP OWNER — account created confirmation
+// ─────────────────────────────────────────────────────────────────
 export async function sendShopOwnerAccountCreated(opts: {
   shopName:    string
   ownerName:   string
@@ -722,19 +767,19 @@ export async function sendShopOwnerAccountCreated(opts: {
     from:    FROM,
     to:      opts.ownerEmail,
     subject: `Welcome to MeraDarzi, ${opts.shopName}!`,
-    html: brandedEmailTemplate({
+    html: brandedTemplate({
       title:       'Account Created Successfully',
       preview:     'Your shop account has been created and is pending admin review.',
       accentBadge: 'Pending Review',
       ctaLabel:    'Open MeraDarzi',
       ctaUrl:      APP_URL,
-      body: `
-        <p style="margin:0 0 22px;color:${C.textBody};font-family:${FONT_BODY};
+      body: /* html */`
+        <p style="margin:0 0 20px;color:${T.textBody};font-family:${T.fontSans};
                   font-size:14px;font-weight:400;line-height:1.75;">
           Assalam o Alaikum
-          <strong style="font-weight:700;color:${C.textPrimary};">${escapeHtml(opts.ownerName)}</strong>,
+          <strong style="color:${T.textHeading};font-weight:700;">${esc(opts.ownerName)}</strong>,
           your MeraDarzi shop account has been successfully created. Our admin team will review
-          your account shortly and you'll be notified once it's approved.
+          your account shortly and you&rsquo;ll be notified once it&rsquo;s approved.
         </p>
         ${detailTable([
           ['Shop Name', opts.shopName],
@@ -744,13 +789,14 @@ export async function sendShopOwnerAccountCreated(opts: {
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"
                style="margin-top:20px;">
           <tr>
-            <td style="background:${C.green};border:1px solid ${C.greenBorder};
-                       border-left:4px solid #16a34a;border-radius:0 10px 10px 0;
-                       padding:14px 16px;">
-              <p style="margin:0;color:${C.greenText};font-family:${FONT_BODY};
+            <td style="background:${T.greenBg};border:1px solid ${T.greenBorder};
+                       border-left:4px solid ${T.greenLeft};
+                       border-radius:0 10px 10px 0;padding:14px 16px;">
+              <p style="margin:0;color:${T.greenText};font-family:${T.fontSans};
                          font-size:12px;font-weight:500;line-height:1.7;">
-                <strong>&#10003; What happens next?</strong> Admin approval usually takes 24–48 hours.
-                You'll receive a confirmation email once your account is live.
+                <strong>&#10003; What happens next?</strong>&nbsp;
+                Admin approval usually takes 24&ndash;48 hours. You&rsquo;ll receive a
+                confirmation email once your account is live.
               </p>
             </td>
           </tr>
@@ -760,7 +806,9 @@ export async function sendShopOwnerAccountCreated(opts: {
   })
 }
 
-// ── Admin: new shop registration ──────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+//  ADMIN — new shop registration summary
+// ─────────────────────────────────────────────────────────────────
 export async function sendAdminShopRegistrationEmail(opts: {
   shopName:         string
   ownerName:        string
@@ -778,33 +826,36 @@ export async function sendAdminShopRegistrationEmail(opts: {
     from:    FROM,
     to:      adminEmail,
     subject: `New Shop Registration: ${opts.shopName}`,
-    html: brandedEmailTemplate({
+    html: brandedTemplate({
       title:       'New Shop Registration',
       preview:     `${opts.shopName} signed up for the ${opts.selectedPlan} plan.`,
       accentBadge: 'New Registration',
       ctaLabel:    'Open Admin Dashboard',
       ctaUrl:      `${APP_URL}/admin/dashboard/shops`,
-      body: `
-        <p style="margin:0 0 22px;color:${C.textBody};font-family:${FONT_BODY};
+      body: /* html */`
+        <p style="margin:0 0 20px;color:${T.textBody};font-family:${T.fontSans};
                   font-size:14px;font-weight:400;line-height:1.75;">
-          A new shop has completed registration on MeraDarzi. Here's a summary of the account details:
+          A new shop has completed registration on MeraDarzi.
+          Here&rsquo;s a summary of the account details:
         </p>
         ${detailTable([
-          ['Shop Name',          opts.shopName],
-          ['Owner Name',         opts.ownerName],
-          ['Email',              opts.ownerEmail],
-          ['Phone Number',       opts.ownerPhone],
-          ['Selected Plan',      opts.selectedPlan],
-          ['Registration Date',  new Date(opts.registrationDate).toLocaleString('en-PK')],
-          ['City',               opts.city ?? 'N/A'],
-          ['Shop ID',            opts.shopId],
+          ['Shop Name',         opts.shopName],
+          ['Owner Name',        opts.ownerName],
+          ['Email',             opts.ownerEmail],
+          ['Phone Number',      opts.ownerPhone],
+          ['Selected Plan',     opts.selectedPlan],
+          ['Registration Date', new Date(opts.registrationDate).toLocaleString('en-PK')],
+          ['City',              opts.city ?? 'N/A'],
+          ['Shop ID',           opts.shopId],
         ])}
       `,
     }),
   })
 }
 
-// ── Shop owner: admin action notification ─────────────────────────
+// ─────────────────────────────────────────────────────────────────
+//  SHOP OWNER — admin action notification
+// ─────────────────────────────────────────────────────────────────
 export async function sendShopOwnerAdminActionEmail(opts: {
   shopId:   string
   action:   string
@@ -828,15 +879,15 @@ export async function sendShopOwnerAdminActionEmail(opts: {
     from:    FROM,
     to:      owner.email,
     subject: opts.title,
-    html: brandedEmailTemplate({
+    html: brandedTemplate({
       title:    opts.title,
       preview:  opts.message,
       ctaLabel: 'Open Dashboard',
       ctaUrl:   APP_URL,
-      body: `
-        <p style="margin:0 0 22px;color:${C.textBody};font-family:${FONT_BODY};
+      body: /* html */`
+        <p style="margin:0 0 20px;color:${T.textBody};font-family:${T.fontSans};
                   font-size:14px;font-weight:400;line-height:1.75;">
-          ${escapeHtml(owner.name ?? 'Shop owner')}, ${escapeHtml(opts.message)}
+          ${esc(owner.name ?? 'Shop owner')}, ${esc(opts.message)}
         </p>
         ${detailTable([
           ['Action',  opts.action],
@@ -848,7 +899,9 @@ export async function sendShopOwnerAdminActionEmail(opts: {
   })
 }
 
-// ── Admin: subscription event ─────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+//  ADMIN — subscription event
+// ─────────────────────────────────────────────────────────────────
 export async function sendAdminSubscriptionEventEmail(opts: {
   shopId:          string
   event:           'upgraded' | 'downgraded' | 'renewed' | 'expired' | 'cancelled' | 'payment_submitted'
@@ -862,19 +915,14 @@ export async function sendAdminSubscriptionEventEmail(opts: {
   payerName?:      string
   expiresAt?:      string | null
 }): Promise<void> {
-  type SubscriptionShop = {
-    shop_name?:   string
-    owner_phone?: string
-    city?:        string
-    plan?:        string
-  }
+  type ShopRow = { shop_name?: string; owner_phone?: string; city?: string; plan?: string }
 
   const adminEmail  = process.env.ADMIN_NOTIFICATION_EMAIL ?? process.env.ADMIN_EMAIL
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!adminEmail) return
 
-  let shop: SubscriptionShop | null = null
+  let shop: ShopRow | null = null
   if (serviceKey && supabaseUrl) {
     try {
       const res = await fetch(
@@ -882,15 +930,15 @@ export async function sendAdminSubscriptionEventEmail(opts: {
         { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
       )
       if (res.ok) {
-        const rows = await res.json() as SubscriptionShop[]
+        const rows = await res.json() as ShopRow[]
         shop = rows?.[0] ?? null
       }
     } catch (e) {
-      console.error('[Email] Subscription shop lookup failed:', e)
+      console.error('[Email] Shop lookup failed:', e)
     }
   }
 
-  const eventLabel: Record<typeof opts.event, string> = {
+  const LABEL: Record<typeof opts.event, string> = {
     upgraded:          'Subscription Upgraded',
     downgraded:        'Subscription Downgraded',
     renewed:           'Subscription Renewed',
@@ -898,8 +946,7 @@ export async function sendAdminSubscriptionEventEmail(opts: {
     cancelled:         'Subscription Cancelled',
     payment_submitted: 'Payment Submitted',
   }
-
-  const eventBadge: Record<typeof opts.event, string> = {
+  const BADGE: Record<typeof opts.event, string> = {
     upgraded:          'Upgraded',
     downgraded:        'Downgraded',
     renewed:           'Renewed',
@@ -911,17 +958,18 @@ export async function sendAdminSubscriptionEventEmail(opts: {
   await sendSystemEmail({
     from:    FROM,
     to:      adminEmail,
-    subject: `${eventLabel[opts.event]}: ${shop?.shop_name ?? opts.shopId}`,
-    html: brandedEmailTemplate({
-      title:       eventLabel[opts.event],
+    subject: `${LABEL[opts.event]}: ${shop?.shop_name ?? opts.shopId}`,
+    html: brandedTemplate({
+      title:       LABEL[opts.event],
       preview:     `${shop?.shop_name ?? 'A shop'} triggered a subscription event.`,
-      accentBadge: eventBadge[opts.event],
+      accentBadge: BADGE[opts.event],
       ctaLabel:    'Open Admin Dashboard',
       ctaUrl:      `${APP_URL}/admin/dashboard/shops`,
-      body: `
-        <p style="margin:0 0 22px;color:${C.textBody};font-family:${FONT_BODY};
+      body: /* html */`
+        <p style="margin:0 0 20px;color:${T.textBody};font-family:${T.fontSans};
                   font-size:14px;font-weight:400;line-height:1.75;">
-          A subscription event has been triggered. Review the details below in your admin panel.
+          A subscription event has been triggered for the shop below.
+          Review the details in your admin panel.
         </p>
         ${detailTable([
           ['Event',          opts.event],
