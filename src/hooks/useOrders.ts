@@ -6,6 +6,9 @@ import { mapOrder, mapPayment, mapStatusHistory } from '@/lib/supabase/records'
 import { karachiDateString } from '@/lib/time'
 
 export type OrderFilter = 'all' | 'today' | 'overdue' | 'ready' | 'unassigned'
+const ORDER_LIST_COLUMNS = 'id,shop_id,order_number,tracking_code,customer_id,customer_name,customer_phone,order_for_relation,order_for_name,recipient_gender,measurement_id,garment_type,status,assigned_to,assigned_to_name,total_price,amount_paid,is_urgent,due_date,special_instructions,fabric_photo_url,style_photo_url,created_at,updated_at,delivered_at,deleted_at'
+const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,applied_to_balance,kind,method,recorded_by,paid_at,notes,deleted_at'
+const HISTORY_COLUMNS = 'id,order_id,old_status,new_status,changed_by,changed_at'
 
 function uniqueChannelName(name: string) {
   return `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -15,7 +18,7 @@ async function fetchOrders(shopId: string, role: 'owner' | 'karigar', memberId?:
   if (role === 'karigar' && !memberId) return []
   let query = (supabase as any)
     .from('orders')
-    .select('*')
+    .select(ORDER_LIST_COLUMNS)
     .eq('shop_id', shopId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -107,9 +110,9 @@ export function useOrder(orderId: string) {
     let cancelled = false
     const load = async () => {
       const [{ data: orderData }, { data: paymentData }, { data: historyData }] = await Promise.all([
-        (supabase as any).from('orders').select('*').eq('id', orderId).is('deleted_at', null).maybeSingle(),
-        (supabase as any).from('payments').select('*').eq('order_id', orderId).is('deleted_at', null).order('paid_at'),
-        (supabase as any).from('order_status_history').select('*').eq('order_id', orderId).order('changed_at', { ascending: false }),
+        (supabase as any).from('orders').select(ORDER_LIST_COLUMNS).eq('id', orderId).is('deleted_at', null).maybeSingle(),
+        (supabase as any).from('payments').select(PAYMENT_COLUMNS).eq('order_id', orderId).is('deleted_at', null).order('paid_at'),
+        (supabase as any).from('order_status_history').select(HISTORY_COLUMNS).eq('order_id', orderId).order('changed_at', { ascending: false }),
       ])
       if (cancelled) return
       setOrder(orderData ? mapOrder(orderData) : undefined)

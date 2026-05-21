@@ -4,6 +4,9 @@ import { orderBalance, paymentAppliedAmount, paymentSurplusAmount, sumPayments }
 import { supabase } from '@/lib/supabase/client'
 import { mapOrder, mapPayment } from '@/lib/supabase/records'
 
+const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,applied_to_balance,kind,method,recorded_by,paid_at,notes,deleted_at'
+const PAYMENT_ORDER_COLUMNS = 'id,shop_id,order_number,tracking_code,customer_id,customer_name,customer_phone,order_for_relation,order_for_name,recipient_gender,measurement_id,garment_type,status,assigned_to,assigned_to_name,total_price,amount_paid,is_urgent,due_date,special_instructions,fabric_photo_url,style_photo_url,created_at,updated_at,delivered_at,deleted_at'
+
 function uniqueChannelName(name: string) {
   return `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
@@ -51,8 +54,8 @@ export function usePayments(shopId: string | null) {
     const load = async () => {
       setIsLoading(true)
       const [{ data: paymentRows }, { data: orderRows }] = await Promise.all([
-        (supabase as any).from('payments').select('*').eq('shop_id', shopId).is('deleted_at', null).order('paid_at', { ascending: false }),
-        (supabase as any).from('orders').select('*').eq('shop_id', shopId),
+        (supabase as any).from('payments').select(PAYMENT_COLUMNS).eq('shop_id', shopId).is('deleted_at', null).order('paid_at', { ascending: false }),
+        (supabase as any).from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null),
       ])
       const orders = new Map<string, OrderRecord>((orderRows ?? []).map((row: any) => {
         const order = mapOrder(row)
@@ -144,7 +147,7 @@ export function usePendingBalances(shopId: string | null) {
     let cancelled = false
     const load = async () => {
       setIsLoading(true)
-      const { data } = await (supabase as any).from('orders').select('*').eq('shop_id', shopId).is('deleted_at', null)
+      const { data } = await (supabase as any).from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null)
       if (!cancelled) {
         setPendingOrders((data ?? []).map(mapOrder).filter((o: OrderRecord) => o.status !== 'cancelled' && orderBalance(o) > 0))
         setIsLoading(false)

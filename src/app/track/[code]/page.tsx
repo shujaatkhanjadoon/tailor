@@ -48,6 +48,7 @@ type TrackOrderQuery = {
   is: (column: string, value: null) => TrackOrderQuery
   maybeSingle: () => Promise<{ data: TrackOrderRow | null; error: unknown }>
 }
+const TRACK_ORDER_COLUMNS = 'id,shop_id,order_number,tracking_code,customer_id,customer_name,customer_phone,order_for_relation,order_for_name,recipient_gender,measurement_id,garment_type,status,assigned_to,assigned_to_name,total_price,amount_paid,is_urgent,due_date,special_instructions,fabric_photo_url,style_photo_url,created_at,updated_at,delivered_at,deleted_at,shops(shop_name,brand_name,brand_color,brand_logo_url)'
 
 function formatTrackDate(date: string) {
   return new Intl.DateTimeFormat('en-PK', {
@@ -89,7 +90,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
 
     try {
       const { data: remote } = await (supabase.from('orders') as unknown as TrackOrderQuery)
-        .select('*, shops(shop_name, brand_name, brand_color, brand_logo_url)')
+        .select(TRACK_ORDER_COLUMNS)
         .eq('tracking_code', normCode)
         .is('deleted_at', null)
         .maybeSingle()
@@ -249,7 +250,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
   return (
     <div className="min-h-dvh overflow-x-clip bg-slate-50 text-slate-950">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/15">
               {branding.logoUrl ? (
@@ -264,7 +265,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
               <p className="text-xs text-white/55">Order tracking</p>
             </div>
           </div>
-          <code className="min-w-0 max-w-[45vw] truncate rounded-full border border-white/15 bg-white/10 px-3 py-1.5 font-mono text-[11px] text-white/80 sm:max-w-none sm:text-xs">
+          <code className="min-w-0 max-w-[38vw] truncate rounded-full border border-white/15 bg-white/10 px-2.5 py-1.5 font-mono text-[10px] text-white/80 min-[380px]:max-w-[45vw] sm:max-w-none sm:px-3 sm:text-xs">
             {order.trackingCode ?? normCode}
           </code>
         </div>
@@ -274,14 +275,14 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
         className="relative text-white"
         style={{ background: `linear-gradient(140deg, ${brandColor}, #111827 78%)` }}
       >
-        <div className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] lg:px-8 lg:py-12">
+        <div className="mx-auto grid w-full max-w-6xl gap-5 px-3 py-7 min-[380px]:px-4 sm:px-6 sm:py-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] lg:px-8 lg:py-12">
           <div className="min-w-0">
             <div className="mb-4 inline-flex max-w-full items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow-lg shadow-slate-950/10">
               {isCancelled ? <AlertCircle size={14} /> : isDelivered ? <PackageCheck size={14} /> : <Clock3 size={14} />}
               {isCancelled ? 'Cancelled' : isDelivered ? 'Delivered' : 'In progress'}
             </div>
             <p className="mb-2 text-xs font-bold uppercase tracking-wide text-white/55">Current status</p>
-            <h1 className="max-w-2xl text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
+            <h1 className="max-w-2xl text-2xl font-black leading-tight min-[380px]:text-3xl sm:text-4xl lg:text-5xl">
               {sc?.label ?? 'Order Status'}
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-white/75 sm:text-base lg:text-lg">
@@ -290,10 +291,10 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
           </div>
 
           <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3 shadow-xl shadow-slate-950/20 backdrop-blur">
-            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2">
               <div className="rounded-xl bg-white p-4 text-slate-900">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Order</p>
-                <p className="mt-1 text-xl font-black">#{String(order.orderNumber).padStart(3,'0')}</p>
+                <p className="mt-1 break-words text-lg font-black sm:text-xl">#{String(order.orderNumber).padStart(3,'0')}</p>
               </div>
               <div className="rounded-xl bg-white p-4 text-slate-900">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Due Date</p>
@@ -311,7 +312,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Live progress</p>
-                  <h2 className="mt-1 text-lg font-black leading-snug text-slate-900">{statusDesc[order.status]}</h2>
+                  <h2 className="mt-1 text-base font-black leading-snug text-slate-900 min-[380px]:text-lg">{statusDesc[order.status]}</h2>
                 </div>
                 <button
                   onClick={loadOrder}
@@ -444,7 +445,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
                 ].map(item => (
                   <div key={item.label} className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3">
                     <span className="text-xs font-bold uppercase tracking-wide text-slate-400">{item.label}</span>
-                    <span className={cn('shrink-0 text-sm font-black', item.color)}>{money(item.value)}</span>
+                    <span className={cn('min-w-0 break-words text-right text-sm font-black', item.color)}>{money(item.value)}</span>
                   </div>
                 ))}
               </div>

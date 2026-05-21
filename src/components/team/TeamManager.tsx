@@ -379,19 +379,11 @@ export function TeamManager() {
   const handleDeactivate = async (member: TeamMemberRecord) => {
     if (!confirm(
       `"${member.name}" ko hatana chahte hain?\n\n` +
-      `Woh login nahi kar sakenge. Data safe rahega.`
+      `Woh login nahi kar sakenge. Unke assigned orders unassigned ho jayenge.`
     )) return
 
     try {
-      // Update Supabase
-      await (supabase as any)
-        .from('team_members')
-        .update({ is_active: false, updated_at: new Date().toISOString() })
-        .eq('id', member.id)
-
-      // Update IndexedDB
       await teamOps.deactivate(member.id)
-
       setMembers(prev => prev.filter(m => m.id !== member.id))
     } catch (e) {
       alert(`Error: ${String(e)}`)
