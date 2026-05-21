@@ -1,11 +1,12 @@
 // src/hooks/usePhotoCapture.ts
 import { useState, useCallback, useRef } from 'react'
-import { compressImage, base64ToKB }     from '@/lib/photos/compress'
-import { uploadToCloudinary, deleteFromCloudinary, cloudinaryEnabled } from '@/lib/photos/cloudinary'
+import { compressImage }                 from '@/lib/photos/compress'
+import { uploadToCloudinary, cloudinaryEnabled } from '@/lib/photos/cloudinary'
 import { db, PhotoRecord }               from '@/lib/db/schema'
 import { useAuth }                       from '@/lib/auth/AuthContext'
 import { usePlan }                       from '@/hooks/usePlan'
 import { supabase }                      from '@/lib/supabase/client'
+import { deleteOrderPhotoEverywhere }    from '@/lib/photos/delete-order-photo'
 
 interface UsePhotoCaptureOptions {
   orderId:  string
@@ -63,7 +64,7 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
 
       setState({ phase: 'saving', sizeKB: result.sizeKB, quality: result.quality })
 
-      // ── 2. Save to IndexedDB immediately (works offline) ─────
+      // ── 2. Save image preview locally only; app data lives in Supabase.
       const photo: PhotoRecord = {
         id:      crypto.randomUUID(),
         orderId,
@@ -141,22 +142,7 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
   const deletePhoto = useCallback(async (photo: PhotoRecord) => {
     setDeletingId(photo.id)
     try {
-      // Delete from Cloudinary if uploaded
-      if (photo.publicId) {
-        const deletedFromCloud = await deleteFromCloudinary(photo.publicId)
-        if (!deletedFromCloud) throw new Error('Cloud photo delete failed')
-      }
-      if (photo.cloudUrl || photo.publicId) {
-        await (supabase as any)
-          .from('order_photos')
-          .update({ deleted_at: new Date().toISOString() })
-          .eq('id', photo.id)
-      }
-      if (photo.cloudUrl && photo.publicId) {
-        await db.photos.update(photo.id, { _deleted: 1, _synced: 1 })
-      } else {
-        await db.photos.delete(photo.id)
-      }
+      await deleteOrderPhotoEverywhere(photo)
     } catch (e) {
       console.error('Delete failed:', e)
     } finally {

@@ -1,6 +1,6 @@
 ﻿// src/lib/notifications/scheduler.ts
-import { db } from '@/lib/db/schema'
 import { notifPermission } from './permission'
+import { supabase } from '@/lib/supabase/client'
 
 // Keys for localStorage settings
 const SETTINGS_KEY = 'darzi_notif_settings'
@@ -22,6 +22,13 @@ export const DEFAULT_SETTINGS: NotifSettings = {
   dueTomorrowAlerts: true,
   morningTime:       '09:00',
   eveningTime:       '18:00',
+}
+
+type NotificationOrderRow = {
+  order_number: number
+  customer_name: string
+  due_date: string
+  status: string
 }
 
 export const notifSettings = {
@@ -68,17 +75,17 @@ export const notifScheduler = {
     const today    = new Date().toISOString().split('T')[0]
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
 
-    const activeOrders = await db.orders
-      .where('shopId').equals(shopId)
-      .filter(o =>
-        o._deleted === 0 &&
-        !['delivered', 'cancelled'].includes(o.status)
-      )
-      .toArray()
+    const { data: rows = [] } = await (supabase as any)
+      .from('orders')
+      .select('order_number,customer_name,due_date,status')
+      .eq('shop_id', shopId)
+      .is('deleted_at', null)
+      .not('status', 'in', '("delivered","cancelled")')
+    const activeOrders = rows as NotificationOrderRow[]
 
-    const overdue   = activeOrders.filter(o => o.dueDate < today)
-    const dueToday  = activeOrders.filter(o => o.dueDate === today)
-    const dueTomrow = activeOrders.filter(o => o.dueDate === tomorrow)
+    const overdue   = activeOrders.filter(o => o.due_date < today)
+    const dueToday  = activeOrders.filter(o => o.due_date === today)
+    const dueTomrow = activeOrders.filter(o => o.due_date === tomorrow)
 
     // â”€â”€ Fire notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -86,7 +93,7 @@ export const notifScheduler = {
       notifPermission.fire(
         `🔴 ${overdue.length} Order Late Ho ${overdue.length === 1 ? 'Gaya' : 'Gaye'}!`,
         overdue.slice(0, 3).map(o =>
-          `#${String(o.orderNumber).padStart(3,'0')} ${o.customerName}`
+          `#${String(o.order_number).padStart(3,'0')} ${o.customer_name}`
         ).join(', ') + (overdue.length > 3 ? ` aur ${overdue.length - 3} aur` : ''),
         'darzi-overdue'
       )
@@ -98,7 +105,7 @@ export const notifScheduler = {
         notifPermission.fire(
           `📅 ${dueToday.length} Order Aaj Due ${dueToday.length === 1 ? 'Hai' : 'Hain'}`,
           dueToday.slice(0, 3).map(o =>
-            `#${String(o.orderNumber).padStart(3,'0')} ${o.customerName}`
+            `#${String(o.order_number).padStart(3,'0')} ${o.customer_name}`
           ).join(', '),
           'darzi-today'
         )
@@ -110,7 +117,7 @@ export const notifScheduler = {
         notifPermission.fire(
           `⏰ Kal ${dueTomrow.length} Order Due ${dueTomrow.length === 1 ? 'Hai' : 'Hain'}`,
           `Abhi tayyar karo: ` + dueTomrow.slice(0, 2).map(o =>
-            o.customerName
+            o.customer_name
           ).join(', '),
           'darzi-tomorrow'
         )

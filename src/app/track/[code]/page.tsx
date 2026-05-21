@@ -228,6 +228,9 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
   const orderForText = order.orderForRelation && order.orderForRelation !== 'self'
     ? recipientLabel(order.orderForRelation, order.orderForName)
     : 'Self'
+  const relationText = order.orderForRelation && order.orderForRelation !== 'self'
+    ? orderForText
+    : 'Self'
 
   const statusDesc: Record<string, string> = {
     received:  'Aapka kapra hamare paas aa gaya hai',
@@ -406,9 +409,10 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
               </div>
             )}
 
-            <div className="grid grid-cols-1 divide-y divide-slate-100 md:grid-cols-3 md:divide-x md:divide-y-0">
+            <div className="grid grid-cols-1 divide-y divide-slate-100 md:grid-cols-4 md:divide-x md:divide-y-0">
               {[
-                { icon: UserRound, label:'Order For', value: orderForText },
+                { icon: UserRound, label:'Customer', value: order.customerName },
+                { icon: UserRound, label:'Relation', value: relationText },
                 { icon: Shirt, label:'Kapra', value: gc ? `${gc.emoji} ${gc.label}` : order.garmentType },
                 { icon: CalendarDays, label:'Due Date', value: formatTrackDate(order.dueDate) },
               ].map(({ icon: Icon, label, value }) => (

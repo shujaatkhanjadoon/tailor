@@ -19,8 +19,8 @@ import { getSelectableKarigarIds } from "@/lib/team/karigar-limits";
 import { supabase } from "@/lib/supabase/client";
 import { mapMeasurement } from "@/lib/supabase/records";
 import { nowKarachiIso } from "@/lib/time";
-import { localOrderImages } from "@/lib/photos/local-order-images";
 import { isParentRelation } from "@/lib/order-recipient";
+import { cloudinaryEnabled, uploadToCloudinary } from "@/lib/photos/cloudinary";
 
 // ── UUID helper ──────────────────────────────────────────────────
 const uuid = (): string => {
@@ -68,6 +68,12 @@ const isRelationCheckError = (error: { message?: string } | null | undefined) =>
 
 const measurementRelationForLegacyDb = (relation: OrderRecipientRelation) =>
   isParentRelation(relation) ? "other" : relation;
+
+function isOrderRecipientRelation(value: unknown): value is OrderRecipientRelation {
+  return typeof value === "string" && [
+    "self", "wife", "husband", "son", "daughter", "brother", "sister", "father", "mother", "other",
+  ].includes(value);
+}
 
 export default function NewOrderPage() {
   const { shopId, currentUser } = useAuth();
@@ -120,6 +126,7 @@ function NewOrderWizard({
   const [savedOrderNo, setSavedOrderNo] = useState<number>(0);
   const [savedTrackingCode, setSavedTrackingCode] = useState("");
   const [karigars, setKarigars] = useState<TeamMemberRecord[]>([]);
+  const relationDefaultedForCustomer = useRef<string | null>(null);
 
   // ── Form data ─────────────────────────────────────────────────
   const [data, setData] = useState<Partial<WizardData>>({
@@ -146,6 +153,55 @@ function NewOrderWizard({
       );
     });
   }, [shopId]);
+
+  useEffect(() => {
+    if (!data.customerId || relationDefaultedForCustomer.current === data.customerId) return;
+    relationDefaultedForCustomer.current = data.customerId;
+
+    let cancelled = false;
+    const loadLatestRelation = async () => {
+      const [orderRes, measurementRes] = await Promise.all([
+        (supabase as any)
+          .from("orders")
+          .select("order_for_relation,order_for_name,recipient_gender,created_at")
+          .eq("customer_id", data.customerId)
+          .neq("order_for_relation", "self")
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .limit(1),
+        (supabase as any)
+          .from("measurements")
+          .select("order_for_relation,order_for_name,recipient_gender,taken_at")
+          .eq("customer_id", data.customerId)
+          .neq("order_for_relation", "self")
+          .is("deleted_at", null)
+          .order("taken_at", { ascending: false })
+          .limit(1),
+      ]);
+
+      const candidates = [
+        ...(orderRes.data ?? []).map((row: any) => ({ ...row, used_at: row.created_at })),
+        ...(measurementRes.data ?? []).map((row: any) => ({ ...row, used_at: row.taken_at })),
+      ].filter((row: any) => isOrderRecipientRelation(row.order_for_relation))
+        .sort((a: any, b: any) => String(b.used_at ?? "").localeCompare(String(a.used_at ?? "")));
+
+      const latest = candidates[0];
+      if (!latest || cancelled) return;
+
+      update({
+        orderForRelation: latest.order_for_relation,
+        orderForName: latest.order_for_name?.trim() || undefined,
+        recipientGender: latest.recipient_gender ?? data.customerGender,
+        garmentType: undefined,
+        measurementId: undefined,
+        measurements: {},
+        styleSelections: {},
+      });
+    };
+
+    loadLatestRelation().catch(console.error);
+    return () => { cancelled = true };
+  }, [data.customerId, data.customerGender]);
 
   // ── Navigation ────────────────────────────────────────────────
   const handleBack = () => {
@@ -257,21 +313,30 @@ function NewOrderWizard({
         specialInstructions: orderNotes || undefined,
         assignedTo: data.assignedTo,
         assignedToName: data.assignedToName,
-        fabricPhotoUrl: data.fabricPhotoBase64,
       });
 
       if (data.fabricPhotoBase64) {
-        localOrderImages.add({
-          id: uuid(),
-          orderId: order.id,
-          shopId,
-          type: "fabric",
-          base64: data.fabricPhotoBase64,
-          sizeKB: Math.ceil((data.fabricPhotoBase64.length * 3) / 4 / 1024),
-          takenAt: nowKarachiIso(),
-          _synced: 1,
-          _deleted: 0,
-        });
+        if (cloudinaryEnabled && typeof navigator !== "undefined" && navigator.onLine) {
+          const uploaded = await uploadToCloudinary(data.fabricPhotoBase64, shopId, order.id, "fabric");
+          if (uploaded) {
+            await (supabase as any).from("order_photos").insert({
+              id: uuid(),
+              order_id: order.id,
+              shop_id: shopId,
+              type: "fabric",
+              cloud_url: uploaded.url,
+              public_id: uploaded.publicId,
+              cloud_size_kb: Math.round(uploaded.bytes / 1024),
+              size_kb: Math.ceil((data.fabricPhotoBase64.length * 3) / 4 / 1024),
+              taken_at: nowKarachiIso(),
+              deleted_at: null,
+            });
+          } else {
+            toast.warning("Order save ho gaya, photo upload nahi hui.");
+          }
+        } else {
+          toast.warning("Order save ho gaya, photo upload ke liye Cloudinary/internet chahiye.");
+        }
       }
 
       // ── 2. Record advance payment (paymentOps sets amountPaid correctly) ──

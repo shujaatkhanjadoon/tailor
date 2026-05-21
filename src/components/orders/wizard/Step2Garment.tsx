@@ -756,9 +756,18 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
       })
 
       if (!cancelled) {
-        setKnownRecipients(
-          [...byName.values()].sort((a, b) => b.lastUsedAt.localeCompare(a.lastUsedAt))
-        )
+        const sorted = [...byName.values()].sort((a, b) => b.lastUsedAt.localeCompare(a.lastUsedAt))
+        setKnownRecipients(sorted)
+        const hasSelectedName = !!data.orderForName?.trim()
+        if (!hasSelectedName && sorted[0]) {
+          onUpdate({
+            orderForName: sorted[0].name,
+            recipientGender: sorted[0].gender ?? inferRecipientGender(selectedRelation, data.customerGender, data.recipientGender),
+            measurementId: undefined,
+            measurements: {},
+            styleSelections: {},
+          })
+        }
       }
     }
 

@@ -84,6 +84,22 @@ export async function deleteFromCloudinary(publicId: string): Promise<boolean> {
   }
 }
 
+export function publicIdFromCloudinaryUrl(url?: string | null): string | null {
+  if (!url?.includes('cloudinary.com')) return null
+  try {
+    const path = new URL(url).pathname
+    const uploadIndex = path.indexOf('/upload/')
+    if (uploadIndex === -1) return null
+    const parts = path.slice(uploadIndex + '/upload/'.length).split('/')
+    if (parts[0]?.includes(',')) parts.shift()
+    if (/^v\d+$/.test(parts[0] ?? '')) parts.shift()
+    const withoutVersion = parts.join('/')
+    return withoutVersion.replace(/\.[^.]+$/, '') || null
+  } catch {
+    return null
+  }
+}
+
 // ── Get optimised URL with transformations ────────────────────────
 // Use this for displaying — Cloudinary serves WebP automatically
 export function getOptimisedUrl(

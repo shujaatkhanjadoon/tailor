@@ -10,8 +10,8 @@ import { format, formatDistanceToNow, isToday, isTomorrow } from 'date-fns'
 import { Image } from 'lucide-react'
 import { memo, useEffect, useState } from 'react'
 import { orderBalance, orderPaymentProgress } from '@/lib/payments/calculations'
-import { localOrderImages } from '@/lib/photos/local-order-images'
 import { recipientLabel } from '@/lib/order-recipient'
+import { supabase } from '@/lib/supabase/client'
 
 interface OrderListCardProps {
   order: OrderRecord
@@ -48,7 +48,16 @@ export const OrderListCard = memo(function OrderListCard({
 
   const [photoCount, setPhotoCount] = useState(0)
   useEffect(() => {
-    setPhotoCount(localOrderImages.list(order.id).length)
+    let cancelled = false
+    ;(supabase as any)
+      .from('order_photos')
+      .select('id', { count: 'exact', head: true })
+      .eq('order_id', order.id)
+      .is('deleted_at', null)
+      .then(({ count }: { count: number | null }) => {
+        if (!cancelled) setPhotoCount(count ?? 0)
+      })
+    return () => { cancelled = true }
   }, [order.id])
 
   const waLink = (() => {

@@ -24,13 +24,13 @@ import { format } from 'date-fns'
 import { usePlan } from '@/hooks/usePlan'
 import { AccessNotice } from '@/components/billing/AccessNotice'
 import { orderFinancialSummary, orderPaymentProgress } from '@/lib/payments/calculations'
-import { getOptimisedUrl } from '@/lib/photos/cloudinary'
+import { deleteFromCloudinary, getOptimisedUrl, publicIdFromCloudinaryUrl } from '@/lib/photos/cloudinary'
 import { supabase } from '@/lib/supabase/client'
 import { mapCustomer, mapMeasurement, mapShop } from '@/lib/supabase/records'
-import { localOrderImages } from '@/lib/photos/local-order-images'
 import { isParentRelation, napOwnerLabel, recipientLabel } from '@/lib/order-recipient'
 import { formatAmount } from '@/lib/format/currency'
 import { AppFooter } from '@/components/layout/AppFooter'
+import { deleteOrderPhotoEverywhere } from '@/lib/photos/delete-order-photo'
 
 const PAYMENT_METHODS = [
   { key: 'cash', label: 'Cash', emoji: '💵' },
@@ -77,7 +77,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           _deleted: 0 as const,
         }))
         const localPhotos = await db.photos.where('orderId').equals(order.id).filter(p => p._deleted !== 1).toArray()
-        setPhotos(remotePhotos.length > 0 ? remotePhotos : localPhotos.length > 0 ? localPhotos : localOrderImages.list(order.id))
+        setPhotos(remotePhotos.length > 0 ? remotePhotos : localPhotos)
       }
       let measurementRow: any
       if (!order) return undefined
@@ -160,6 +160,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         src: photo.cloudUrl ? getOptimisedUrl(photo.cloudUrl, { width: 800 }) : photo.base64,
         label: `${photo.type} photo`,
         type: photo.type,
+        publicId: photo.publicId,
         source: 'local' as const,
       }))
     : order.fabricPhotoUrl
@@ -199,14 +200,17 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     setDeletingDisplayPhotoId(photo.id)
     try {
       if (photo.source === 'order') {
+        const publicId = publicIdFromCloudinaryUrl(photo.src)
+        if (publicId) {
+          const deleted = await deleteFromCloudinary(publicId)
+          if (!deleted) throw new Error('Cloudinary photo delete failed')
+        }
         await (supabase as any)
           .from('orders')
           .update({ fabric_photo_url: null, updated_at: new Date().toISOString() })
           .eq('id', order.id)
       } else {
-        localOrderImages.remove(photo.id)
-        await db.photos.update(photo.id, { _deleted: 1, _synced: 1 }).catch(() => undefined)
-        await (supabase as any).from('order_photos').update({ deleted_at: new Date().toISOString() }).eq('id', photo.id)
+        await deleteOrderPhotoEverywhere({ id: photo.id, publicId: photo.publicId })
         setPhotos(prev => prev.filter(item => item.id !== photo.id))
       }
       if (previewPhoto?.src === photo.src) setPreviewPhoto(null)
