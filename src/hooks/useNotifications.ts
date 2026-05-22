@@ -5,9 +5,10 @@ import { notifScheduler, notifSettings, NotifSettings } from '@/lib/notification
 import { useAuth } from '@/lib/auth/AuthContext'
 import { supabase } from '@/lib/supabase/client'
 import { karachiDateString } from '@/lib/time'
+import { subscribeToPush } from '@/lib/notifications/push'
 
 export function useNotifications() {
-  const { shopId }  = useAuth()
+  const { shopId, currentUser }  = useAuth()
   const [permission, setPermission] = useState<NotifPermission>('default')
   const [settings,   setSettings]   = useState<NotifSettings>(notifSettings.get())
   const [testing,    setTesting]    = useState(false)
@@ -29,10 +30,11 @@ export function useNotifications() {
     const result = await notifPermission.request()
     setPermission(result)
     if (result === 'granted' && shopId) {
+      subscribeToPush(shopId, currentUser?.id).catch(console.error)
       notifScheduler.run(shopId)
     }
     return result
-  }, [shopId])
+  }, [shopId, currentUser?.id])
 
   const updateSetting = useCallback((key: keyof NotifSettings, value: boolean | string) => {
     const updated = { ...settings, [key]: value }

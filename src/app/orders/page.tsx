@@ -4,7 +4,7 @@
 import { useState, Suspense }         from 'react'
 import { useEffect }                  from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Plus, X, Filter }    from 'lucide-react'
+import { Search, Plus, X, Filter, Download }    from 'lucide-react'
 import { useAuth }                    from '@/lib/auth/AuthContext'
 import { useOrders, OrderFilter }     from '@/hooks/useOrders'
 import { OrderListCard }              from '@/components/orders/OrderListCard'
@@ -16,6 +16,7 @@ import { cn }                         from '@/lib/utils'
 import { OrderCardSkeleton }          from '@/components/ui/Skeleton'
 import { usePlan }                    from '@/hooks/usePlan'
 import { AppFooter }                  from '@/components/layout/AppFooter'
+import { exportCSV, exportPrintablePDF } from '@/lib/export/download'
 
 const QUICK_FILTERS: { key: OrderFilter; label: string; emoji: string }[] = [
   { key: 'all',        label: 'Sab',         emoji: '📋' },
@@ -50,6 +51,7 @@ function OrdersContent() {
     orders,
     total,
     counts,
+    hasMore,           loadMore,
     isLoading,         // ← comes from useOrders hook
     statusFilter,      setStatusFilter,
     activeFilter,      setActiveFilter,
@@ -57,7 +59,8 @@ function OrdersContent() {
   } = useOrders(
     shopId,
     isOwner ? 'owner' : 'karigar',
-    currentUser?.id
+    currentUser?.id,
+    { paginated: true }
   )
 
   useEffect(() => {
@@ -68,6 +71,18 @@ function OrdersContent() {
   }, [searchParams, setActiveFilter])
 
   const hasActiveFilters = searchQuery || statusFilter !== 'all' || activeFilter !== 'all'
+  const exportRows = orders.map(o => ({
+    order: String(o.orderNumber).padStart(3, '0'),
+    customer: o.customerName,
+    phone: o.customerPhone,
+    garment: o.garmentType,
+    status: o.status,
+    dueDate: o.dueDate,
+    total: o.totalPrice,
+    paid: o.amountPaid,
+    balance: Math.max(0, o.totalPrice - o.amountPaid),
+    assignedTo: o.assignedToName ?? '',
+  }))
 
   return (
     <div className="flex min-h-dvh flex-col overflow-x-clip bg-slate-50 pb-24 lg:pb-8">
@@ -88,15 +103,33 @@ function OrdersContent() {
             </p>
           </div>
           {isOwner && (
-            <button
-              onClick={() => router.push('/orders/new')}
-              className="flex shrink-0 items-center gap-1.5 bg-blue-600 text-white
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => exportCSV(exportRows, 'darzi-orders')}
+                disabled={orders.length === 0}
+                className="hidden items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-40 min-[420px]:flex"
+              >
+                <Download size={15} />
+                CSV
+              </button>
+              <button
+                onClick={() => exportPrintablePDF('MeraDarzi Orders', exportRows, 'darzi-orders')}
+                disabled={orders.length === 0}
+                className="hidden items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-40 sm:flex"
+              >
+                <Download size={15} />
+                PDF
+              </button>
+              <button
+                onClick={() => router.push('/orders/new')}
+                className="flex items-center gap-1.5 bg-blue-600 text-white
                          text-sm font-semibold px-4 py-2.5 rounded-xl
                          active:scale-95 transition-colors hover:bg-blue-700"
-            >
-              <Plus size={15} />
-              Naya
-            </button>
+              >
+                <Plus size={15} />
+                Naya
+              </button>
+            </div>
           )}
         </div>
 
@@ -315,8 +348,17 @@ function OrdersContent() {
               />
             ))}
 
+            {hasMore && (
+              <button
+                onClick={loadMore}
+                className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                Aur Orders Load Karein
+              </button>
+            )}
+
             {/* End of list indicator */}
-            {orders.length >= 20 && (
+            {orders.length >= 20 && !hasMore && (
               <p className="text-center text-xs text-slate-400 py-4">
                 {orders.length} orders dikh rahe hain
               </p>

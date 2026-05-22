@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { Download, X, Smartphone } from 'lucide-react'
+import { ensureServiceWorkerRegistration } from '@/lib/notifications/push'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -16,6 +17,8 @@ export function PWAInstallPrompt() {
   const [isInstalled,    setIsInstalled]    = useState(false)
 
   useEffect(() => {
+    ensureServiceWorkerRegistration().catch(console.error)
+
     // Already installed as PWA
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true)
@@ -76,7 +79,7 @@ export function PWAInstallPrompt() {
           <p className="text-sm font-bold">App Install Karein</p>
           {isIOS ? (
             <p className="text-xs text-slate-300 mt-0.5">
-              Safari mein Share → "Add to Home Screen" tap karein
+              Safari mein Share → Add to Home Screen tap karein
             </p>
           ) : (
             <p className="text-xs text-slate-300 mt-0.5">

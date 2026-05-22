@@ -1,6 +1,7 @@
 // src/proxy.ts
 import { NextRequest, NextResponse }    from 'next/server'
 import { verifySessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
+import { checkRateLimit, getAPIRatelimiter, getClientIP, getLoginRatelimiter } from '@/lib/security/rate-limit'
 
 // ── Security headers ──────────────────────────────────────────────
 function addSecurityHeaders(res: NextResponse): NextResponse {
@@ -20,6 +21,19 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
   const res          = NextResponse.next()
   addSecurityHeaders(res)
+
+  // ── Global API rate limiting ─────────────────────────────────
+  if (pathname.startsWith('/api/')) {
+    const sensitive = pathname.startsWith('/api/auth') || pathname.startsWith('/api/admin')
+    const limiter = sensitive ? getLoginRatelimiter() : getAPIRatelimiter()
+    const rl = await checkRateLimit(limiter, `${sensitive ? 'sensitive' : 'api'}:${getClientIP(req)}:${pathname}`)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: rl.error ?? 'Too many requests. Please try again later.' },
+        { status: 429 }
+      )
+    }
+  }
 
   // ── Public admin routes ───────────────────────────────────────
   const adminPublic = [

@@ -16,6 +16,7 @@ import { AccessNotice } from "@/components/billing/AccessNotice";
 import { usePlan } from "@/hooks/usePlan";
 import { formatRupees } from "@/lib/format/currency";
 import dynamic from "next/dynamic";
+import { exportCSV, exportPrintablePDF } from "@/lib/export/download";
 
 const PERIODS: { key: ReportPeriod; label: string }[] = [
   { key: "7d", label: "7 Din" },
@@ -24,23 +25,6 @@ const PERIODS: { key: ReportPeriod; label: string }[] = [
   { key: "365d", label: "1 Saal" },
   { key: "all", label: "Sab" },
 ];
-
-// Simple CSV export
-function exportCSV(data: object[], filename: string) {
-  if (data.length === 0) return;
-  const headers = Object.keys(data[0]);
-  const rows = data.map((row) =>
-    headers.map((h) => JSON.stringify((row as any)[h] ?? "")).join(","),
-  );
-  const csv = [headers.join(","), ...rows].join("\n");
-  const blob = new Blob([csv], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${filename}-${new Date().toISOString().split("T")[0]}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 export default function ReportsPage() {
   const { shopId, isOwner } = useAuth();
@@ -131,16 +115,25 @@ function ReportsContent({
   } = useReports(shopId);
 
   const handleExport = () => {
-    exportCSV(
-      topCustomers.map((c) => ({
+    const rows = topCustomers.map((c) => ({
         name: c.name,
         orders: c.orders,
         revenue: c.revenue,
         paid: c.paid,
         balance: c.revenue - c.paid,
-      })),
-      "darzi-customers-report",
-    );
+      }))
+    exportCSV(rows, "darzi-customers-report");
+  };
+
+  const handlePdfExport = () => {
+    const rows = topCustomers.map((c) => ({
+      name: c.name,
+      orders: c.orders,
+      revenue: c.revenue,
+      paid: c.paid,
+      balance: c.revenue - c.paid,
+    }))
+    exportPrintablePDF("MeraDarzi Customers Report", rows, "darzi-customers-report")
   };
 
   if (isLoading) {
@@ -176,6 +169,15 @@ function ReportsContent({
               >
                 <Download size={13} />
                 Export
+              </button>
+              <button
+                onClick={handlePdfExport}
+                className="flex items-center gap-1.5 bg-slate-100 text-slate-700
+                         text-xs font-semibold px-3 py-2 rounded-xl
+                         hover:bg-slate-200 transition-colors"
+              >
+                <Download size={13} />
+                PDF
               </button>
             </div>
           </div>
