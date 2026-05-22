@@ -250,14 +250,14 @@ export const teamOps = {
 
   async deactivate(memberId: string): Promise<void> {
     await requireOk(
-      (supabase as any).from('team_members').update({ is_active: false, deleted_at: nowKarachiIso() }).eq('id', memberId)
-    )
-    await requireOk(
       (supabase as any).from('orders').update({
         assigned_to: null,
         assigned_to_name: null,
         updated_at: nowKarachiIso(),
       }).eq('assigned_to', memberId).is('deleted_at', null)
+    )
+    await requireOk(
+      (supabase as any).from('team_members').delete().eq('id', memberId).eq('role', 'karigar')
     )
   },
 
@@ -506,6 +506,29 @@ export const orderOps = {
         updated_at: nowKarachiIso(),
       }).eq('id', orderId)
     )
+  },
+
+  async update(orderId: string, data: Partial<Pick<OrderRecord,
+    'garmentType' | 'dueDate' | 'totalPrice' | 'isUrgent' | 'specialInstructions' |
+    'assignedTo' | 'assignedToName' | 'orderForRelation' | 'orderForName' | 'recipientGender'
+  >>): Promise<OrderRecord> {
+    const patch = clean({
+      garment_type: data.garmentType,
+      due_date: data.dueDate,
+      total_price: data.totalPrice,
+      is_urgent: data.isUrgent === undefined ? undefined : data.isUrgent === 1,
+      special_instructions: data.specialInstructions ?? undefined,
+      assigned_to: data.assignedTo,
+      assigned_to_name: data.assignedToName,
+      order_for_relation: data.orderForRelation,
+      order_for_name: data.orderForName ?? undefined,
+      recipient_gender: data.recipientGender,
+      updated_at: nowKarachiIso(),
+    })
+    const saved = await requireOk(
+      (supabase as any).from('orders').update(patch).eq('id', orderId).select(ORDER_COLUMNS).single()
+    )
+    return mapOrder(saved)
   },
 
   async softDelete(orderId: string): Promise<void> {

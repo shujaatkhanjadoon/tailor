@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, Suspense }         from 'react'
+import { useEffect }                  from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, Plus, X, Filter }    from 'lucide-react'
 import { useAuth }                    from '@/lib/auth/AuthContext'
@@ -37,6 +38,7 @@ const STATUS_OPTIONS: { key: OrderStatus | 'all'; label: string }[] = [
 
 function OrdersContent() {
   const router      = useRouter()
+  const searchParams = useSearchParams()
   const { shopId, isOwner, isKarigar, currentUser } = useAuth()
   const plan = usePlan()
 
@@ -57,6 +59,13 @@ function OrdersContent() {
     isOwner ? 'owner' : 'karigar',
     currentUser?.id
   )
+
+  useEffect(() => {
+    const filter = searchParams.get('filter') as OrderFilter | null
+    if (filter && QUICK_FILTERS.some(item => item.key === filter)) {
+      setActiveFilter(filter)
+    }
+  }, [searchParams, setActiveFilter])
 
   const hasActiveFilters = searchQuery || statusFilter !== 'all' || activeFilter !== 'all'
 
@@ -97,7 +106,7 @@ function OrdersContent() {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Naam, number ya tracking code..."
+              placeholder="Naam, order #005, phone ya tracking..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-9 py-2.5 bg-slate-100 rounded-xl text-sm

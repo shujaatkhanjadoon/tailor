@@ -24,6 +24,7 @@ import { supabase } from '@/lib/supabase/client'
 import { mapOrder } from '@/lib/supabase/records'
 import Image from 'next/image'
 import { recipientLabel } from '@/lib/order-recipient'
+import { SpecialInstructionsSummary } from '@/components/orders/SpecialInstructionsSummary'
 
 const STATUS_STEPS = ['received','cutting','stitching','finishing','ready','delivered'] as const
 type Step = typeof STATUS_STEPS[number]
@@ -295,11 +296,11 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
 
           <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3 shadow-xl shadow-slate-950/20 backdrop-blur">
             <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2">
-              <div className="rounded-xl bg-white p-4 text-slate-900">
+              <div className="flex min-h-28 flex-col justify-center rounded-xl bg-white p-4 text-center text-slate-900">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Order</p>
                 <p className="mt-1 break-words text-lg font-black sm:text-xl">#{String(order.orderNumber).padStart(3,'0')}</p>
               </div>
-              <div className="rounded-xl bg-white p-4 text-slate-900">
+              <div className="flex min-h-28 flex-col justify-center rounded-xl bg-white p-4 text-center text-slate-900">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Due Date</p>
                 <p className="mt-1 text-sm font-black">{formatTrackDate(order.dueDate)}</p>
               </div>
@@ -409,19 +410,18 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
               </div>
             )}
 
-            <div className="grid grid-cols-1 divide-y divide-slate-100 md:grid-cols-4 md:divide-x md:divide-y-0">
+            <div className="grid grid-cols-3 divide-x divide-slate-100 min-[520px]:grid-cols-3">
               {[
-                { icon: UserRound, label:'Customer', value: order.customerName },
-                { icon: UserRound, label:'Relation', value: relationText },
+                { icon: UserRound, label:'Customer', value: `${order.customerName} - ${relationText}` },
                 { icon: Shirt, label:'Kapra', value: gc ? `${gc.emoji} ${gc.label}` : order.garmentType },
                 { icon: CalendarDays, label:'Due Date', value: formatTrackDate(order.dueDate) },
               ].map(({ icon: Icon, label, value }) => (
-                <div key={label} className="min-w-0 p-5">
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
-                    <Icon size={16} />
+                <div key={label} className="flex min-w-0 flex-col items-center justify-center p-2.5 text-center min-[380px]:p-4 sm:p-5">
+                  <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 sm:h-10 sm:w-10">
+                    <Icon size={15} />
                   </div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
-                  <p className="mt-1 break-words text-sm font-black leading-snug text-slate-800">{value}</p>
+                  <p className="text-[9px] font-bold uppercase text-slate-400 min-[380px]:text-[10px]">{label}</p>
+                  <p className="mt-1 break-words text-xs font-black leading-snug text-slate-800 min-[380px]:text-sm">{value}</p>
                 </div>
               ))}
             </div>
@@ -462,14 +462,12 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
             </section>
 
             {order.specialInstructions && (
-              <section className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
-                <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-amber-700">
-                  <StickyNote size={15} />
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-400">
+                  <StickyNote size={15} className="text-blue-600" />
                   Notes
                 </p>
-                <p className="whitespace-pre-line break-words text-sm leading-relaxed text-slate-700">
-                  {order.specialInstructions}
-                </p>
+                <SpecialInstructionsSummary value={order.specialInstructions} compact />
               </section>
             )}
           </aside>

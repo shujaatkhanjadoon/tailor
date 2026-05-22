@@ -13,34 +13,13 @@ import { getKarigarLimitMessage, getSelectableKarigarIds } from '@/lib/team/kari
 import { GARMENT_LABELS, GarmentType } from '@/types'
 import { supabase } from '@/lib/supabase/client'
 import { mapOrder } from '@/lib/supabase/records'
+import { canKarigarHandleGarment } from '@/lib/team/karigar-skills'
 
 interface AssignSheetProps {
   orderId:         string
   currentAssignee: string | undefined
   onClose:         () => void
   onAssigned:      () => void
-}
-
-const SPECIALITY_TO_GARMENTS: Record<string, GarmentType[]> = {
-  'Shalwar Kameez': ['shalwar_kameez'],
-  'Kurta/Kurti': ['kurta', 'kurti'],
-  Shirt: ['shirt'],
-  'Trouser/Pajama': ['trouser', 'pajama'],
-  Sherwani: ['sherwani'],
-  Coat: ['waistcoat', 'prince_coat', 'pant_coat', 'blazer', 'jacket'],
-  'Ladies Formal': ['lehenga', 'maxi', 'kurti'],
-  'Sab Kuch': ['shalwar_kameez', 'kurta', 'kurti', 'shirt', 'trouser', 'pajama', 'sherwani', 'waistcoat', 'prince_coat', 'pant_coat', 'lehenga', 'maxi', 'blazer', 'jacket', 'other'],
-}
-
-function canKarigarHandleGarment(member: TeamMemberRecord, garmentType?: string) {
-  if (!garmentType) return true
-  const speciality = member.speciality ?? 'Sab Kuch'
-  const allowed = speciality
-    .split(',')
-    .map(s => s.trim())
-    .flatMap(s => SPECIALITY_TO_GARMENTS[s] ?? [])
-
-  return allowed.length === 0 || allowed.includes(garmentType as GarmentType)
 }
 
 export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: AssignSheetProps) {

@@ -9,6 +9,7 @@ import { formatAmount } from '@/lib/format/currency'
 import { addDays, format } from 'date-fns'
 import type { TeamMemberRecord } from '@/lib/db/schema'
 import { recipientLabel } from '@/lib/order-recipient'
+import { canKarigarHandleGarment } from '@/lib/team/karigar-skills'
 
 const QUICK_DATES = [
   { label: '3 Din', days: 3 },
@@ -138,8 +139,12 @@ export function Step3Confirm({
             </button>
 
             {karigars.map((m) => {
-              const canSelect = selectableKarigarIds.has(m.id)
+              const specialityMatch = canKarigarHandleGarment(m, data.garmentType)
+              const canSelect = selectableKarigarIds.has(m.id) && specialityMatch
               const selected = data.assignedTo === m.id
+              const garmentLabel = data.garmentType
+                ? GARMENT_LABELS[data.garmentType as keyof typeof GARMENT_LABELS]?.label ?? data.garmentType
+                : 'Order'
               return (
                 <button
                   key={m.id}
@@ -168,7 +173,11 @@ export function Step3Confirm({
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-800 truncate">{m.name}</p>
                     <p className="text-[10px] text-slate-400">
-                      {canSelect ? m.speciality ?? 'Karigar' : 'Plan limit'}
+                      {canSelect
+                        ? m.speciality ?? 'Karigar'
+                        : !selectableKarigarIds.has(m.id)
+                          ? 'Plan limit'
+                          : `${garmentLabel} ka kaam nahi`}
                     </p>
                   </div>
                 </button>

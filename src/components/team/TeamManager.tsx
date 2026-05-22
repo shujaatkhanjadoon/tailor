@@ -15,14 +15,10 @@ import { usePlan }             from '@/hooks/usePlan'
 import { KARIGAR_PIN_LENGTH, validateKarigarPIN, hashPIN, getPINStrength } from '@/lib/security/pin'
 import { validatePakistaniPhone } from '@/lib/security/phone'
 import { supabase }            from '@/lib/supabase/client'
+import { formatKarigarSkills, KARIGAR_SKILLS, parseKarigarSkills } from '@/lib/team/karigar-skills'
 
 // ── Constants ─────────────────────────────────────────────────────
 const PIN_LENGTH = KARIGAR_PIN_LENGTH
-
-const SPECIALITIES = [
-  'Shalwar Kameez', 'Kurta/Kurti', 'Shirt', 'Trouser/Pajama',
-  'Sherwani', 'Coat', 'Ladies Formal', 'Sab Kuch',
-]
 
 const PAY_TYPES = [
   { key: 'per_order', label: 'Per Order' },
@@ -269,7 +265,7 @@ export function TeamManager() {
         phone:       cleanPhone,
         role:        'karigar' as const,
         pin:         pinToSave,
-        speciality:  form.speciality,
+        speciality:  formatKarigarSkills(form.speciality.split(',')),
         payRateType: canUsePayReports ? form.payRateType : undefined,
         payRate:     canUsePayReports ? Number(form.payRate) || 0 : 0,
       }
@@ -604,22 +600,39 @@ export function TeamManager() {
               Kaam
             </label>
             <div className="flex flex-wrap gap-2">
-              {SPECIALITIES.map(s => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setForm(f => ({ ...f, speciality: s }))}
-                  className={cn(
-                    'px-3 py-1.5 rounded-full text-xs font-medium border transition-colors',
-                    form.speciality === s
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                  )}
-                >
-                  {s}
-                </button>
-              ))}
+              {KARIGAR_SKILLS.map(s => {
+                const selectedSkills = parseKarigarSkills(form.speciality)
+                const selected = selectedSkills.includes(s)
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      setForm(f => {
+                        const current = parseKarigarSkills(f.speciality)
+                        const next = s === 'Sab Kuch'
+                          ? ['Sab Kuch']
+                          : selected
+                            ? current.filter(skill => skill !== s && skill !== 'Sab Kuch')
+                            : [...current.filter(skill => skill !== 'Sab Kuch'), s]
+                        return { ...f, speciality: formatKarigarSkills(next) }
+                      })
+                    }}
+                    className={cn(
+                      'px-3 py-1.5 rounded-full text-xs font-medium border transition-colors',
+                      selected
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                    )}
+                  >
+                    {s}
+                  </button>
+                )
+              })}
             </div>
+            <p className="mt-1.5 text-[10px] text-slate-400">
+              Aik se zyada kaam select kar sakte hain.
+            </p>
           </div>
 
           {/* Pay rate — Business plan only */}

@@ -8,7 +8,7 @@ import { QRCodeDisplay } from '@/components/orders/QRCodeDisplay'
 import {
   ArrowLeft, MessageCircle, Clock, Wallet,
   User2, QrCode, ChevronRight, Plus,
-  Ruler, Image as ImageIcon, StickyNote, Phone, Trash2, X,
+  Ruler, Image as ImageIcon, StickyNote, Phone, Trash2, X, Pencil,
 } from 'lucide-react'
 import { useOrder } from '@/hooks/useOrders'
 import { useAuth } from '@/lib/auth/AuthContext'
@@ -269,6 +269,16 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <MessageCircle size={14} />
               Gahak Ko Batao
             </a>
+          )}
+          {isOwner && (
+            <button
+              onClick={() => router.push(`/orders/${order.id}/edit`)}
+              className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30
+                         text-white text-sm font-semibold px-3 py-2 rounded-xl transition-colors"
+            >
+              <Pencil size={14} />
+              Edit
+            </button>
           )}
         </div>
 

@@ -121,22 +121,29 @@ export function useReports(shopId: string | null) {
   const filteredPayments = useMemo(() => {
     const payments = allPayments
     const start    = periodStart(period)
-    if (!start) return payments
-    return payments.filter(p => p.paidAt >= start)
-  }, [allPayments, period])
+    const validOrderIds = new Set(allOrders.filter(o => o.status !== 'cancelled').map(o => o.id))
+    const scoped = payments.filter(p => validOrderIds.has(p.orderId))
+    if (!start) return scoped
+    return scoped.filter(p => p.paidAt >= start)
+  }, [allPayments, allOrders, period])
+
+  const reportPayments = useMemo(() => {
+    const validOrderIds = new Set(allOrders.filter(o => o.status !== 'cancelled').map(o => o.id))
+    return allPayments.filter(p => validOrderIds.has(p.orderId))
+  }, [allOrders, allPayments])
 
   // ── Summary stats ───────────────────────────────────────────────
   const summary = useMemo(() => {
-    const orders   = filteredOrders
+    const orders   = filteredOrders.filter(o => o.status !== 'cancelled')
     const payments = filteredPayments
-    const allO     = allOrders
+    const allO     = allOrders.filter(o => o.status !== 'cancelled')
 
     const paymentTotals  = sumPayments(payments)
     const totalRevenue   = paymentTotals.received
     const totalOrders    = orders.length
     const completedOrders = orders.filter(o => o.status === 'delivered').length
     const pendingBalance = allO
-      .filter(o => !['delivered','cancelled'].includes(o.status))
+      .filter(o => o.status !== 'delivered')
       .reduce((s, o) => s + orderBalance(o), 0)
 
     const avgOrderValue = totalOrders > 0
@@ -158,7 +165,9 @@ export function useReports(shopId: string | null) {
       return d.toISOString()
     })()
 
+    const validOrderIds = new Set(allOrders.filter(o => o.status !== 'cancelled').map(o => o.id))
     const prevPayments = allPayments.filter(p =>
+      validOrderIds.has(p.orderId) &&
       prevStart && p.paidAt >= prevStart && p.paidAt < (periodStart(period) ?? '')
     )
     const prevRevenue = sumPayments(prevPayments).received
@@ -185,7 +194,7 @@ export function useReports(shopId: string | null) {
   // ── Monthly income chart data (last 12 months) ──────────────────
   const monthlyIncome = useMemo(() => {
     const months   = lastNMonths(12)
-    const payments = allPayments
+    const payments = reportPayments
 
     return months.map(({ key, label }) => {
       const monthPayments = payments.filter(p => p.paidAt.startsWith(key))
@@ -194,11 +203,11 @@ export function useReports(shopId: string | null) {
       const digital       = income - cash
       return { key, label, income, cash, digital }
     })
-  }, [allPayments])
+  }, [reportPayments])
 
   // ── Weekly income (last 8 weeks) ─────────────────────────────────
   const weeklyIncome = useMemo(() => {
-    const payments = allPayments
+    const payments = reportPayments
     const result   = []
 
     for (let i = 7; i >= 0; i--) {
@@ -218,11 +227,11 @@ export function useReports(shopId: string | null) {
       result.push({ label, income })
     }
     return result
-  }, [allPayments])
+  }, [reportPayments])
 
   // ── Order status distribution ───────────────────────────────────
   const statusDistribution = useMemo(() => {
-    const orders = filteredOrders
+    const orders = filteredOrders.filter(o => o.status !== 'cancelled')
     const groups: Record<string, number> = {}
     orders.forEach(o => {
       groups[o.status] = (groups[o.status] || 0) + 1
@@ -232,7 +241,7 @@ export function useReports(shopId: string | null) {
 
   // ── Garment breakdown ───────────────────────────────────────────
   const garmentBreakdown = useMemo(() => {
-    const orders = filteredOrders
+    const orders = filteredOrders.filter(o => o.status !== 'cancelled')
     const groups: Record<string, { count: number; revenue: number }> = {}
     orders.forEach(o => {
       if (!groups[o.garmentType]) groups[o.garmentType] = { count: 0, revenue: 0 }
@@ -246,7 +255,7 @@ export function useReports(shopId: string | null) {
 
   // ── Top customers ────────────────────────────────────────────────
   const topCustomers = useMemo(() => {
-    const orders   = filteredOrders
+    const orders   = filteredOrders.filter(o => o.status !== 'cancelled')
     const customers: Record<string, {
       name: string; id: string
       orders: number; revenue: number; paid: number
@@ -271,7 +280,7 @@ export function useReports(shopId: string | null) {
 
   // ── Karigar productivity ─────────────────────────────────────────
   const karigarStats = useMemo(() => {
-    const orders  = filteredOrders
+    const orders  = filteredOrders.filter(o => o.status !== 'cancelled')
     const members = teamMembers
 
     return members
@@ -322,7 +331,7 @@ export function useReports(shopId: string | null) {
   // ── Daily heatmap (last 30 days) ─────────────────────────────────
   const dailyActivity = useMemo(() => {
     const orders   = allOrders
-    const payments = allPayments
+    const payments = reportPayments
     const result   = []
 
     for (let i = 29; i >= 0; i--) {
@@ -342,7 +351,7 @@ export function useReports(shopId: string | null) {
       })
     }
     return result
-  }, [allOrders, allPayments])
+  }, [allOrders, reportPayments])
 
   return {
     period, setPeriod,
