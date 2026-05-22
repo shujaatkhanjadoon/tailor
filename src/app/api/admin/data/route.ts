@@ -1,6 +1,7 @@
 // src/app/api/admin/data/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, verifySessionToken } from '@/lib/admin/auth'
+import { decryptPIN } from '@/lib/security/pin-crypto'
 
 // Direct Supabase REST calls — avoids createClient DNS issues
 const SB_URL  = () => process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -82,8 +83,8 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({
           data: shops.map((shop: any) => ({
             ...shop,
-            owner_pin: ownerMap.get(shop.id)?.pin_plain ?? null,
-            owner_pin_available: Boolean(ownerMap.get(shop.id)?.pin_plain),
+            owner_pin: (() => { const o = ownerMap.get(shop.id); const e = o?.pin_plain; return e ? decryptPIN(e) : null; })(),
+            owner_pin_available: (() => { const o = ownerMap.get(shop.id); const e = o?.pin_plain; return Boolean(e ? decryptPIN(e) : null); })(),
             subscriptions: subs.filter((s: any) => s.shop_id === shop.id),
             shop_usage:    usages.filter((u: any) => u.shop_id === shop.id),
             order_stats: (() => {

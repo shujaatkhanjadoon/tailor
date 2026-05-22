@@ -1,5 +1,6 @@
 // src/app/api/auth/update-pin/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { encryptPIN } from '@/lib/security/pin-crypto'
 
 const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         pin_hash:   pinHash,
-        ...(pinPlain ? { pin_plain: pinPlain } : {}),
+        ...(pinPlain ? { pin_plain: encryptPIN(pinPlain) } : {}),
         updated_at: new Date().toISOString(),
       }),
     }

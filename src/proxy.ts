@@ -24,7 +24,7 @@ export async function proxy(req: NextRequest) {
 
   // ── Global API rate limiting ─────────────────────────────────
   if (pathname.startsWith('/api/')) {
-    const sensitive = pathname.startsWith('/api/auth') || pathname.startsWith('/api/admin')
+    const sensitive = pathname.startsWith('/api/auth')
     const limiter = sensitive ? getLoginRatelimiter() : getAPIRatelimiter()
     const rl = await checkRateLimit(limiter, `${sensitive ? 'sensitive' : 'api'}:${getClientIP(req)}:${pathname}`)
     if (!rl.allowed) {

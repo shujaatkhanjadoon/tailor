@@ -10,7 +10,7 @@ const SESSION_KEY = 'md_session_v2'
 const CUSTOMER_COLUMNS = 'id,shop_id,name,phone,whatsapp,gender,notes,photo_url,total_orders,created_at,updated_at,last_order_at,deleted_at'
 const ORDER_COLUMNS = 'id,shop_id,order_number,tracking_code,customer_id,customer_name,customer_phone,order_for_relation,order_for_name,recipient_gender,measurement_id,garment_type,status,assigned_to,assigned_to_name,total_price,amount_paid,is_urgent,due_date,special_instructions,fabric_photo_url,style_photo_url,created_at,updated_at,delivered_at,deleted_at'
 const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,applied_to_balance,kind,method,recorded_by,paid_at,notes,deleted_at'
-const TEAM_MEMBER_COLUMNS = 'id,shop_id,name,phone,role,pin_hash,pin_plain,speciality,pay_rate_type,pay_rate,is_active,joined_at,created_at,deleted_at'
+const TEAM_MEMBER_COLUMNS = 'id,shop_id,name,phone,role,pin_hash,speciality,pay_rate_type,pay_rate,is_active,joined_at,created_at,deleted_at'
 
 const uuid = (): string =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -240,12 +240,12 @@ export const teamOps = {
     return teamOps.addWithId(shopId, uuid(), data)
   },
 
-  async verifyPin(memberId: string, pin: string): Promise<boolean> {
+  async verifyPin(memberId: string, pinHash: string): Promise<boolean> {
     const row = await requireOk(
-      (supabase as any).from('team_members').select('pin_hash,pin_plain').eq('id', memberId).maybeSingle()
+      (supabase as any).from('team_members').select('pin_hash').eq('id', memberId).maybeSingle()
     )
     const pinRow = row as any
-    return !!pinRow && (pinRow.pin_hash === pin || pinRow.pin_plain === pin)
+    return !!pinRow && pinRow.pin_hash === pinHash
   },
 
   async deactivate(memberId: string): Promise<void> {
@@ -476,7 +476,7 @@ export const orderOps = {
 
   async updateStatus(orderId: string, newStatus: OrderRecord['status'], changedBy: string): Promise<void> {
     const current = await requireOk(
-      (supabase as any).from('orders').select('status').eq('id', orderId).single()
+      (supabase as any).from('orders').select('status, shop_id').eq('id', orderId).single()
     ) as any
     const ts = nowKarachiIso()
     await requireOk(
@@ -490,6 +490,7 @@ export const orderOps = {
       (supabase as any).from('order_status_history').insert({
         id: uuid(),
         order_id: orderId,
+        shop_id: current.shop_id,
         old_status: current.status,
         new_status: newStatus,
         changed_by: changedBy,

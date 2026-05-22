@@ -37,7 +37,7 @@ export function mapTeamMember(row: any): TeamMemberRecord {
     name: row.name,
     phone: row.phone,
     role: row.role,
-    pin: row.pin_hash ?? row.pin_plain ?? '',
+    pin: row.pin_hash ?? '',
     speciality: row.speciality ?? undefined,
     payRateType: row.pay_rate_type ?? undefined,
     payRate: row.pay_rate ?? undefined,

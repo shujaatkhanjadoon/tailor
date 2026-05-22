@@ -5,6 +5,7 @@ import {
   sendShopOwnerAccountCreated,
   sendShopVerificationAlert,
 } from '@/lib/security/email-otp'
+import { encryptPIN } from '@/lib/security/pin-crypto'
 
 const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -202,7 +203,7 @@ export async function POST(req: NextRequest) {
       phone:          ownerPhone,
       role:           'owner',
       pin_hash:       pinHash,
-      pin_plain:      pinPlain ?? null,
+      pin_plain:      pinPlain ? encryptPIN(pinPlain) : null,
       email:          normalizedEmail || null,
       email_verified: normalizedEmail ? true : false,
       is_active:      true,
