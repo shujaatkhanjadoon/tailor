@@ -98,7 +98,7 @@ export function QRCodeDisplay({
 
       {/* Sheet */}
       <div
-        className="relative z-10 max-h-[92dvh] w-full max-w-[min(100vw,34rem)] overflow-y-auto bg-white px-5 pt-4 pb-8 shadow-2xl rounded-t-3xl lg:rounded-2xl"
+        className="relative z-10 max-h-[92dvh] w-full max-w-[min(100vw,34rem)] overflow-y-auto bg-white px-4 sm:px-5 pt-3 sm:pt-4 pb-6 sm:pb-8 shadow-2xl rounded-t-3xl lg:rounded-2xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Drag handle */}
@@ -150,21 +150,24 @@ export function QRCodeDisplay({
 
         {/* QR Code */}
         <div className="flex justify-center mb-5">
-          <div className="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-sm">
-            <QRCodeSVG
-              value={trackingUrl}
-              size={190}
-              level="M"
-              includeMargin={false}
-              imageSettings={{
-                src:      '/icons/icon-96.png',
-                x:        undefined,
-                y:        undefined,
-                height:   30,
-                width:    30,
-                excavate: true,
-              }}
-            />
+          <div className="bg-white p-3 sm:p-4 rounded-2xl border-2 border-slate-200 shadow-sm">
+            <div className="w-[160px] h-[160px] min-[400px]:w-[190px] min-[400px]:h-[190px]">
+              <QRCodeSVG
+                value={trackingUrl}
+                size={190}
+                level="M"
+                includeMargin={false}
+                className="!w-full !h-full"
+                imageSettings={{
+                  src:      '/icons/icon-96.png',
+                  x:        undefined,
+                  y:        undefined,
+                  height:   30,
+                  width:    30,
+                  excavate: true,
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -177,15 +180,15 @@ export function QRCodeDisplay({
         </div>
 
         {/* URL strip */}
-        <div className="flex items-center gap-2 bg-slate-100 rounded-2xl px-4 py-3 mb-4">
-          <p className="flex-1 text-xs text-slate-600 font-mono truncate">
+        <div className="flex flex-col min-[400px]:flex-row items-stretch min-[400px]:items-center gap-2 bg-slate-100 rounded-2xl px-3 sm:px-4 py-3 mb-4">
+          <p className="flex-1 text-xs text-slate-600 font-mono truncate break-all">
             {trackingUrl}
           </p>
           <button
             onClick={handleCopy}
             className={cn(
-              'shrink-0 flex items-center gap-1.5 text-xs font-bold',
-              'px-3 py-1.5 rounded-xl transition-all active:scale-95',
+              'shrink-0 flex items-center justify-center gap-1.5 text-xs font-bold',
+              'px-3 py-2 rounded-xl transition-all active:scale-95',
               copied
                 ? 'bg-green-500 text-white'
                 : 'bg-white text-slate-700 border border-slate-200 hover:border-slate-300'
@@ -199,14 +202,14 @@ export function QRCodeDisplay({
         </div>
 
         {/* Action buttons */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
           {/* WhatsApp — sends directly to customer */}
           <a
             href={whatsappHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-col items-center gap-1.5 py-3.5 bg-green-50
-                       border border-green-200 rounded-2xl text-green-700 text-xs
+            className="flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 bg-green-50
+                       border border-green-200 rounded-xl sm:rounded-2xl text-green-700 text-[10px] sm:text-xs
                        font-semibold transition-colors active:scale-95"
           >
             <span className="text-xl">💬</span>
@@ -216,8 +219,8 @@ export function QRCodeDisplay({
           {/* Native share */}
           <button
             onClick={handleShare}
-            className="flex flex-col items-center gap-1.5 py-3.5 bg-blue-50
-                       border border-blue-200 rounded-2xl text-blue-700 text-xs
+            className="flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 bg-blue-50
+                       border border-blue-200 rounded-xl sm:rounded-2xl text-blue-700 text-[10px] sm:text-xs
                        font-semibold transition-colors active:scale-95"
           >
             <Share2 size={20} />
@@ -229,8 +232,8 @@ export function QRCodeDisplay({
             href={trackingUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-col items-center gap-1.5 py-3.5 bg-slate-50
-                       border border-slate-200 rounded-2xl text-slate-700 text-xs
+            className="flex flex-col items-center justify-center gap-1 py-3 sm:py-3.5 bg-slate-50
+                       border border-slate-200 rounded-xl sm:rounded-2xl text-slate-700 text-[10px] sm:text-xs
                        font-semibold transition-colors active:scale-95"
           >
             <ExternalLink size={20} />
