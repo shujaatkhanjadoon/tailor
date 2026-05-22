@@ -174,7 +174,10 @@ export default function ChangePinPage() {
             pinPlain: val,
           }),
         })
-        if (!res.ok) throw new Error('PIN update failed')
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || 'PIN update failed')
+        }
 
         await reinitialize()
         setStep('done')
