@@ -1,4 +1,5 @@
 // src/app/api/admin/login/route.ts
+import { timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse }                          from 'next/server'
 import { verifyTOTP, generateSessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 
@@ -19,7 +20,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Server not configured' }, { status: 500 })
   }
 
-  if (!secret || secret.trim() !== adminSecret) {
+  const secretBuf = Buffer.from(secret?.trim() ?? '', 'utf-8')
+  const adminBuf  = Buffer.from(adminSecret, 'utf-8')
+  const secretMatch = secretBuf.length === adminBuf.length && timingSafeEqual(secretBuf, adminBuf)
+  if (!secret || !secretMatch) {
     // Delay response to slow brute force
     await new Promise(r => setTimeout(r, 500))
     return NextResponse.json({ error: 'Secret galat hai' }, { status: 401 })
@@ -52,7 +56,7 @@ export async function POST(req: NextRequest) {
   res.cookies.set(ADMIN_SESSION_COOKIE, token, {
     httpOnly: true,
     secure:   process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'strict',
     maxAge:   15 * 60,   // 15 minutes
     path:     '/',
   })

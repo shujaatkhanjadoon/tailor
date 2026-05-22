@@ -26,7 +26,7 @@ export function BillingHistory() {
     const load = async () => {
       const { data } = await (supabase as any)
         .from('subscription_payments')
-        .select('*')
+        .select('id,shop_id,plan,billing_cycle,amount_pkr,status,paid_at,gateway_tx_id')
         .eq('shop_id', shopId)
         .order('paid_at', { ascending: false })
         .limit(20)

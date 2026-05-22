@@ -10,13 +10,37 @@ const headers = () => ({
   Prefer: 'resolution=merge-duplicates,return=minimal',
 })
 
+async function validateMember(memberId: string, shopId: string): Promise<boolean> {
+  if (!SB_URL() || !SB_KEY()) return false
+  try {
+    const res = await fetch(
+      `${SB_URL()}/rest/v1/team_members?id=eq.${memberId}&shop_id=eq.${shopId}&is_active=eq.true&deleted_at=is.null&select=id&limit=1`,
+      { headers: headers(), signal: AbortSignal.timeout(10000) }
+    )
+    if (!res.ok) return false
+    const rows = await res.json()
+    return rows?.length > 0
+  } catch {
+    return false
+  }
+}
+
 export async function POST(req: NextRequest) {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY missing' }, { status: 500 })
   }
 
   const { shopId, memberId, subscription } = await req.json()
-  if (!shopId || !subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+  if (!shopId || !memberId) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
+
+  const valid = await validateMember(memberId, shopId)
+  if (!valid) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
     return NextResponse.json({ error: 'Invalid push subscription' }, { status: 400 })
   }
 
@@ -43,7 +67,17 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { endpoint } = await req.json()
+  const { endpoint, memberId, shopId } = await req.json()
+
+  if (!memberId || !shopId) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
+
+  const valid = await validateMember(memberId, shopId)
+  if (!valid) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   if (!endpoint) return NextResponse.json({ error: 'endpoint required' }, { status: 400 })
 
   const res = await fetch(`${SB_URL()}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, {

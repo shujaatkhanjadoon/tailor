@@ -1,6 +1,7 @@
 // src/app/billing/page.tsx
 "use client";
 
+import { Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Calendar, MessageCircle } from "lucide-react";
 import { usePlan } from "@/hooks/usePlan";
@@ -14,7 +15,7 @@ import { BillingSkeleton } from '@/components/ui/Skeleton'
 
 const ADMIN_WA = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? "923135634667";
 
-export default function BillingPage() {
+function BillingContent() {
   const router = useRouter();
   const { shopId } = useAuth();
   const plan = usePlan();
@@ -280,5 +281,13 @@ export default function BillingPage() {
 
 
     </div>
+  );
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense fallback={<BillingSkeleton />}>
+      <BillingContent />
+    </Suspense>
   );
 }

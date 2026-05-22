@@ -1,14 +1,42 @@
-// src/app/api/team/encrypt-pin/route.ts
-// Server-only endpoint: encrypts a plaintext PIN for secure storage.
-// The encrypted value is stored in the pin_plain column.
-// This replaces direct plaintext PIN writes from client code.
-
 import { NextRequest, NextResponse } from 'next/server'
 import { encryptPIN } from '@/lib/security/pin-crypto'
 
+const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const HEADERS = {
+  'Content-Type':  'application/json',
+  'apikey':        SB_KEY,
+  'Authorization': `Bearer ${SB_KEY}`,
+}
+
+async function validateMember(memberId: string, shopId: string): Promise<{ valid: boolean; error?: string }> {
+  if (!SB_URL || !SB_KEY) return { valid: false, error: 'Server misconfigured' }
+  try {
+    const res = await fetch(
+      `${SB_URL}/rest/v1/team_members?id=eq.${memberId}&shop_id=eq.${shopId}&is_active=eq.true&deleted_at=is.null&select=id&limit=1`,
+      { headers: HEADERS, signal: AbortSignal.timeout(10000) }
+    )
+    if (!res.ok) return { valid: false, error: 'Member validation failed' }
+    const rows = await res.json()
+    if (!rows?.length) return { valid: false, error: 'Member not found or inactive' }
+    return { valid: true }
+  } catch {
+    return { valid: false, error: 'Member validation failed' }
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { pin } = await req.json()
+    const { pin, memberId, shopId } = await req.json()
+
+    if (!memberId || !shopId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    const auth = await validateMember(memberId, shopId)
+    if (!auth.valid) {
+      return NextResponse.json({ error: auth.error ?? 'Unauthorized' }, { status: 401 })
+    }
 
     if (!pin || typeof pin !== 'string') {
       return NextResponse.json({ error: 'PIN required' }, { status: 400 })

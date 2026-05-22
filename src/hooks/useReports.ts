@@ -6,6 +6,11 @@ import { mapCustomer, mapOrder, mapPayment, mapTeamMember } from '@/lib/supabase
 
 export type ReportPeriod = '7d' | '30d' | '90d' | '365d' | 'all'
 
+const ORDER_COLUMNS = 'id,shop_id,order_number,tracking_code,customer_id,customer_name,customer_phone,order_for_relation,order_for_name,recipient_gender,measurement_id,garment_type,status,assigned_to,assigned_to_name,total_price,amount_paid,is_urgent,due_date,special_instructions,fabric_photo_url,style_photo_url,created_at,updated_at,delivered_at,deleted_at'
+const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,applied_to_balance,kind,method,recorded_by,paid_at,notes,deleted_at'
+const CUSTOMER_COLUMNS = 'id,shop_id,name,phone,whatsapp,gender,notes,photo_url,created_at,deleted_at'
+const TEAM_COLUMNS = 'id,shop_id,name,role,speciality,pay_rate_type,pay_rate,is_active,deleted_at'
+
 function uniqueChannelName(name: string) {
   return `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
@@ -19,7 +24,6 @@ function periodStart(period: ReportPeriod): string | null {
   return d.toISOString()
 }
 
-// Generate last N months as labels
 function lastNMonths(n: number): { key: string; label: string }[] {
   const result = []
   for (let i = n - 1; i >= 0; i--) {
@@ -27,7 +31,7 @@ function lastNMonths(n: number): { key: string; label: string }[] {
     d.setDate(1)
     d.setMonth(d.getMonth() - i)
     result.push({
-      key:   d.toISOString().slice(0, 7),   // "2025-04"
+      key:   d.toISOString().slice(0, 7),
       label: d.toLocaleDateString('en-PK', { month: 'short', year: '2-digit' }),
     })
   }
@@ -59,24 +63,24 @@ export function useReports(shopId: string | null) {
         const [ordersRes, paymentsRes, customersRes, teamRes] = await Promise.all([
           (supabase as any)
             .from('orders')
-            .select('*')
+            .select(ORDER_COLUMNS)
             .eq('shop_id', shopId)
             .is('deleted_at', null)
             .order('created_at', { ascending: false }),
           (supabase as any)
             .from('payments')
-            .select('*')
+            .select(PAYMENT_COLUMNS)
             .eq('shop_id', shopId)
             .is('deleted_at', null)
             .order('paid_at', { ascending: true }),
           (supabase as any)
             .from('customers')
-            .select('*')
+            .select(CUSTOMER_COLUMNS)
             .eq('shop_id', shopId)
             .is('deleted_at', null),
           (supabase as any)
             .from('team_members')
-            .select('*')
+            .select(TEAM_COLUMNS)
             .eq('shop_id', shopId)
             .eq('is_active', true)
             .is('deleted_at', null),
@@ -110,7 +114,6 @@ export function useReports(shopId: string | null) {
     }
   }, [shopId])
 
-  // ── Filtered by period ──────────────────────────────────────────
   const filteredOrders = useMemo(() => {
     const orders = allOrders
     const start  = periodStart(period)
@@ -132,7 +135,6 @@ export function useReports(shopId: string | null) {
     return allPayments.filter(p => validOrderIds.has(p.orderId))
   }, [allOrders, allPayments])
 
-  // ── Summary stats ───────────────────────────────────────────────
   const summary = useMemo(() => {
     const orders   = filteredOrders.filter(o => o.status !== 'cancelled')
     const payments = filteredPayments
@@ -156,7 +158,6 @@ export function useReports(shopId: string | null) {
 
     const urgentOrders = orders.filter(o => o.isUrgent === 1).length
 
-    // Compare to previous period
     const prevStart = (() => {
       if (period === 'all') return null
       const days = { '7d':7,'30d':30,'90d':90,'365d':365 }[period]
@@ -191,7 +192,6 @@ export function useReports(shopId: string | null) {
     }
   }, [filteredOrders, filteredPayments, allOrders, allPayments, allCustomers, period])
 
-  // ── Monthly income chart data (last 12 months) ──────────────────
   const monthlyIncome = useMemo(() => {
     const months   = lastNMonths(12)
     const payments = reportPayments
@@ -205,7 +205,6 @@ export function useReports(shopId: string | null) {
     })
   }, [reportPayments])
 
-  // ── Weekly income (last 8 weeks) ─────────────────────────────────
   const weeklyIncome = useMemo(() => {
     const payments = reportPayments
     const result   = []
@@ -229,7 +228,6 @@ export function useReports(shopId: string | null) {
     return result
   }, [reportPayments])
 
-  // ── Order status distribution ───────────────────────────────────
   const statusDistribution = useMemo(() => {
     const orders = filteredOrders.filter(o => o.status !== 'cancelled')
     const groups: Record<string, number> = {}
@@ -239,7 +237,6 @@ export function useReports(shopId: string | null) {
     return Object.entries(groups).map(([status, count]) => ({ status, count }))
   }, [filteredOrders])
 
-  // ── Garment breakdown ───────────────────────────────────────────
   const garmentBreakdown = useMemo(() => {
     const orders = filteredOrders.filter(o => o.status !== 'cancelled')
     const groups: Record<string, { count: number; revenue: number }> = {}
@@ -253,7 +250,6 @@ export function useReports(shopId: string | null) {
       .sort((a, b) => b.count - a.count)
   }, [filteredOrders])
 
-  // ── Top customers ────────────────────────────────────────────────
   const topCustomers = useMemo(() => {
     const orders   = filteredOrders.filter(o => o.status !== 'cancelled')
     const customers: Record<string, {
@@ -278,7 +274,6 @@ export function useReports(shopId: string | null) {
       .slice(0, 8)
   }, [filteredOrders])
 
-  // ── Karigar productivity ─────────────────────────────────────────
   const karigarStats = useMemo(() => {
     const orders  = filteredOrders.filter(o => o.status !== 'cancelled')
     const members = teamMembers
@@ -309,7 +304,6 @@ export function useReports(shopId: string | null) {
       .sort((a, b) => b.totalAssigned - a.totalAssigned)
   }, [filteredOrders, teamMembers])
 
-  // ── Payment method breakdown ─────────────────────────────────────
   const paymentMethods = useMemo(() => {
     const payments = filteredPayments
     const total    = sumPayments(payments).received
@@ -328,7 +322,6 @@ export function useReports(shopId: string | null) {
 
   const paymentSummary = useMemo(() => sumPayments(filteredPayments), [filteredPayments])
 
-  // ── Daily heatmap (last 30 days) ─────────────────────────────────
   const dailyActivity = useMemo(() => {
     const orders   = allOrders
     const payments = reportPayments

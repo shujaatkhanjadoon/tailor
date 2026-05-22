@@ -77,31 +77,6 @@ async function fetchOrders(
   return { rows: (data ?? []).map(mapOrder), total: count ?? data?.length ?? 0 }
 }
 
-async function countOrders(
-  shopId: string,
-  role: 'owner' | 'karigar',
-  memberId: string | undefined,
-  params: Omit<Parameters<typeof applyOrderFilters>[1], 'activeFilter' | 'statusFilter' | 'searchQuery'> & {
-    activeFilter: OrderFilter
-  },
-) {
-  if (role === 'karigar' && !memberId) return 0
-  let query = (supabase as any)
-    .from('orders')
-    .select('id', { count: 'exact', head: true })
-    .eq('shop_id', shopId)
-    .is('deleted_at', null)
-  if (role === 'karigar' && memberId) query = query.eq('assigned_to', memberId)
-  query = applyOrderFilters(query, {
-    today: params.today,
-    activeFilter: params.activeFilter,
-    statusFilter: 'all',
-    searchQuery: '',
-  })
-  const { count } = await query
-  return count ?? 0
-}
-
 export function useOrders(
   shopId: string | null,
   role: 'owner' | 'karigar',
@@ -134,24 +109,16 @@ export function useOrders(
     const load = async () => {
       setIsLoading(true)
       try {
-        const [result, nextCounts] = await Promise.all([
-          fetchOrders(shopId, role, memberId, { today, activeFilter, statusFilter, searchQuery, page, paginated }),
-          Promise.all([
-            countOrders(shopId, role, memberId, { today, activeFilter: 'overdue' }),
-            countOrders(shopId, role, memberId, { today, activeFilter: 'ready' }),
-            countOrders(shopId, role, memberId, { today, activeFilter: 'today' }),
-            countOrders(shopId, role, memberId, { today, activeFilter: 'unassigned' }),
-          ]),
-        ])
+        const result = await fetchOrders(shopId, role, memberId, { today, activeFilter, statusFilter, searchQuery, page, paginated })
         if (!cancelled) {
-          setAllOrders(prev => paginated && page > 0 ? [...prev, ...result.rows] : result.rows)
+          const orders: OrderRecord[] = result.rows
+          const overdue   = orders.filter((o: OrderRecord) => o.dueDate < today && !['delivered','cancelled'].includes(o.status)).length
+          const ready     = orders.filter((o: OrderRecord) => o.status === 'ready').length
+          const todayC    = orders.filter((o: OrderRecord) => o.createdAt?.startsWith(today)).length
+          const unassigned = orders.filter((o: OrderRecord) => !o.assignedTo && !['delivered','cancelled'].includes(o.status)).length
+          setAllOrders(prev => paginated && page > 0 ? [...prev, ...orders] : orders)
           setTotal(result.total)
-          setCounts({
-            overdue: nextCounts[0],
-            ready: nextCounts[1],
-            today: nextCounts[2],
-            unassigned: nextCounts[3],
-          })
+          setCounts({ overdue, ready, today: todayC, unassigned })
         }
       } finally {
         if (!cancelled) setIsLoading(false)

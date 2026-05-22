@@ -33,6 +33,8 @@ export function useCustomers(shopId: string | null) {
         .select(CUSTOMER_COLUMNS)
         .eq('shop_id', shopId)
         .is('deleted_at', null)
+        .order('last_order_at', { ascending: false })
+        .limit(200)
       if (!cancelled && !error) setAllCustomers((data ?? []).map(mapCustomer))
       if (!cancelled) setIsLoading(false)
     }

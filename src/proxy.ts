@@ -14,6 +14,10 @@ function addSecurityHeaders(res: NextResponse): NextResponse {
     'Strict-Transport-Security',
     'max-age=31536000; includeSubDomains'
   )
+  res.headers.set(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https:; frame-ancestors 'none'; form-action 'self'"
+  )
   return res
 }
 
@@ -32,6 +36,22 @@ export async function proxy(req: NextRequest) {
         { error: rl.error ?? 'Too many requests. Please try again later.' },
         { status: 429 }
       )
+    }
+  }
+
+  // ── CSRF origin check for state-changing API requests ──────────
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && pathname.startsWith('/api/')) {
+    const origin = req.headers.get('origin')
+    const host   = req.headers.get('host')
+    if (origin) {
+      try {
+        const originUrl = new URL(origin)
+        if (originUrl.host !== host && originUrl.host !== process.env.NEXT_PUBLIC_APP_URL?.replace(/^https?:\/\//, '')) {
+          return NextResponse.json({ error: 'Cross-origin request rejected' }, { status: 403 })
+        }
+      } catch {
+        return NextResponse.json({ error: 'Invalid origin' }, { status: 400 })
+      }
     }
   }
 

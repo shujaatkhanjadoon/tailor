@@ -784,7 +784,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
       }
       const { data: rows, error } = await (supabase as any)
         .from('measurements')
-        .select('*')
+        .select('id,customer_id,shop_id,garment_type,order_for_relation,order_for_name,recipient_gender,values,notes,taken_at,deleted_at')
         .eq('customer_id', data.customerId)
         .eq('garment_type', selectedType)
         .is('deleted_at', null)

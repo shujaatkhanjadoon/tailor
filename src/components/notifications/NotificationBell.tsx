@@ -37,7 +37,7 @@ export function NotificationBell() {
       if (!shopId) return []
       const { data } = await (supabase as any)
         .from('orders')
-        .select('*')
+        .select('id,shop_id,order_number,customer_name,status,due_date')
         .eq('shop_id', shopId)
         .is('deleted_at', null)
         .lte('due_date', tomorrow)

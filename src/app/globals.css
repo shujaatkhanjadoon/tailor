@@ -169,7 +169,8 @@
     }
   }
 
-  /* src/app/globals.css — add inside @layer base or at the end */
+}
+/* ── Keyframes (outside layers) ─────────────────────────────────── */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   15% { transform: translateX(-8px); }
@@ -178,7 +179,6 @@
   60% { transform: translateX(6px); }
   75% { transform: translateX(-4px); }
   90% { transform: translateX(4px); }
-}
 }
 
 @layer utilities {

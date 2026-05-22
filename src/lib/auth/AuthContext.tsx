@@ -100,7 +100,7 @@ async function readStateFromDB(): Promise<Partial<AuthState>> {
 
       const { data: memberRow } = await (supabase as any)
         .from('team_members')
-        .select('*')
+        .select('id,shop_id,name,phone,role,pin_hash,speciality,pay_rate_type,pay_rate,email,email_verified,is_active,joined_at,created_at,updated_at,deleted_at')
         .eq('id', session.memberId)
         .eq('is_active', true)
         .is('deleted_at', null)
@@ -219,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       pinHash = await hashPIN(pin)
     } catch (e) {
       console.error('[Auth] bcrypt failed:', e)
-      pinHash = pin   // fallback
+      throw new Error('PIN hash failed. Please try again.')
     }
 
     // ── Write to Supabase FIRST via server API ───────────────────
@@ -249,7 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: ownerRow } = await (supabase as any)
       .from('team_members')
-      .select('*')
+      .select('id,shop_id,name,phone,role,pin_hash,email,email_verified,is_active,joined_at,created_at,updated_at,deleted_at')
       .eq('id', actualMemberId)
       .single()
     const owner = ownerRow

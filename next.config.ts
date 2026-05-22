@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
       pathname: '/**',
     },
   ],
-  minimumCacheTTL: 60,
+  minimumCacheTTL: 86400,
 },
 
   // Remove powered-by header

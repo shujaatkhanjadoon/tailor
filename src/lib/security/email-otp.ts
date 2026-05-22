@@ -462,7 +462,8 @@ export function generateOTP(): string {
 }
 
 export function hashOTP(otp: string): string {
-  return createHash('sha256').update(otp + process.env.ADMIN_SECRET).digest('hex')
+  const pepper = process.env.OTP_PEPPER_SECRET ?? process.env.ADMIN_SECRET
+  return createHash('sha256').update(otp + pepper).digest('hex')
 }
 
 // ─────────────────────────────────────────────────────────────────
