@@ -32,20 +32,13 @@ export async function uploadToCloudinary(
     const formData = new FormData()
     formData.append('file',           base64)
     formData.append('upload_preset',  UPLOAD_PRESET)
-    // Organised folder structure: shopId/orderId/type
     formData.append('folder',         `darzi-manager/${shopId}/${orderId}`)
-    // Public ID for easy lookup later
     formData.append('public_id',      `${photoType}_${Date.now()}`)
-    // Server-side optimisation on top of our client compression
     formData.append('quality',        'auto:good')
     formData.append('fetch_format',   'auto')
 
     const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      body:   formData,
-    })
+    const res = await fetch(endpoint, { method: 'POST', body: formData })
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
@@ -70,13 +63,17 @@ export async function uploadToCloudinary(
 }
 
 // ── Delete from Cloudinary (needs server-side API route) ──────────
-export async function deleteFromCloudinary(publicId: string): Promise<boolean> {
+export async function deleteFromCloudinary(
+  publicId: string,
+  shopId:   string,
+  memberId: string,
+): Promise<boolean> {
   if (!CLOUD_NAME) return false
   try {
     const res = await fetch('/api/photos/delete', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ publicId }),
+      body:    JSON.stringify({ publicId, shopId, memberId }),
     })
     return res.ok
   } catch {
@@ -101,7 +98,6 @@ export function publicIdFromCloudinaryUrl(url?: string | null): string | null {
 }
 
 // ── Get optimised URL with transformations ────────────────────────
-// Use this for displaying — Cloudinary serves WebP automatically
 export function getOptimisedUrl(
   cloudUrl: string,
   opts: { width?: number; quality?: string } = {}
@@ -110,7 +106,6 @@ export function getOptimisedUrl(
 
   const { width = 800, quality = 'auto:good' } = opts
 
-  // Insert transformation before /upload/
   return cloudUrl.replace(
     '/upload/',
     `/upload/w_${width},q_${quality},f_auto/`

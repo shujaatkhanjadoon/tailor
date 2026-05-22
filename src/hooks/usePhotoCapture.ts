@@ -39,7 +39,7 @@ async function upsertPhotoMetadata(photo: PhotoRecord) {
 }
 
 export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
-  const { shopId }   = useAuth()
+  const { shopId, currentUser } = useAuth()
   const plan         = usePlan()
   const canSyncImages = (plan.plan === 'professional' || plan.plan === 'business') && plan.isActive
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -64,7 +64,6 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
 
       setState({ phase: 'saving', sizeKB: result.sizeKB, quality: result.quality })
 
-      // ── 2. Save image preview locally only; app data lives in Supabase.
       const photo: PhotoRecord = {
         id:      crypto.randomUUID(),
         orderId,
@@ -77,7 +76,6 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
       }
       await db.photos.add(photo)
 
-      // ── 3. Upload to Cloudinary in background ────────────────
       if (canSyncImages && cloudinaryEnabled && navigator.onLine) {
         setState(s => ({ ...s, phase: 'uploading' }))
 
@@ -136,19 +134,20 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
     const file = e.target.files?.[0]
     if (!file) return
     await processFile(file)
-    e.target.value = ''   // reset so same file works again
+    e.target.value = ''
   }, [processFile])
 
   const deletePhoto = useCallback(async (photo: PhotoRecord) => {
+    if (!shopId || !currentUser?.id) return
     setDeletingId(photo.id)
     try {
-      await deleteOrderPhotoEverywhere(photo)
+      await deleteOrderPhotoEverywhere(photo, shopId, currentUser.id)
     } catch (e) {
       console.error('Delete failed:', e)
     } finally {
       setDeletingId(null)
     }
-  }, [])
+  }, [shopId, currentUser?.id])
 
   const retryUpload = useCallback(async (photo: PhotoRecord) => {
     if (!shopId || !canSyncImages || !cloudinaryEnabled || !navigator.onLine || !photo.base64) return

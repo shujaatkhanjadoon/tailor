@@ -42,7 +42,7 @@ const PAYMENT_METHODS = [
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const { isOwner, currentUser } = useAuth()
+  const { isOwner, currentUser, shopId } = useAuth()
   const plan = usePlan()
   const { order, payments, history, balance } = useOrder(id)
   const [shop, setShop] = useState<ShopRecord | undefined>()
@@ -197,20 +197,21 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const handleDeleteDisplayPhoto = async (photo: (typeof displayPhotos)[number]) => {
+    if (!shopId || !currentUser) return
     setDeletingDisplayPhotoId(photo.id)
     try {
       if (photo.source === 'order') {
         const publicId = publicIdFromCloudinaryUrl(photo.src)
         if (publicId) {
-          const deleted = await deleteFromCloudinary(publicId)
+          const deleted = await deleteFromCloudinary(publicId, shopId, currentUser.id)
           if (!deleted) throw new Error('Cloudinary photo delete failed')
         }
         await (supabase as any)
           .from('orders')
           .update({ fabric_photo_url: null, updated_at: new Date().toISOString() })
-          .eq('id', order.id)
+          .eq('id', order?.id)
       } else {
-        await deleteOrderPhotoEverywhere({ id: photo.id, publicId: photo.publicId })
+        await deleteOrderPhotoEverywhere({ id: photo.id, publicId: photo.publicId }, shopId, currentUser.id)
         setPhotos(prev => prev.filter(item => item.id !== photo.id))
       }
       if (previewPhoto?.src === photo.src) setPreviewPhoto(null)

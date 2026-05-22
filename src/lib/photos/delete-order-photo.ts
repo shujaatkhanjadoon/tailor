@@ -6,7 +6,11 @@ type PhotoDeleteTarget = Pick<PhotoRecord, 'id'> & {
   publicId?: string | null
 }
 
-export async function deleteOrderPhotoEverywhere(photo: PhotoDeleteTarget): Promise<void> {
+export async function deleteOrderPhotoEverywhere(
+  photo:    PhotoDeleteTarget,
+  shopId:   string,
+  memberId: string,
+): Promise<void> {
   let publicId = photo.publicId?.trim()
 
   if (!publicId) {
@@ -20,7 +24,7 @@ export async function deleteOrderPhotoEverywhere(photo: PhotoDeleteTarget): Prom
   }
 
   if (publicId) {
-    const deleted = await deleteFromCloudinary(publicId)
+    const deleted = await deleteFromCloudinary(publicId, shopId, memberId)
     if (!deleted) throw new Error('Cloudinary photo delete failed')
   }
 
