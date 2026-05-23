@@ -1,7 +1,7 @@
 // src/app/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardSkeleton } from '@/components/ui/Skeleton'
 import {
@@ -47,27 +47,30 @@ export default function DashboardPage() {
     shopOps.get(shopId).then(setShop).catch(() => setShop(undefined))
   }, [shopId])
 
-  // ── DERIVED STATS ───────────────────────────────────────────────
-  const safe = allOrders.filter(o => !["delivered", "cancelled"].includes(o.status));
-  const todayPay = allPayments.filter(p => p.paidAt.startsWith(today));
-  const recent = [...allOrders].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
-
-  const overdueOrders = safe.filter((o) => o.dueDate < today);
-  const readyOrders = safe.filter((o) => o.status === "ready");
-  const todaysNewOrders = safe.filter((o) => o.createdAt.startsWith(today));
-  const incomeToday = todayPay.reduce((sum, p) => sum + p.amount, 0);
-  const pendingBalance = safe.reduce(
-    (sum, o) => sum + Math.max(0, o.totalPrice - o.amountPaid),
-    0,
-  );
-
-  const stats = {
-    totalOrdersToday: todaysNewOrders.length,
-    readyOrders: readyOrders.length,
-    overdueOrders: overdueOrders.length,
-    incomeToday,
-    pendingBalance,
-  };
+  // ── DERIVED STATS (memoized) ────────────────────────────────────
+  const { stats, recent, overdueOrders } = useMemo(() => {
+    const safe = allOrders.filter(o => !["delivered", "cancelled"].includes(o.status));
+    const todayPay = allPayments.filter(p => p.paidAt.startsWith(today));
+    const overdueOrders = safe.filter((o) => o.dueDate < today);
+    const readyOrders = safe.filter((o) => o.status === "ready");
+    const todaysNewOrders = safe.filter((o) => o.createdAt.startsWith(today));
+    const incomeToday = todayPay.reduce((sum, p) => sum + p.amount, 0);
+    const pendingBalance = safe.reduce(
+      (sum, o) => sum + Math.max(0, o.totalPrice - o.amountPaid),
+      0,
+    );
+    return {
+      stats: {
+        totalOrdersToday: todaysNewOrders.length,
+        readyOrders: readyOrders.length,
+        overdueOrders: overdueOrders.length,
+        incomeToday,
+        pendingBalance,
+      },
+      recent: [...allOrders].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5),
+      overdueOrders,
+    }
+  }, [allOrders, allPayments, today]);
 
   if (isLoading) {
     return (

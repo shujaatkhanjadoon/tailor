@@ -25,7 +25,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Supabase service key missing' }, { status: 500 })
   }
 
-  const { phone: rawPhone, success, failureReason } = await req.json()
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ ok: true, skipped: true })
+  }
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ ok: true, skipped: true })
+  }
+
+  const { phone: rawPhone, success, failureReason } = body as { phone?: unknown; success?: unknown; failureReason?: unknown }
   const phone = sevenBitPhone(rawPhone)
   if (!phone) return NextResponse.json({ ok: true, skipped: true })
 
