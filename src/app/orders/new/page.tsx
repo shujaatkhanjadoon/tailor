@@ -10,7 +10,7 @@ import { Step1Customer } from "@/components/orders/wizard/Step1Customer";
 import { Step2Garment, formatStyleSelections, type StyleSelections } from "@/components/orders/wizard/Step2Garment";
 import { Step3Confirm } from "@/components/orders/wizard/Step3Confirm";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { orderOps, paymentOps, teamOps } from "@/lib/db/operations";
+import { orderOps, paymentOps, teamOps, uuid } from "@/lib/db/operations";
 import type { TeamMemberRecord } from "@/lib/db/schema";
 import { toast } from "sonner";
 import { usePlan } from "@/hooks/usePlan";
@@ -21,21 +21,6 @@ import { mapMeasurement } from "@/lib/supabase/records";
 import { nowKarachiIso } from "@/lib/time";
 import { isParentRelation } from "@/lib/order-recipient";
 import { cloudinaryEnabled, uploadToCloudinary } from "@/lib/photos/cloudinary";
-
-// ── UUID helper ──────────────────────────────────────────────────
-const uuid = (): string => {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return crypto.randomUUID();
-  }
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-};
 
 // ── Wizard data shape ────────────────────────────────────────────
 interface WizardData {

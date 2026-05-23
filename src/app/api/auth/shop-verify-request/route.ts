@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse }           from 'next/server'
 import { sendShopVerificationAlert }           from '@/lib/security/email-otp'
 import { getSignupRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
+import { validate, schemas }                  from '@/lib/validation/schemas'
 
 const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -13,7 +14,7 @@ const HEADERS = {
 
 export async function POST(req: NextRequest) {
   const limiter = getSignupRatelimiter()
-  const rl      = await checkRateLimit(limiter, `signup:${getRateLimitId(req)}`)
+  const rl      = await checkRateLimit(limiter, `signup:${getRateLimitId(req)}`, 'sensitive')
 
   if (!rl.allowed) {
     return NextResponse.json(
@@ -22,11 +23,12 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { shopId, shopName, ownerName, ownerPhone, ownerEmail, city } = await req.json()
-
-  if (!shopId || !shopName || !ownerPhone) {
-    return NextResponse.json({ error: 'Required fields missing' }, { status: 400 })
+  const parsed = await validate(schemas.shopVerifyRequest, req, 2048)
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status })
   }
+
+  const { shopId, shopName, ownerName, ownerPhone, ownerEmail, city } = parsed.data
 
   // Insert verification request
   const res = await fetch(`${SB_URL}/rest/v1/shop_verification_requests`, {
@@ -36,8 +38,8 @@ export async function POST(req: NextRequest) {
       shop_id:      shopId,
       owner_name:   ownerName,
       owner_phone:  ownerPhone,
-      owner_email:  ownerEmail,
-      city,
+      owner_email:  ownerEmail || null,
+      city:         city || null,
       status:       'pending',
     }),
   })
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
   // Send admin notification (non-blocking)
   sendShopVerificationAlert({
     shopName, ownerName, ownerPhone,
-    ownerEmail: ownerEmail ?? 'N/A',
+    ownerEmail: ownerEmail || 'N/A',
     city, shopId,
   }).catch(console.error)
 

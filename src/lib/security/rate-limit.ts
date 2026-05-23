@@ -96,14 +96,22 @@ export interface RateLimitResult {
   error?:     string
 }
 
+const FALLBACK_LIMITS = {
+  sensitive:   { max: 5,  windowMs: 15  * 60 * 1000 },   // login, signup, OTP
+  normal:      { max: 60, windowMs: 60  * 1000 },         // general API
+} as const
+
+type EndpointSensitivity = keyof typeof FALLBACK_LIMITS
+
 export async function checkRateLimit(
   limiter: Ratelimit | null,
-  identifier: string
+  identifier: string,
+  sensitivity: EndpointSensitivity = 'normal',
 ): Promise<RateLimitResult> {
   // Use in-memory fallback when Redis limiter is null
   if (!limiter) {
-    const maxWindowMs = 60 * 1000
-    const result = memSlidingWindow(identifier, 60, maxWindowMs)
+    const { max, windowMs } = FALLBACK_LIMITS[sensitivity]
+    const result = memSlidingWindow(identifier, max, windowMs)
     if (!result.success) {
       return {
         allowed: false,
@@ -130,8 +138,8 @@ export async function checkRateLimit(
   } catch (e) {
     console.error('[RateLimit] Redis error — falling back to in-memory:', String(e))
     // Fail open to in-memory fallback on Redis error
-    const maxWindowMs = 60 * 1000
-    const result = memSlidingWindow(identifier, 60, maxWindowMs)
+    const { max, windowMs } = FALLBACK_LIMITS[sensitivity]
+    const result = memSlidingWindow(identifier, max, windowMs)
     if (!result.success) {
       return {
         allowed: false,

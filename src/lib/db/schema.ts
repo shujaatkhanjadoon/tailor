@@ -125,26 +125,7 @@ export interface OrderStatusHistoryRecord {
   shopId: string
   changedBy: string               // TeamMember.id
   changedAt: string
-  _synced: 0 | 1
 }
-
-export interface SyncQueueRecord {
-  id?: number                     // auto-increment
-  operation: 'create' | 'update' | 'delete'
-  table: string
-  recordId: string
-  payload: string                 // JSON stringified
-  createdAt: string
-  retries: number
-  lastError?: string
-}
-
-export interface AppSettingRecord {
-  key: string                     // primary key
-  value: string                   // JSON stringified
-}
-
-// ─── The Database Class ────────────────────────────────────────────
 
 export interface PhotoRecord {
   id:           string

@@ -40,7 +40,7 @@ export default function DashboardPage() {
   const [shop, setShop] = useState<ShopRecord | undefined>()
   const today = karachiDateString();
   const { orders: allOrders, isLoading } = useOrders(shopId, currentUser?.role === 'karigar' ? 'karigar' : 'owner', currentUser?.id)
-  const { payments: allPayments } = usePayments(shopId)
+  const { payments: allPayments } = usePayments(shopId, { orders: allOrders })
 
   useEffect(() => {
     if (!shopId) return

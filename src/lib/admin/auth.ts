@@ -1,108 +1,21 @@
 ﻿// src/lib/admin/auth.ts
-import { createHmac, createHmac as _createHmac, randomBytes, timingSafeEqual } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
+import { authenticator } from 'otplib'
 
-// â”€â”€ Base32 helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+authenticator.options = { window: 1 }  // ±1 step drift tolerance
 
 export function generateTOTPSecret(): string {
-  const bytes = randomBytes(20)
-  let result  = ''
-  let buffer  = 0
-  let bitsLeft = 0
-
-  for (const byte of bytes) {
-    buffer    = (buffer << 8) | byte
-    bitsLeft += 8
-    while (bitsLeft >= 5) {
-      result  += BASE32_ALPHABET[(buffer >> (bitsLeft - 5)) & 31]
-      bitsLeft -= 5
-    }
-  }
-  if (bitsLeft > 0) {
-    result += BASE32_ALPHABET[(buffer << (5 - bitsLeft)) & 31]
-  }
-  return result
+  return authenticator.generateSecret()
 }
 
 export function normalizeTOTPSecret(secret: string): string {
-  const cleaned = secret.replace(/\s/g, '')
-  if (/^[0-9A-Fa-f]+$/.test(cleaned)) {
-    const bytes = Buffer.from(cleaned, 'hex')
-    let result  = ''
-    let buffer  = 0
-    let bitsLeft = 0
-    for (const byte of bytes) {
-      buffer    = (buffer << 8) | byte
-      bitsLeft += 8
-      while (bitsLeft >= 5) {
-        result  += BASE32_ALPHABET[(buffer >> (bitsLeft - 5)) & 31]
-        bitsLeft -= 5
-      }
-    }
-    if (bitsLeft > 0) {
-      result += BASE32_ALPHABET[(buffer << (5 - bitsLeft)) & 31]
-    }
-    return result
-  }
-  return cleaned.toUpperCase().replace(/=+$/, '')
-}
-
-function base32Decode(encoded: string): Buffer {
-  const str    = encoded.toUpperCase().replace(/=+$/, '').replace(/\s/g, '')
-  const bytes: number[] = []
-  let buffer   = 0
-  let bitsLeft = 0
-
-  for (const char of str) {
-    const idx = BASE32_ALPHABET.indexOf(char)
-    if (idx === -1) continue
-    buffer    = (buffer << 5) | idx
-    bitsLeft += 5
-    if (bitsLeft >= 8) {
-      bytes.push((buffer >> (bitsLeft - 8)) & 0xff)
-      bitsLeft -= 8
-    }
-  }
-  return Buffer.from(bytes)
-}
-
-// â”€â”€ HOTP (counter-based OTP per RFC 4226) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function hotp(secretBase32: string, counter: number): string {
-  const key = base32Decode(secretBase32)
-
-  // Counter as 8-byte big-endian buffer
-  const msg = Buffer.alloc(8)
-  // Handle large counters safely
-  const hi  = Math.floor(counter / 0x100000000)
-  const lo  = counter >>> 0
-  msg.writeUInt32BE(hi, 0)
-  msg.writeUInt32BE(lo, 4)
-
-  const hmac   = createHmac('sha1', key).update(msg).digest()
-  const offset = hmac[hmac.length - 1] & 0x0f
-
-  const code = (
-    ((hmac[offset]     & 0x7f) << 24) |
-    ((hmac[offset + 1] & 0xff) << 16) |
-    ((hmac[offset + 2] & 0xff) <<  8) |
-     (hmac[offset + 3] & 0xff)
-  ) % 1_000_000
-
-  return code.toString().padStart(6, '0')
-}
-
-// â”€â”€ TOTP (time-based OTP per RFC 6238) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const STEP_SECONDS = 30
-
-function getTimeCounter(): number {
-  return Math.floor(Date.now() / 1000 / STEP_SECONDS)
+  return secret.replace(/\s/g, '').toUpperCase().replace(/=+$/, '')
 }
 
 export function generateTOTP(secret: string): string {
-  return hotp(normalizeTOTPSecret(secret), getTimeCounter())
+  return authenticator.generate(normalizeTOTPSecret(secret))
 }
 
-// Verify with Â±1 window for clock drift
 export function verifyTOTP(token: string, secret?: string): boolean {
   const raw = secret ?? process.env.ADMIN_TOTP_SECRET
   if (!raw) {
@@ -112,44 +25,23 @@ export function verifyTOTP(token: string, secret?: string): boolean {
   if (!token || token.length !== 6 || !/^\d{6}$/.test(token)) {
     return false
   }
-
-  const s = normalizeTOTPSecret(raw)
-  const counter = getTimeCounter()
-  for (let delta = -1; delta <= 1; delta++) {
-    const expected = hotp(s, counter + delta)
-    try {
-      // Timing-safe comparison
-      if (timingSafeEqual(
-        Buffer.from(token.padEnd(6, '0')),
-        Buffer.from(expected.padEnd(6, '0'))
-      )) {
-        return true
-      }
-    } catch {
-      if (token === expected) return true
-    }
+  try {
+    return authenticator.check(token, normalizeTOTPSecret(raw))
+  } catch {
+    return false
   }
-  return false
 }
 
-// â”€â”€ TOTP URI for QR code (otpauth:// format) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function getTOTPUri(): string {
   const raw = process.env.ADMIN_TOTP_SECRET
   if (!raw) throw new Error('ADMIN_TOTP_SECRET not set')
   const secret  = normalizeTOTPSecret(raw)
   const issuer  = 'MeraDarzi Admin'
   const account = 'admin'
-  return (
-    `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(account)}` +
-    `?secret=${secret}` +
-    `&issuer=${encodeURIComponent(issuer)}` +
-    `&algorithm=SHA1` +
-    `&digits=6` +
-    `&period=30`
-  )
+  return authenticator.keyuri(account, issuer, secret)
 }
 
-// â”€â”€ Session token (HMAC-signed, 15-min expiry) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Session token (HMAC-signed, 15-min expiry) ─────────────────────────────────────────────────
 const SESSION_DURATION_MS = 15 * 60 * 1000
 
 export function generateSessionToken(): string {

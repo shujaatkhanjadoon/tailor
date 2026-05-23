@@ -56,7 +56,7 @@ async function sbFetch(path: string, init: RequestInit = {}): Promise<Response> 
 export async function POST(req: NextRequest) {
   // ── Rate limit ────────────────────────────────────────────────
   const limiter = getLoginRatelimiter()
-  const rl      = await checkRateLimit(limiter, `verify:${getRateLimitId(req)}`)
+  const rl      = await checkRateLimit(limiter, `verify:${getRateLimitId(req)}`, 'sensitive')
   if (!rl.allowed) {
     return NextResponse.json(
       { error: 'Bahut zyada galat codes. 15 minute mein dobara try karein.' },

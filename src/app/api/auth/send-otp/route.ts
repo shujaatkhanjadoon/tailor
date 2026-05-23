@@ -16,7 +16,7 @@ const HEADERS = {
 export async function POST(req: NextRequest) {
   // ── Rate limit by IP + fingerprint ────────────────────────────
   const limiter = getOTPRatelimiter()
-  const rl      = await checkRateLimit(limiter, `otp:${getRateLimitId(req)}`)
+  const rl      = await checkRateLimit(limiter, `otp:${getRateLimitId(req)}`, 'sensitive')
   if (!rl.allowed) {
     return NextResponse.json(
       { error: 'Bahut zyada OTP requests. 1 ghante mein dobara try karein.' },
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 
   // ── Rate limit by phone ───────────────────────────────────────
   const phoneLimiter = getOTPRatelimiter()
-  const phoneRL      = await checkRateLimit(phoneLimiter, `otp:phone:${phoneResult.cleaned}`)
+  const phoneRL      = await checkRateLimit(phoneLimiter, `otp:phone:${phoneResult.cleaned}`, 'sensitive')
   if (!phoneRL.allowed) {
     return NextResponse.json(
       { error: 'Is number par bahut zyada OTP bheje gaye. 1 ghante baad try karein.' },

@@ -82,6 +82,15 @@ export const schemas = {
     expiresAt: z.string().min(1, 'expiresAt required'),
   }),
 
+  shopVerifyRequest: z.object({
+    shopId: z.string().uuid('Invalid shopId'),
+    shopName: z.string().min(2).max(200).trim(),
+    ownerName: z.string().min(2).max(200).trim(),
+    ownerPhone: z.string().regex(/^\d{10,13}$/, 'Invalid phone number'),
+    ownerEmail: z.string().email('Invalid email').optional().or(z.literal('')),
+    city: z.string().max(100).trim().optional().default(''),
+  }),
+
   adminNotificationPatch: z.object({
     id: z.string().min(1, 'id required'),
     title: z.string().min(1).max(200).trim(),

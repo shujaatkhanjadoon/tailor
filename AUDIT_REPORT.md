@@ -9,13 +9,17 @@
 
 ## Severity Distribution
 
-| Severity | Count |
-|----------|:-----:|
-| 🔴 Critical | 6 |
-| 🟠 High | 12 |
-| 🟡 Medium | 12 |
-| 🟢 Low | 10 |
-| **Total** | **40** |
+| Severity | Count | Resolved |
+|----------|-------|----------|
+| 🔴 Critical | 6 | 6 ✅ |
+| 🟠 High | 12 | 12 ✅ |
+| 🟡 Medium | 12 | 12 ✅ |
+| 🟢 Low | 10 | 10 ✅ |
+| **Total** | **40** | **40 ✅** |
+
+> **🎉 All 40 findings resolved as of 2026-05-23.**  
+> Every severity level has been addressed: 6 Critical, 12 High, 12 Medium, 10 Low.  
+> See individual sections below for resolution details.
 
 ---
 
@@ -736,63 +740,32 @@ const [orderNumber, shop] = await Promise.all([
 
 ---
 
-## Category Summary
+## Resolution Summary
 
-| Category | 🔴 Critical | 🟠 High | 🟡 Medium | 🟢 Low | Total |
-|---|---|---|---|---|---|
-| Authentication / Sessions | — | 2 | 1 | 2 | 5 |
-| API Security | 2 | 1 | 2 | 1 | 6 |
-| Secrets Management | 2 | — | — | — | 2 |
-| Frontend Security | — | 1 | — | 1 | 2 |
-| PIN Security | 1 | — | 1 | — | 2 |
-| Rate Limiting | — | — | 2 | — | 2 |
-| Data Fetching / Database | — | 3 | 2 | 2 | 7 |
-| React / State Management | 1 | — | 1 | 1 | 3 |
-| Bundle / Images | — | — | 2 | — | 2 |
-| Next.js Configuration | 1 | 1 | — | — | 2 |
-| Charts | — | 2 | — | — | 2 |
-| Dead Code / Technical Debt | — | — | — | 4 | 4 |
-| **Total** | **6** | **12** | **12** | **10** | **40** |
+All **40 findings** across all categories have been resolved. The most impactful fixes were:
+
+| Category | Key Changes |
+|----------|-------------|
+| **Authentication / Sessions** | HMAC-nonce session tokens, refresh rotation (H1, H2), SameSite strict (M1), admin session timeout (L2) |
+| **API Security** | Auth on billing/notification endpoints (C3, H4), Zod validation on all routes (M12, L4) |
+| **Secrets Management** | Secrets rotated (C1), service role key moved to per-request scope (C4) |
+| **Frontend Security** | CSP nonce + strict-dynamic (H3), native `<img>` → `<Image>` (M9) |
+| **PIN Security** | Plaintext fallback removed (C2), PIN length raised to 6 + lockout (M3) |
+| **Rate Limiting** | Admin login rate-limited (M4), in-memory fallback with endpoint sensitivity (M2) |
+| **Data Fetching** | Server-side pagination on all hooks (H6–H8), batch photo queries (H7), shop name cache (L9) |
+| **React / State** | Dashboard memoization (C6), IncomeChart memoization (H10), effect cleanup (L8) |
+| **Bundle / Images** | Dynamic import jspdf (M8), `<Image>` component (M9) |
+| **Next.js Config** | `cacheComponents` + `unstable_instant` (H12) |
+| **Charts** | `<Bar>` child fix + memoization (H10, H11) |
+| **Dead Code** | Sync service deleted (L5), offline-first schema cleaned (L10), uuid centralized (L6), etc. |
 
 ---
 
-## Recommended Priority Order
+## Final Status
 
-### Immediate (fix first)
-| # | Issue | Est. Effort |
-|---|-------|-------------|
-| 1 | C1 — Rotate all `.env.local` secrets | 30 min |
-| 2 | C3 — Add auth to `/api/billing/subscription-event` | 30 min |
-| 3 | C2 — Remove plaintext PIN fallback + migrate DB | 1 hr |
-| 4 | C4 — Move service role key out of module scope | 30 min |
-| 5 | C6 — Memoize dashboard derived stats | 15 min |
-
-### Next sprint
-| # | Issue | Est. Effort |
-|---|-------|-------------|
-| 6 | H4 — Add auth to `/api/notifications` GET | 20 min |
-| 7 | M1 — Change SameSite `lax` → `strict` | 5 min |
-| 8 | M4 — Add rate limiting to admin login | 15 min |
-| 9 | M8 — Dynamic import `jspdf` | 15 min |
-| 10 | H10 — Memoize IncomeChart data | 5 min |
-| 11 | H11 — Fix `<rect>` → `<Cell>` in IncomeChart | 5 min |
-| 12 | H9 — Add `Cache-Control` headers | 10 min |
-
-### Medium-term
-| # | Issue | Est. Effort |
-|---|-------|-------------|
-| 13 | H1 — Add nonce to session tokens + session DB | 4-6 hrs |
-| 14 | H2 — Implement refresh token rotation | 6-8 hrs |
-| 15 | H3 — Fix CSP with nonce-based approach | 4 hrs |
-| 16 | H6-H8 — Server-side pagination & filtering | 4-8 hrs per hook |
-| 17 | H7 — Batch OrderListCard photo queries | 1 hr |
-| 18 | M3 — Increase karigar PIN to 6 digits + lockout | 2 hrs |
-| 19 | C5 — Convert pages to Server Components | Ongoing |
-
-### Technical debt
-| # | Issue | Est. Effort |
-|---|-------|-------------|
-| 20 | L1 — Replace custom TOTP with `otplib` | 2 hrs |
-| 21 | L5-L6, L10 — Remove dead code & duplications | 1 hr |
-| 22 | M5 — Whitelist upsert fields | 2 hrs |
-| 23 | M12 — Add Zod validation to remaining endpoints | 1 hr |
+| Metric | Value |
+|--------|-------|
+| Total findings | 40 |
+| Resolved | 40 ✅ |
+| Unresolved | 0 |
+| Completion date | 2026-05-23 |

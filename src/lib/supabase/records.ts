@@ -136,13 +136,12 @@ export function mapPayment(row: any): PaymentRecord {
 
 export function mapStatusHistory(row: any): OrderStatusHistoryRecord {
   return {
-    id: row.id,
-    orderId: row.order_id,
-    shopId: row.shop_id ?? '',
-    oldStatus: row.old_status,
-    newStatus: row.new_status,
-    changedBy: row.changed_by,
-    changedAt: row.changed_at,
-    _synced: 1,
+    id:         row.id,
+    orderId:    row.order_id,
+    oldStatus:  row.old_status,
+    newStatus:  row.new_status,
+    shopId:     row.shop_id,
+    changedBy:  row.changed_by,
+    changedAt:  row.changed_at,
   }
 }

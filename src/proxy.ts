@@ -54,7 +54,7 @@ export async function proxy(req: NextRequest) {
     const isSensitive = (pathname.startsWith('/api/auth') || pathname === '/api/admin/login') && !pathname.startsWith('/api/auth/session')
     const limiter = isSensitive ? getLoginRatelimiter() : getAPIRatelimiter()
     const prefix = isSensitive ? 'sensitive' : 'api'
-    const rl = await checkRateLimit(limiter, `${prefix}:${getRateLimitId(req)}:${pathname}`)
+    const rl = await checkRateLimit(limiter, `${prefix}:${getRateLimitId(req)}:${pathname}`, isSensitive ? 'sensitive' : 'normal')
     if (!rl.allowed) {
       return NextResponse.json(
         { error: rl.error ?? 'Too many requests. Please try again later.' },

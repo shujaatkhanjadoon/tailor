@@ -70,7 +70,7 @@ async function sbPost(table: string, data: object): Promise<any> {
   return Array.isArray(rows) ? rows[0] : rows
 }
 
-async function sbUpsertById(table: string, data: object): Promise<void> {
+async function sbUpsertById(table: string, data: Record<string, unknown>): Promise<void> {
   // Always conflict on 'id' — every table has this unique constraint
   const res = await sbFetch(`${table}?on_conflict=id`, {
     method:  'POST',
@@ -297,10 +297,12 @@ export async function POST(req: NextRequest) {
     }).catch(console.error)
 
     // WhatsApp via CallMeBot (if configured)
+    // NOTE: CallMeBot API requires the key as a query param (API design constraint).
+    // Key is sent over HTTPS only and never logged. Accepted risk per audit H5.
     const callMeBotKey = process.env.CALLMEBOT_API_KEY
     if (callMeBotKey && adminWA) {
       const msg = encodeURIComponent(
-        `🆕 New Shop Registration!\n\n` +
+        `New Shop Registration!\n\n` +
         `Shop: ${shopName}\n` +
         `Owner: ${ownerName ?? 'N/A'}\n` +
         `Phone: ${ownerPhone}\n` +

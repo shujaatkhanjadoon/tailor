@@ -12,6 +12,7 @@ import { format } from 'date-fns'
 import { supabase } from '@/lib/supabase/client'
 import { mapCustomer, mapMeasurement } from '@/lib/supabase/records'
 import { nowKarachiIso } from '@/lib/time'
+import { uuid } from '@/lib/db/operations'
 import { napOwnerLabel } from '@/lib/order-recipient'
 
 // All fields per garment type
@@ -144,7 +145,6 @@ const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; labe
   ],
 }
 
-const uuid = () => crypto.randomUUID()
 const now  = () => nowKarachiIso()
 
 export default function MeasurementsPage({ params }: { params: Promise<{ id: string }> }) {

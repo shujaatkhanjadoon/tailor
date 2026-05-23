@@ -10,8 +10,6 @@ import { teamOps }     from '../db/operations'
 import { supabase }             from '../supabase/client'
 import { hashPIN, verifyPIN }   from '@/lib/security/pin'
 import { mapTeamMember } from '@/lib/supabase/records'
-import { syncService } from '@/lib/supabase/sync-service'
-
 // ── Types ─────────────────────────────────────────────────────────
 
 interface AuthState {
@@ -174,12 +172,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState(s => ({ ...s, ...partial, isLoading: false }))
     })
   }, [])
-
-  useEffect(() => {
-    if (!state.shopId || !state.currentUser) return
-    syncService.pullAll(state.shopId).catch(console.error)
-    return syncService.startAutoSync(state.shopId)
-  }, [state.shopId, state.currentUser?.id])
 
   const reinitialize = useCallback(async () => {
     const partial = await readStateFromDB()

@@ -2,6 +2,7 @@
 'use client'
 
 import { useState }      from 'react'
+import Image              from 'next/image'
 import { useLiveQuery }  from 'dexie-react-hooks'
 import {
   Camera, Images, Trash2, Loader2,
@@ -95,11 +96,12 @@ export function PhotoCapture({
                          bg-slate-100 border border-slate-200 group"
             >
               {/* Image */}
-              <img
+              <Image
                 src={displayUrl}
                 alt={label}
-                className="w-full h-full object-cover"
-                loading="lazy"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 50vw"
               />
 
               <button
@@ -271,13 +273,15 @@ export function PhotoCapture({
           className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
           onClick={() => setViewing(null)}
         >
-          <img
+          <Image
             src={viewing.includes('cloudinary.com')
               ? getOptimisedUrl(viewing, { width: 1200 })
               : viewing
             }
             alt="Full view"
-            className="max-w-full max-h-full object-contain rounded-xl"
+            fill
+            className="object-contain rounded-xl"
+            sizes="100vw"
             onClick={e => e.stopPropagation()}
           />
           <button

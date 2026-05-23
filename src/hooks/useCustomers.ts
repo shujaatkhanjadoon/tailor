@@ -11,8 +11,9 @@ const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,applied_to_balance,kind,meth
 
 const CUSTOMERS_PER_PAGE = 50
 
+let chanId = 0
 function uniqueChannelName(name: string) {
-  return `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return `${name}-${chanId++}`
 }
 
 export function useCustomers(shopId: string | null) {

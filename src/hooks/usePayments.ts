@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { OrderRecord, PaymentRecord } from '@/lib/db/schema'
 import { orderBalance, paymentAppliedAmount, paymentSurplusAmount, sumPayments } from '@/lib/payments/calculations'
 import { supabase } from '@/lib/supabase/client'
@@ -7,8 +7,9 @@ import { mapOrder, mapPayment } from '@/lib/supabase/records'
 const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,applied_to_balance,kind,method,recorded_by,paid_at,notes,deleted_at'
 const PAYMENT_ORDER_COLUMNS = 'id,shop_id,order_number,tracking_code,customer_id,customer_name,customer_phone,order_for_relation,order_for_name,recipient_gender,measurement_id,garment_type,status,assigned_to,assigned_to_name,total_price,amount_paid,is_urgent,due_date,special_instructions,fabric_photo_url,style_photo_url,created_at,updated_at,delivered_at,deleted_at'
 
+let chanId = 0
 function uniqueChannelName(name: string) {
-  return `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return `${name}-${chanId++}`
 }
 
 export type PaymentFilter = 'all' | 'today' | 'this_week' | 'this_month'
@@ -39,7 +40,11 @@ function startOf(unit: 'day' | 'week' | 'month'): string {
   return d.toISOString()
 }
 
-export function usePayments(shopId: string | null) {
+interface UsePaymentsOptions {
+  orders?: OrderRecord[]
+}
+
+export function usePayments(shopId: string | null, options?: UsePaymentsOptions) {
   const [filter, setFilter] = useState<PaymentFilter>('all')
   const [methodFilter, setMethodFilter] = useState<PaymentMethod>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -47,6 +52,8 @@ export function usePayments(shopId: string | null) {
   const [page, setPage] = useState(0)
   const [totalPayments, setTotalPayments] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const ordersRef = useRef(options?.orders)
+  ordersRef.current = options?.orders
 
   useEffect(() => {
     if (!shopId) {
@@ -59,15 +66,22 @@ export function usePayments(shopId: string | null) {
 
     const fetchAndSet = async (showLoading: boolean) => {
       if (showLoading) setIsLoading(true)
-      const [{ count: totalCount }, { data: paymentRows }, { data: orderRows }] = await Promise.all([
+
+      const [{ count: totalCount }, { data: paymentRows }] = await Promise.all([
         (supabase as any).from('payments').select('id', { count: 'exact', head: true }).eq('shop_id', shopId).is('deleted_at', null),
         (supabase as any).from('payments').select(PAYMENT_COLUMNS).eq('shop_id', shopId).is('deleted_at', null).order('paid_at', { ascending: false }).range(page * PAYMENTS_PER_PAGE, page * PAYMENTS_PER_PAGE + PAYMENTS_PER_PAGE - 1),
-        (supabase as any).from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null),
       ])
-      const orders = new Map<string, OrderRecord>((orderRows ?? []).map((row: any) => {
-        const order = mapOrder(row)
-        return [order.id, order]
-      }))
+
+      let orders: Map<string, OrderRecord>
+      if (ordersRef.current) {
+        orders = new Map(ordersRef.current.map(o => [o.id, o]))
+      } else {
+        const { data: orderRows } = await (supabase as any).from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null)
+        orders = new Map((orderRows ?? []).map((row: any) => {
+          const order = mapOrder(row)
+          return [order.id, order]
+        }))
+      }
       const rows = (paymentRows ?? []).map((row: any) => {
         const payment = mapPayment(row)
         const order = orders.get(payment.orderId)

@@ -11,8 +11,9 @@ const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,applied_to_balance,kind,meth
 const CUSTOMER_COLUMNS = 'id,shop_id,name,phone,whatsapp,gender,notes,photo_url,created_at,deleted_at'
 const TEAM_COLUMNS = 'id,shop_id,name,role,speciality,pay_rate_type,pay_rate,is_active,deleted_at'
 
+let chanId = 0
 function uniqueChannelName(name: string) {
-  return `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return `${name}-${chanId++}`
 }
 
 function periodStart(period: ReportPeriod): string | null {

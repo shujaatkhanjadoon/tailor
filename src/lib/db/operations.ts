@@ -6,12 +6,23 @@ import { generateTrackingCode } from '../tracking'
 import { paymentAppliedAmount } from '@/lib/payments/calculations'
 import { karachiDateString, nowKarachiIso } from '@/lib/time'
 
+// In-memory shop name cache — avoids redundant queries in orderOps.add()
+const shopNameCache = new Map<string, string>()
+async function getShopName(shopId: string): Promise<string> {
+  const cached = shopNameCache.get(shopId)
+  if (cached) return cached
+  const shop = await shopOps.get(shopId)
+  const name = shop?.shopName ?? 'DZ'
+  shopNameCache.set(shopId, name)
+  return name
+}
+
 const CUSTOMER_COLUMNS = 'id,shop_id,name,phone,whatsapp,gender,notes,photo_url,total_orders,created_at,updated_at,last_order_at,deleted_at'
 const ORDER_COLUMNS = 'id,shop_id,order_number,tracking_code,customer_id,customer_name,customer_phone,order_for_relation,order_for_name,recipient_gender,measurement_id,garment_type,status,assigned_to,assigned_to_name,total_price,amount_paid,is_urgent,due_date,special_instructions,fabric_photo_url,style_photo_url,created_at,updated_at,delivered_at,deleted_at'
 const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,applied_to_balance,kind,method,recorded_by,paid_at,notes,deleted_at'
 const TEAM_MEMBER_COLUMNS = 'id,shop_id,name,phone,role,pin_hash,speciality,pay_rate_type,pay_rate,is_active,joined_at,created_at,deleted_at'
 
-const uuid = (): string =>
+export const uuid = (): string =>
   typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
     : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -434,16 +445,16 @@ export const orderOps = {
     if (!data.garmentType) throw new Error('garmentType is required')
     if (!data.dueDate) throw new Error('dueDate is required')
 
-    const [orderNumber, shop] = await Promise.all([
+    const [orderNumber, shopName] = await Promise.all([
       orderOps.getNextOrderNumber(shopId),
-      shopOps.get(shopId),
+      getShopName(shopId),
     ])
     const ts = nowKarachiIso()
     const order: OrderRecord = {
       id: uuid(),
       shopId,
       orderNumber,
-      trackingCode: generateTrackingCode(shop?.shopName ?? 'DZ'),
+      trackingCode: generateTrackingCode(shopName),
       amountPaid: 0,
       createdAt: ts,
       updatedAt: ts,
