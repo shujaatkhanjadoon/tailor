@@ -83,8 +83,14 @@ export function useNotificationCount(shopId: string | null) {
     const channel = supabase
       .channel(`notification-count-${shopId}-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
+          console.log('[useNotificationCount] Realtime subscription status:', status)
+        }
+      })
+    const interval = setInterval(load, 60_000)
     return () => {
+      clearInterval(interval)
       supabase.removeChannel(channel)
     }
   }, [shopId])

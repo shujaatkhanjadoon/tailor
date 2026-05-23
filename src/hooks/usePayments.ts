@@ -51,8 +51,9 @@ export function usePayments(shopId: string | null) {
       return
     }
     let cancelled = false
-    const load = async () => {
-      setIsLoading(true)
+
+    const fetchAndSet = async (showLoading: boolean) => {
+      if (showLoading) setIsLoading(true)
       const [{ data: paymentRows }, { data: orderRows }] = await Promise.all([
         (supabase as any).from('payments').select(PAYMENT_COLUMNS).eq('shop_id', shopId).is('deleted_at', null).order('paid_at', { ascending: false }),
         (supabase as any).from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null),
@@ -77,17 +78,27 @@ export function usePayments(shopId: string | null) {
       })
       if (!cancelled) {
         setEnriched(rows)
-        setIsLoading(false)
+        if (showLoading) setIsLoading(false)
       }
     }
+
+    const load = () => fetchAndSet(true)
+    const refresh = () => fetchAndSet(false)
+
     load()
     const channel = supabase
       .channel(uniqueChannelName(`payments-${shopId}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `shop_id=eq.${shopId}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
+          console.log('[usePayments] Realtime subscription status:', status)
+        }
+      })
+    const interval = setInterval(refresh, 60_000)
     return () => {
       cancelled = true
+      clearInterval(interval)
       supabase.removeChannel(channel)
     }
   }, [shopId])
@@ -145,22 +156,33 @@ export function usePendingBalances(shopId: string | null) {
       return
     }
     let cancelled = false
-    const load = async () => {
-      setIsLoading(true)
+
+    const fetchAndSet = async (showLoading: boolean) => {
+      if (showLoading) setIsLoading(true)
       const { data } = await (supabase as any).from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null)
       if (!cancelled) {
         setPendingOrders((data ?? []).map(mapOrder).filter((o: OrderRecord) => o.status !== 'cancelled' && orderBalance(o) > 0))
-        setIsLoading(false)
+        if (showLoading) setIsLoading(false)
       }
     }
+
+    const load = () => fetchAndSet(true)
+    const refresh = () => fetchAndSet(false)
+
     load()
     const channel = supabase
       .channel(uniqueChannelName(`pending-balances-${shopId}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
+          console.log('[usePendingBalances] Realtime subscription status:', status)
+        }
+      })
+    const interval = setInterval(refresh, 60_000)
     return () => {
       cancelled = true
+      clearInterval(interval)
       supabase.removeChannel(channel)
     }
   }, [shopId])

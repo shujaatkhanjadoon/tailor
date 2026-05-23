@@ -92,42 +92,44 @@ export function IncomeChart({ monthly, weekly }: IncomeChartProps) {
       </div>
 
       {/* Chart */}
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 10, fill: '#94a3b8' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fontSize: 10, fill: '#94a3b8' }}
-            axisLine={false}
-            tickLine={false}
-            tickFormatter={v => formatAmount(Number(v))}
-          />
-          <Tooltip content={<CustomTooltip />} />
+      <div style={{ minHeight: 220 }}>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 10, fill: '#94a3b8' }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 10, fill: '#94a3b8' }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={v => formatAmount(Number(v))}
+            />
+            <Tooltip content={<CustomTooltip />} />
 
-          {view === 'monthly' && breakdown ? (
-            <>
-              <Legend
-                formatter={v => <span className="text-xs text-slate-500">{v}</span>}
-              />
-              <Bar dataKey="cash"    name="Cash"    fill="#22c55e" radius={[4,4,0,0]} stackId="a" />
-              <Bar dataKey="digital" name="Digital" fill="#3b82f6" radius={[4,4,0,0]} stackId="a" />
-            </>
-          ) : (
-            <Bar dataKey="income" name="Income" fill="#3b82f6" radius={[6,6,0,0]}>
-              {data.map((entry, i) => (
-                <rect key={i} fill={
-                  entry.income === maxVal ? '#1d4ed8' : '#3b82f6'
-                } />
-              ))}
-            </Bar>
-          )}
-        </BarChart>
-      </ResponsiveContainer>
+            {view === 'monthly' && breakdown ? (
+              <>
+                <Legend
+                  formatter={v => <span className="text-xs text-slate-500">{v}</span>}
+                />
+                <Bar dataKey="cash"    name="Cash"    fill="#22c55e" radius={[4,4,0,0]} stackId="a" />
+                <Bar dataKey="digital" name="Digital" fill="#3b82f6" radius={[4,4,0,0]} stackId="a" />
+              </>
+            ) : (
+              <Bar dataKey="income" name="Income" fill="#3b82f6" radius={[6,6,0,0]}>
+                {data.map((entry, i) => (
+                  <rect key={i} fill={
+                    entry.income === maxVal ? '#1d4ed8' : '#3b82f6'
+                  } />
+                ))}
+              </Bar>
+            )}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   )
 }

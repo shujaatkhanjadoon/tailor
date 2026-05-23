@@ -1,6 +1,7 @@
 // src/proxy.ts
 import { NextRequest, NextResponse }    from 'next/server'
 import { verifySessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
+import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 import { checkRateLimit, getAPIRatelimiter, getLoginRatelimiter, getRateLimitId } from '@/lib/security/rate-limit'
 
 // ── Security headers ──────────────────────────────────────────────
@@ -28,9 +29,11 @@ export async function proxy(req: NextRequest) {
 
   // ── Global API rate limiting ─────────────────────────────────
   if (pathname.startsWith('/api/')) {
-    const sensitive = pathname.startsWith('/api/auth')
-    const limiter = sensitive ? getLoginRatelimiter() : getAPIRatelimiter()
-    const rl = await checkRateLimit(limiter, `${sensitive ? 'sensitive' : 'api'}:${getRateLimitId(req)}:${pathname}`)
+    // Session endpoints are called on every page load — use generous API limiter
+    const isSensitive = pathname.startsWith('/api/auth') && !pathname.startsWith('/api/auth/session')
+    const limiter = isSensitive ? getLoginRatelimiter() : getAPIRatelimiter()
+    const prefix = isSensitive ? 'sensitive' : 'api'
+    const rl = await checkRateLimit(limiter, `${prefix}:${getRateLimitId(req)}:${pathname}`)
     if (!rl.allowed) {
       return NextResponse.json(
         { error: rl.error ?? 'Too many requests. Please try again later.' },
@@ -106,6 +109,50 @@ export async function proxy(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     return res
+  }
+
+  // ── Main app public routes (no auth required) ────────────────────
+  const mainAppPublic = [
+    '/auth', '/login', '/setup', '/track',
+    '/pricing', '/about', '/privacy-policy',
+    '/terms-of-service', '/contact',
+  ]
+  const isMainAppPublic = mainAppPublic.some(p =>
+    pathname === p || pathname.startsWith(`${p}/`)
+  )
+
+  // ── Main app protected routes — check member session ───────────
+  const STATIC_EXTS = /\.(ico|png|jpg|svg|webp|css|js|json|txt|xml)$/
+  if (
+    !pathname.startsWith('/api/') &&
+    !pathname.startsWith('/admin/') &&
+    !isMainAppPublic &&
+    !pathname.startsWith('/_next/') &&
+    !pathname.startsWith('/icons/') &&
+    !STATIC_EXTS.test(pathname)
+  ) {
+    const token = req.cookies.get(MEMBER_SESSION_COOKIE)?.value
+    if (!token || !verifyMemberSessionToken(token)) {
+      const url = new URL('/auth', req.url)
+      // Sanitize redirect: must be same-origin, not a public route, not an API route
+      let redirectPath = pathname + req.nextUrl.search
+      try {
+        const parsed = new URL(redirectPath, req.url)
+        redirectPath = parsed.pathname + parsed.search
+        const isAllowed = (
+          parsed.origin === req.nextUrl.origin &&
+          !mainAppPublic.some(p => parsed.pathname === p || parsed.pathname.startsWith(`${p}/`)) &&
+          !parsed.pathname.startsWith('/admin/') &&
+          !parsed.pathname.startsWith('/api/')
+        )
+        if (isAllowed) {
+          url.searchParams.set('redirect', redirectPath)
+        }
+      } catch {
+        // invalid URL — don't set redirect
+      }
+      return NextResponse.redirect(url)
+    }
   }
 
   // ── Request size limit on API routes ──────────────────────────

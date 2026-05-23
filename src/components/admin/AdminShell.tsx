@@ -41,12 +41,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 flex items-center
                           justify-center shrink-0">
-            <Image
+<Image
             src="/icon.svg"
             alt="MeraDarzi"
             width={32}
-            height={32} 
-            />
+            height={32}
+            className="lg:block hidden"
+            loading="eager"
+          />
           </div>
           <div>
             <p className="font-bold text-white text-sm leading-tight">MeraDarzi</p>

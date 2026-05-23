@@ -57,8 +57,9 @@ export function useReports(shopId: string | null) {
     }
 
     let cancelled = false
-    const load = async () => {
-      setIsLoading(true)
+
+    const fetchAndSet = async (showLoading: boolean) => {
+      if (showLoading) setIsLoading(true)
       try {
         const [ordersRes, paymentsRes, customersRes, teamRes] = await Promise.all([
           (supabase as any)
@@ -95,9 +96,12 @@ export function useReports(shopId: string | null) {
           setTeamMembers((teamRes.data ?? []).map(mapTeamMember))
         }
       } finally {
-        if (!cancelled) setIsLoading(false)
+        if (!cancelled && showLoading) setIsLoading(false)
       }
     }
+
+    const load = () => fetchAndSet(true)
+    const refresh = () => fetchAndSet(false)
 
     load()
     const channel = supabase
@@ -106,10 +110,17 @@ export function useReports(shopId: string | null) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `shop_id=eq.${shopId}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `shop_id=eq.${shopId}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
+          console.log('[useReports] Realtime subscription status:', status)
+        }
+      })
+
+    const interval = setInterval(refresh, 60_000)
 
     return () => {
       cancelled = true
+      clearInterval(interval)
       supabase.removeChannel(channel)
     }
   }, [shopId])

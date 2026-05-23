@@ -1155,8 +1155,8 @@ export default function KarigarPage() {
     o.dueDate < new Date().toISOString().split('T')[0]
   ).length
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     window.location.href = '/auth'
   }
 
@@ -1178,6 +1178,7 @@ export default function KarigarPage() {
               alt="MeraDarzi"
               width={32}
               height={32}
+              loading="eager"
             />
             </div>
             <div>

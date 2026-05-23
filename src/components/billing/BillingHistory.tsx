@@ -28,6 +28,7 @@ export function BillingHistory() {
         .from('subscription_payments')
         .select('id,shop_id,plan,billing_cycle,amount_pkr,status,paid_at,gateway_tx_id')
         .eq('shop_id', shopId)
+        .neq('method', 'reminder')
         .order('paid_at', { ascending: false })
         .limit(20)
       setPayments(data ?? [])

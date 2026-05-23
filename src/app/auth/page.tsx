@@ -523,12 +523,23 @@ function AuthContent() {
         body: JSON.stringify({ phone: cleaned, success: true }),
       }).catch(console.error)
 
-      // ── 6. Save session to localStorage ─────────────────────────
-      // THIS IS THE CRITICAL MISSING STEP — without this,
-      // AuthGuard sees currentUser=null and redirects back to /auth
+      // ── 6. Save session (httpOnly cookie + localStorage cache) ──
       saveSessionLocally(member.id, member.shop_id)
+      const sessionRes = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ memberId: member.id, shopId: member.shop_id }),
+      })
+      if (!sessionRes.ok) {
+        const errData = await sessionRes.json().catch(() => ({}))
+        console.error('[Login] Session creation failed:', sessionRes.status, errData)
+        setPinError('Session create nahi ho saka. Dobara try karein.')
+        setLoading(false)
+        return
+      }
 
-      // ── 9. Redirect ──────────────────────────────────────────────
+      // ── 7. Redirect ──────────────────────────────────────────────
       const dest = member.role === 'karigar'
         ? '/karigar'
         : redirectTo === '/auth' || redirectTo.startsWith('/auth')
@@ -786,6 +797,7 @@ function AuthContent() {
               alt="MeraDarzi"
               width={64}
               height={64}
+              loading="eager"
             />
           </div>
           <h1 className="text-2xl font-bold text-white">MeraDarzi</h1>

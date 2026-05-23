@@ -55,13 +55,13 @@ export function OrderStatusChart({ data, total }: OrderStatusChartProps) {
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-5">
+    <div className="bg-white border border-slate-200 rounded-2xl p-5 min-w-0">
       <h3 className="font-bold text-slate-800 mb-1">Order Status</h3>
       <p className="text-xs text-slate-400 mb-4">{total} total orders</p>
 
-      <div className="flex flex-col lg:flex-row items-center gap-4">
+      <div className="flex flex-col lg:flex-row items-center gap-4 min-w-0">
         {/* Donut */}
-        <div className="w-full lg:w-48 h-48 shrink-0">
+        <div className="w-full lg:w-48 h-48 shrink-0 min-w-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie

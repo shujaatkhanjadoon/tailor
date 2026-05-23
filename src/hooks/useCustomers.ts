@@ -26,8 +26,9 @@ export function useCustomers(shopId: string | null) {
       return
     }
     let cancelled = false
-    const load = async () => {
-      setIsLoading(true)
+
+    const fetchAndSet = async (showLoading: boolean) => {
+      if (showLoading) setIsLoading(true)
       const { data, error } = await (supabase as any)
         .from('customers')
         .select(CUSTOMER_COLUMNS)
@@ -36,15 +37,25 @@ export function useCustomers(shopId: string | null) {
         .order('last_order_at', { ascending: false })
         .limit(200)
       if (!cancelled && !error) setAllCustomers((data ?? []).map(mapCustomer))
-      if (!cancelled) setIsLoading(false)
+      if (!cancelled && showLoading) setIsLoading(false)
     }
+
+    const load = () => fetchAndSet(true)
+    const refresh = () => fetchAndSet(false)
+
     load()
     const channel = supabase
       .channel(uniqueChannelName(`customers-${shopId}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
+          console.log('[useCustomers] Realtime subscription status:', status)
+        }
+      })
+    const interval = setInterval(refresh, 60_000)
     return () => {
       cancelled = true
+      clearInterval(interval)
       supabase.removeChannel(channel)
     }
   }, [shopId])
@@ -81,6 +92,7 @@ export function useCustomer(id: string) {
 
   useEffect(() => {
     let cancelled = false
+
     const load = async () => {
       const { data: customerData } = await (supabase as any)
         .from('customers')
@@ -103,6 +115,19 @@ export function useCustomer(id: string) {
       setMeasurements((measurementData ?? []).map(mapMeasurement))
       setPayments((paymentData ?? []).map(mapPayment))
     }
+
+    const refresh = async () => {
+      if (cancelled) return
+      const { data: customerData } = await (supabase as any)
+        .from('customers')
+        .select(CUSTOMER_COLUMNS)
+        .eq('id', id)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (cancelled) return
+      if (customerData) setCustomer(mapCustomer(customerData))
+    }
+
     load()
     const channel = supabase
       .channel(uniqueChannelName(`customer-profile-${id}`))
@@ -110,9 +135,15 @@ export function useCustomer(id: string) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `customer_id=eq.${id}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'measurements', filter: `customer_id=eq.${id}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, load)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
+          console.log('[useCustomer] Realtime subscription status:', status)
+        }
+      })
+    const interval = setInterval(refresh, 60_000)
     return () => {
       cancelled = true
+      clearInterval(interval)
       supabase.removeChannel(channel)
     }
   }, [id])

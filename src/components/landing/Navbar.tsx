@@ -45,6 +45,7 @@ export function Navbar() {
               alt="MeraDarzi"
               width={36}
               height={36}
+              loading="eager"
             />
             </div>
             <span className="text-lg font-bold text-slate-900">MeraDarzi</span>

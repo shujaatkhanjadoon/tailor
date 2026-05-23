@@ -41,8 +41,8 @@ export function MobileAccountBar() {
     router.push(href)
   }
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     setOpen(false)
     router.replace('/auth')
   }

@@ -249,7 +249,8 @@ function LoginContent() {
             src="/icon.svg"
             alt="MeraDarzi"
             width={64}
-            height={64} 
+            height={64}
+            loading="eager"
             />
           </div>
           <h1 className="text-2xl font-bold text-white">MeraDarzi</h1>

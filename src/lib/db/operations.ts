@@ -6,7 +6,6 @@ import { generateTrackingCode } from '../tracking'
 import { paymentAppliedAmount } from '@/lib/payments/calculations'
 import { karachiDateString, nowKarachiIso } from '@/lib/time'
 
-const SESSION_KEY = 'md_session_v2'
 const CUSTOMER_COLUMNS = 'id,shop_id,name,phone,whatsapp,gender,notes,photo_url,total_orders,created_at,updated_at,last_order_at,deleted_at'
 const ORDER_COLUMNS = 'id,shop_id,order_number,tracking_code,customer_id,customer_name,customer_phone,order_for_relation,order_for_name,recipient_gender,measurement_id,garment_type,status,assigned_to,assigned_to_name,total_price,amount_paid,is_urgent,due_date,special_instructions,fabric_photo_url,style_photo_url,created_at,updated_at,delivered_at,deleted_at'
 const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,applied_to_balance,kind,method,recorded_by,paid_at,notes,deleted_at'
@@ -20,15 +19,6 @@ const uuid = (): string =>
         const v = c === 'x' ? r : (r & 0x3) | 0x8
         return v.toString(16)
       })
-
-function getSessionShopId(): string | null {
-  if (typeof localStorage === 'undefined') return null
-  try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null')?.shopId ?? null
-  } catch {
-    return null
-  }
-}
 
 function clean<T extends Record<string, unknown>>(row: T): T {
   Object.keys(row).forEach(key => {
@@ -168,7 +158,13 @@ export interface AddTeamMemberData {
 
 export const shopOps = {
   async getShopId(): Promise<string | null> {
-    return getSessionShopId()
+    // Client-side cache — set by AuthContext after login
+    if (typeof localStorage === 'undefined') return null
+    try {
+      return JSON.parse(localStorage.getItem('md_session_v2') || 'null')?.shopId ?? null
+    } catch {
+      return null
+    }
   },
 
   async get(shopId: string) {

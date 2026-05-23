@@ -40,8 +40,8 @@ export function SideNav() {
     .join('') || '?'
   const showShopLogo = !!shop?.brandLogoUrl
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     router.replace('/auth')
   }
 

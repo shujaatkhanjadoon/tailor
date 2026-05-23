@@ -27,11 +27,11 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isLoading) return
-
     if (isPublic) return
 
+    // Proxy handles unauthenticated redirect at the network boundary.
+    // This is a defensive fallback for mid-session expiry.
     if (!currentUser) {
-      // Full page navigation avoids RSC conflict
       const currentPath = `${window.location.pathname}${window.location.search}`
       window.location.replace(`/auth?redirect=${encodeURIComponent(currentPath)}`)
       return
@@ -51,7 +51,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
         <div className="flex flex-col items-center gap-4">
           <div className="flex items-center
                           justify-center">
-            <Image src="/icon.svg" alt="MeraDarzi" width={64} height={64} />
+            <Image src="/icon.svg" alt="MeraDarzi" width={64} height={64} loading="eager" />
           </div>
           <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent
                           rounded-full animate-spin" />

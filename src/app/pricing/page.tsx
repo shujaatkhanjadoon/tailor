@@ -42,6 +42,7 @@ export default function PricingPage() {
               alt="MeraDarzi"
               width={32}
               height={32}
+              loading="eager"
             />
           </div>
           <span className="font-bold text-slate-800 text-lg">MeraDarzi</span>

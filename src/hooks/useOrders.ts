@@ -106,8 +106,9 @@ export function useOrders(
       return
     }
     let cancelled = false
-    const load = async () => {
-      setIsLoading(true)
+
+    const fetchAndSet = async (showLoading: boolean) => {
+      if (showLoading) setIsLoading(true)
       try {
         const result = await fetchOrders(shopId, role, memberId, { today, activeFilter, statusFilter, searchQuery, page, paginated })
         if (!cancelled) {
@@ -121,16 +122,26 @@ export function useOrders(
           setCounts({ overdue, ready, today: todayC, unassigned })
         }
       } finally {
-        if (!cancelled) setIsLoading(false)
+        if (!cancelled && showLoading) setIsLoading(false)
       }
     }
+
+    const load = () => fetchAndSet(true)
+    const refresh = () => fetchAndSet(false)
+
     load()
     const channel = supabase
       .channel(uniqueChannelName(`orders-list-${shopId}-${memberId ?? 'all'}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
+          console.log('[useOrders] Realtime subscription status:', status)
+        }
+      })
+    const interval = setInterval(refresh, 60_000)
     return () => {
       cancelled = true
+      clearInterval(interval)
       supabase.removeChannel(channel)
     }
   }, [shopId, role, memberId, today, activeFilter, statusFilter, searchQuery, page, paginated])

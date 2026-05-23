@@ -139,7 +139,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
           <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
-                <Image src="/icon.svg" alt="MeraDarzi" width={32} height={32} />
+                <Image src="/icon.svg" alt="MeraDarzi" width={32} height={32} loading="eager" />
               </div>
               <div className="min-w-0">
                 <div className="h-3 w-28 rounded-full bg-white/20" />
@@ -211,7 +211,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
           Dobara Try Karein
         </button>
         <div className="mt-10 flex items-center gap-2 text-white/70">
-          <Image src="/icon.svg" alt="MeraDarzi" width={24} height={24} />
+          <Image src="/icon.svg" alt="MeraDarzi" width={24} height={24} loading="eager" />
           <span className="text-sm font-bold">MeraDarzi</span>
         </div>
       </div>
@@ -261,7 +261,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={branding.logoUrl} alt="" className="h-full w-full object-cover" />
               ) : (
-                <Image src="/icon.svg" alt="MeraDarzi" width={32} height={32} />
+                <Image src="/icon.svg" alt="MeraDarzi" width={32} height={32} loading="eager" />
               )}
             </div>
             <div className="min-w-0">
@@ -488,7 +488,7 @@ export default function TrackPage({ params }: { params: Promise<{ code: string }
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={branding.logoUrl} alt="" className="h-full w-full object-cover" />
               ) : (
-                <Image src="/icon.svg" alt="MeraDarzi" width={20} height={20} />
+                <Image src="/icon.svg" alt="MeraDarzi" width={20} height={20} loading="eager" />
               )}
             </div>
             <span className="text-sm font-bold text-slate-700">{branding.name || 'MeraDarzi'}</span>

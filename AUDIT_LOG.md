@@ -13,12 +13,12 @@
 | Security (Critical) | 10 | 9* | 1 |
 | Security (High) | 6 | 6 | 0 |
 | Security (Medium) | 10 | 10 | 0 |
-| Security (Low) | 6 | 5 | 1 |
+| Security (Low) | 6 | 6 | 0 |
 | Performance (Critical) | 5 | 5 | 0 |
 | Performance (High) | 6 | 6 | 0 |
 | Performance (Medium) | 10 | 10 | 0 |
-| Performance (Low) | 10 | 8 | 2 |
-| **Total** | **63** | **59** | **4** |
+| Performance (Low) | 10 | 9 | 1 |
+| **Total** | **63** | **61** | **2** |
 
 *\* Live secrets in `.env.local` require manual rotation — see below.*
 
@@ -81,6 +81,9 @@
 | 44 | TOTP QR secret not Base32 compatible | `src/lib/admin/auth.ts` | Added `normalizeTOTPSecret()` auto-detects hex → converts to Base32 for QR URI; applied in `getTOTPUri()`, `verifyTOTP()`, `generateTOTP()` |
 | 45 | `send-reminders` cron used Supabase `createClient` | `src/app/api/cron/send-reminders/route.ts` | Refactored to direct REST fetch, removed `@supabase/supabase-js` dependency |
 | 46 | `exportPrintablePDF` generated HTML, not real PDF | `src/lib/export/download.ts` | Rewrote using `jsPDF` + `jspdf-autotable` — generates proper A4 PDF with styled table |
+| 47 | Main app session in `localStorage` (30-day TTL) — XSS-vulnerable | `src/lib/auth/AuthContext.tsx`, `src/app/auth/page.tsx` | Moved session to httpOnly HMAC-signed cookie via `src/lib/auth/session.ts` + `POST /api/auth/session`. localStorage kept as lightweight `shopId` cache only. Token TTL: 7 days. |
+| 48 | `reminder` records mixed in `subscription_payments` table — shops see Rs. 0 entries | `src/components/billing/BillingHistory.tsx` | Added `.neq('method', 'reminder')` filter to shop-facing billing history query |
+| 49 | `redirectTo` client-side logic could run in Next.js proxy (network boundary) | `src/proxy.ts`, `src/components/auth/AuthGuard.tsx` | Proxy now validates member session cookie for main app protected routes and sets sanitized `?redirect=` param before redirect to `/auth`. AuthGuard kept as defensive fallback for mid-session expiry. |
 
 ---
 
@@ -126,19 +129,6 @@ CREATE INDEX IF NOT EXISTS idx_team_members_shop_active ON team_members(shop_id,
 ---
 
 ## Remaining Issues (Not Fixed)
-
-### Security (Low)
-
-| # | Issue | Priority |
-|---|-------|----------|
-| 1 | Main app session in `localStorage` (30-day TTL) | Low |
-| 2 | `reminder` records mixed in `subscription_payments` table | Low |
-
-### Performance (Low)
-
-| # | Issue | Priority |
-|---|-------|----------|
-| 3 | `redirectTo` client-side logic could be middleware | Low |
 
 ### Test Gap
 

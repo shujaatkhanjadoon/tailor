@@ -43,33 +43,70 @@ type AuthContextType = AuthState & AuthActions
 
 const AuthContext  = createContext<AuthContextType | null>(null)
 const SESSION_KEY  = 'md_session_v2'
-const SESSION_TTL  = 30 * 24 * 60 * 60 * 1000   // 30 days
 
-// ── Session helpers ───────────────────────────────────────────────
+// ── Server session helpers ────────────────────────────────────────
 
-function getSession(): { memberId: string; shopId: string; expiresAt?: number } | null {
-  if (typeof localStorage === 'undefined') return null
+async function readServerSession(): Promise<{
+  memberId: string
+  shopId: string
+  member: Record<string, unknown>
+} | null> {
   try {
-    const raw = localStorage.getItem(SESSION_KEY)
-    if (!raw) return null
-    const s = JSON.parse(raw)
-    if (s.expiresAt && Date.now() > s.expiresAt) {
-      localStorage.removeItem(SESSION_KEY)
-      return null
-    }
-    return s
+    const res = await fetch('/api/auth/session', { credentials: 'include' })
+    if (!res.ok) return null
+    const data = await res.json()
+    if (!data.authenticated) return null
+    return { memberId: data.memberId, shopId: data.shopId, member: data.member }
   } catch {
     return null
   }
 }
 
-function saveSession(memberId: string, shopId: string): void {
+async function createServerSession(memberId: string, shopId: string): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ memberId, shopId }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+async function deleteServerSession(): Promise<void> {
+  try {
+    await fetch('/api/auth/session', {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+  } catch {
+    // non-fatal
+  }
+}
+
+function getCachedShopId(): string | null {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(SESSION_KEY)
+    if (!raw) return null
+    const s = JSON.parse(raw)
+    return s?.shopId ?? null
+  } catch {
+    return null
+  }
+}
+
+function setCachedShopId(shopId: string): void {
   if (typeof localStorage === 'undefined') return
-  localStorage.setItem(SESSION_KEY, JSON.stringify({
-    memberId,
-    shopId,
-    expiresAt: Date.now() + SESSION_TTL,
-  }))
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ shopId }))
+}
+
+function clearCachedShopId(): void {
+  if (typeof localStorage === 'undefined') return
+  localStorage.removeItem(SESSION_KEY)
 }
 
 // ── Remote shop status check ──────────────────────────────────────
@@ -89,35 +126,27 @@ async function isRemoteShopActive(shopId: string): Promise<boolean> {
   }
 }
 
-// ── Core: read auth state from Supabase ──────────────────────────
+// ── Core: read auth state from server session ────────────────────
 
 async function readStateFromDB(): Promise<Partial<AuthState>> {
   try {
-    const session = getSession()
-    if (session?.memberId && session.shopId) {
-      // Refresh TTL on active use
-      saveSession(session.memberId, session.shopId)
-
-      const { data: memberRow } = await (supabase as any)
-        .from('team_members')
-        .select('id,shop_id,name,phone,role,pin_hash,speciality,pay_rate_type,pay_rate,email,email_verified,is_active,joined_at,created_at,updated_at,deleted_at')
-        .eq('id', session.memberId)
-        .eq('is_active', true)
-        .is('deleted_at', null)
-        .maybeSingle()
-      const member = memberRow ? mapTeamMember(memberRow) : null
+    const serverSession = await readServerSession()
+    if (serverSession) {
+      const member = mapTeamMember(serverSession.member as any)
       if (member?.isActive) {
         const active = await isRemoteShopActive(member.shopId)
         if (!active) {
-          localStorage.removeItem(SESSION_KEY)
-          return { isSetupDone: true, shopId: session.shopId, currentUser: null }
+          await deleteServerSession()
+          clearCachedShopId()
+          return { isSetupDone: true, shopId: member.shopId, currentUser: null }
         }
+        setCachedShopId(member.shopId)
         return {
           isSetupDone: true,
-          shopId: session.shopId,
+          shopId: member.shopId,
           currentUser: member,
-          isOwner:     member.role === 'owner',
-          isKarigar:   member.role === 'karigar',
+          isOwner:   member.role === 'owner',
+          isKarigar: member.role === 'karigar',
         }
       }
     }
@@ -167,11 +196,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const active = await isRemoteShopActive(member.shopId)
     if (!active) {
-      localStorage.removeItem(SESSION_KEY)
+      clearCachedShopId()
       return false
     }
 
-    saveSession(member.id, member.shopId)
+    const sessionCreated = await createServerSession(member.id, member.shopId)
+    if (!sessionCreated) {
+      console.error('[Auth] Failed to create server session during login')
+      return false
+    }
+    setCachedShopId(member.shopId)
 
     setState(s => ({
       ...s,
@@ -185,8 +219,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // ── Logout ────────────────────────────────────────────────────
-  const logout = useCallback(() => {
-    localStorage.removeItem(SESSION_KEY)
+  const logout = useCallback(async () => {
+    await deleteServerSession()
+    clearCachedShopId()
     setState(s => ({
       ...s,
       currentUser: null,
@@ -261,7 +296,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           pin:   pinHash,
         })
 
-    saveSession(owner.id, shopId)
+    await createServerSession(owner.id, shopId)
+    setCachedShopId(shopId)
 
     setState({
       isLoading:   false,
@@ -277,7 +313,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Clear All Data ───────────────────────────────────────────
   const clearAllData = useCallback(async () => {
-    localStorage.removeItem(SESSION_KEY)
+    await deleteServerSession()
+    clearCachedShopId()
     setState({
       isLoading:   false,
       isSetupDone: false,
