@@ -5,7 +5,10 @@ export const APP_TIME_ZONE =
   'Asia/Karachi'
 
 export function nowKarachiIso(): string {
-  return new Date().toISOString()
+  const now = new Date()
+  const offset = APP_TIME_ZONE === 'Asia/Karachi' ? 5 * 60 : 0
+  const local = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + offset * 60000)
+  return local.toISOString().replace('Z', '+05:00')
 }
 
 export function karachiDateString(date: Date = new Date()): string {

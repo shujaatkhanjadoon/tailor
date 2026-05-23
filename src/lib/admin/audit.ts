@@ -75,8 +75,9 @@ export async function getAuditLog(limit = 200): Promise<any[]> {
   try {
     const { url, headers } = getSupabaseHeaders()
 
+    const encodedLimit = encodeURIComponent(String(limit))
     const res = await fetch(
-      `${url}/rest/v1/admin_audit_log?order=performed_at.desc&limit=${limit}&select=*`,
+      `${url}/rest/v1/admin_audit_log?order=performed_at.desc&limit=${encodedLimit}&select=*`,
       { headers: { ...headers, 'Prefer': '' } }
     )
 

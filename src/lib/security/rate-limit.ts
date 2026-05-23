@@ -136,23 +136,8 @@ export async function checkRateLimit(
       error:     success ? undefined : 'Bahut zyada requests. Kuch der mein dobara try karein.',
     }
   } catch (e) {
-    console.error('[RateLimit] Redis error — falling back to in-memory:', String(e))
-    // Fail open to in-memory fallback on Redis error
-    const { max, windowMs } = FALLBACK_LIMITS[sensitivity]
-    const result = memSlidingWindow(identifier, max, windowMs)
-    if (!result.success) {
-      return {
-        allowed: false,
-        remaining: 0,
-        reset: result.reset,
-        error: 'Bahut zyada requests. Kuch der mein dobara try karein.',
-      }
-    }
-    return {
-      allowed: true,
-      remaining: result.remaining,
-      reset: result.reset,
-    }
+    console.error('[RateLimit] Redis error — rate limiting unavailable:', String(e))
+    return { allowed: false, remaining: 0, error: 'Rate limiting unavailable. Please try again.' }
   }
 }
 

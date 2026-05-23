@@ -7,13 +7,20 @@ import { paymentAppliedAmount } from '@/lib/payments/calculations'
 import { karachiDateString, nowKarachiIso } from '@/lib/time'
 
 // In-memory shop name cache — avoids redundant queries in orderOps.add()
-const shopNameCache = new Map<string, string>()
+const shopNameCache = new Map<string, { name: string; ts: number }>()
+const SHOP_CACHE_TTL = 5 * 60 * 1000
 async function getShopName(shopId: string): Promise<string> {
   const cached = shopNameCache.get(shopId)
-  if (cached) return cached
+  if (cached && Date.now() - cached.ts < SHOP_CACHE_TTL) return cached.name
   const shop = await shopOps.get(shopId)
   const name = shop?.shopName ?? 'DZ'
-  shopNameCache.set(shopId, name)
+  shopNameCache.set(shopId, { name, ts: Date.now() })
+  if (shopNameCache.size > 100) {
+    const cutoff = Date.now() - SHOP_CACHE_TTL
+    for (const [key, val] of shopNameCache) {
+      if (val.ts < cutoff) shopNameCache.delete(key)
+    }
+  }
   return name
 }
 
@@ -48,13 +55,18 @@ const asRows = (rows: unknown): any[] => Array.isArray(rows) ? rows : []
 
 async function deleteCloudinaryAssets(publicIds: string[]) {
   const uniqueIds = [...new Set(publicIds.filter(Boolean))]
-  await Promise.all(uniqueIds.map(publicId =>
+  if (uniqueIds.length === 0) return
+  const results = await Promise.allSettled(uniqueIds.map(publicId =>
     fetch('/api/photos/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ publicId }),
-    }).catch(() => undefined)
+    })
   ))
+  const failures = results.filter(r => r.status === 'rejected')
+  if (failures.length > 0) {
+    console.error(`[deleteCloudinaryAssets] ${failures.length} asset(s) failed to delete`)
+  }
 }
 
 async function getOrderPhotoPublicIds(orderIds: string[]) {
@@ -76,9 +88,9 @@ async function deleteOrdersByIds(orderIds: string[]) {
   await deleteCloudinaryAssets(publicIds)
 
   await Promise.all([
-    requireOk((supabase as any).from('order_photos').delete().in('order_id', orderIds)),
-    requireOk((supabase as any).from('payments').delete().in('order_id', orderIds)),
-    requireOk((supabase as any).from('order_status_history').delete().in('order_id', orderIds)),
+    requireOk((supabase as any).from('order_photos').update({ deleted_at: ts }).in('order_id', orderIds)),
+    requireOk((supabase as any).from('payments').update({ deleted_at: ts }).in('order_id', orderIds)),
+    requireOk((supabase as any).from('order_status_history').update({ deleted_at: ts }).in('order_id', orderIds)),
   ])
 
   const orderRows = await requireOk(
@@ -89,7 +101,7 @@ async function deleteOrdersByIds(orderIds: string[]) {
     await requireOk((supabase as any).from('measurements').update({ deleted_at: ts }).in('id', measurementIds))
   }
 
-  await requireOk((supabase as any).from('orders').delete().in('id', orderIds))
+  await requireOk((supabase as any).from('orders').update({ deleted_at: ts }).in('id', orderIds))
 }
 
 function customerToRow(customer: CustomerRecord) {
@@ -208,7 +220,7 @@ export const shopOps = {
 }
 
 export const teamOps = {
-  async getAll(shopId: string): Promise<TeamMemberRecord[]> {
+  async getAll(shopId: string, limit = 100, offset = 0): Promise<TeamMemberRecord[]> {
     const rows = await requireOk(
       (supabase as any)
         .from('team_members')
@@ -217,6 +229,7 @@ export const teamOps = {
         .eq('is_active', true)
         .is('deleted_at', null)
         .order('joined_at', { ascending: true })
+        .range(offset, offset + limit - 1)
     )
     return asRows(rows).map(mapTeamMember)
   },
@@ -256,15 +269,16 @@ export const teamOps = {
   },
 
   async deactivate(memberId: string): Promise<void> {
+    const ts = nowKarachiIso()
     await requireOk(
       (supabase as any).from('orders').update({
         assigned_to: null,
         assigned_to_name: null,
-        updated_at: nowKarachiIso(),
+        updated_at: ts,
       }).eq('assigned_to', memberId).is('deleted_at', null)
     )
     await requireOk(
-      (supabase as any).from('team_members').delete().eq('id', memberId).eq('role', 'karigar')
+      (supabase as any).from('team_members').update({ deleted_at: ts, is_active: false }).eq('id', memberId).eq('role', 'karigar')
     )
   },
 
@@ -296,7 +310,7 @@ export const teamOps = {
 }
 
 export const customerOps = {
-  async getAll(shopId: string): Promise<CustomerRecord[]> {
+  async getAll(shopId: string, limit = 100, offset = 0): Promise<CustomerRecord[]> {
     const rows = await requireOk(
       (supabase as any)
         .from('customers')
@@ -304,20 +318,23 @@ export const customerOps = {
         .eq('shop_id', shopId)
         .is('deleted_at', null)
         .order('last_order_at', { ascending: false, nullsFirst: false })
+        .range(offset, offset + limit - 1)
     )
     return asRows(rows).map(mapCustomer)
   },
 
-  async search(shopId: string, query: string): Promise<CustomerRecord[]> {
+  async search(shopId: string, query: string, limit = 100, offset = 0): Promise<CustomerRecord[]> {
     const q = query.trim()
     if (!q) return customerOps.getAll(shopId)
+    const escaped = q.replace(/[%_\\]/g, '\\$&')
     const rows = await requireOk(
       (supabase as any)
         .from('customers')
         .select(CUSTOMER_COLUMNS)
         .eq('shop_id', shopId)
         .is('deleted_at', null)
-        .or(`name.ilike.%${q}%,phone.ilike.%${q}%`)
+        .or(`name.ilike.%${escaped}%,phone.ilike.%${escaped}%`)
+        .range(offset, offset + limit - 1)
     )
     return asRows(rows).map(mapCustomer)
   },
@@ -388,15 +405,16 @@ export const customerOps = {
       (supabase as any).from('orders').select('id').eq('customer_id', id)
     )
     await deleteOrdersByIds(asRows(orderRows).map((row: any) => row.id).filter(Boolean))
+    const ts = nowKarachiIso()
     await Promise.all([
-      requireOk((supabase as any).from('measurements').delete().eq('customer_id', id)),
-      requireOk((supabase as any).from('customers').delete().eq('id', id)),
+      requireOk((supabase as any).from('measurements').update({ deleted_at: ts }).eq('customer_id', id)),
+      requireOk((supabase as any).from('customers').update({ deleted_at: ts }).eq('id', id)),
     ])
   },
 }
 
 export const orderOps = {
-  async getAll(shopId: string): Promise<OrderRecord[]> {
+  async getAll(shopId: string, limit = 100, offset = 0): Promise<OrderRecord[]> {
     const rows = await requireOk(
       (supabase as any)
         .from('orders')
@@ -404,6 +422,7 @@ export const orderOps = {
         .eq('shop_id', shopId)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
     )
     return asRows(rows).map(mapOrder)
   },
@@ -445,11 +464,12 @@ export const orderOps = {
     if (!data.garmentType) throw new Error('garmentType is required')
     if (!data.dueDate) throw new Error('dueDate is required')
 
-    const [orderNumber, shopName] = await Promise.all([
+    const ts = nowKarachiIso()
+    const [orderNumber, shopName, customer] = await Promise.all([
       orderOps.getNextOrderNumber(shopId),
       getShopName(shopId),
+      customerOps.get(data.customerId).catch(() => undefined),
     ])
-    const ts = nowKarachiIso()
     const order: OrderRecord = {
       id: uuid(),
       shopId,
@@ -465,7 +485,6 @@ export const orderOps = {
     const saved = await requireOk(
       (supabase as any).from('orders').insert(orderToRow(order)).select(ORDER_COLUMNS).single()
     )
-    const customer = await customerOps.get(data.customerId)
     if (customer) {
       await requireOk(
         (supabase as any)
@@ -595,9 +614,15 @@ export const paymentOps = {
       (supabase as any).from('payments').insert(paymentToRow(payment)).select(PAYMENT_COLUMNS).single()
     )
     const nextPaid = Math.min(order.totalPrice, paidTowardBalance + appliedToBalance)
-    await requireOk(
-      (supabase as any).from('orders').update({ amount_paid: nextPaid, updated_at: nowKarachiIso() }).eq('id', order.id)
-    )
+    const ts = nowKarachiIso()
+    const { error: updateError } = await (supabase as any)
+      .from('orders')
+      .update({ amount_paid: nextPaid, updated_at: ts })
+      .eq('id', order.id)
+      .eq('amount_paid', order.amountPaid)
+    if (updateError) {
+      throw new Error('Concurrent payment detected. Please refresh and try again.')
+    }
     return mapPayment(saved)
   },
 }
@@ -605,18 +630,26 @@ export const paymentOps = {
 export const dashboardOps = {
   async getStats(shopId: string) {
     const today = karachiDateString()
-    const [orders, incomeToday] = await Promise.all([
-      orderOps.getAll(shopId),
+    const [incomeToday, activeResult, todayResult, readyResult, overdueResult] = await Promise.all([
       paymentOps.getTodayTotal(shopId),
+      (supabase as any).from('orders').select('id', { count: 'exact', head: true })
+        .eq('shop_id', shopId).is('deleted_at', null).not('status', 'in', '("delivered","cancelled")'),
+      (supabase as any).from('orders').select('id', { count: 'exact', head: true })
+        .eq('shop_id', shopId).is('deleted_at', null).gte('created_at', `${today}T00:00:00+05:00`),
+      (supabase as any).from('orders').select('id', { count: 'exact', head: true })
+        .eq('shop_id', shopId).is('deleted_at', null).eq('status', 'ready'),
+      (supabase as any).from('orders').select('total_price, amount_paid')
+        .eq('shop_id', shopId).is('deleted_at', null).lt('due_date', today).not('status', 'in', '("delivered","cancelled")'),
     ])
-    const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status))
+    const overdueOrders = (overdueResult.data ?? []) as any[]
+    const pendingBalance = overdueOrders.reduce((sum: number, o: any) => sum + Math.max(0, Number(o.total_price ?? 0) - Number(o.amount_paid ?? 0)), 0)
     return {
-      totalOrdersToday: orders.filter(o => o.createdAt.startsWith(today)).length,
-      readyOrders: activeOrders.filter(o => o.status === 'ready').length,
-      overdueOrders: activeOrders.filter(o => o.dueDate < today).length,
+      totalOrdersToday: todayResult.count ?? 0,
+      readyOrders: readyResult.count ?? 0,
+      overdueOrders: overdueOrders.length,
       incomeToday,
-      pendingBalance: activeOrders.reduce((sum, o) => sum + Math.max(0, o.totalPrice - o.amountPaid), 0),
-      activeOrders: activeOrders.length,
+      pendingBalance,
+      activeOrders: activeResult.count ?? 0,
     }
   },
 }

@@ -55,15 +55,16 @@ export async function POST(req: NextRequest) {
   const token = generateSessionToken()
 
   const res = NextResponse.json({ success: true })
+  const tokenHash = token.slice(0, 12)
   res.cookies.set(ADMIN_SESSION_COOKIE, token, {
     httpOnly: true,
-    secure:   process.env.NODE_ENV === 'production',
+    secure:   true,
     sameSite: 'strict',
-    maxAge:   15 * 60,   // 15 minutes
+    maxAge:   15 * 60,
     path:     '/',
   })
 
-  logAdminAction('admin_login', 'admin_session', token)
+  logAdminAction('admin_login', 'admin_session', tokenHash)
 
   return res
 }

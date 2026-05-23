@@ -71,34 +71,30 @@ export async function GET(req: NextRequest) {
       }
 
       case 'shops': {
+        const safeLimit = /^\d+$/.test(limit) ? Math.min(parseInt(limit, 10), 1000) : 50
         const [shops, subs, usages, orders] = await Promise.all([
-          sbGet(`shops?select=*&order=created_at.desc&limit=${limit}`),
+          sbGet(`shops?select=*&order=created_at.desc&limit=${safeLimit}`),
           sbGet('subscriptions?select=*'),
           sbGet('shop_usage?select=*'),
           sbGet('orders?select=id,shop_id,status,total_price,amount_paid,created_at,deleted_at'),
         ])
         return NextResponse.json({
-          data: shops.map((shop: any) => {
-            const encryptedPin = shop.encrypted_owner_pin as string | undefined
-            const decryptedPin = encryptedPin ? decryptPIN(encryptedPin) : null
-            return {
-              ...shop,
-              owner_pin_available: decryptedPin !== null,
-              owner_pin: decryptedPin,
-              subscriptions: subs.filter((s: any) => s.shop_id === shop.id),
-              shop_usage:    usages.filter((u: any) => u.shop_id === shop.id),
-              order_stats: (() => {
-                const shopOrders = orders.filter((o: any) => o.shop_id === shop.id && !o.deleted_at)
-                return {
-                  total_orders: shopOrders.length,
-                  active_orders: shopOrders.filter((o: any) => !['delivered', 'cancelled'].includes(o.status)).length,
-                  delivered_orders: shopOrders.filter((o: any) => o.status === 'delivered').length,
-                  total_value: shopOrders.reduce((sum: number, o: any) => sum + Number(o.total_price ?? 0), 0),
-                  received: shopOrders.reduce((sum: number, o: any) => sum + Number(o.amount_paid ?? 0), 0),
-                }
-              })(),
-            }
-          }),
+          data: shops.map((shop: any) => ({
+            ...shop,
+            owner_pin_available: !!shop.encrypted_owner_pin,
+            subscriptions: subs.filter((s: any) => s.shop_id === shop.id),
+            shop_usage:    usages.filter((u: any) => u.shop_id === shop.id),
+            order_stats: (() => {
+              const shopOrders = orders.filter((o: any) => o.shop_id === shop.id && !o.deleted_at)
+              return {
+                total_orders: shopOrders.length,
+                active_orders: shopOrders.filter((o: any) => !['delivered', 'cancelled'].includes(o.status)).length,
+                delivered_orders: shopOrders.filter((o: any) => o.status === 'delivered').length,
+                total_value: shopOrders.reduce((sum: number, o: any) => sum + Number(o.total_price ?? 0), 0),
+                received: shopOrders.reduce((sum: number, o: any) => sum + Number(o.amount_paid ?? 0), 0),
+              }
+            })(),
+          })),
         })
       }
 

@@ -1,4 +1,4 @@
-// src/proxy.ts
+// src/middleware.ts
 import { NextRequest, NextResponse }    from 'next/server'
 import { verifySessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 import { rotateMemberSessionToken, MEMBER_SESSION_COOKIE, getSessionCookieOptions } from '@/lib/auth/session'
@@ -13,7 +13,7 @@ function buildCspHeader(): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' https://fonts.gstatic.com",
-    "connect-src 'self' https:",
+    "connect-src 'self' https://*.supabase.co https://api.cloudinary.com https://*.upstash.io wss://*.supabase.co",
     "frame-ancestors 'none'",
     "form-action 'self'",
   ].join('; ')

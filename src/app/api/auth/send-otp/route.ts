@@ -104,6 +104,7 @@ export async function POST(req: NextRequest) {
   // ── Send OTP email ────────────────────────────────────────────
   const emailResult = await sendOTPEmail(normalizedEmail, otp, purpose)
   if (!emailResult.success) {
+    console.error('[Send OTP] Resend error:', emailResult.error)
     return NextResponse.json(
       { error: 'Email nahi aayi. Email address check karein.' },
       { status: 500 }

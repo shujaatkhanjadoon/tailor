@@ -1,11 +1,11 @@
 import { createHmac, timingSafeEqual } from 'crypto'
 
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
-const COOKIE_NAME = 'md_session'
+const COOKIE_NAME = '__Secure-md_session'
 
 function getSecret(): string {
-  const secret = process.env.ADMIN_SECRET
-  if (!secret) throw new Error('ADMIN_SECRET not set (required for session signing)')
+  const secret = process.env.SESSION_SIGNING_SECRET ?? process.env.ADMIN_SECRET
+  if (!secret) throw new Error('SESSION_SIGNING_SECRET not set (required for session signing)')
   return secret
 }
 
@@ -91,7 +91,7 @@ export function rotateMemberSessionToken(token: string): { session: { memberId: 
 export function getSessionCookieOptions(maxAge?: number) {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: true,
     sameSite: 'strict' as const,
     maxAge: maxAge ?? Math.floor(SESSION_DURATION_MS / 1000),
     path: '/',

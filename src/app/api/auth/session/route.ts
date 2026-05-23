@@ -9,20 +9,41 @@ const HEADERS: Record<string, string> = {
   'Authorization': `Bearer ${SB_KEY}`,
 }
 
+async function verifyPinServerSide(memberId: string, pin: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${SB_URL}/rest/v1/team_members?id=eq.${encodeURIComponent(memberId)}&is_active=eq.true&deleted_at=is.null&select=pin_hash&limit=1`,
+      { headers: HEADERS, signal: AbortSignal.timeout(5000) }
+    )
+    if (!res.ok) return false
+    const members = await res.json()
+    if (!members?.length) return false
+    const { compare } = await import('bcryptjs')
+    return compare(pin, members[0].pin_hash)
+  } catch {
+    return false
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { memberId, shopId } = body
+    const { memberId, shopId, pin } = body
 
     if (!memberId || !shopId) {
       return NextResponse.json({ error: 'memberId and shopId required' }, { status: 400 })
     }
 
-    // PIN was already verified client-side; issue the token directly.
-    // The httpOnly cookie is bound to the session — if the member is later
-    // deactivated, the GET endpoint's DB check will reject them.
-    const token = generateMemberSessionToken(memberId, shopId)
+    if (!pin) {
+      return NextResponse.json({ error: 'PIN required' }, { status: 400 })
+    }
 
+    const pinValid = await verifyPinServerSide(memberId, pin)
+    if (!pinValid) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+    }
+
+    const token = generateMemberSessionToken(memberId, shopId)
     const res = NextResponse.json({ success: true })
     res.cookies.set(MEMBER_SESSION_COOKIE, token, getSessionCookieOptions())
 
