@@ -60,13 +60,13 @@ async function readServerSession(): Promise<{
   }
 }
 
-async function createServerSession(memberId: string, shopId: string): Promise<boolean> {
+async function createServerSession(memberId: string, shopId: string, pin?: string): Promise<boolean> {
   try {
     const res = await fetch('/api/auth/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ memberId, shopId }),
+      body: JSON.stringify({ memberId, shopId, pin }),
     })
     return res.ok
   } catch {
@@ -192,7 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false
     }
 
-    const sessionCreated = await createServerSession(member.id, member.shopId)
+    const sessionCreated = await createServerSession(member.id, member.shopId, pin)
     if (!sessionCreated) {
       console.error('[Auth] Failed to create server session during login')
       return false
@@ -288,7 +288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           pin:   pinHash,
         })
 
-    await createServerSession(owner.id, shopId)
+    await createServerSession(owner.id, shopId, pin)
     setCachedShopId(shopId)
 
     setState({
