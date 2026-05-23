@@ -4,12 +4,12 @@ import { verifySessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 import { rotateMemberSessionToken, MEMBER_SESSION_COOKIE, getSessionCookieOptions } from '@/lib/auth/session'
 import { checkRateLimit, getAPIRatelimiter, getLoginRatelimiter, getRateLimitId } from '@/lib/security/rate-limit'
 
-// ── CSP nonce ────────────────────────────────────────────────────
-function buildCspHeader(nonce: string): string {
+// ── CSP ──────────────────────────────────────────────────────────
+function buildCspHeader(): string {
   const isDev = process.env.NODE_ENV === 'development'
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ''}`,
+    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' https://fonts.gstatic.com",
@@ -35,16 +35,9 @@ function addSecurityHeaders(res: NextResponse): void {
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // CSP nonce — must be unique per request
-  const nonce = crypto.randomUUID()
-  const cspHeader = buildCspHeader(nonce)
-  const requestHeaders = new Headers(req.headers)
-  requestHeaders.set('x-nonce', nonce)
-  requestHeaders.set('Content-Security-Policy', cspHeader)
+  const cspHeader = buildCspHeader()
 
-  const res = NextResponse.next({
-    request: { headers: requestHeaders },
-  })
+  const res = NextResponse.next()
   addSecurityHeaders(res)
   res.headers.set('Content-Security-Policy', cspHeader)
 
