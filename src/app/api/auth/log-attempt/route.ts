@@ -35,7 +35,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true })
   }
 
-  const { phone: rawPhone, success, failureReason } = body as { phone?: unknown; success?: unknown; failureReason?: unknown }
+  const raw = body as { phone?: unknown; success?: unknown; failureReason?: unknown }
+  if (raw.failureReason !== undefined && (typeof raw.failureReason !== 'string' || raw.failureReason.length > 200)) {
+    return NextResponse.json({ ok: true, skipped: true })
+  }
+  const { phone: rawPhone, success, failureReason } = raw
   const phone = sevenBitPhone(rawPhone)
   if (!phone) return NextResponse.json({ ok: true, skipped: true })
 

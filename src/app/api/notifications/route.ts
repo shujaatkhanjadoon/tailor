@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 
 const SB_URL = () => process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -18,6 +19,12 @@ async function cleanupExpired() {
 export async function GET(req: NextRequest) {
   const shopId = req.nextUrl.searchParams.get('shopId')
   if (!shopId) return NextResponse.json({ error: 'shopId required' }, { status: 400 })
+
+  const token = req.cookies.get(MEMBER_SESSION_COOKIE)?.value
+  const session = token ? verifyMemberSessionToken(token) : null
+  if (!session || session.shopId !== shopId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   try {
     await cleanupExpired()

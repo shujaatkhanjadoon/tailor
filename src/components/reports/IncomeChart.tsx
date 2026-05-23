@@ -1,9 +1,9 @@
 // src/components/reports/IncomeChart.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import { cn } from '@/lib/utils'
@@ -43,8 +43,11 @@ export function IncomeChart({ monthly, weekly }: IncomeChartProps) {
   const [view, setView] = useState<'monthly' | 'weekly'>('monthly')
   const [breakdown, setBreakdown] = useState(false)
 
-  const data    = (view === 'monthly' ? monthly : weekly).map(item => ({ ...item }))
-  const maxVal  = Math.max(...data.map(d => d.income), 1)
+  const data    = useMemo(
+    () => (view === 'monthly' ? monthly : weekly).map(item => ({ ...item })),
+    [view, monthly, weekly]
+  )
+  const maxVal  = useMemo(() => Math.max(...data.map(d => d.income), 1), [data])
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-5">
@@ -121,7 +124,7 @@ export function IncomeChart({ monthly, weekly }: IncomeChartProps) {
             ) : (
               <Bar dataKey="income" name="Income" fill="#3b82f6" radius={[6,6,0,0]}>
                 {data.map((entry, i) => (
-                  <rect key={i} fill={
+                  <Cell key={`cell-${i}`} fill={
                     entry.income === maxVal ? '#1d4ed8' : '#3b82f6'
                   } />
                 ))}

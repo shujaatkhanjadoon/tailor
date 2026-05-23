@@ -7,6 +7,9 @@ import { AuthProvider } from "@/lib/auth/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
 import { PageErrorBoundary } from "@/components/ui/ErrorBoundary";
 
+// Entire app is client-heavy for now — opt in per route as pages convert to Server Components
+export const unstable_instant = false
+
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],

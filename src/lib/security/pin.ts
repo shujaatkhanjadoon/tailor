@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs'
 
 const SALT_ROUNDS = 10
 export const SHOP_PIN_LENGTH = 6
-export const KARIGAR_PIN_LENGTH = 4
+export const KARIGAR_PIN_LENGTH = 6
 
 // ── Weak PINs to reject ───────────────────────────────────────────
 const WEAK_PINS = [
@@ -74,9 +74,8 @@ export async function hashPIN(pin: string): Promise<string> {
 }
 
 export async function verifyPIN(pin: string, hash: string): Promise<boolean> {
-  // Handle legacy plaintext PINs (migration path)
   if (!hash.startsWith('$2')) {
-    return pin === hash
+    return false
   }
   return bcrypt.compare(pin, hash)
 }

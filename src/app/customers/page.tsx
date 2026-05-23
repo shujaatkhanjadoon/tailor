@@ -132,7 +132,7 @@ export default function CustomersPage() {
   const [gender,  setGender]  = useState<GenderFilter>('all')
   const [sortBy,  setSortBy]  = useState<'name' | 'orders' | 'recent'>('recent')
 
-  const { customers: allCustomers, isLoading } = useCustomers(shopId)
+  const { customers: allCustomers, isLoading, hasMore, loadMore } = useCustomers(shopId)
 
   // ── Filter + sort ─────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -378,6 +378,14 @@ export default function CustomersPage() {
               <p className="text-center text-xs text-slate-400 py-3">
                 {filtered.length} customers dikh rahe hain
               </p>
+            )}
+            {hasMore && (
+              <button
+                onClick={loadMore}
+                className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                Zyada Customers Dikhein
+              </button>
             )}
           </div>
         )}

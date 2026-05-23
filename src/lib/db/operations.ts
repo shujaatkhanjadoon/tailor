@@ -169,7 +169,7 @@ export const shopOps = {
 
   async get(shopId: string) {
     const row = await requireOk(
-      (supabase as any).from('shops').select('*').eq('id', shopId).maybeSingle()
+      (supabase as any).from('shops').select('id, shop_name, owner_name, owner_phone, whatsapp_number, state_province, city, address_line, postal_code, brand_name, brand_color, brand_logo_url, is_active, created_at, updated_at').eq('id', shopId).maybeSingle()
     )
     return row ? mapShop(row) : undefined
   },

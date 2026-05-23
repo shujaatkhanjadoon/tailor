@@ -61,19 +61,27 @@ export function useReports(shopId: string | null) {
     const fetchAndSet = async (showLoading: boolean) => {
       if (showLoading) setIsLoading(true)
       try {
+        const rangeStart = period === 'all' ? periodStart('365d') : periodStart(period)
+
+        let ordersQuery = (supabase as any)
+          .from('orders')
+          .select(ORDER_COLUMNS)
+          .eq('shop_id', shopId)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+        if (rangeStart) ordersQuery = ordersQuery.gte('created_at', rangeStart)
+
+        let paymentsQuery = (supabase as any)
+          .from('payments')
+          .select(PAYMENT_COLUMNS)
+          .eq('shop_id', shopId)
+          .is('deleted_at', null)
+          .order('paid_at', { ascending: true })
+        if (rangeStart) paymentsQuery = paymentsQuery.gte('paid_at', rangeStart)
+
         const [ordersRes, paymentsRes, customersRes, teamRes] = await Promise.all([
-          (supabase as any)
-            .from('orders')
-            .select(ORDER_COLUMNS)
-            .eq('shop_id', shopId)
-            .is('deleted_at', null)
-            .order('created_at', { ascending: false }),
-          (supabase as any)
-            .from('payments')
-            .select(PAYMENT_COLUMNS)
-            .eq('shop_id', shopId)
-            .is('deleted_at', null)
-            .order('paid_at', { ascending: true }),
+          ordersQuery,
+          paymentsQuery,
           (supabase as any)
             .from('customers')
             .select(CUSTOMER_COLUMNS)
@@ -123,7 +131,7 @@ export function useReports(shopId: string | null) {
       clearInterval(interval)
       supabase.removeChannel(channel)
     }
-  }, [shopId])
+  }, [shopId, period])
 
   const filteredOrders = useMemo(() => {
     const orders = allOrders

@@ -1,7 +1,7 @@
 // src/app/admin/dashboard/page.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter }           from 'next/navigation'
 import {
   TrendingUp, Users, CreditCard, Clock,
@@ -91,7 +91,8 @@ export default function AdminDashboardPage() {
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState('')
 
-  const load = async () => {
+  const cancelledRef = useRef(false)
+  const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
@@ -102,6 +103,8 @@ export default function AdminDashboardPage() {
         fetch('/api/admin/data?type=pending_verifications'),
       ])
 
+      if (cancelledRef.current) return
+
       if (sumRes.status === 401) {
         window.location.href = '/admin/login'
         return
@@ -111,18 +114,23 @@ export default function AdminDashboardPage() {
         sumRes.json(), pendRes.json(), shopRes.json(), verifyRes.json(),
       ])
 
-      setSummary(sumData.data ?? { total: 0, thisMonthRevenue: 0, activeSubscriptions: 0, trialing: 0 })
-      setPending(pendData.data ?? [])
-      setPendingVerifications(verifyData.data ?? [])
-      setShops(shopData.data ?? [])
+      if (!cancelledRef.current) {
+        setSummary(sumData.data ?? { total: 0, thisMonthRevenue: 0, activeSubscriptions: 0, trialing: 0 })
+        setPending(pendData.data ?? [])
+        setPendingVerifications(verifyData.data ?? [])
+        setShops(shopData.data ?? [])
+      }
     } catch (e) {
-      setError('Data load nahi ho saka. Page refresh karein.')
+      if (!cancelledRef.current) setError('Data load nahi ho saka. Page refresh karein.')
     } finally {
-      setLoading(false)
+      if (!cancelledRef.current) setLoading(false)
     }
-  }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    return () => { cancelledRef.current = true }
+  }, [load])
 
   if (loading) {
     return <DashboardSkeleton />

@@ -9,6 +9,8 @@ const ORDER_COLUMNS = 'id,shop_id,order_number,tracking_code,customer_id,custome
 const MEASUREMENT_COLUMNS = 'id,customer_id,shop_id,order_for_relation,order_for_name,recipient_gender,garment_type,values,notes,taken_at,deleted_at'
 const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,applied_to_balance,kind,method,recorded_by,paid_at,notes,deleted_at'
 
+const CUSTOMERS_PER_PAGE = 50
+
 function uniqueChannelName(name: string) {
   return `${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
@@ -17,11 +19,14 @@ export function useCustomers(shopId: string | null) {
   const [query, setQuery] = useState('')
   const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female' | 'child'>('all')
   const [allCustomers, setAllCustomers] = useState<CustomerRecord[]>([])
+  const [page, setPage] = useState(0)
+  const [totalCustomers, setTotalCustomers] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     if (!shopId) {
       setAllCustomers([])
+      setTotalCustomers(0)
       setIsLoading(false)
       return
     }
@@ -29,14 +34,22 @@ export function useCustomers(shopId: string | null) {
 
     const fetchAndSet = async (showLoading: boolean) => {
       if (showLoading) setIsLoading(true)
+      const { count: totalCount } = await (supabase as any)
+        .from('customers')
+        .select('id', { count: 'exact', head: true })
+        .eq('shop_id', shopId)
+        .is('deleted_at', null)
       const { data, error } = await (supabase as any)
         .from('customers')
         .select(CUSTOMER_COLUMNS)
         .eq('shop_id', shopId)
         .is('deleted_at', null)
         .order('last_order_at', { ascending: false })
-        .limit(200)
-      if (!cancelled && !error) setAllCustomers((data ?? []).map(mapCustomer))
+        .range(page * CUSTOMERS_PER_PAGE, page * CUSTOMERS_PER_PAGE + CUSTOMERS_PER_PAGE - 1)
+      if (!cancelled && !error) {
+        setAllCustomers(prev => page > 0 ? [...prev, ...(data ?? []).map(mapCustomer)] : (data ?? []).map(mapCustomer))
+        setTotalCustomers(totalCount ?? 0)
+      }
       if (!cancelled && showLoading) setIsLoading(false)
     }
 
@@ -58,7 +71,7 @@ export function useCustomers(shopId: string | null) {
       clearInterval(interval)
       supabase.removeChannel(channel)
     }
-  }, [shopId])
+  }, [shopId, page])
 
   const filtered = useMemo(() => {
     let list = allCustomers
@@ -77,10 +90,12 @@ export function useCustomers(shopId: string | null) {
 
   return {
     customers: filtered,
-    total: allCustomers.length,
+    total: totalCustomers,
     isLoading,
     query, setQuery,
     genderFilter, setGenderFilter,
+    hasMore: (page + 1) * CUSTOMERS_PER_PAGE < totalCustomers,
+    loadMore: () => setPage(p => p + 1),
   }
 }
 

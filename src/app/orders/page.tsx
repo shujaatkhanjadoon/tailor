@@ -16,6 +16,7 @@ import { cn }                         from '@/lib/utils'
 import { OrderCardSkeleton }          from '@/components/ui/Skeleton'
 import { usePlan }                    from '@/hooks/usePlan'
 import { AppFooter }                  from '@/components/layout/AppFooter'
+import { supabase } from '@/lib/supabase/client'
 import { exportCSV, exportPrintablePDF } from '@/lib/export/download'
 
 const QUICK_FILTERS: { key: OrderFilter; label: string; emoji: string }[] = [
@@ -62,6 +63,25 @@ function OrdersContent() {
     currentUser?.id,
     { paginated: true }
   )
+
+  const [photoCounts, setPhotoCounts] = useState<Record<string, number>>({})
+  useEffect(() => {
+    if (orders.length === 0) { setPhotoCounts({}); return }
+    const ids = orders.map(o => o.id)
+    ;(supabase as any)
+      .from('order_photos')
+      .select('order_id')
+      .in('order_id', ids)
+      .is('deleted_at', null)
+      .then(({ data }: { data: { order_id: string }[] | null }) => {
+        if (!data) return
+        const counts: Record<string, number> = {}
+        for (const row of data) {
+          counts[row.order_id] = (counts[row.order_id] ?? 0) + 1
+        }
+        setPhotoCounts(counts)
+      })
+  }, [orders])
 
   useEffect(() => {
     const filter = searchParams.get('filter') as OrderFilter | null
@@ -343,6 +363,7 @@ function OrdersContent() {
                 key={order.id}
                 order={order}
                 isOwner={isOwner}
+                photoCount={photoCounts[order.id]}
                 onStatusTap={o => setStatusSheet(o)}
                 onAssignTap={isOwner ? o => setAssignSheet(o) : undefined}
               />

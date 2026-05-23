@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 
-export const dynamic = 'force-dynamic'
 
 const BASE = () => `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`
 

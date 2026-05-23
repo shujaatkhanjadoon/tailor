@@ -19,6 +19,7 @@ interface OrderListCardProps {
   onStatusTap?: (order: OrderRecord) => void
   onAssignTap?: (order: OrderRecord) => void
   isOwner?: boolean
+  photoCount?: number
 }
 
 function formatDueDate(dateStr: string): { label: string; urgent: boolean } {
@@ -38,6 +39,7 @@ export const OrderListCard = memo(function OrderListCard({
   onStatusTap,
   onAssignTap,
   isOwner = false,
+  photoCount: propPhotoCount,
 }: OrderListCardProps) {
   const router = useRouter()
   const sc = ORDER_STATUS_CONFIG[order.status as keyof typeof ORDER_STATUS_CONFIG]
@@ -46,8 +48,10 @@ export const OrderListCard = memo(function OrderListCard({
   const { label: dueLabel, urgent: dueUrgent } = formatDueDate(order.dueDate)
   const isTerminal = ['delivered', 'cancelled'].includes(order.status)
 
-  const [photoCount, setPhotoCount] = useState(0)
+  const [localPhotoCount, setLocalPhotoCount] = useState(0)
+  const photoCount = propPhotoCount ?? localPhotoCount
   useEffect(() => {
+    if (propPhotoCount !== undefined) return
     let cancelled = false
     ;(supabase as any)
       .from('order_photos')
@@ -55,10 +59,10 @@ export const OrderListCard = memo(function OrderListCard({
       .eq('order_id', order.id)
       .is('deleted_at', null)
       .then(({ count }: { count: number | null }) => {
-        if (!cancelled) setPhotoCount(count ?? 0)
+        if (!cancelled) setLocalPhotoCount(count ?? 0)
       })
     return () => { cancelled = true }
-  }, [order.id])
+  }, [order.id, propPhotoCount])
 
   const waLink = (() => {
     const phone = `92${order.customerPhone.replace(/^0/, '').replace(/\D/g, '')}`

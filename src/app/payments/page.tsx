@@ -39,6 +39,7 @@ export default function PaymentsPage() {
     methodFilter, setMethodFilter,
     searchQuery,  setSearchQuery,
     isLoading,
+    hasMore, loadMore,
   } = usePayments(shopId)
 
   const { totalPending } = usePendingBalances(shopId)
@@ -326,6 +327,14 @@ export default function PaymentsPage() {
           ))
         )}
         </div>
+        {hasMore && (
+          <button
+            onClick={loadMore}
+            className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
+          >
+            Zyada Payments Dikhein
+          </button>
+        )}
         {!isLoading && <AppFooter />}
       </main>
 

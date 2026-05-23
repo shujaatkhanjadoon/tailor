@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { OrderRecord, OrderStatusHistoryRecord, PaymentRecord } from '@/lib/db/schema'
 import { orderBalance } from '@/lib/payments/calculations'
 import { supabase } from '@/lib/supabase/client'
@@ -89,10 +89,16 @@ export function useOrders(
   const [allOrders, setAllOrders] = useState<OrderRecord[]>([])
   const [page, setPage] = useState(0)
   const [total, setTotal] = useState(0)
-  const [counts, setCounts] = useState({ overdue: 0, ready: 0, today: 0, unassigned: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const today = karachiDateString()
   const paginated = options.paginated ?? false
+
+  const counts = useMemo(() => ({
+    overdue: allOrders.filter(o => o.dueDate < today && !['delivered','cancelled'].includes(o.status)).length,
+    ready: allOrders.filter(o => o.status === 'ready').length,
+    today: allOrders.filter(o => o.createdAt?.startsWith(today)).length,
+    unassigned: allOrders.filter(o => !o.assignedTo && !['delivered','cancelled'].includes(o.status)).length,
+  }), [allOrders, today])
 
   useEffect(() => {
     setPage(0)
@@ -112,14 +118,8 @@ export function useOrders(
       try {
         const result = await fetchOrders(shopId, role, memberId, { today, activeFilter, statusFilter, searchQuery, page, paginated })
         if (!cancelled) {
-          const orders: OrderRecord[] = result.rows
-          const overdue   = orders.filter((o: OrderRecord) => o.dueDate < today && !['delivered','cancelled'].includes(o.status)).length
-          const ready     = orders.filter((o: OrderRecord) => o.status === 'ready').length
-          const todayC    = orders.filter((o: OrderRecord) => o.createdAt?.startsWith(today)).length
-          const unassigned = orders.filter((o: OrderRecord) => !o.assignedTo && !['delivered','cancelled'].includes(o.status)).length
-          setAllOrders(prev => paginated && page > 0 ? [...prev, ...orders] : orders)
+          setAllOrders(prev => paginated && page > 0 ? [...prev, ...result.rows] : result.rows)
           setTotal(result.total)
-          setCounts({ overdue, ready, today: todayC, unassigned })
         }
       } finally {
         if (!cancelled && showLoading) setIsLoading(false)

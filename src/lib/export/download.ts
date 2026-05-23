@@ -1,6 +1,3 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-
 type ExportValue = string | number | boolean | null | undefined
 type ExportRow = Record<string, ExportValue>
 
@@ -29,10 +26,15 @@ export function exportCSV(rows: ExportRow[], filename: string) {
   downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${filename}-${dateStamp()}.csv`)
 }
 
-export function exportPrintablePDF(title: string, rows: ExportRow[], filename: string) {
+export async function exportPrintablePDF(title: string, rows: ExportRow[], filename: string) {
   if (rows.length === 0) return
   const headers = Object.keys(rows[0])
   const data = rows.map(row => headers.map(h => String(row[h] ?? '')))
+
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ])
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   doc.setFontSize(14)

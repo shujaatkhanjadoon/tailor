@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendAdminSubscriptionEventEmail } from '@/lib/security/email-otp'
 
-export const dynamic = 'force-dynamic'
 
 const jsonHeaders = (serviceKey: string) => ({
   'Content-Type': 'application/json',

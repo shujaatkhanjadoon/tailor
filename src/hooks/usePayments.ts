@@ -24,6 +24,8 @@ export interface PaymentWithOrder extends PaymentRecord {
   surplusAmount: number
 }
 
+const PAYMENTS_PER_PAGE = 50
+
 function startOf(unit: 'day' | 'week' | 'month'): string {
   const d = new Date()
   if (unit === 'day') d.setHours(0, 0, 0, 0)
@@ -42,11 +44,14 @@ export function usePayments(shopId: string | null) {
   const [methodFilter, setMethodFilter] = useState<PaymentMethod>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [enriched, setEnriched] = useState<PaymentWithOrder[]>([])
+  const [page, setPage] = useState(0)
+  const [totalPayments, setTotalPayments] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     if (!shopId) {
       setEnriched([])
+      setTotalPayments(0)
       setIsLoading(false)
       return
     }
@@ -54,8 +59,9 @@ export function usePayments(shopId: string | null) {
 
     const fetchAndSet = async (showLoading: boolean) => {
       if (showLoading) setIsLoading(true)
-      const [{ data: paymentRows }, { data: orderRows }] = await Promise.all([
-        (supabase as any).from('payments').select(PAYMENT_COLUMNS).eq('shop_id', shopId).is('deleted_at', null).order('paid_at', { ascending: false }),
+      const [{ count: totalCount }, { data: paymentRows }, { data: orderRows }] = await Promise.all([
+        (supabase as any).from('payments').select('id', { count: 'exact', head: true }).eq('shop_id', shopId).is('deleted_at', null),
+        (supabase as any).from('payments').select(PAYMENT_COLUMNS).eq('shop_id', shopId).is('deleted_at', null).order('paid_at', { ascending: false }).range(page * PAYMENTS_PER_PAGE, page * PAYMENTS_PER_PAGE + PAYMENTS_PER_PAGE - 1),
         (supabase as any).from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null),
       ])
       const orders = new Map<string, OrderRecord>((orderRows ?? []).map((row: any) => {
@@ -77,7 +83,8 @@ export function usePayments(shopId: string | null) {
         }
       })
       if (!cancelled) {
-        setEnriched(rows)
+        setEnriched(prev => page > 0 ? [...prev, ...rows] : rows)
+        setTotalPayments(totalCount ?? 0)
         if (showLoading) setIsLoading(false)
       }
     }
@@ -101,7 +108,7 @@ export function usePayments(shopId: string | null) {
       clearInterval(interval)
       supabase.removeChannel(channel)
     }
-  }, [shopId])
+  }, [shopId, page])
 
   const filtered = useMemo((): PaymentWithOrder[] => {
     let list = enriched
@@ -142,7 +149,15 @@ export function usePayments(shopId: string | null) {
     }
   }, [enriched, filtered, filter])
 
-  return { payments: filtered, stats, filter, setFilter, methodFilter, setMethodFilter, searchQuery, setSearchQuery, isLoading }
+  return {
+    payments: filtered, stats,
+    filter, setFilter,
+    methodFilter, setMethodFilter,
+    searchQuery, setSearchQuery,
+    isLoading,
+    hasMore: (page + 1) * PAYMENTS_PER_PAGE < totalPayments,
+    loadMore: () => setPage(p => p + 1),
+  }
 }
 
 export function usePendingBalances(shopId: string | null) {

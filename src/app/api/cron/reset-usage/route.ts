@@ -2,7 +2,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 
-export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
