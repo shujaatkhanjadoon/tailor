@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { parseBody } from '@/lib/security/body'
+import { validate, schemas } from '@/lib/validation'
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -88,14 +88,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Server misconfigured: Supabase service key missing' }, { status: 500 })
   }
 
-  const parsed = await parseBody<{ shopId?: string; memberId?: string; confirm?: string }>(req)
+  const parsed = await validate(schemas.deleteShop, req)
   if (!parsed.ok) {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status })
   }
-  const { shopId, memberId, confirm } = parsed.data
-  if (!shopId || !memberId || confirm !== 'DELETE') {
-    return NextResponse.json({ error: 'shopId, memberId, and DELETE confirmation required' }, { status: 400 })
-  }
+  const { shopId, memberId } = parsed.data
 
   try {
     const owner = await sbGet(

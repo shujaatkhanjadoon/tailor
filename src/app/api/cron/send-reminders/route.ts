@@ -4,17 +4,32 @@
 // (Full WhatsApp Business API can be added later)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient }              from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
-const adminSupabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-)
-
+const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const HEADERS = {
+  'apikey':        SB_KEY,
+  'Authorization': `Bearer ${SB_KEY}`,
+}
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mydarzi.vercel.app'
+
+async function sbGet(path: string): Promise<any[]> {
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, { headers: HEADERS })
+  return res.ok ? res.json() : []
+}
+
+async function sbPost(path: string, data: object): Promise<{ error?: { code?: string } }> {
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
+    method: 'POST',
+    headers: { ...HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok && res.status === 409) return { error: { code: '23505' } }
+  if (!res.ok) return { error: { code: String(res.status) } }
+  return {}
+}
 
 function buildReminderMessage(
   shopName:  string,
@@ -76,21 +91,19 @@ export async function GET(req: NextRequest) {
       targetEnd.setHours(23, 59, 59, 999)
 
       // Check both trial and paid expirations
-      const [{ data: trialExpiring }, { data: paidExpiring }] = await Promise.all([
-        adminSupabase
-          .from('subscriptions')
-          .select('id, shop_id, plan, status, trial_ends_at')
-          .eq('status', 'trialing')
-          .gte('trial_ends_at', targetStart.toISOString())
-          .lte('trial_ends_at', targetEnd.toISOString()),
-        adminSupabase
-          .from('subscriptions')
-          .select('id, shop_id, plan, status, expires_at')
-          .in('status', ['active'])
-          .not('expires_at', 'is', null)
-          .gte('expires_at', targetStart.toISOString())
-          .lte('expires_at', targetEnd.toISOString()),
-      ])
+      const trialExpiring = await sbGet(
+        `subscriptions?select=id,shop_id,plan,status,trial_ends_at` +
+        `&status=eq.trialing` +
+        `&trial_ends_at=gte.${encodeURIComponent(targetStart.toISOString())}` +
+        `&trial_ends_at=lte.${encodeURIComponent(targetEnd.toISOString())}`
+      )
+      const paidExpiring = await sbGet(
+        `subscriptions?select=id,shop_id,plan,status,expires_at` +
+        `&status=in.(active)` +
+        `&expires_at=not.is.null` +
+        `&expires_at=gte.${encodeURIComponent(targetStart.toISOString())}` +
+        `&expires_at=lte.${encodeURIComponent(targetEnd.toISOString())}`
+      )
 
       const allExpiring = [
         ...(trialExpiring ?? []).map(s => ({ ...s, isTrial: true })),
@@ -99,25 +112,23 @@ export async function GET(req: NextRequest) {
 
       for (const sub of allExpiring) {
         // Get shop details
-        const { data: shop } = await adminSupabase
-          .from('shops')
-          .select('shop_name, owner_phone')
-          .eq('id', sub.shop_id)
-          .single()
+        const shops = await sbGet(
+          `shops?select=shop_name,owner_phone&id=eq.${sub.shop_id}&limit=1`
+        )
+        const shop = shops?.[0]
 
         if (!shop?.owner_phone) { results.skipped++; continue }
 
         // Check if reminder already sent today for this shop + days combo
         const reminderKey = `reminder_${days}d_${new Date().toISOString().split('T')[0]}`
-        const { data: alreadySent } = await adminSupabase
-          .from('subscription_payments')
-          .select('id')
-          .eq('shop_id', sub.shop_id)
-          .eq('gateway_tx_id', reminderKey)
-          .eq('status', 'pending')
-          .maybeSingle()
+        const existingReminders = await sbGet(
+          `subscription_payments?select=id` +
+          `&shop_id=eq.${sub.shop_id}` +
+          `&gateway_tx_id=eq.${encodeURIComponent(reminderKey)}` +
+          `&status=eq.pending&limit=1`
+        )
 
-        if (alreadySent) { results.skipped++; continue }
+        if (existingReminders.length > 0) { results.skipped++; continue }
 
         // Build WhatsApp message
         const planName  = sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1)
@@ -127,30 +138,28 @@ export async function GET(req: NextRequest) {
 
         // Store reminder in DB as a log record
         // In production: call WhatsApp Business API here
-        const { error: insertError } = await adminSupabase
-          .from('subscription_payments')
-          .insert({
-            shop_id:       sub.shop_id,
-            plan:          sub.plan,
-            billing_cycle: 'monthly',
-            amount_pkr:    0,
-            method:        'reminder',
-            gateway_tx_id: reminderKey,
-            status:        'pending',
-            receipt_data:  {
-              type:       'reminder',
-              days_left:  days,
-              wa_link:    waLink,
-              message:    message,
-              sent_at:    now.toISOString(),
-            },
-          })
-        if (insertError) {
-          if (insertError.code === '23505') {
+        const insertResult = await sbPost('subscription_payments', {
+          shop_id:       sub.shop_id,
+          plan:          sub.plan,
+          billing_cycle: 'monthly',
+          amount_pkr:    0,
+          method:        'reminder',
+          gateway_tx_id: reminderKey,
+          status:        'pending',
+          receipt_data:  {
+            type:       'reminder',
+            days_left:  days,
+            wa_link:    waLink,
+            message:    message,
+            sent_at:    now.toISOString(),
+          },
+        })
+        if (insertResult.error) {
+          if (insertResult.error.code === '23505') {
             results.skipped++
             continue
           }
-          throw insertError
+          throw new Error(`Insert failed: ${insertResult.error.code}`)
         }
 
         // Log the WhatsApp link so admin can send manually

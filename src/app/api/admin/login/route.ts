@@ -3,10 +3,10 @@ import { timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse }                          from 'next/server'
 import { verifyTOTP, generateSessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 import { logAdminAction }                                     from '@/lib/admin/audit'
-import { parseBody }                                          from '@/lib/security/body'
+import { validate, schemas }                                  from '@/lib/validation'
 
 export async function POST(req: NextRequest) {
-  const parsed = await parseBody<{ secret?: string; totpCode?: string }>(req)
+  const parsed = await validate(schemas.login, req)
   if (!parsed.ok) {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status })
   }

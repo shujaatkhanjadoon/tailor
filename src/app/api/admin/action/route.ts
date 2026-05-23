@@ -4,6 +4,7 @@ import { sendAdminSubscriptionEventEmail, sendShopOwnerAdminActionEmail } from "
 import { ADMIN_SESSION_COOKIE, verifySessionToken, verifyTOTP } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
 import { parseBody } from "@/lib/security/body";
+import { validate, schemas } from "@/lib/validation";
 
 const SB_URL = () => process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -136,19 +137,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const parsed = await parseBody<Record<string, unknown>>(req);
+  const parsed = await validate(schemas.adminAction, req);
   if (!parsed.ok) {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   }
-  const body = parsed.data as any;
+  const body = parsed.data;
   const { action } = body;
 
   // ── TOTP 2FA for destructive actions ─────────────────────────
   const DESTRUCTIVE_ACTIONS = ['delete_shop', 'deactivate_shop', 'activate_shop', 'set_plan', 'reject_payment']
   const totpSecret = process.env.ADMIN_TOTP_SECRET
   if (totpSecret && DESTRUCTIVE_ACTIONS.includes(action)) {
-    const totpCode = body.totpCode
-    if (!totpCode || !verifyTOTP(String(totpCode).trim(), totpSecret)) {
+    if (!body.totpCode || !verifyTOTP(body.totpCode, totpSecret)) {
       return NextResponse.json(
         { error: 'Is action ke liye Google Authenticator code chahiye', requiresTOTP: true },
         { status: 401 },
@@ -384,7 +384,7 @@ export async function POST(req: NextRequest) {
 
       case "verify_shop": {
         const { shopId, status, note } = body;
-        if (!shopId || !["approved", "rejected"].includes(status)) {
+        if (!shopId || !status || !["approved", "rejected"].includes(status)) {
           return NextResponse.json(
             { error: "shopId and valid status required" },
             { status: 400 },

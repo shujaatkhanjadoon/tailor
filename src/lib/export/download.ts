@@ -1,3 +1,6 @@
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+
 type ExportValue = string | number | boolean | null | undefined
 type ExportRow = Record<string, ExportValue>
 
@@ -29,32 +32,22 @@ export function exportCSV(rows: ExportRow[], filename: string) {
 export function exportPrintablePDF(title: string, rows: ExportRow[], filename: string) {
   if (rows.length === 0) return
   const headers = Object.keys(rows[0])
-  const html = `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>${title}</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 24px; color: #0f172a; }
-    h1 { font-size: 20px; margin: 0 0 6px; }
-    p { color: #64748b; margin: 0 0 18px; font-size: 12px; }
-    table { width: 100%; border-collapse: collapse; font-size: 11px; }
-    th, td { border: 1px solid #e2e8f0; padding: 7px; text-align: left; vertical-align: top; }
-    th { background: #f8fafc; color: #334155; }
-    @media print { body { padding: 0; } }
-  </style>
-</head>
-<body>
-  <h1>${title}</h1>
-  <p>Generated ${new Date().toLocaleString('en-PK')}</p>
-  <table>
-    <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
-    <tbody>
-      ${rows.map(row => `<tr>${headers.map(h => `<td>${String(row[h] ?? '')}</td>`).join('')}</tr>`).join('')}
-    </tbody>
-  </table>
-  <script>window.onload = () => window.print()</script>
-</body>
-</html>`
-  downloadBlob(new Blob([html], { type: 'text/html;charset=utf-8' }), `${filename}-${dateStamp()}.html`)
+  const data = rows.map(row => headers.map(h => String(row[h] ?? '')))
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  doc.setFontSize(14)
+  doc.text(title, 14, 20)
+  doc.setFontSize(8)
+  doc.text(`Generated ${new Date().toLocaleString('en-PK')}`, 14, 26)
+
+  autoTable(doc, {
+    head: [headers],
+    body: data,
+    startY: 30,
+    styles: { fontSize: 7 },
+    headStyles: { fillColor: [30, 41, 59] },
+    margin: { top: 20 },
+  })
+
+  downloadBlob(doc.output('blob'), `${filename}-${dateStamp()}.pdf`)
 }

@@ -1,5 +1,7 @@
+import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, verifySessionToken } from '@/lib/admin/auth'
+import { validate, schemas } from '@/lib/validation'
 
 const SB_URL = () => process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -45,19 +47,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await req.json()
-  const targetPlan = body.targetPlan === 'all' ? 'all' : body.targetPlan
-  const title = String(body.title ?? '').trim()
-  const message = String(body.message ?? '').trim()
-  const type = ['info', 'success', 'warning', 'urgent'].includes(body.type) ? body.type : 'info'
-  const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null
+  const parsed = await validate(schemas.adminNotificationPost, req)
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+  }
+  const { title, message, type, targetPlan, expiresAt: expiresAtStr } = parsed.data
+  const expiresAt = new Date(expiresAtStr)
 
-  if (!['all', 'starter', 'professional', 'business'].includes(targetPlan)) {
-    return NextResponse.json({ error: 'Invalid target plan' }, { status: 400 })
-  }
-  if (!title || !message || !expiresAt || Number.isNaN(expiresAt.getTime())) {
-    return NextResponse.json({ error: 'Title, message, and expiry are required' }, { status: 400 })
-  }
   if (expiresAt <= new Date()) {
     return NextResponse.json({ error: 'Expiry must be in the future' }, { status: 400 })
   }
@@ -87,21 +83,13 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await req.json()
-  const id = String(body.id ?? '').trim()
-  const targetPlan = body.targetPlan === 'all' ? 'all' : body.targetPlan
-  const title = String(body.title ?? '').trim()
-  const message = String(body.message ?? '').trim()
-  const type = ['info', 'success', 'warning', 'urgent'].includes(body.type) ? body.type : 'info'
-  const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null
+  const parsed = await validate(schemas.adminNotificationPatch, req)
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+  }
+  const { id, title, message, type, targetPlan, expiresAt: expiresAtStr } = parsed.data
+  const expiresAt = new Date(expiresAtStr)
 
-  if (!id) return NextResponse.json({ error: 'Notification id required' }, { status: 400 })
-  if (!['all', 'starter', 'professional', 'business'].includes(targetPlan)) {
-    return NextResponse.json({ error: 'Invalid target plan' }, { status: 400 })
-  }
-  if (!title || !message || !expiresAt || Number.isNaN(expiresAt.getTime())) {
-    return NextResponse.json({ error: 'Title, message, and expiry are required' }, { status: 400 })
-  }
   if (expiresAt <= new Date()) {
     return NextResponse.json({ error: 'Expiry must be in the future' }, { status: 400 })
   }

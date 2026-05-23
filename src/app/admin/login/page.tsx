@@ -172,7 +172,7 @@ function LoginContent() {
       const res  = await fetch('/api/admin/login', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ secret: secret.trim(), totpCode: '' }),
+        body:    JSON.stringify({ secret: secret.trim() }),
       })
       const data = await res.json()
 
@@ -432,8 +432,23 @@ function LoginContent() {
 export default function AdminLoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <Loader2 size={32} className="text-blue-500 animate-spin" />
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800
+                      to-blue-950 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 mx-auto mb-4">
+              <div className="w-16 h-16 bg-slate-800 rounded-2xl animate-pulse" />
+            </div>
+            <div className="h-7 w-40 bg-slate-800 rounded-lg animate-pulse mx-auto mb-2" />
+            <div className="h-4 w-32 bg-slate-800 rounded-lg animate-pulse mx-auto" />
+          </div>
+          <div className="bg-white rounded-3xl p-8 shadow-2xl shadow-black/30">
+            <div className="space-y-4">
+              <div className="h-10 w-full bg-slate-100 rounded-2xl animate-pulse" />
+              <div className="h-14 w-full bg-slate-100 rounded-2xl animate-pulse" />
+            </div>
+          </div>
+        </div>
       </div>
     }>
       <LoginContent />

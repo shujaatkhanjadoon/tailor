@@ -3,6 +3,7 @@ import { NextRequest, NextResponse }     from 'next/server'
 import { generateOTP, hashOTP, sendOTPEmail } from '@/lib/security/email-otp'
 import { getOTPRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { validatePakistaniPhone }        from '@/lib/security/phone'
+import { validate, schemas }             from '@/lib/validation'
 
 const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -23,8 +24,12 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { phone, email } = await req.json()
-  const purpose = 'signup'
+  const parsed = await validate(schemas.sendOtp, req, 1024)
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+  }
+
+  const { phone, email, purpose } = parsed.data
 
   // ── Validate phone ────────────────────────────────────────────
   const phoneResult = validatePakistaniPhone(phone ?? '')
@@ -32,15 +37,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: phoneResult.error }, { status: 400 })
   }
 
-  // ── Validate email ────────────────────────────────────────────
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!email || !emailRegex.test(email)) {
-    return NextResponse.json(
-      { error: 'Sahi email address daalein' },
-      { status: 400 }
-    )
-  }
-  const normalizedEmail = String(email).toLowerCase().trim()
+  const normalizedEmail = email
 
   if (purpose === 'signup') {
     const emailOwnerRes = await fetch(

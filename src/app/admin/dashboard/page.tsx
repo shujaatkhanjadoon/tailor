@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatRupees } from '@/lib/format/currency'
+import { DashboardSkeleton } from '@/components/ui/Skeleton'
 
 interface Summary {
   total:                number
@@ -124,14 +125,7 @@ export default function AdminDashboardPage() {
   useEffect(() => { load() }, [])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="flex flex-col items-center gap-3">
-          <RefreshCw size={28} className="text-blue-500 animate-spin" />
-          <p className="text-slate-400 text-sm">Loading...</p>
-        </div>
-      </div>
-    )
+    return <DashboardSkeleton />
   }
 
   if (error) {
@@ -153,7 +147,7 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-screen-2xl space-y-5 sm:space-y-6">
+    <div className="space-y-5 sm:space-y-6">
 
       {/* Title */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

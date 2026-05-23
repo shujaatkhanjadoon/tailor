@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse }  from 'next/server'
 import { verifyOTP }                  from '@/lib/security/email-otp'
 import { getLoginRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
+import { parseBody }                  from '@/lib/security/body'
+import { validate, schemas }          from '@/lib/validation'
 
 const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -62,11 +64,12 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { phone, otp } = await req.json()
-
-  if (!phone || !otp || otp.length !== 6) {
-    return NextResponse.json({ error: 'Phone aur 6-digit code required hai' }, { status: 400 })
+  const parsed = await validate(schemas.verifyOtp, req, 1024)
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status })
   }
+
+  const { phone, otp } = parsed.data
 
   // ── Find latest valid OTP ─────────────────────────────────────
   try {

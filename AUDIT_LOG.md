@@ -12,13 +12,13 @@
 |----------|----------|-------|-----------|
 | Security (Critical) | 10 | 9* | 1 |
 | Security (High) | 6 | 6 | 0 |
-| Security (Medium) | 10 | 9 | 1 |
+| Security (Medium) | 10 | 10 | 0 |
 | Security (Low) | 6 | 5 | 1 |
 | Performance (Critical) | 5 | 5 | 0 |
 | Performance (High) | 6 | 6 | 0 |
-| Performance (Medium) | 10 | 9 | 1 |
-| Performance (Low) | 10 | 7 | 3 |
-| **Total** | **63** | **56** | **7** |
+| Performance (Medium) | 10 | 10 | 0 |
+| Performance (Low) | 10 | 8 | 2 |
+| **Total** | **63** | **59** | **4** |
 
 *\* Live secrets in `.env.local` require manual rotation — see below.*
 
@@ -77,6 +77,10 @@
 | 40 | Request body size check uses spoofable `content-length` header | `src/lib/security/body.ts` | Created `parseBody()` helper that reads raw text; applied to 7 critical state-changing API routes |
 | 41 | No browser fingerprinting for rate limiting | `src/lib/security/rate-limit.ts` | Added `getClientFingerprint()` (UA + Accept-Language + Sec-CH-UA); all rate limit IDs now use `getRateLimitId()` combining IP + fingerprint |
 | 42 | Admin 2FA for destructive actions | `src/app/api/admin/action/route.ts` | TOTP required for `delete_shop`, `deactivate_shop`, `activate_shop`, `set_plan`, `reject_payment` when `ADMIN_TOTP_SECRET` is set |
+| 43 | No Zod/schema validation on API bodies | `src/lib/validation/` | Created `validate()` helper using Zod; applied to 9 state-changing API routes (admin/login, admin/action, auth/send-otp, auth/verify-otp, auth/update-pin, photos/delete, shop/delete, team/encrypt-pin, admin/notifications) |
+| 44 | TOTP QR secret not Base32 compatible | `src/lib/admin/auth.ts` | Added `normalizeTOTPSecret()` auto-detects hex → converts to Base32 for QR URI; applied in `getTOTPUri()`, `verifyTOTP()`, `generateTOTP()` |
+| 45 | `send-reminders` cron used Supabase `createClient` | `src/app/api/cron/send-reminders/route.ts` | Refactored to direct REST fetch, removed `@supabase/supabase-js` dependency |
+| 46 | `exportPrintablePDF` generated HTML, not real PDF | `src/lib/export/download.ts` | Rewrote using `jsPDF` + `jspdf-autotable` — generates proper A4 PDF with styled table |
 
 ---
 
@@ -123,31 +127,18 @@ CREATE INDEX IF NOT EXISTS idx_team_members_shop_active ON team_members(shop_id,
 
 ## Remaining Issues (Not Fixed)
 
-### Security (Medium)
-
-| # | Issue | Priority |
-|---|-------|----------|
-| 1 | No Zod/schema validation on API bodies | Low |
-
 ### Security (Low)
 
 | # | Issue | Priority |
 |---|-------|----------|
-| 2 | Main app session in `localStorage` (30-day TTL) | Low |
-| 3 | `reminder` records mixed in `subscription_payments` table | Low |
-
-### Performance (Medium)
-
-| # | Issue | Priority |
-|---|-------|----------|
-| 4 | Overdue reminder cron creates Supabase client per invocation | Low |
+| 1 | Main app session in `localStorage` (30-day TTL) | Low |
+| 2 | `reminder` records mixed in `subscription_payments` table | Low |
 
 ### Performance (Low)
 
 | # | Issue | Priority |
 |---|-------|----------|
-| 5 | `redirectTo` client-side logic could be middleware | Low |
-| 6 | `exportPrintablePDF` is HTML blob, not real PDF | Low |
+| 3 | `redirectTo` client-side logic could be middleware | Low |
 
 ### Test Gap
 

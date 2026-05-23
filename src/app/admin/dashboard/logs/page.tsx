@@ -27,7 +27,7 @@ export default async function AuditLogPage() {
   const logs = await getAuditLog(200)
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-5">
+    <div className="space-y-5">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
           <ScrollText size={22} className="text-blue-400" />

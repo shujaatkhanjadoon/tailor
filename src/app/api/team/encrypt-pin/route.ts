@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { encryptPIN } from '@/lib/security/pin-crypto'
-import { parseBody } from '@/lib/security/body'
+import { validate, schemas } from '@/lib/validation'
 
 const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -28,15 +28,11 @@ async function validateMember(memberId: string, shopId: string): Promise<{ valid
 
 export async function POST(req: NextRequest) {
   try {
-    const parsed = await parseBody<{ pin?: string; memberId?: string; shopId?: string }>(req)
+    const parsed = await validate(schemas.encryptPin, req)
     if (!parsed.ok) {
       return NextResponse.json({ error: parsed.error }, { status: parsed.status })
     }
     const { pin, memberId, shopId } = parsed.data
-
-    if (!memberId || !shopId) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
 
     const auth = await validateMember(memberId, shopId)
     if (!auth.valid) {

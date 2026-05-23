@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { parseBody } from '@/lib/security/body'
+import { validate, schemas } from '@/lib/validation'
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -34,21 +34,11 @@ async function sbGet(path: string): Promise<any[]> {
 }
 
 export async function POST(req: NextRequest) {
-  const parsed = await parseBody<{ publicId?: string; shopId?: string; memberId?: string }>(req)
+  const parsed = await validate(schemas.deletePhoto, req)
   if (!parsed.ok) {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status })
   }
   const { publicId, shopId, memberId } = parsed.data
-
-  if (!publicId || typeof publicId !== 'string') {
-    return NextResponse.json({ error: 'publicId required' }, { status: 400 })
-  }
-  if (!shopId || typeof shopId !== 'string') {
-    return NextResponse.json({ error: 'shopId required' }, { status: 400 })
-  }
-  if (!memberId || typeof memberId !== 'string') {
-    return NextResponse.json({ error: 'memberId required' }, { status: 400 })
-  }
 
   // Extract shopId from publicId path: darzi-manager/{shopId}/{orderId}/...
   const parts = publicId.split('/')

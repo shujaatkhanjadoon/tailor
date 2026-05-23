@@ -101,7 +101,7 @@ export default async function AnalyticsPage() {
   const maxRevenue = Math.max(...data.monthlyRevenue.map(m => m.revenue), 1)
 
   return (
-      <div className="mx-auto w-full max-w-screen-2xl space-y-6 sm:space-y-8">
+      <div className="space-y-6 sm:space-y-8">
 
         <div>
           <h1 className="text-2xl font-bold text-white">Analytics</h1>
