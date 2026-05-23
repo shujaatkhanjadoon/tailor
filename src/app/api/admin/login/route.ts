@@ -2,16 +2,16 @@
 import { timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse }                          from 'next/server'
 import { verifyTOTP, generateSessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
+import { logAdminAction }                                     from '@/lib/admin/audit'
+import { parseBody }                                          from '@/lib/security/body'
 
 export async function POST(req: NextRequest) {
-  let body: any
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+  const parsed = await parseBody<{ secret?: string; totpCode?: string }>(req)
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status })
   }
 
-  const { secret, totpCode } = body
+  const { secret, totpCode } = parsed.data
 
   // ── 1. Verify admin secret ────────────────────────────────────────
   const adminSecret = process.env.ADMIN_SECRET
@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
   if (!secret || !secretMatch) {
     // Delay response to slow brute force
     await new Promise(r => setTimeout(r, 500))
+    logAdminAction('admin_login', 'admin_session', 'failed', undefined, { reason: 'invalid_secret' })
     return NextResponse.json({ error: 'Secret galat hai' }, { status: 401 })
   }
 
@@ -42,6 +43,7 @@ export async function POST(req: NextRequest) {
     const isValid = verifyTOTP(String(totpCode).trim(), totpSecret)
     if (!isValid) {
       await new Promise(r => setTimeout(r, 300))
+      logAdminAction('admin_login', 'admin_session', 'failed', undefined, { reason: 'invalid_totp' })
       return NextResponse.json(
         { error: 'Code galat hai ya expire ho gaya. Naya code try karein.' },
         { status: 401 }
@@ -60,6 +62,8 @@ export async function POST(req: NextRequest) {
     maxAge:   15 * 60,   // 15 minutes
     path:     '/',
   })
+
+  logAdminAction('admin_login', 'admin_session', token)
 
   return res
 }

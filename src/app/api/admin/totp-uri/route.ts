@@ -38,6 +38,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ uri, qrData, hasSetup: true })
   } catch (e) {
     console.error('[TOTP Setup] Error:', e)
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

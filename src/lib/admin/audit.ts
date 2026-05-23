@@ -39,6 +39,7 @@ export async function logAdminAction(
   shopId?:     string,
   details?:    Record<string, unknown>
 ): Promise<void> {
+  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   try {
     const { url, headers } = getSupabaseHeaders()
 
@@ -65,7 +66,8 @@ export async function logAdminAction(
     }
   } catch (e) {
     // Never throw — audit failure must not block the admin action
-    console.error('[Audit] logAdminAction error (non-fatal):', String(e))
+    const hostname = sbUrl ? new URL(sbUrl).hostname : 'SUPABASE_URL_NOT_SET'
+    console.error('[Audit] logAdminAction error (non-fatal):', String(e), `(hostname: ${hostname})`)
   }
 }
 

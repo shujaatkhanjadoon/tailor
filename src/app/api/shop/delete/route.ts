@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { parseBody } from '@/lib/security/body'
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -87,7 +88,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Server misconfigured: Supabase service key missing' }, { status: 500 })
   }
 
-  const { shopId, memberId, confirm } = await req.json().catch(() => ({}))
+  const parsed = await parseBody<{ shopId?: string; memberId?: string; confirm?: string }>(req)
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+  }
+  const { shopId, memberId, confirm } = parsed.data
   if (!shopId || !memberId || confirm !== 'DELETE') {
     return NextResponse.json({ error: 'shopId, memberId, and DELETE confirmation required' }, { status: 400 })
   }
@@ -110,9 +115,13 @@ export async function POST(req: NextRequest) {
     const orderIds = orders.map((o: any) => o.id).filter(Boolean)
     const publicIds = photos.map((p: any) => p.public_id).filter(Boolean)
 
-    for (const publicId of publicIds) {
-      await deleteCloudinaryAsset(publicId, warnings)
-    }
+    await Promise.all(publicIds.map(async (publicId: string) => {
+      try {
+        await deleteCloudinaryAsset(publicId, warnings)
+      } catch {
+        warnings.push(`Failed to delete Cloudinary asset: ${publicId}`)
+      }
+    }))
 
     for (let i = 0; i < orderIds.length; i += 100) {
       await tryDelete('order_status_history', inFilter('order_id', orderIds.slice(i, i + 100)), warnings)

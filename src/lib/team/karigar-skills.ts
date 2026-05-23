@@ -61,6 +61,8 @@ export function formatKarigarSkills(skills: string[]): string {
 
 export function canKarigarHandleGarment(member: TeamMemberRecord, garmentType?: string) {
   if (!garmentType) return true
+  // 'other' (Aur) is universally assignable — any karigar can handle it
+  if (garmentType === 'other') return true
   const allowed = parseKarigarSkills(member.speciality).flatMap(skill => SKILL_TO_GARMENTS[skill] ?? [])
   return allowed.length === 0 || allowed.includes(garmentType as GarmentType)
 }

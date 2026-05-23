@@ -189,7 +189,6 @@ function NewOrderWizard({
       if (!latest || cancelled) return;
 
       update({
-        orderForRelation: latest.order_for_relation,
         orderForName: latest.order_for_name?.trim() || undefined,
         recipientGender: latest.recipient_gender ?? data.customerGender,
         garmentType: undefined,

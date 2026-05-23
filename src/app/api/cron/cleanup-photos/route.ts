@@ -88,6 +88,6 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, cutoff, ...results })
   } catch (e) {
-    return NextResponse.json({ success: false, error: String(e), ...results }, { status: 500 })
+    return NextResponse.json({ success: false, error: 'Cron job failed' }, { status: 500 })
   }
 }

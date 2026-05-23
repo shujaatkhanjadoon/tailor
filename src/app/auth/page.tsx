@@ -857,7 +857,7 @@ function AuthContent() {
 
               <button
                 onClick={handlePhoneSubmit}
-                disabled={loading || phone.replace(/\D/g, "").length < 10}
+                disabled={loading || phone.replace(/\D/g, "").length < 11}
                 className="w-full bg-blue-600 disabled:bg-slate-300 text-white
                            font-bold py-4 rounded-2xl transition-all active:scale-[0.98]
                            flex items-center justify-center gap-2"

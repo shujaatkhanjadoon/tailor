@@ -1,11 +1,7 @@
 ﻿// src/app/pricing/page.tsx
-'use client'
-
-import { useState } from 'react'
 import Link         from 'next/link'
-import { Scissors, Check, X as XIcon, ArrowRight } from 'lucide-react'
-import { PLANS, PlanId, yearlySaving } from '@/lib/billing/plans'
-import { BillingCycleToggle }          from '@/components/billing/BillingCycleToggle'
+import { ArrowRight, Check, X as XIcon } from 'lucide-react'
+import { PricingCards }               from '@/components/pricing/PricingCards'
 import { cn }                          from '@/lib/utils'
 import Image from 'next/image'
 
@@ -32,7 +28,6 @@ function FeatureValue({ value }: { value: boolean | string }) {
 }
 
 export default function PricingPage() {
-  const [cycle, setCycle] = useState<'monthly' | 'yearly'>('monthly')
 
   return (
     <div className="min-h-screen bg-white">
@@ -76,108 +71,11 @@ export default function PricingPage() {
           Baad mein jo plan suit kare le lein. Data hamesha aapka.
         </p>
 
-        <BillingCycleToggle value={cycle} onChange={setCycle} />
+        <PricingCards />
       </section>
 
-      {/* Pricing cards */}
+      {/* Pricing details */}
       <section className="max-w-5xl mx-auto px-6 pb-16">
-        <div className="grid lg:grid-cols-3 gap-6 mb-16">
-          {(['starter', 'professional', 'business'] as PlanId[]).map(planId => {
-            const p       = PLANS[planId]
-            const price   = cycle === 'yearly' ? p.yearlyPkr : p.monthlyPkr
-            const saving  = yearlySaving(p)
-            const isFeatured = planId === 'professional'
-
-            return (
-              <div
-                key={planId}
-                className={cn(
-                  'relative rounded-3xl border-2 p-7 flex flex-col',
-                  isFeatured
-                    ? 'border-blue-500 bg-blue-600 text-white shadow-2xl shadow-blue-200'
-                    : 'border-slate-200 bg-white'
-                )}
-              >
-                {isFeatured && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <span className="bg-amber-400 text-amber-900 text-xs font-bold
-                                     px-5 py-1.5 rounded-full shadow-sm">
-                      ⭐ Most Popular
-                    </span>
-                  </div>
-                )}
-
-                <div className="mb-6">
-                  <p className="text-2xl mb-1">{p.emoji}</p>
-                  <h3 className={cn('text-xl font-bold', isFeatured ? 'text-white' : 'text-slate-800')}>
-                    {p.name}
-                  </h3>
-                  <p className={cn('text-sm mt-1', isFeatured ? 'text-blue-200' : 'text-slate-400')}>
-                    {p.tagline}
-                  </p>
-                </div>
-
-                <div className="mb-6">
-                  {price === null ? (
-                    <p className={cn('text-5xl font-bold', isFeatured ? 'text-white' : 'text-slate-800')}>
-                      Free
-                    </p>
-                  ) : (
-                    <>
-                      <div className="flex items-end gap-1">
-                        <span className={cn('text-lg', isFeatured ? 'text-blue-200' : 'text-slate-400')}>Rs.</span>
-                        <span className={cn('text-5xl font-bold leading-none', isFeatured ? 'text-white' : 'text-slate-800')}>
-                          {price.toLocaleString()}
-                        </span>
-                      </div>
-                      <p className={cn('text-sm mt-1', isFeatured ? 'text-blue-200' : 'text-slate-400')}>
-                        {cycle === 'yearly' ? 'per year' : 'per month'}
-                      </p>
-                      {cycle === 'yearly' && saving && (
-                        <span className={cn(
-                          'inline-block mt-2 text-xs font-bold px-3 py-1 rounded-lg',
-                          isFeatured ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700'
-                        )}>
-                          Rs. {saving.toLocaleString()} bachat
-                        </span>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                <div className="flex-1 space-y-2.5 mb-7">
-                  {p.highlights.map(h => (
-                    <div key={h} className="flex items-start gap-2.5">
-                      <Check size={14} className={cn(
-                        'mt-0.5 shrink-0',
-                        isFeatured ? 'text-blue-200' : 'text-green-500'
-                      )} />
-                      <span className={cn('text-sm', isFeatured ? 'text-blue-100' : 'text-slate-600')}>
-                        {h}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <Link
-                  href="/auth"
-                  className={cn(
-                    'w-full font-bold py-4 rounded-2xl text-sm text-center transition-colors',
-                    'flex items-center justify-center gap-2',
-                    isFeatured
-                      ? 'bg-white text-blue-600 hover:bg-blue-50'
-                      : planId === 'starter'
-                      ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  )}
-                >
-                  {planId === 'starter' ? 'Free Shuru Karein' : '14 Din Free Try Karein'}
-                  <ArrowRight size={15} />
-                </Link>
-              </div>
-            )
-          })}
-        </div>
 
         {/* Feature comparison table */}
         <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden">

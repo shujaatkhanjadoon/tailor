@@ -1,7 +1,7 @@
 // src/app/api/auth/send-otp/route.ts
 import { NextRequest, NextResponse }     from 'next/server'
 import { generateOTP, hashOTP, sendOTPEmail } from '@/lib/security/email-otp'
-import { getOTPRatelimiter, checkRateLimit, getClientIP } from '@/lib/security/rate-limit'
+import { getOTPRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { validatePakistaniPhone }        from '@/lib/security/phone'
 
 const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -13,11 +13,9 @@ const HEADERS = {
 }
 
 export async function POST(req: NextRequest) {
-  const ip = getClientIP(req)
-
-  // ── Rate limit by IP ──────────────────────────────────────────
+  // ── Rate limit by IP + fingerprint ────────────────────────────
   const limiter = getOTPRatelimiter()
-  const rl      = await checkRateLimit(limiter, `otp:${ip}`)
+  const rl      = await checkRateLimit(limiter, `otp:${getRateLimitId(req)}`)
   if (!rl.allowed) {
     return NextResponse.json(
       { error: 'Bahut zyada OTP requests. 1 ghante mein dobara try karein.' },

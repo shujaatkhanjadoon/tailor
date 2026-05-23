@@ -140,6 +140,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, timestamp: now, ...results })
   } catch (e) {
     console.error('[Cron] expire-subscriptions error:', e)
-    return NextResponse.json({ success: false, error: String(e) }, { status: 500 })
+    return NextResponse.json({ success: false, error: 'Cron job failed' }, { status: 500 })
   }
 }

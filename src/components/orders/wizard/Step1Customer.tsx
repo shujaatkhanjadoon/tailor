@@ -58,7 +58,7 @@ export function Step1Customer({ data, onUpdate, onNext }: Step1Props) {
   }
 
   const handleNewCustomer = async () => {
-    if (!newName.trim() || newPhone.length < 10) return
+    if (!newName.trim() || newPhone.length < 11) return
     if (!shopId) {
       setSaveError('Shop setup nahi hua. Setup page par jayein.')
       return
@@ -161,7 +161,7 @@ export function Step1Customer({ data, onUpdate, onNext }: Step1Props) {
               onChange={e => setNewPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
               className="flex-1 text-sm outline-none font-mono"
             />
-            {newPhone.length >= 10 && (
+            {newPhone.length >= 11 && (
               <span className="text-green-500 text-xs">✓</span>
             )}
           </div>
@@ -172,7 +172,7 @@ export function Step1Customer({ data, onUpdate, onNext }: Step1Props) {
 
           <button
             onClick={handleNewCustomer}
-            disabled={!newName.trim() || newPhone.length < 10 || saving}
+            disabled={!newName.trim() || newPhone.length < 11 || saving}
             className="w-full bg-blue-600 disabled:bg-slate-300 text-white font-semibold
                        py-3 rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
           >

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { parseBody } from '@/lib/security/body'
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -33,7 +34,11 @@ async function sbGet(path: string): Promise<any[]> {
 }
 
 export async function POST(req: NextRequest) {
-  const { publicId, shopId, memberId } = await req.json()
+  const parsed = await parseBody<{ publicId?: string; shopId?: string; memberId?: string }>(req)
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+  }
+  const { publicId, shopId, memberId } = parsed.data
 
   if (!publicId || typeof publicId !== 'string') {
     return NextResponse.json({ error: 'publicId required' }, { status: 400 })
@@ -111,6 +116,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: data.result }, { status: 400 })
     }
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    return NextResponse.json({ error: 'Photo delete failed' }, { status: 500 })
   }
 }

@@ -327,7 +327,7 @@ export default function ShopSettingsPage() {
               placeholder="03XX-XXXXXXX"
               className="flex-1 text-sm font-mono text-slate-800 bg-transparent outline-none placeholder:text-slate-400"
             />
-            {whatsapp.length >= 10 && (
+            {whatsapp.length >= 11 && (
               <span className="text-green-500 text-xs shrink-0">✓</span>
             )}
           </div>

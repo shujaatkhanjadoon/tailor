@@ -86,7 +86,7 @@ function NewCustomerForm({ shopId }: { shopId: string | null }) {
   const validate = () => {
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = "Naam zaroor chahiye";
-    if (phone.length < 10) e.phone = "Sahi phone number daalein (11 digits)";
+    if (phone.length < 11) e.phone = "Sahi phone number daalein (11 digits)";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -315,7 +315,7 @@ function NewCustomerForm({ shopId }: { shopId: string | null }) {
               className="flex-1 text-sm bg-transparent outline-none
                          text-slate-800 placeholder:text-slate-400 font-mono"
             />
-            {phone.length >= 10 && (
+            {phone.length >= 11 && (
               <CheckCircle2
                 size={15}
                 className="text-green-500 shrink-0"
@@ -408,7 +408,7 @@ function NewCustomerForm({ shopId }: { shopId: string | null }) {
       <div className="px-4 pt-4 mb-16 lg:mb-0">
         <button
           onClick={handleSave}
-          disabled={saving || !name.trim() || phone.length < 10}
+          disabled={saving || !name.trim() || phone.length < 11}
           className="w-full bg-blue-600 disabled:bg-slate-300 text-white font-bold
                      py-4 rounded-2xl text-base transition-colors active:scale-[0.98]
                      flex items-center justify-center gap-2"

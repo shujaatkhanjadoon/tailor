@@ -6,6 +6,7 @@ import {
   sendShopVerificationAlert,
 } from '@/lib/security/email-otp'
 import { encryptPIN } from '@/lib/security/pin-crypto'
+import { parseBody } from '@/lib/security/body'
 
 const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -114,10 +115,18 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  const parsed = await parseBody<{
+    shopId?: string; shopName?: string; ownerPhone?: string; ownerName?: string;
+    email?: string; city?: string; stateProvince?: string; addressLine?: string;
+    postalCode?: string; pinHash?: string; pinPlain?: string;
+  }>(req)
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+  }
   const {
     shopId, shopName, ownerPhone, ownerName,
     email, city, stateProvince, addressLine, postalCode, pinHash, pinPlain,
-  } = await req.json()
+  } = parsed.data
 
   if (!shopId || !shopName || !ownerPhone || !pinHash) {
     return NextResponse.json(
@@ -182,6 +191,8 @@ export async function POST(req: NextRequest) {
       shop_name:           shopName,
       owner_name:          ownerName ?? shopName,
       owner_phone:         ownerPhone,
+      whatsapp_number:     ownerPhone,
+      encrypted_owner_pin: pinPlain ? encryptPIN(pinPlain) : null,
       owner_email:         normalizedEmail || null,
       state_province:      stateProvince ?? null,
       city:                city   ?? null,
@@ -203,7 +214,6 @@ export async function POST(req: NextRequest) {
       phone:          ownerPhone,
       role:           'owner',
       pin_hash:       pinHash,
-      pin_plain:      pinPlain ? encryptPIN(pinPlain) : null,
       email:          normalizedEmail || null,
       email_verified: normalizedEmail ? true : false,
       is_active:      true,
@@ -326,7 +336,7 @@ export async function POST(req: NextRequest) {
       )
     }
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : String(e) },
+      { error: 'Account creation failed. Dobara try karein.' },
       { status: 500 }
     )
   }

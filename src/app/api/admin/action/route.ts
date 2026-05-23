@@ -1,7 +1,9 @@
 // src/app/api/admin/action/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { sendAdminSubscriptionEventEmail, sendShopOwnerAdminActionEmail } from "@/lib/security/email-otp";
-import { ADMIN_SESSION_COOKIE, verifySessionToken } from "@/lib/admin/auth";
+import { ADMIN_SESSION_COOKIE, verifySessionToken, verifyTOTP } from "@/lib/admin/auth";
+import { logAdminAction } from "@/lib/admin/audit";
+import { parseBody } from "@/lib/security/body";
 
 const SB_URL = () => process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -134,8 +136,25 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const body = await req.json();
+  const parsed = await parseBody<Record<string, unknown>>(req);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+  }
+  const body = parsed.data as any;
   const { action } = body;
+
+  // ── TOTP 2FA for destructive actions ─────────────────────────
+  const DESTRUCTIVE_ACTIONS = ['delete_shop', 'deactivate_shop', 'activate_shop', 'set_plan', 'reject_payment']
+  const totpSecret = process.env.ADMIN_TOTP_SECRET
+  if (totpSecret && DESTRUCTIVE_ACTIONS.includes(action)) {
+    const totpCode = body.totpCode
+    if (!totpCode || !verifyTOTP(String(totpCode).trim(), totpSecret)) {
+      return NextResponse.json(
+        { error: 'Is action ke liye Google Authenticator code chahiye', requiresTOTP: true },
+        { status: 401 },
+      )
+    }
+  }
 
   try {
     switch (action) {
@@ -449,6 +468,6 @@ export async function POST(req: NextRequest) {
     }
   } catch (e) {
     console.error("[Admin Action API] error:", e);
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

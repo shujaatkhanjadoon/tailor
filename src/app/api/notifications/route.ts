@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
     if (!notificationRes.ok) throw new Error(await notificationRes.text())
     return NextResponse.json({ data: await notificationRes.json() })
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    console.error('[Notifications]', e)
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

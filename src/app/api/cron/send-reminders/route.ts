@@ -164,6 +164,6 @@ export async function GET(req: NextRequest) {
 
   } catch (e) {
     console.error('[Cron] send-reminders error:', e)
-    return NextResponse.json({ success: false, error: String(e) }, { status: 500 })
+    return NextResponse.json({ success: false, error: 'Cron job failed' }, { status: 500 })
   }
 }

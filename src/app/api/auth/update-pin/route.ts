@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { encryptPIN } from '@/lib/security/pin-crypto'
+import { parseBody } from '@/lib/security/body'
 
 const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -27,7 +28,11 @@ async function validateMember(memberId: string, shopId: string): Promise<{ valid
 
 export async function POST(req: NextRequest) {
   try {
-    const { memberId, shopId, pinHash } = await req.json()
+    const parsed = await parseBody<{ memberId?: string; shopId?: string; pinHash?: string }>(req)
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+    }
+    const { memberId, shopId, pinHash } = parsed.data
     if (!memberId || !shopId || !pinHash) {
       return NextResponse.json({ error: 'memberId, shopId, and pinHash required' }, { status: 400 })
     }
@@ -63,7 +68,7 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     console.error('[update-pin]', e)
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'PIN update failed' },
+      { error: 'PIN update failed' },
       { status: 500 }
     )
   }

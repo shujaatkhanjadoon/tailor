@@ -128,19 +128,58 @@ export async function checkRateLimit(
       error:     success ? undefined : 'Bahut zyada requests. Kuch der mein dobara try karein.',
     }
   } catch (e) {
-    console.error('[RateLimit] Error:', e)
-    // Fail closed — block request on Redis error
-    return { allowed: false, error: 'Rate limiter temporarily unavailable. Kuch der mein try karein.' }
+    console.error('[RateLimit] Redis error — falling back to in-memory:', String(e))
+    // Fail open to in-memory fallback on Redis error
+    const maxWindowMs = 60 * 1000
+    const result = memSlidingWindow(identifier, 60, maxWindowMs)
+    if (!result.success) {
+      return {
+        allowed: false,
+        remaining: 0,
+        reset: result.reset,
+        error: 'Bahut zyada requests. Kuch der mein dobara try karein.',
+      }
+    }
+    return {
+      allowed: true,
+      remaining: result.remaining,
+      reset: result.reset,
+    }
   }
 }
 
 // ── Get client IP from request ────────────────────────────────────
 export function getClientIP(req: Request): string {
-  const headers = req.headers as any
+  const h = req.headers as any
   return (
-    headers.get?.('x-forwarded-for')?.split(',')[0]?.trim() ??
-    headers.get?.('x-real-ip') ??
-    headers.get?.('cf-connecting-ip') ??
+    h.get?.('x-forwarded-for')?.split(',')[0]?.trim() ??
+    h.get?.('x-real-ip') ??
+    h.get?.('cf-connecting-ip') ??
     '127.0.0.1'
   )
+}
+
+// ── Basic browser fingerprint from request headers ────────────────
+export function getClientFingerprint(req: Request): string {
+  const h = req.headers as any
+  const ua = h.get?.('user-agent') ?? ''
+  const lang = h.get?.('accept-language') ?? ''
+  const secChUa = h.get?.('sec-ch-ua') ?? ''
+  const hash = simpleHash(`${ua}|${lang}|${secChUa}`)
+  return hash
+}
+
+// ── Combined identifier (IP + browser fingerprint) ───────────────
+export function getRateLimitId(req: Request): string {
+  return `${getClientIP(req)}|${getClientFingerprint(req)}`
+}
+
+function simpleHash(s: string): string {
+  let hash = 0
+  for (let i = 0; i < s.length; i++) {
+    const char = s.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(36)
 }

@@ -1,6 +1,7 @@
 // src/lib/security/email-otp.ts
 import { Resend } from 'resend'
-import { createHash, randomInt } from 'crypto'
+import { randomInt } from 'crypto'
+import bcrypt from 'bcryptjs'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -463,7 +464,18 @@ export function generateOTP(): string {
 
 export function hashOTP(otp: string): string {
   const pepper = process.env.OTP_PEPPER_SECRET ?? process.env.ADMIN_SECRET
-  return createHash('sha256').update(otp + pepper).digest('hex')
+  return bcrypt.hashSync(otp + pepper, 10)
+}
+
+export function verifyOTP(otp: string, storedHash: string): boolean {
+  const pepper = process.env.OTP_PEPPER_SECRET ?? process.env.ADMIN_SECRET
+  // bcrypt hash
+  if (storedHash.startsWith('$2')) {
+    return bcrypt.compareSync(otp + pepper, storedHash)
+  }
+  // Legacy SHA256 fallback
+  const { createHash } = require('crypto')
+  return createHash('sha256').update(otp + pepper).digest('hex') === storedHash
 }
 
 // ─────────────────────────────────────────────────────────────────

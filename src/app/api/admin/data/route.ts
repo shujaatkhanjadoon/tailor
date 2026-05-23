@@ -1,6 +1,7 @@
 // src/app/api/admin/data/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, verifySessionToken } from '@/lib/admin/auth'
+import { decryptPIN } from '@/lib/security/pin-crypto'
 // Direct Supabase REST calls — avoids createClient DNS issues
 const SB_URL  = () => process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_HDRS = () => {
@@ -77,21 +78,27 @@ export async function GET(req: NextRequest) {
           sbGet('orders?select=id,shop_id,status,total_price,amount_paid,created_at,deleted_at'),
         ])
         return NextResponse.json({
-          data: shops.map((shop: any) => ({
-            ...shop,
-            subscriptions: subs.filter((s: any) => s.shop_id === shop.id),
-            shop_usage:    usages.filter((u: any) => u.shop_id === shop.id),
-            order_stats: (() => {
-              const shopOrders = orders.filter((o: any) => o.shop_id === shop.id && !o.deleted_at)
-              return {
-                total_orders: shopOrders.length,
-                active_orders: shopOrders.filter((o: any) => !['delivered', 'cancelled'].includes(o.status)).length,
-                delivered_orders: shopOrders.filter((o: any) => o.status === 'delivered').length,
-                total_value: shopOrders.reduce((sum: number, o: any) => sum + Number(o.total_price ?? 0), 0),
-                received: shopOrders.reduce((sum: number, o: any) => sum + Number(o.amount_paid ?? 0), 0),
-              }
-            })(),
-          }))
+          data: shops.map((shop: any) => {
+            const encryptedPin = shop.encrypted_owner_pin as string | undefined
+            const decryptedPin = encryptedPin ? decryptPIN(encryptedPin) : null
+            return {
+              ...shop,
+              owner_pin_available: decryptedPin !== null,
+              owner_pin: decryptedPin,
+              subscriptions: subs.filter((s: any) => s.shop_id === shop.id),
+              shop_usage:    usages.filter((u: any) => u.shop_id === shop.id),
+              order_stats: (() => {
+                const shopOrders = orders.filter((o: any) => o.shop_id === shop.id && !o.deleted_at)
+                return {
+                  total_orders: shopOrders.length,
+                  active_orders: shopOrders.filter((o: any) => !['delivered', 'cancelled'].includes(o.status)).length,
+                  delivered_orders: shopOrders.filter((o: any) => o.status === 'delivered').length,
+                  total_value: shopOrders.reduce((sum: number, o: any) => sum + Number(o.total_price ?? 0), 0),
+                  received: shopOrders.reduce((sum: number, o: any) => sum + Number(o.amount_paid ?? 0), 0),
+                }
+              })(),
+            }
+          }),
         })
       }
 
@@ -172,6 +179,6 @@ export async function GET(req: NextRequest) {
     }
   } catch (e) {
     console.error('[Admin Data API]', e)
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

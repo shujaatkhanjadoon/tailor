@@ -37,7 +37,8 @@ export async function GET(req: NextRequest) {
     const rows = await sbGet('admin_notifications?order=created_at.desc&limit=100&select=*')
     return NextResponse.json({ data: rows })
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    console.error('[Admin Notifications GET]', e)
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
 
@@ -78,9 +79,10 @@ export async function POST(req: NextRequest) {
     const [row] = await res.json()
     return NextResponse.json({ data: row })
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
+
 
 export async function PATCH(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -120,7 +122,8 @@ export async function PATCH(req: NextRequest) {
     const [row] = await res.json()
     return NextResponse.json({ data: row })
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    console.error('[Admin Notifications PATCH]', e)
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
 
@@ -137,6 +140,7 @@ export async function DELETE(req: NextRequest) {
     if (!res.ok) throw new Error(`DELETE notification: ${res.status} ${await res.text()}`)
     return NextResponse.json({ success: true })
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    console.error('[Admin Notifications DELETE]', e)
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

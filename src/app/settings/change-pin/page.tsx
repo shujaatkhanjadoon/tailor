@@ -170,8 +170,8 @@ export default function ChangePinPage() {
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({
             memberId: currentUser.id,
+            shopId:   currentUser.shopId,
             pinHash:  hashed,
-            pinPlain: val,
           }),
         })
         if (!res.ok) {

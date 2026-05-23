@@ -44,6 +44,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid push subscription' }, { status: 400 })
   }
 
+  // ── Dedup: ensure endpoint not already registered to a different shop ──
+  try {
+    const dup = await fetch(
+      `${SB_URL()}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(subscription.endpoint)}&shop_id=neq.${shopId}&select=id,shop_id&limit=1`,
+      { headers: headers(), signal: AbortSignal.timeout(5000) }
+    )
+    if (dup.ok) {
+      const rows = await dup.json()
+      if (rows?.length > 0) {
+        return NextResponse.json({ error: 'Subscription already registered under a different shop' }, { status: 409 })
+      }
+    }
+  } catch { /* network error — proceed to upsert */ }
+
   const res = await fetch(`${SB_URL()}/rest/v1/push_subscriptions?on_conflict=endpoint`, {
     method: 'POST',
     headers: headers(),

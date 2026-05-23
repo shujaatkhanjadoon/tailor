@@ -24,6 +24,29 @@ export function generateTOTPSecret(): string {
   return result
 }
 
+export function normalizeTOTPSecret(secret: string): string {
+  const cleaned = secret.replace(/\s/g, '')
+  if (/^[0-9A-Fa-f]+$/.test(cleaned)) {
+    const bytes = Buffer.from(cleaned, 'hex')
+    let result  = ''
+    let buffer  = 0
+    let bitsLeft = 0
+    for (const byte of bytes) {
+      buffer    = (buffer << 8) | byte
+      bitsLeft += 8
+      while (bitsLeft >= 5) {
+        result  += BASE32_ALPHABET[(buffer >> (bitsLeft - 5)) & 31]
+        bitsLeft -= 5
+      }
+    }
+    if (bitsLeft > 0) {
+      result += BASE32_ALPHABET[(buffer << (5 - bitsLeft)) & 31]
+    }
+    return result
+  }
+  return cleaned.toUpperCase().replace(/=+$/, '')
+}
+
 function base32Decode(encoded: string): Buffer {
   const str    = encoded.toUpperCase().replace(/=+$/, '').replace(/\s/g, '')
   const bytes: number[] = []
@@ -76,13 +99,13 @@ function getTimeCounter(): number {
 }
 
 export function generateTOTP(secret: string): string {
-  return hotp(secret, getTimeCounter())
+  return hotp(normalizeTOTPSecret(secret), getTimeCounter())
 }
 
 // Verify with Â±1 window for clock drift
 export function verifyTOTP(token: string, secret?: string): boolean {
-  const s = secret ?? process.env.ADMIN_TOTP_SECRET
-  if (!s) {
+  const raw = secret ?? process.env.ADMIN_TOTP_SECRET
+  if (!raw) {
     console.error('[Admin Auth] ADMIN_TOTP_SECRET not set')
     return false
   }
@@ -90,6 +113,7 @@ export function verifyTOTP(token: string, secret?: string): boolean {
     return false
   }
 
+  const s = normalizeTOTPSecret(raw)
   const counter = getTimeCounter()
   for (let delta = -1; delta <= 1; delta++) {
     const expected = hotp(s, counter + delta)
@@ -110,8 +134,9 @@ export function verifyTOTP(token: string, secret?: string): boolean {
 
 // â”€â”€ TOTP URI for QR code (otpauth:// format) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function getTOTPUri(): string {
-  const secret  = process.env.ADMIN_TOTP_SECRET
-  if (!secret) throw new Error('ADMIN_TOTP_SECRET not set')
+  const raw = process.env.ADMIN_TOTP_SECRET
+  if (!raw) throw new Error('ADMIN_TOTP_SECRET not set')
+  const secret  = normalizeTOTPSecret(raw)
   const issuer  = 'MeraDarzi Admin'
   const account = 'admin'
   return (

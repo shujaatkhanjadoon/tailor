@@ -1,7 +1,7 @@
 // src/app/api/auth/shop-verify-request/route.ts
 import { NextRequest, NextResponse }           from 'next/server'
 import { sendShopVerificationAlert }           from '@/lib/security/email-otp'
-import { getSignupRatelimiter, checkRateLimit, getClientIP } from '@/lib/security/rate-limit'
+import { getSignupRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 
 const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -12,9 +12,8 @@ const HEADERS = {
 }
 
 export async function POST(req: NextRequest) {
-  const ip      = getClientIP(req)
   const limiter = getSignupRatelimiter()
-  const rl      = await checkRateLimit(limiter, `signup:${ip}`)
+  const rl      = await checkRateLimit(limiter, `signup:${getRateLimitId(req)}`)
 
   if (!rl.allowed) {
     return NextResponse.json(

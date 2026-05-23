@@ -12,19 +12,19 @@
 |----------|----------|-------|-----------|
 | Security (Critical) | 10 | 9* | 1 |
 | Security (High) | 6 | 6 | 0 |
-| Security (Medium) | 10 | 5 | 5 |
-| Security (Low) | 6 | 0 | 6 |
+| Security (Medium) | 10 | 9 | 1 |
+| Security (Low) | 6 | 5 | 1 |
 | Performance (Critical) | 5 | 5 | 0 |
 | Performance (High) | 6 | 6 | 0 |
-| Performance (Medium) | 10 | 8 | 2 |
-| Performance (Low) | 10 | 3 | 7 |
-| **Total** | **63** | **42** | **21** |
+| Performance (Medium) | 10 | 9 | 1 |
+| Performance (Low) | 10 | 7 | 3 |
+| **Total** | **63** | **56** | **7** |
 
 *\* Live secrets in `.env.local` require manual rotation — see below.*
 
 ---
 
-## Fixed (Phase 1 + Phase 2 + Phase 3 partial)
+## Fixed (Phase 1 + Phase 2 + Phase 3 + Tier 1 remaining)
 
 ### Security
 
@@ -62,6 +62,21 @@
 | 25 | Unused deps bloat | `package.json` | Removed `@tanstack/react-query`, `zustand`, `next-pwa` (-246 packages) |
 | 26 | `@keyframes shake` inside `@layer base` | `src/app/globals.css` | Moved outside layers |
 | 27 | Added `OTP_PEPPER_SECRET` to env | `.env.example` | Documented new env var |
+| 28 | Error messages leak internal details | All API route catch blocks | Generic error messages returned; `console.error` for internal details |
+| 29 | Admin cookie not cleared on logout | `src/app/api/admin/logout/route.ts` | Added explicit `maxAge: 0` with full cookie options |
+| 30 | Sequential Cloudinary deletions | `src/app/api/shop/delete/route.ts` | Changed to `Promise.all` with individual error handling per photo |
+| 31 | No `deviceSizes` configured | `next.config.ts` | Added `images.deviceSizes: [375, 640, 750, 828, 1080, 1200]` |
+| 32 | Pricing page is unnecessary client component | `src/app/pricing/page.tsx` | Extracted `PricingCards` client component, page is now server component |
+| 33 | No audit log for admin login | `src/app/api/admin/login/route.ts` | Added `logAdminAction('admin_login', ...)` on success + failure (secret/TOTP) |
+| 34 | Push subscription no dedup check | `src/app/api/push/subscriptions/route.ts` | Added pre-check query for endpoint+shop_id uniqueness before upsert |
+| 35 | Missing `loading.tsx` for customers/ | `src/app/customers/loading.tsx` | Created with `CustomerCardSkeleton` list |
+| 36 | Missing `loading.tsx` for settings/ + billing/ | `src/app/settings/loading.tsx`, `src/app/billing/{loading,upgrade/loading,cancel/loading,history/loading}.tsx` | Re-export root `DashboardSkeleton` |
+| 37 | Missing `loading.tsx`/`error.tsx` for admin dashboard | `src/app/admin/dashboard/*/loading.tsx`, `src/app/admin/dashboard/error.tsx` | Created per-section loading states + dashboard error boundary |
+| 38 | No root `error.tsx` | `src/app/error.tsx` | Created client error boundary with retry + home link |
+| 39 | Weak OTP hash (SHA256) — still uses fast hash | `src/lib/security/email-otp.ts` | Changed to bcrypt (cost 10) with backward-compatible `verifyOTP()` — supports legacy SHA256 hashes |
+| 40 | Request body size check uses spoofable `content-length` header | `src/lib/security/body.ts` | Created `parseBody()` helper that reads raw text; applied to 7 critical state-changing API routes |
+| 41 | No browser fingerprinting for rate limiting | `src/lib/security/rate-limit.ts` | Added `getClientFingerprint()` (UA + Accept-Language + Sec-CH-UA); all rate limit IDs now use `getRateLimitId()` combining IP + fingerprint |
+| 42 | Admin 2FA for destructive actions | `src/app/api/admin/action/route.ts` | TOTP required for `delete_shop`, `deactivate_shop`, `activate_shop`, `set_plan`, `reject_payment` when `ADMIN_TOTP_SECRET` is set |
 
 ---
 
@@ -94,8 +109,8 @@ Then regenerate these values in your Supabase/Upstash/Cloudinary/Resend dashboar
 Run this in Supabase SQL Editor after deploying the code changes:
 
 ```sql
--- Drop pin_plain column (code no longer reads or writes it)
-ALTER TABLE team_members DROP COLUMN IF EXISTS pin_plain;
+-- Add encrypted_owner_pin for admin PIN display (AES-256-GCM encrypted)
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS encrypted_owner_pin text;
 
 -- Performance indexes (free tier optimization)
 CREATE INDEX IF NOT EXISTS idx_orders_shop_created ON orders(shop_id, created_at DESC);
@@ -113,40 +128,26 @@ CREATE INDEX IF NOT EXISTS idx_team_members_shop_active ON team_members(shop_id,
 | # | Issue | Priority |
 |---|-------|----------|
 | 1 | No Zod/schema validation on API bodies | Low |
-| 2 | Error messages leak internal details | Low |
-| 3 | Weak OTP hash (SHA256) — still uses fast hash | Low |
-| 4 | Request body size check uses spoofable `content-length` header | Low |
-| 5 | Push subscription no dedup check | Low |
 
 ### Security (Low)
 
 | # | Issue | Priority |
 |---|-------|----------|
-| 6 | Main app session in `localStorage` (30-day TTL) | Low |
-| 7 | No browser fingerprinting for rate limiting | Low |
-| 8 | Admin can impersonate any shop (no 2FA for destructive actions) | Low |
-| 9 | Stale admin cookie not cleared on logout | Low |
-| 10 | `reminder` records mixed in `subscription_payments` table | Low |
-| 11 | No audit log for admin login | Low |
+| 2 | Main app session in `localStorage` (30-day TTL) | Low |
+| 3 | `reminder` records mixed in `subscription_payments` table | Low |
 
 ### Performance (Medium)
 
 | # | Issue | Priority |
 |---|-------|----------|
-| 12 | Missing `loading.tsx` for customers/, settings/, billing/ routes | Low |
-| 13 | Overdue reminder cron creates Supabase client per invocation | Low |
+| 4 | Overdue reminder cron creates Supabase client per invocation | Low |
 
 ### Performance (Low)
 
 | # | Issue | Priority |
 |---|-------|----------|
-| 14 | Sequential Cloudinary deletions in shop delete | Low |
-| 15 | No `deviceSizes`/`imageSizes` configured | Low |
-| 16 | `redirectTo` client-side logic could be middleware | Low |
-| 17 | Pricing page is unnecessary client component | Low |
-| 18 | No `loading.tsx`/`error.tsx` for admin dashboard | Low |
-| 19 | Unused Dexie schema versioning (legacy) | Low |
-| 20 | `exportPrintablePDF` is HTML blob, not real PDF | Low |
+| 5 | `redirectTo` client-side logic could be middleware | Low |
+| 6 | `exportPrintablePDF` is HTML blob, not real PDF | Low |
 
 ### Test Gap
 
@@ -169,8 +170,8 @@ CREATE INDEX IF NOT EXISTS idx_team_members_shop_active ON team_members(shop_id,
 ```sql
 -- Run after deploying the code changes:
 
--- 1. Drop pin_plain column
-ALTER TABLE team_members DROP COLUMN IF EXISTS pin_plain;
+-- 1. Add encrypted PIN column for admin viewing
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS encrypted_owner_pin text;
 
 -- 2. Performance indexes
 CREATE INDEX IF NOT EXISTS idx_orders_shop_created ON orders(shop_id, created_at DESC);

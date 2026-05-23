@@ -1,7 +1,7 @@
 // src/app/api/auth/verify-otp/route.ts
 import { NextRequest, NextResponse }  from 'next/server'
-import { hashOTP }                    from '@/lib/security/email-otp'
-import { getLoginRatelimiter, checkRateLimit, getClientIP } from '@/lib/security/rate-limit'
+import { verifyOTP }                  from '@/lib/security/email-otp'
+import { getLoginRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 
 const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -52,11 +52,9 @@ async function sbFetch(path: string, init: RequestInit = {}): Promise<Response> 
 }
 
 export async function POST(req: NextRequest) {
-  const ip = getClientIP(req)
-
   // ── Rate limit ────────────────────────────────────────────────
   const limiter = getLoginRatelimiter()
-  const rl      = await checkRateLimit(limiter, `verify:${ip}`)
+  const rl      = await checkRateLimit(limiter, `verify:${getRateLimitId(req)}`)
   if (!rl.allowed) {
     return NextResponse.json(
       { error: 'Bahut zyada galat codes. 15 minute mein dobara try karein.' },
@@ -117,8 +115,7 @@ export async function POST(req: NextRequest) {
   )
 
   // ── Verify OTP hash ───────────────────────────────────────────
-  const expectedHash = hashOTP(String(otp))
-  if (expectedHash !== record.otp_hash) {
+  if (!verifyOTP(String(otp), record.otp_hash)) {
     const remaining = 4 - record.attempts
     return NextResponse.json(
       {

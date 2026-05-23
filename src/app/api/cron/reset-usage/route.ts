@@ -41,6 +41,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, monthYear, timestamp: now })
   } catch (e) {
     console.error('[Cron] reset-usage error:', e)
-    return NextResponse.json({ success: false, error: String(e) }, { status: 500 })
+    return NextResponse.json({ success: false, error: 'Cron job failed' }, { status: 500 })
   }
 }

@@ -49,8 +49,8 @@ export default function EditCustomerPage({ params }: { params: Promise<{ id: str
   const validate = () => {
     const next: Record<string, string> = {}
     if (!form.name.trim()) next.name = 'Naam zaroori hai'
-    if (form.phone.replace(/\D/g, '').length < 10) next.phone = 'Sahi phone number daalein'
-    if (form.whatsapp && form.whatsapp.replace(/\D/g, '').length < 10) next.whatsapp = 'Sahi WhatsApp number daalein'
+    if (form.phone.replace(/\D/g, '').length < 11) next.phone = 'Sahi phone number daalein'
+    if (form.whatsapp && form.whatsapp.replace(/\D/g, '').length < 11) next.whatsapp = 'Sahi WhatsApp number daalein'
     if (form.photoUrl && !/^https?:\/\//i.test(form.photoUrl)) next.photoUrl = 'Image URL http/https se start hona chahiye'
     setErrors(next)
     return Object.keys(next).length === 0
