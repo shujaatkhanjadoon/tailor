@@ -19,7 +19,7 @@ interface AssignSheetProps {
   orderId:         string
   currentAssignee: string | undefined
   onClose:         () => void
-  onAssigned:      () => void
+  onAssigned:      (memberId: string | null, memberName?: string) => void
 }
 
 export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: AssignSheetProps) {
@@ -68,10 +68,11 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
       if (selected) {
         const member = members.find(m => m.id === selected)
         if (member) await orderOps.assign(orderId, selected, member.name)
+        onAssigned(selected, member?.name)
       } else {
         await orderOps.assign(orderId, null)
+        onAssigned(null)
       }
-      onAssigned()
       onClose()
     } finally {
       setSaving(false)

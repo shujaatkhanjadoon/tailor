@@ -25,7 +25,7 @@ const NEXT_STATUSES: Record<OrderStatus, OrderStatus[]> = {
 interface StatusUpdateSheetProps {
   order: OrderRecord
   onClose: () => void
-  onUpdate: () => void
+  onUpdate: (newStatus: OrderStatus) => void
 }
 
 export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateSheetProps) {
@@ -60,7 +60,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
         description: `${order.status} -> ${newStatus}`,
       })
       setDeliveryWarningAccepted(false)
-      onUpdate()
+      onUpdate(newStatus)
       onClose()
     } catch (e) {
       console.error('[StatusUpdate] Error:', e)

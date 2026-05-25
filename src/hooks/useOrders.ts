@@ -207,11 +207,21 @@ export function useOrder(orderId: string) {
     setHistory(result.history)
   }, [fetchOrder])
 
+  const patchOrder = useCallback((patch: Partial<OrderRecord>) => {
+    setOrder(prev => prev ? { ...prev, ...patch } : prev)
+  }, [])
+
+  const addPayment = useCallback((payment: PaymentRecord) => {
+    setPayments(prev => [...prev, payment])
+  }, [])
+
   return {
     order,
     payments,
     history,
     balance: order ? orderBalance(order) : 0,
     refresh,
+    patchOrder,
+    addPayment,
   }
 }

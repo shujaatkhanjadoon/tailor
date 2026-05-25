@@ -44,7 +44,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const router = useRouter()
   const { isOwner, currentUser, shopId } = useAuth()
   const plan = usePlan()
-  const { order, payments, history, balance, refresh } = useOrder(id)
+  const { order, payments, history, balance, patchOrder, addPayment, refresh } = useOrder(id)
   const [shop, setShop] = useState<ShopRecord | undefined>()
   const [customer, setCustomer] = useState<CustomerRecord | undefined>()
   const [measurement, setMeasurement] = useState<MeasurementRecord | undefined>()
@@ -183,15 +183,16 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     if (!amt || amt <= 0 || !currentUser) return
     setSavingPay(true)
     try {
-      await paymentOps.add(order.shopId, {
+      const savedPayment = await paymentOps.add(order.shopId, {
         orderId: order.id,
         amount: amt,
         method: payMethod,
         recordedBy: currentUser.id,
       })
+      addPayment(savedPayment)
+      patchOrder({ amountPaid: (order.amountPaid ?? 0) + (savedPayment.appliedToBalance ?? amt) })
       setPayAmount('')
       setShowPayForm(false)
-      refresh()
     } finally {
       setSavingPay(false)
     }
@@ -211,11 +212,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           .from('orders')
           .update({ fabric_photo_url: null, updated_at: new Date().toISOString() })
           .eq('id', order?.id)
+        patchOrder({ fabricPhotoUrl: null })
       } else {
         await deleteOrderPhotoEverywhere({ id: photo.id, publicId: photo.publicId }, shopId, currentUser.id)
         setPhotos(prev => prev.filter(item => item.id !== photo.id))
       }
-      refresh()
       if (previewPhoto?.src === photo.src) setPreviewPhoto(null)
     } finally {
       setDeletingDisplayPhotoId(null)
@@ -339,7 +340,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 <QuickPaymentSheet
                   preOrder={order}
                   onClose={() => setShowPaySheet(false)}
-                  onSaved={() => { refresh(); setShowPaySheet(false) }}
+                  onSaved={() => {
+                    // QuickPaymentSheet may create multiple payments (surplus auto-transfer),
+                    // so we re-fetch to get accurate state
+                    refresh()
+                    setShowPaySheet(false)
+                  }}
                 />
               )}
             </div>
@@ -703,7 +709,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <StatusUpdateSheet
           order={order}
           onClose={() => setShowStatusSheet(false)}
-          onUpdate={() => { refresh(); setShowStatusSheet(false) }}
+          onUpdate={(newStatus) => {
+            patchOrder({ status: newStatus })
+            setShowStatusSheet(false)
+          }}
         />
       )}
       {showAssignSheet && (
@@ -711,7 +720,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           orderId={order.id}
           currentAssignee={order.assignedTo}
           onClose={() => setShowAssignSheet(false)}
-          onAssigned={() => { refresh(); setShowAssignSheet(false) }}
+          onAssigned={(memberId, memberName) => {
+            patchOrder({ assignedTo: memberId, assignedToName: memberName ?? null })
+            setShowAssignSheet(false)
+          }}
         />
       )}
 
