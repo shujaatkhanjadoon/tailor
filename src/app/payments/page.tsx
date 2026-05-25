@@ -39,7 +39,7 @@ export default function PaymentsPage() {
     methodFilter, setMethodFilter,
     searchQuery,  setSearchQuery,
     isLoading,
-    hasMore, loadMore,
+    hasMore, loadMore, refresh,
   } = usePayments(shopId)
 
   const { totalPending } = usePendingBalances(shopId)
@@ -343,7 +343,7 @@ export default function PaymentsPage() {
       {showSheet && (
         <QuickPaymentSheet
           onClose={() => setShowSheet(false)}
-          onSaved={() => setShowSheet(false)}
+          onSaved={() => { refresh(); setShowSheet(false) }}
         />
       )}
     </div>

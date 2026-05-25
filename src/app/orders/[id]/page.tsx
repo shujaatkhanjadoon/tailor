@@ -44,7 +44,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const router = useRouter()
   const { isOwner, currentUser, shopId } = useAuth()
   const plan = usePlan()
-  const { order, payments, history, balance } = useOrder(id)
+  const { order, payments, history, balance, refresh } = useOrder(id)
   const [shop, setShop] = useState<ShopRecord | undefined>()
   const [customer, setCustomer] = useState<CustomerRecord | undefined>()
   const [measurement, setMeasurement] = useState<MeasurementRecord | undefined>()
@@ -191,6 +191,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       })
       setPayAmount('')
       setShowPayForm(false)
+      refresh()
     } finally {
       setSavingPay(false)
     }
@@ -214,6 +215,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         await deleteOrderPhotoEverywhere({ id: photo.id, publicId: photo.publicId }, shopId, currentUser.id)
         setPhotos(prev => prev.filter(item => item.id !== photo.id))
       }
+      refresh()
       if (previewPhoto?.src === photo.src) setPreviewPhoto(null)
     } finally {
       setDeletingDisplayPhotoId(null)
@@ -337,7 +339,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 <QuickPaymentSheet
                   preOrder={order}
                   onClose={() => setShowPaySheet(false)}
-                  onSaved={() => setShowPaySheet(false)}
+                  onSaved={() => { refresh(); setShowPaySheet(false) }}
                 />
               )}
             </div>
@@ -701,7 +703,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <StatusUpdateSheet
           order={order}
           onClose={() => setShowStatusSheet(false)}
-          onUpdate={() => setShowStatusSheet(false)}
+          onUpdate={() => { refresh(); setShowStatusSheet(false) }}
         />
       )}
       {showAssignSheet && (
@@ -709,7 +711,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           orderId={order.id}
           currentAssignee={order.assignedTo}
           onClose={() => setShowAssignSheet(false)}
-          onAssigned={() => setShowAssignSheet(false)}
+          onAssigned={() => { refresh(); setShowAssignSheet(false) }}
         />
       )}
 

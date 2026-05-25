@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { OrderRecord, PaymentRecord } from '@/lib/db/schema'
 import { orderBalance, paymentAppliedAmount, paymentSurplusAmount, sumPayments } from '@/lib/payments/calculations'
 import { supabase } from '@/lib/supabase/client'
@@ -55,6 +55,39 @@ export function usePayments(shopId: string | null, options?: UsePaymentsOptions)
   const ordersRef = useRef(options?.orders)
   ordersRef.current = options?.orders
 
+  const fetchPayments = useCallback(async () => {
+    const [{ count: totalCount }, { data: paymentRows }] = await Promise.all([
+      (supabase as any).from('payments').select('id', { count: 'exact', head: true }).eq('shop_id', shopId).is('deleted_at', null),
+      (supabase as any).from('payments').select(PAYMENT_COLUMNS).eq('shop_id', shopId).is('deleted_at', null).order('paid_at', { ascending: false }).range(page * PAYMENTS_PER_PAGE, page * PAYMENTS_PER_PAGE + PAYMENTS_PER_PAGE - 1),
+    ])
+
+    let orders: Map<string, OrderRecord>
+    if (ordersRef.current) {
+      orders = new Map(ordersRef.current.map(o => [o.id, o]))
+    } else {
+      const { data: orderRows } = await (supabase as any).from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null)
+      orders = new Map((orderRows ?? []).map((row: any) => {
+        const order = mapOrder(row)
+        return [order.id, order]
+      }))
+    }
+    const rows = (paymentRows ?? []).map((row: any) => {
+      const payment = mapPayment(row)
+      const order = orders.get(payment.orderId)
+      return {
+        ...payment,
+        orderNumber: order?.orderNumber ?? 0,
+        customerName: order?.customerName ?? 'Unknown',
+        garmentType: order?.garmentType ?? '',
+        orderTotal: order?.totalPrice ?? 0,
+        orderBalance: order ? orderBalance(order) : 0,
+        appliedAmount: paymentAppliedAmount(payment),
+        surplusAmount: paymentSurplusAmount(payment),
+      }
+    })
+    return { rows, total: totalCount ?? 0 }
+  }, [shopId, page])
+
   useEffect(() => {
     if (!shopId) {
       setEnriched([])
@@ -64,47 +97,15 @@ export function usePayments(shopId: string | null, options?: UsePaymentsOptions)
     }
     let cancelled = false
 
-    const fetchAndSet = async (showLoading: boolean) => {
-      if (showLoading) setIsLoading(true)
-
-      const [{ count: totalCount }, { data: paymentRows }] = await Promise.all([
-        (supabase as any).from('payments').select('id', { count: 'exact', head: true }).eq('shop_id', shopId).is('deleted_at', null),
-        (supabase as any).from('payments').select(PAYMENT_COLUMNS).eq('shop_id', shopId).is('deleted_at', null).order('paid_at', { ascending: false }).range(page * PAYMENTS_PER_PAGE, page * PAYMENTS_PER_PAGE + PAYMENTS_PER_PAGE - 1),
-      ])
-
-      let orders: Map<string, OrderRecord>
-      if (ordersRef.current) {
-        orders = new Map(ordersRef.current.map(o => [o.id, o]))
-      } else {
-        const { data: orderRows } = await (supabase as any).from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null)
-        orders = new Map((orderRows ?? []).map((row: any) => {
-          const order = mapOrder(row)
-          return [order.id, order]
-        }))
-      }
-      const rows = (paymentRows ?? []).map((row: any) => {
-        const payment = mapPayment(row)
-        const order = orders.get(payment.orderId)
-        return {
-          ...payment,
-          orderNumber: order?.orderNumber ?? 0,
-          customerName: order?.customerName ?? 'Unknown',
-          garmentType: order?.garmentType ?? '',
-          orderTotal: order?.totalPrice ?? 0,
-          orderBalance: order ? orderBalance(order) : 0,
-          appliedAmount: paymentAppliedAmount(payment),
-          surplusAmount: paymentSurplusAmount(payment),
-        }
-      })
+    const load = async () => {
+      setIsLoading(true)
+      const result = await fetchPayments()
       if (!cancelled) {
-        setEnriched(prev => page > 0 ? [...prev, ...rows] : rows)
-        setTotalPayments(totalCount ?? 0)
-        if (showLoading) setIsLoading(false)
+        setEnriched(prev => page > 0 ? [...prev, ...result.rows] : result.rows)
+        setTotalPayments(result.total)
+        setIsLoading(false)
       }
     }
-
-    const load = () => fetchAndSet(true)
-    const refresh = () => fetchAndSet(false)
 
     load()
     const channel = supabase
@@ -116,13 +117,20 @@ export function usePayments(shopId: string | null, options?: UsePaymentsOptions)
           console.log('[usePayments] Realtime subscription status:', status)
         }
       })
-    const interval = setInterval(refresh, 60_000)
+    const interval = setInterval(load, 60_000)
     return () => {
       cancelled = true
       clearInterval(interval)
       supabase.removeChannel(channel)
     }
-  }, [shopId, page])
+  }, [shopId, page, fetchPayments])
+
+  const refresh = useCallback(async () => {
+    if (!shopId) return
+    const result = await fetchPayments()
+    setEnriched(prev => page > 0 ? [...prev, ...result.rows] : result.rows)
+    setTotalPayments(result.total)
+  }, [shopId, page, fetchPayments])
 
   const filtered = useMemo((): PaymentWithOrder[] => {
     let list = enriched
@@ -171,12 +179,19 @@ export function usePayments(shopId: string | null, options?: UsePaymentsOptions)
     isLoading,
     hasMore: (page + 1) * PAYMENTS_PER_PAGE < totalPayments,
     loadMore: () => setPage(p => p + 1),
+    refresh,
   }
 }
 
 export function usePendingBalances(shopId: string | null) {
   const [pendingOrders, setPendingOrders] = useState<OrderRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  const fetchPending = useCallback(async () => {
+    if (!shopId) return []
+    const { data } = await (supabase as any).from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null)
+    return (data ?? []).map(mapOrder).filter((o: OrderRecord) => o.status !== 'cancelled' && orderBalance(o) > 0)
+  }, [shopId])
 
   useEffect(() => {
     if (!shopId) {
@@ -186,17 +201,14 @@ export function usePendingBalances(shopId: string | null) {
     }
     let cancelled = false
 
-    const fetchAndSet = async (showLoading: boolean) => {
-      if (showLoading) setIsLoading(true)
-      const { data } = await (supabase as any).from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null)
+    const load = async () => {
+      setIsLoading(true)
+      const orders = await fetchPending()
       if (!cancelled) {
-        setPendingOrders((data ?? []).map(mapOrder).filter((o: OrderRecord) => o.status !== 'cancelled' && orderBalance(o) > 0))
-        if (showLoading) setIsLoading(false)
+        setPendingOrders(orders)
+        setIsLoading(false)
       }
     }
-
-    const load = () => fetchAndSet(true)
-    const refresh = () => fetchAndSet(false)
 
     load()
     const channel = supabase
@@ -208,17 +220,23 @@ export function usePendingBalances(shopId: string | null) {
           console.log('[usePendingBalances] Realtime subscription status:', status)
         }
       })
-    const interval = setInterval(refresh, 60_000)
+    const interval = setInterval(load, 60_000)
     return () => {
       cancelled = true
       clearInterval(interval)
       supabase.removeChannel(channel)
     }
-  }, [shopId])
+  }, [shopId, fetchPending])
+
+  const refresh = useCallback(async () => {
+    const orders = await fetchPending()
+    setPendingOrders(orders)
+  }, [fetchPending])
 
   return {
     pendingOrders,
     totalPending: pendingOrders.reduce((sum, o) => sum + orderBalance(o), 0),
     isLoading,
+    refresh,
   }
 }

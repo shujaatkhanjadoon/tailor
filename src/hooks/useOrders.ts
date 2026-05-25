@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { OrderRecord, OrderStatusHistoryRecord, PaymentRecord } from '@/lib/db/schema'
 import { orderBalance } from '@/lib/payments/calculations'
 import { supabase } from '@/lib/supabase/client'
@@ -165,18 +165,27 @@ export function useOrder(orderId: string) {
   const [payments, setPayments] = useState<PaymentRecord[]>([])
   const [history, setHistory] = useState<OrderStatusHistoryRecord[]>([])
 
+  const fetchOrder = useCallback(async () => {
+    const [{ data: orderData }, { data: paymentData }, { data: historyData }] = await Promise.all([
+      (supabase as any).from('orders').select(ORDER_LIST_COLUMNS).eq('id', orderId).is('deleted_at', null).maybeSingle(),
+      (supabase as any).from('payments').select(PAYMENT_COLUMNS).eq('order_id', orderId).is('deleted_at', null).order('paid_at'),
+      (supabase as any).from('order_status_history').select(HISTORY_COLUMNS).eq('order_id', orderId).order('changed_at', { ascending: false }),
+    ])
+    return {
+      order: orderData ? mapOrder(orderData) : undefined,
+      payments: (paymentData ?? []).map(mapPayment),
+      history: (historyData ?? []).map(mapStatusHistory),
+    }
+  }, [orderId])
+
   useEffect(() => {
     let cancelled = false
     const load = async () => {
-      const [{ data: orderData }, { data: paymentData }, { data: historyData }] = await Promise.all([
-        (supabase as any).from('orders').select(ORDER_LIST_COLUMNS).eq('id', orderId).is('deleted_at', null).maybeSingle(),
-        (supabase as any).from('payments').select(PAYMENT_COLUMNS).eq('order_id', orderId).is('deleted_at', null).order('paid_at'),
-        (supabase as any).from('order_status_history').select(HISTORY_COLUMNS).eq('order_id', orderId).order('changed_at', { ascending: false }),
-      ])
+      const result = await fetchOrder()
       if (cancelled) return
-      setOrder(orderData ? mapOrder(orderData) : undefined)
-      setPayments((paymentData ?? []).map(mapPayment))
-      setHistory((historyData ?? []).map(mapStatusHistory))
+      setOrder(result.order)
+      setPayments(result.payments)
+      setHistory(result.history)
     }
     load()
     const channel = supabase
@@ -189,12 +198,20 @@ export function useOrder(orderId: string) {
       cancelled = true
       supabase.removeChannel(channel)
     }
-  }, [orderId])
+  }, [fetchOrder, orderId])
+
+  const refresh = useCallback(async () => {
+    const result = await fetchOrder()
+    setOrder(result.order)
+    setPayments(result.payments)
+    setHistory(result.history)
+  }, [fetchOrder])
 
   return {
     order,
     payments,
     history,
     balance: order ? orderBalance(order) : 0,
+    refresh,
   }
 }
