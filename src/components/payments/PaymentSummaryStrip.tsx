@@ -55,7 +55,7 @@ export function PaymentSummaryStrip({
   return (
     <div className="space-y-3">
       {/* Clickable stat cards */}
-      <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2 min-[380px]:grid-cols-3">
         {cards.map(c => {
           const isActive = activeFilter === c.filter
           return (

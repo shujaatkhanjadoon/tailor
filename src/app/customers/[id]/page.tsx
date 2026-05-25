@@ -61,7 +61,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
     <div className="min-h-screen bg-slate-50 pb-8 mb-16 lg:mb-0">
 
       {/* ── TOP HEADER ── */}
-      <div className="bg-linear-to-br from-blue-900 to-blue-700 px-4 pt-12 pb-6">
+      <div className="bg-linear-to-br from-blue-900 to-blue-700 px-4 pt-4 lg:pt-12 pb-7">
         <div className="flex items-start justify-between gap-2 mb-6">
           <button
             aria-label="Go back"

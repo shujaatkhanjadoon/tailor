@@ -228,7 +228,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
       {/* Header */}
       <div className={cn(
-        'px-4 pt-12 pb-5',
+        'px-4 pt-4 lg:pt-12 pb-4',
         isOverdue ? 'bg-red-700' : 'bg-linear-to-br from-blue-900 to-blue-700'
       )}>
         <div className="flex items-start justify-between gap-2 mb-5">
@@ -274,7 +274,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                            text-sm font-semibold px-3 py-2 rounded-xl"
               >
                 <MessageCircle size={14} />
-                <span className="hidden min-[400px]:inline">Gahak Ko Batao</span>
+                <span>Gahak Ko Batao</span>
               </a>
             )}
             {isOwner && (

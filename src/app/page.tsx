@@ -88,7 +88,7 @@ if (isLoading || !shopId) return <DashboardSkeleton />
       {/* HEADER */}
       <header
         className="bg-linear-to-br from-blue-900 to-blue-700 text-white
-                   px-4 pt-12 pb-6 sm:px-5 lg:rounded-2xl lg:mb-6 lg:pt-8"
+                   px-4 pt-4 pb-2 lg:pb-6 sm:px-5 lg:rounded-2xl lg:mb-6 lg:pt-8"
       >
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">

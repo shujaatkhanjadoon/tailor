@@ -346,7 +346,7 @@ export default function CustomersPage() {
 
             {/* Summary strip */}
             {!hasFilters && allCustomers.length > 0 && (
-              <div className="mb-2 grid grid-cols-1 gap-3 min-[380px]:grid-cols-3">
+              <div className="mb-2 grid grid-cols-3 gap-3 min-[380px]:grid-cols-3">
                 {[
                   {
                     label: 'Total',
