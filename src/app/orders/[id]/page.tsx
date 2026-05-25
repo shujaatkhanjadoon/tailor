@@ -212,7 +212,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           .from('orders')
           .update({ fabric_photo_url: null, updated_at: new Date().toISOString() })
           .eq('id', order?.id)
-        patchOrder({ fabricPhotoUrl: null })
+        patchOrder({ fabricPhotoUrl: undefined })
       } else {
         await deleteOrderPhotoEverywhere({ id: photo.id, publicId: photo.publicId }, shopId, currentUser.id)
         setPhotos(prev => prev.filter(item => item.id !== photo.id))
@@ -721,7 +721,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           currentAssignee={order.assignedTo}
           onClose={() => setShowAssignSheet(false)}
           onAssigned={(memberId, memberName) => {
-            patchOrder({ assignedTo: memberId, assignedToName: memberName ?? null })
+            patchOrder({ assignedTo: memberId, assignedToName: memberName })
             setShowAssignSheet(false)
           }}
         />

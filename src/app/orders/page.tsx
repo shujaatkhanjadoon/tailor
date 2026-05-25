@@ -412,7 +412,7 @@ function OrdersContent() {
           currentAssignee={assignSheet.assignedTo}
           onClose={() => setAssignSheet(null)}
           onAssigned={(memberId, memberName) => {
-            patchOrderInList(assignSheet.id, { assignedTo: memberId, assignedToName: memberName ?? null })
+            patchOrderInList(assignSheet.id, { assignedTo: memberId, assignedToName: memberName })
             setAssignSheet(null)
             refresh()
           }}
