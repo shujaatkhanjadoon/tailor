@@ -62,16 +62,16 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
 
       {/* ── TOP HEADER ── */}
       <div className="bg-linear-to-br from-blue-900 to-blue-700 px-4 pt-12 pb-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-start justify-between gap-2 mb-6">
           <button
             aria-label="Go back"
             onClick={() => router.back()}
-            className="w-11 h-11 flex items-center justify-center rounded-full bg-white/20"
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-white/20 shrink-0"
           >
             <ArrowLeft size={16} className="text-white" />
           </button>
           {isOwner && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 shrink-0">
               <button
                 aria-label="Edit customer"
                 onClick={() => router.push(`/customers/${id}/edit`)}

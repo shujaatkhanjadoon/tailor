@@ -6,7 +6,7 @@ import { useRouter }                  from 'next/navigation'
 import {
   Plus, Search, X,
   Users, Phone, ChevronRight,
-  ShoppingBag, TrendingUp,
+  ShoppingBag, TrendingUp, Download,
 } from 'lucide-react'
 import type { CustomerRecord }        from '@/lib/db/schema'
 import { useAuth }                    from '@/lib/auth/AuthContext'
@@ -15,6 +15,7 @@ import { cn }                         from '@/lib/utils'
 import { format, isToday, isYesterday } from 'date-fns'
 import { useCustomers } from '@/hooks/useCustomers'
 import { AppFooter } from '@/components/layout/AppFooter'
+import { exportCSV } from '@/lib/export/download'
 
 // ── Gender filter config ─────────────────────────────────────────
 
@@ -171,6 +172,14 @@ export default function CustomersPage() {
   }, [allCustomers, gender, search, sortBy])
 
   const hasFilters = search || gender !== 'all'
+  const exportRows = filtered.map(c => ({
+    name: c.name,
+    phone: c.phone,
+    gender: c.gender,
+    totalOrders: c.totalOrders ?? 0,
+    lastOrder: c.lastOrderAt ?? '',
+    notes: c.notes ?? '',
+  }))
 
   return (
     <div className="flex min-h-dvh flex-col overflow-x-clip bg-slate-50 pb-24 lg:pb-8">
@@ -189,15 +198,25 @@ export default function CustomersPage() {
             </p>
           </div>
           {isOwner && (
-            <button
-              onClick={() => router.push('/customers/new')}
-              className="flex shrink-0 items-center gap-1.5 bg-blue-600 text-white
-                         text-sm font-semibold px-4 py-2.5 rounded-xl
-                         active:scale-95 transition-colors hover:bg-blue-700"
-            >
-              <Plus size={16} />
-              Naya Gahak
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => exportCSV(exportRows, 'darzi-customers')}
+                disabled={filtered.length === 0}
+                className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-40"
+              >
+                <Download size={15} />
+                <span className="hidden min-[420px]:inline">CSV</span>
+              </button>
+              <button
+                onClick={() => router.push('/customers/new')}
+                className="flex shrink-0 items-center gap-1.5 bg-blue-600 text-white
+                           text-sm font-semibold px-4 py-2.5 rounded-xl
+                           active:scale-95 transition-colors hover:bg-blue-700"
+              >
+                <Plus size={16} />
+                Naya Gahak
+              </button>
+            </div>
           )}
         </div>
 

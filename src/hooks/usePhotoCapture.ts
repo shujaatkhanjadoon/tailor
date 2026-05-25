@@ -1,6 +1,6 @@
 // src/hooks/usePhotoCapture.ts
 import { useState, useCallback, useRef } from 'react'
-import { compressImage }                 from '@/lib/photos/compress'
+import { compressImage, type CompressResult } from '@/lib/photos/compress'
 import { uploadToCloudinary, cloudinaryEnabled } from '@/lib/photos/cloudinary'
 import { db, PhotoRecord }               from '@/lib/db/schema'
 import { useAuth }                       from '@/lib/auth/AuthContext'
@@ -51,34 +51,49 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
 
     setState({ phase: 'compressing' })
 
+    let result: CompressResult
     try {
-      // ── 1. Compress client-side ──────────────────────────────
-      const result = await compressImage(file, {
+      result = await compressImage(file, {
         maxWidthPx:   1024,
         maxHeightPx:  1024,
         qualityStart: 0.82,
         qualityMin:   0.45,
-        targetKB:     150,     // aim for 150KB
-        hardLimitKB:  280,     // never go above 280KB
+        targetKB:     150,
+        hardLimitKB:  280,
       })
+    } catch (e) {
+      console.error('Photo compression failed:', e)
+      setState({ phase: 'error', error: 'Photo compress nahi ho saki. Dobara try karein.' })
+      setTimeout(() => setState({ phase: 'idle' }), 4000)
+      return null
+    }
 
-      setState({ phase: 'saving', sizeKB: result.sizeKB, quality: result.quality })
+    setState({ phase: 'saving', sizeKB: result.sizeKB, quality: result.quality })
 
-      const photo: PhotoRecord = {
-        id:      crypto.randomUUID(),
-        orderId,
-        shopId,
-        type,
-        base64:  result.base64,
-        sizeKB:  result.sizeKB,
-        takenAt: new Date().toISOString(),
-        _synced: 0,
-      }
+    const photo: PhotoRecord = {
+      id:      crypto.randomUUID(),
+      orderId,
+      shopId,
+      type,
+      base64:  result.base64,
+      sizeKB:  result.sizeKB,
+      takenAt: new Date().toISOString(),
+      _synced: 0,
+    }
+
+    try {
       await db.photos.add(photo)
+    } catch (e) {
+      console.error('Local save failed:', e)
+      setState({ phase: 'error', error: 'Device mein save nahi ho saka. Storage check karein.' })
+      setTimeout(() => setState({ phase: 'idle' }), 4000)
+      return null
+    }
 
-      if (canSyncImages && cloudinaryEnabled && navigator.onLine) {
-        setState(s => ({ ...s, phase: 'uploading' }))
+    if (canSyncImages && cloudinaryEnabled && navigator.onLine) {
+      setState(s => ({ ...s, phase: 'uploading' }))
 
+      try {
         const uploaded = await uploadToCloudinary(
           result.base64,
           shopId,
@@ -98,20 +113,21 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
           photo.publicId = uploaded.publicId
           photo.cloudSizeKB = cloudSizeKB
           photo._synced = 1
-          await upsertPhotoMetadata(photo)
+          try {
+            await upsertPhotoMetadata(photo)
+          } catch (metaError) {
+            console.error('Photo metadata upsert failed (non-fatal):', metaError)
+          }
         }
+      } catch (cloudError) {
+        console.error('Cloud upload failed (non-fatal):', cloudError)
       }
-
-      setState({ phase: 'done', sizeKB: result.sizeKB })
-      setTimeout(() => setState({ phase: 'idle' }), 2000)
-
-      return photo
-    } catch (e) {
-      console.error('Photo processing failed:', e)
-      setState({ phase: 'error', error: 'Photo save nahi hui. Dobara try karein.' })
-      setTimeout(() => setState({ phase: 'idle' }), 4000)
-      return null
     }
+
+    setState({ phase: 'done', sizeKB: result.sizeKB })
+    setTimeout(() => setState({ phase: 'idle' }), 2000)
+
+    return photo
   }, [shopId, orderId, type, canSyncImages])
 
   const openCamera = useCallback(() => {

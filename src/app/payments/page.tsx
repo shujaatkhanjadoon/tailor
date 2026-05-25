@@ -90,18 +90,18 @@ export default function PaymentsPage() {
               <button
                 onClick={() => exportCSV(exportRows, 'darzi-payments')}
                 disabled={payments.length === 0}
-                className="hidden items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-40 min-[420px]:flex"
+                className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-40"
               >
                 <Download size={15} />
-                CSV
+                <span className="hidden min-[420px]:inline">CSV</span>
               </button>
               <button
                 onClick={() => exportPrintablePDF('MeraDarzi Payments', exportRows, 'darzi-payments')}
                 disabled={payments.length === 0}
-                className="hidden items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-40 sm:flex"
+                className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-40"
               >
                 <Download size={15} />
-                PDF
+                <span className="hidden min-[420px]:inline">PDF</span>
               </button>
               <button
                 onClick={() => setShowSheet(true)}

@@ -231,59 +231,63 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         'px-4 pt-12 pb-5',
         isOverdue ? 'bg-red-700' : 'bg-linear-to-br from-blue-900 to-blue-700'
       )}>
-        <div className="flex items-center justify-between mb-5">
-          {plan.isLoading ? (
-            <div className="h-9 w-20 rounded-xl bg-white/15" />
-          ) : plan.canUseQR ? (
+        <div className="flex items-start justify-between gap-2 mb-5">
+          <div className="flex items-center gap-2">
+            {plan.isLoading ? (
+              <div className="h-9 w-20 rounded-xl bg-white/15" />
+            ) : plan.canUseQR ? (
+              <button
+                onClick={() => setShowQR(true)}
+                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30
+                   text-white text-sm font-semibold px-3 py-2 rounded-xl transition-colors"
+              >
+                <QrCode size={16} />
+                <span className="hidden min-[400px]:inline">QR</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                title="Online order tracking aur QR code Professional plan se unlock hotay hain."
+                onClick={() => plan.upgrade('professional')}
+                className="flex items-center gap-1.5 bg-white/15 text-white/80
+                   text-sm font-semibold px-3 py-2 rounded-xl transition-colors"
+              >
+                <QrCode size={16} />
+                <span className="hidden min-[400px]:inline">Upgrade</span>
+              </button>
+            )}
             <button
-              onClick={() => setShowQR(true)}
-              className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30
-                 text-white text-sm font-semibold px-3 py-2 rounded-xl transition-colors"
+              aria-label="Go back"
+              onClick={() => router.back()}
+              className="w-11 h-11 flex items-center justify-center rounded-full bg-white/20"
             >
-              <QrCode size={16} />
-              QR
+              <ArrowLeft size={16} className="text-white" />
             </button>
-          ) : (
-            <button
-              type="button"
-              title="Online order tracking aur QR code Professional plan se unlock hotay hain."
-              onClick={() => plan.upgrade('professional')}
-              className="flex items-center gap-1.5 bg-white/15 text-white/80
-                 text-sm font-semibold px-3 py-2 rounded-xl transition-colors"
-            >
-              <QrCode size={16} />
-              Upgrade
-            </button>
-          )}
-          <button
-            aria-label="Go back"
-            onClick={() => router.back()}
-            className="w-11 h-11 flex items-center justify-center rounded-full bg-white/20"
-          >
-            <ArrowLeft size={16} className="text-white" />
-          </button>
-          {order.status === 'ready' && (
-            <a
-              href={waLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 bg-green-500 text-white
-                         text-sm font-semibold px-4 py-2 rounded-xl"
-            >
-              <MessageCircle size={14} />
-              Gahak Ko Batao
-            </a>
-          )}
-          {isOwner && (
-            <button
-              onClick={() => router.push(`/orders/${order.id}/edit`)}
-              className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30
-                         text-white text-sm font-semibold px-3 py-2 rounded-xl transition-colors"
-            >
-              <Pencil size={14} />
-              Edit
-            </button>
-          )}
+          </div>
+          <div className="flex items-center gap-2">
+            {order.status === 'ready' && (
+              <a
+                href={waLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 bg-green-500 text-white
+                           text-sm font-semibold px-3 py-2 rounded-xl"
+              >
+                <MessageCircle size={14} />
+                <span className="hidden min-[400px]:inline">Gahak Ko Batao</span>
+              </a>
+            )}
+            {isOwner && (
+              <button
+                onClick={() => router.push(`/orders/${order.id}/edit`)}
+                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30
+                           text-white text-sm font-semibold px-3 py-2 rounded-xl transition-colors"
+              >
+                <Pencil size={14} />
+                <span className="hidden min-[400px]:inline">Edit</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Order title */}
