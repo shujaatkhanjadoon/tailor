@@ -59,7 +59,7 @@ export function NotificationBell() {
       <button
         aria-label={open ? 'Close notifications' : 'Open notifications'}
         onClick={() => setOpen(v => !v)}
-        className="relative w-11 h-11 flex items-center justify-center
+        className="relative w-10 h-10 flex items-center justify-center
                    rounded-full bg-slate-100 hover:bg-slate-200 transition-colors"
       >
         {hasPermission

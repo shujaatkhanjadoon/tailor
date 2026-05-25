@@ -48,7 +48,7 @@ export function MobileAccountBar() {
   }
 
   return (
-    <div className="sticky top-0 z-40 border-b border-slate-200 bg-slate-900 px-4 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
+    <div className="sticky top-0 z-40 bg-slate-900 px-4 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
       <div className="flex h-14 items-center justify-between gap-3">
         <div className="flex items-center justify-center shrink-0">
                   <Link href="/">
@@ -65,10 +65,10 @@ export function MobileAccountBar() {
           <button
             aria-label="Open user actions"
             onClick={() => setOpen(v => !v)}
-            className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-100"
+            className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-blue-600 text-sm font-bold text-white"
           >
             {open ? (
-              <X size={17} />
+              <X size={18} />
             ) : showShopLogo ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={shop.brandLogoUrl} alt="" className="h-full w-full object-cover" />

@@ -145,7 +145,7 @@ export default function TrackClient({
         <div className="bg-slate-950">
           <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
+              <div className="flex shrink-0 items-center justify-center rounded-xl">
                 <Image src="/icon.svg" alt="MeraDarzi" width={32} height={32} loading="eager" />
               </div>
               <div className="min-w-0">
@@ -263,12 +263,12 @@ export default function TrackClient({
       <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/15">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl">
               {branding.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={branding.logoUrl} alt="" className="h-full w-full object-cover" />
               ) : (
-                <Image src="/icon.svg" alt="MeraDarzi" width={32} height={32} loading="eager" />
+                <Image src="/icon.svg" alt="MeraDarzi" width={40} height={40} loading="eager" />
               )}
             </div>
             <div className="min-w-0">
@@ -302,10 +302,10 @@ export default function TrackClient({
           </div>
 
           <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3 shadow-xl shadow-slate-950/20 backdrop-blur">
-            <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 min-h-0 lg:min-h-34">
               <div className="flex min-h-28 flex-col justify-center rounded-xl bg-white p-4 text-center text-slate-900">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Order</p>
-                <p className="mt-1 break-words text-lg font-black sm:text-xl">#{String(order.orderNumber).padStart(3,'0')}</p>
+                <p className="mt-1 wrap-break-word text-lg font-black sm:text-xl">#{String(order.orderNumber).padStart(3,'0')}</p>
               </div>
               <div className="flex min-h-28 flex-col justify-center rounded-xl bg-white p-4 text-center text-slate-900">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Due Date</p>
@@ -428,7 +428,7 @@ export default function TrackClient({
                     <Icon size={15} />
                   </div>
                   <p className="text-[9px] font-bold uppercase text-slate-400 min-[380px]:text-[10px]">{label}</p>
-                  <p className="mt-1 break-words text-xs font-black leading-snug text-slate-800 min-[380px]:text-sm">{value}</p>
+                  <p className="mt-1 wrap-break-word text-xs font-black leading-snug text-slate-800 min-[380px]:text-sm">{value}</p>
                 </div>
               ))}
             </div>
@@ -456,7 +456,7 @@ export default function TrackClient({
                 ].map(item => (
                   <div key={item.label} className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3">
                     <span className="text-xs font-bold uppercase tracking-wide text-slate-400">{item.label}</span>
-                    <span className={cn('min-w-0 break-words text-right text-sm font-black', item.color)}>{money(item.value)}</span>
+                    <span className={cn('min-w-0 wrap-break-word text-right text-sm font-black', item.color)}>{money(item.value)}</span>
                   </div>
                 ))}
               </div>
@@ -490,7 +490,7 @@ export default function TrackClient({
 
         <footer className="pt-8 text-center">
           <div className="mb-1 flex items-center justify-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-md bg-blue-600">
+            <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-md">
               {branding.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={branding.logoUrl} alt="" className="h-full w-full object-cover" />
