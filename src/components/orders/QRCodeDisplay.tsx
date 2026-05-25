@@ -98,7 +98,7 @@ export function QRCodeDisplay({
 
       {/* Sheet */}
       <div
-        className="relative z-10 max-h-[92dvh] w-full max-w-[min(100vw,34rem)] overflow-y-auto bg-white px-4 sm:px-5 pt-3 sm:pt-4 pb-6 sm:pb-8 shadow-2xl rounded-t-3xl lg:rounded-2xl"
+        className="relative z-10 max-h-[92dvh] w-full max-w-[min(100vw,34rem)] overflow-y-auto bg-white px-4 sm:px-5 pt-3 sm:pt-4 pb-6 sm:pb-8 shadow-2xl rounded-t-3xl lg:rounded-2xl mb-16 lg:mb-0"
         onClick={e => e.stopPropagation()}
       >
         {/* Drag handle */}

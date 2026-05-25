@@ -40,7 +40,7 @@ function LockedPhotoPrompt() {
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="relative w-full max-w-md bg-white rounded-t-3xl lg:rounded-2xl p-5 shadow-2xl">
+          <div className="relative w-full max-w-md bg-white rounded-t-3xl lg:rounded-2xl p-5 shadow-2xl mb-16 lg:mb-0">
             <button
               aria-label="Close"
               onClick={() => setOpen(false)}

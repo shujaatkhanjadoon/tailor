@@ -218,8 +218,8 @@ export function RaastPaymentSheet({
 
       {/* Sheet */}
       <div
-        className="relative w-full max-w-115 bg-white rounded-t-3xl
-                   lg:rounded-2xl shadow-2xl z-10 max-h-[95vh] flex flex-col"
+         className="relative w-full max-w-115 bg-white rounded-t-3xl
+                    lg:rounded-2xl shadow-2xl z-10 max-h-[95vh] flex flex-col mb-16 lg:mb-0"
       >
         {/* Handle */}
         <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-3
