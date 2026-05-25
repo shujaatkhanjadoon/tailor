@@ -35,7 +35,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { shopId, isOwner, currentUser } = useAuth();
 
-  const [greeting, setGreeting] = useState("Assalam o Alaikum");
+  // const [greeting, setGreeting] = useState("Assalam o Alaikum");
   const [todayStr, setTodayStr] = useState("");
   const [shop, setShop] = useState<ShopRecord | undefined>()
   const today = karachiDateString();
@@ -46,6 +46,15 @@ export default function DashboardPage() {
     if (!shopId) return
     shopOps.get(shopId).then(setShop).catch(() => setShop(undefined))
   }, [shopId])
+
+  const now        = new Date()
+  const greeting = (() => {
+    const h = now.getHours()
+    if (h < 11) return 'Assalam o Alaikum'
+    if (h < 16) return 'Dopahar Bakhair'
+    if (h < 18) return 'Sham Bakhair'
+    return 'Shab Bakhair'
+  })()
 
   // ── DERIVED STATS (memoized) ────────────────────────────────────
   const { stats, recent, overdueOrders } = useMemo(() => {

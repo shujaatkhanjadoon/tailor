@@ -568,9 +568,10 @@ function HomeTab({
 
   const greeting = (() => {
     const h = now.getHours()
-    if (h < 12) return 'Subah Bakhair'
-    if (h < 17) return 'Dopahar Bakhair'
-    return 'Sham Bakhair'
+    if (h < 11) return 'Assalam o Alaikum'
+    if (h < 16) return 'Dopahar Bakhair'
+    if (h < 18) return 'Sham Bakhair'
+    return 'Shab Bakhair'
   })()
 
   return (

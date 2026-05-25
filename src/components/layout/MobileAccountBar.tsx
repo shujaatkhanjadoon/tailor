@@ -48,7 +48,7 @@ export function MobileAccountBar() {
   }
 
   return (
-    <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
+    <div className="sticky top-0 z-40 border-b border-slate-200 bg-slate-900 px-4 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
       <div className="flex h-14 items-center justify-between gap-3">
         <div className="flex items-center justify-center shrink-0">
                   <Link href="/">
