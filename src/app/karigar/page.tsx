@@ -68,15 +68,20 @@ function orderDateLabel(createdAt: string): string {
 function KarigarStatusSheet({
   order,
   onClose,
+  onUpdated,
 }: {
   order:   OrderRecord
   onClose: () => void
+  onUpdated: (newStatus: OrderStatus) => void
 }) {
   return (
     <StatusUpdateSheet
       order={order}
       onClose={onClose}
-      onUpdate={onClose}
+      onUpdate={(newStatus) => {
+        onUpdated(newStatus)
+        onClose()
+      }}
     />
   )
 }
@@ -1140,7 +1145,7 @@ export default function KarigarPage() {
   const [activeTab, setActiveTab] = useState<TabId>('home')
   const [statusSheet, setStatusSheet] = useState<OrderRecord | null>(null)
 
-  const { orders: allOrders, isLoading } = useOrders(
+  const { orders: allOrders, isLoading, patchOrderInList, refresh } = useOrders(
     shopId,
     'karigar',
     currentUser?.id
@@ -1294,6 +1299,10 @@ export default function KarigarPage() {
         <KarigarStatusSheet
           order={statusSheet}
           onClose={() => setStatusSheet(null)}
+          onUpdated={(newStatus) => {
+            patchOrderInList(statusSheet.id, { status: newStatus })
+            refresh()
+          }}
         />
       )}
     </div>

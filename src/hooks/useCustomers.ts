@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CustomerRecord, MeasurementRecord, OrderRecord, PaymentRecord } from '@/lib/db/schema'
 import { customerFinancialSummary } from '@/lib/payments/calculations'
 import { supabase } from '@/lib/supabase/client'
@@ -166,6 +166,26 @@ export function useCustomer(id: string) {
 
   const finance = useMemo(() => customerFinancialSummary(orders, payments), [orders, payments])
 
+  const fetchFull = useCallback(async () => {
+    const { data: customerData } = await (supabase as any)
+      .from('customers').select(CUSTOMER_COLUMNS).eq('id', id).is('deleted_at', null).maybeSingle()
+    const [{ data: orderData }, { data: measurementData }] = await Promise.all([
+      (supabase as any).from('orders').select(ORDER_COLUMNS).eq('customer_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
+      (supabase as any).from('measurements').select(MEASUREMENT_COLUMNS).eq('customer_id', id).is('deleted_at', null).order('taken_at', { ascending: false }),
+    ])
+    const orderRows = (orderData ?? []).map(mapOrder)
+    const orderIds = orderRows.map((o: OrderRecord) => o.id)
+    const { data: paymentData } = orderIds.length
+      ? await (supabase as any).from('payments').select(PAYMENT_COLUMNS).in('order_id', orderIds).is('deleted_at', null)
+      : { data: [] }
+    setCustomer(customerData ? mapCustomer(customerData) : undefined)
+    setOrders(orderRows)
+    setMeasurements((measurementData ?? []).map(mapMeasurement))
+    setPayments((paymentData ?? []).map(mapPayment))
+  }, [id])
+
+  const refresh = useCallback(() => fetchFull(), [fetchFull])
+
   return {
     customer,
     orders,
@@ -173,5 +193,6 @@ export function useCustomer(id: string) {
     totalSpent: finance.receivedAmount,
     pendingBalance: finance.remainingBalance,
     finance,
+    refresh,
   }
 }

@@ -53,10 +53,12 @@ function OrdersContent() {
     total,
     counts,
     hasMore,           loadMore,
-    isLoading,         // ← comes from useOrders hook
+    isLoading,
     statusFilter,      setStatusFilter,
     activeFilter,      setActiveFilter,
     searchQuery,       setSearchQuery,
+    patchOrderInList,
+    refresh,
   } = useOrders(
     shopId,
     isOwner ? 'owner' : 'karigar',
@@ -395,7 +397,11 @@ function OrdersContent() {
         <StatusUpdateSheet
           order={statusSheet}
           onClose={() => setStatusSheet(null)}
-          onUpdate={() => setStatusSheet(null)}
+          onUpdate={(newStatus) => {
+            patchOrderInList(statusSheet.id, { status: newStatus })
+            setStatusSheet(null)
+            refresh()
+          }}
         />
       )}
 
@@ -405,7 +411,11 @@ function OrdersContent() {
           orderId={assignSheet.id}
           currentAssignee={assignSheet.assignedTo}
           onClose={() => setAssignSheet(null)}
-          onAssigned={() => setAssignSheet(null)}
+          onAssigned={(memberId, memberName) => {
+            patchOrderInList(assignSheet.id, { assignedTo: memberId, assignedToName: memberName ?? null })
+            setAssignSheet(null)
+            refresh()
+          }}
         />
       )}
     </div>

@@ -91,6 +91,7 @@ export function useOrders(
   const [page, setPage] = useState(0)
   const [total, setTotal] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
   const today = karachiDateString()
   const paginated = options.paginated ?? false
 
@@ -145,7 +146,13 @@ export function useOrders(
       clearInterval(interval)
       supabase.removeChannel(channel)
     }
-  }, [shopId, role, memberId, today, activeFilter, statusFilter, searchQuery, page, paginated])
+  }, [shopId, role, memberId, today, activeFilter, statusFilter, searchQuery, page, paginated, refreshKey])
+
+  const patchOrderInList = useCallback((orderId: string, patch: Partial<OrderRecord>) => {
+    setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...patch } : o))
+  }, [])
+
+  const refresh = useCallback(() => setRefreshKey(k => k + 1), [])
 
   return {
     orders: allOrders,
@@ -157,6 +164,8 @@ export function useOrders(
     statusFilter, setStatusFilter,
     activeFilter, setActiveFilter,
     searchQuery, setSearchQuery,
+    patchOrderInList,
+    refresh,
   }
 }
 

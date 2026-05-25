@@ -24,7 +24,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   const { id }   = use(params)
   const router   = useRouter()
   const { isOwner} = useAuth()
-  const { customer, orders, measurements, totalSpent, pendingBalance, finance } = useCustomer(id)
+  const { customer, orders, measurements, totalSpent, pendingBalance, finance, refresh } = useCustomer(id)
   const [paymentOrderId, setPaymentOrderId] = useState<string | null>(null)
 
   if (!customer) {
@@ -357,7 +357,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
         <QuickPaymentSheet
           preOrder={orders.find(o => o.id === paymentOrderId)}
           onClose={() => setPaymentOrderId(null)}
-          onSaved={() => setPaymentOrderId(null)}
+          onSaved={() => { refresh(); setPaymentOrderId(null) }}
         />
       )}
       <AppFooter className="mt-6" />
