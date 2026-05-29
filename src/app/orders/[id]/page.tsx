@@ -1,7 +1,8 @@
 // src/app/orders/[id]/page.tsx
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { use, useEffect, useMemo, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useRouter } from 'next/navigation'
 import { QuickPaymentSheet } from '@/components/payments/QuickPaymentSheet'
 import { QRCodeDisplay } from '@/components/orders/QRCodeDisplay'
@@ -48,7 +49,26 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [shop, setShop] = useState<ShopRecord | undefined>()
   const [customer, setCustomer] = useState<CustomerRecord | undefined>()
   const [measurement, setMeasurement] = useState<MeasurementRecord | undefined>()
-  const [photos, setPhotos] = useState<PhotoRecord[]>([])
+  const [remotePhotos, setRemotePhotos] = useState<PhotoRecord[]>([])
+
+  const rawLocalPhotos = useLiveQuery(
+    async () => !order?.id ? [] : db.photos
+      .where('orderId').equals(order.id)
+      .filter(p => p._deleted !== 1)
+      .sortBy('takenAt'),
+    [order?.id]
+  ) ?? []
+  const localPhotos: PhotoRecord[] = rawLocalPhotos
+
+  const photos: PhotoRecord[] = useMemo(() => {
+    const remoteIds = new Set(remotePhotos.map(rp => rp.id))
+    const merged = remotePhotos.map(rp => {
+      const local = localPhotos.find(lp => lp.id === rp.id)
+      return local ? { ...rp, base64: local.base64 || '' } : rp
+    })
+    const unsynced = localPhotos.filter(lp => !remoteIds.has(lp.id))
+    return [...merged, ...unsynced]
+  }, [remotePhotos, localPhotos])
 
   useEffect(() => {
     if (!order) return
@@ -62,7 +82,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       if (!cancelled) {
         setShop(shopRow ? mapShop(shopRow) : undefined)
         setCustomer(customerRow ? mapCustomer(customerRow) : undefined)
-        const remotePhotos = (photoRows ?? []).map((p: any) => ({
+        setRemotePhotos((photoRows ?? []).map((p: any) => ({
           id: p.id,
           orderId: p.order_id,
           shopId: p.shop_id,
@@ -75,15 +95,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           takenAt: p.taken_at,
           _synced: 1 as const,
           _deleted: 0 as const,
-        }))
-        const localPhotos = await db.photos.where('orderId').equals(order.id).filter(p => p._deleted !== 1).toArray()
-        const remoteIds = new Set(remotePhotos.map((p: any) => p.id))
-        const merged = remotePhotos.map((rp: any) => {
-          const local = localPhotos.find((lp: PhotoRecord) => lp.id === rp.id)
-          return local ? { ...rp, base64: local.base64 || '' } : rp
-        })
-        const unsyncedLocals = localPhotos.filter((lp: PhotoRecord) => !remoteIds.has(lp.id))
-        setPhotos([...merged, ...unsyncedLocals])
+        })))
       }
       let measurementRow: any
       if (!order) return undefined
@@ -174,7 +186,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       seen.add(id)
       result.push({
         id,
-        src: photo.cloudUrl || photo.base64,
+        src: photo.base64 || photo.cloudUrl || '',
         label: `${photo.type} photo`,
         type: photo.type,
         publicId: photo.publicId,
@@ -245,7 +257,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         patchOrder({ fabricPhotoUrl: undefined })
       } else {
         await deleteOrderPhotoEverywhere({ id: photo.id, publicId: photo.publicId }, shopId, currentUser.id)
-        setPhotos(prev => prev.filter(item => item.id !== photo.id))
       }
       if (previewPhoto?.src === photo.src) setPreviewPhoto(null)
     } finally {

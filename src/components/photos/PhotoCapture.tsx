@@ -1,9 +1,9 @@
 // src/components/photos/PhotoCapture.tsx
 'use client'
 
-import { useState }      from 'react'
-import Image              from 'next/image'
-import { useLiveQuery }  from 'dexie-react-hooks'
+import { useState, useEffect } from 'react'
+import Image                   from 'next/image'
+import { useLiveQuery }       from 'dexie-react-hooks'
 import {
   Camera, Images, Trash2, Loader2,
   Cloud, HardDrive, Expand, CheckCircle2,
@@ -12,6 +12,7 @@ import {
 import { db, PhotoRecord }     from '@/lib/db/schema'
 import { usePhotoCapture }     from '@/hooks/usePhotoCapture'
 import { getOptimisedUrl }     from '@/lib/photos/cloudinary'
+import { supabase }            from '@/lib/supabase/client'
 import { cn }                  from '@/lib/utils'
 
 interface PhotoCaptureProps {
@@ -52,8 +53,9 @@ export function PhotoCapture({
   } = usePhotoCapture({ orderId, type })
 
   const [viewing, setViewing] = useState<string | null>(null)
+  const [remotePhotos, setRemotePhotos] = useState<PhotoRecord[]>([])
 
-  const photos = useLiveQuery(
+  const localPhotos = useLiveQuery(
     async (): Promise<PhotoRecord[]> =>
       db.photos
         .where('orderId').equals(orderId)
@@ -62,7 +64,45 @@ export function PhotoCapture({
     [orderId, type]
   ) ?? []
 
-  const canAdd = photos.length < maxPhotos && !isProcessing
+  useEffect(() => {
+    if (!orderId) return
+    let cancelled = false
+    const load = async () => {
+      const { data: rows } = await (supabase as any)
+        .from('order_photos')
+        .select('id,order_id,shop_id,type,cloud_url,public_id,cloud_size_kb,size_kb,taken_at')
+        .eq('order_id', orderId)
+        .eq('type', type)
+        .is('deleted_at', null)
+        .order('taken_at', { ascending: false })
+      if (!cancelled && rows) {
+        setRemotePhotos(rows.map((r: any) => ({
+          id: r.id,
+          orderId: r.order_id,
+          shopId: r.shop_id,
+          type: r.type,
+          base64: '',
+          cloudUrl: r.cloud_url,
+          publicId: r.public_id,
+          cloudSizeKB: r.cloud_size_kb ?? undefined,
+          sizeKB: r.size_kb ?? 0,
+          takenAt: r.taken_at,
+          _synced: 1 as const,
+          _deleted: 0 as const,
+        })))
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [orderId, type])
+
+  const localIds = new Set(localPhotos.map(p => p.id))
+  const photos = [
+    ...localPhotos,
+    ...remotePhotos.filter(r => !localIds.has(r.id)),
+  ]
+
+  const canAdd = localPhotos.length < maxPhotos && !isProcessing
 
   return (
     <div>

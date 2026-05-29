@@ -73,12 +73,12 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
       // Use Blob from ArrayBuffer so it's independent of the original File reference
       const blob = new Blob([fileBytes], { type: file.type })
       result = await compressImage(blob, {
-        maxWidthPx:   1024,
-        maxHeightPx:  1024,
-        qualityStart: 0.82,
-        qualityMin:   0.45,
-        targetKB:     150,
-        hardLimitKB:  280,
+        maxWidthPx:   2048,
+        maxHeightPx:  2048,
+        qualityStart: 0.88,
+        qualityMin:   0.6,
+        targetKB:     400,
+        hardLimitKB:  800,
       })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
