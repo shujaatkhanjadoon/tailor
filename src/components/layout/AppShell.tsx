@@ -2,6 +2,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 import { BottomNav } from './BottomNav';
 import { SideNav } from './SideNav';
 import { AuthGuard } from '@/components/auth/AuthGuard';
@@ -11,9 +12,25 @@ import { VerificationBanner } from './VerificationBanner';
 import { MobileAccountBar } from './MobileAccountBar';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { currentUser } = useAuth();
+  const { currentUser, isLoading } = useAuth();
   const pathname = usePathname();
   const isKarigar = currentUser?.role === 'karigar';
+
+  // Show loading screen while auth state is being determined
+  // Prevents flash of /auth when a valid session exists
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center justify-center">
+            <Image src="/icon.svg" alt="MeraDarzi" width={64} height={64} loading="eager" />
+          </div>
+          <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    )
+  }
+
   const isPlainRoute =
     pathname === '/auth' || pathname === '/login' || pathname === '/setup' ||
     pathname.startsWith('/track') || pathname.startsWith('/admin') || pathname.startsWith('/pricing') ||

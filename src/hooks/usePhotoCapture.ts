@@ -1,4 +1,3 @@
-// src/hooks/usePhotoCapture.ts
 import { useState, useCallback, useRef } from 'react'
 import { compressImage, type CompressResult } from '@/lib/photos/compress'
 import { uploadToCloudinary, cloudinaryEnabled } from '@/lib/photos/cloudinary'
@@ -49,11 +48,31 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
   const processFile = useCallback(async (file: File): Promise<PhotoRecord | null> => {
     if (!shopId) return null
 
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+    const unsupportedExt = ['heic', 'heif', 'heics', 'heifs', 'avif', 'arw', 'cr2', 'nef', 'dng']
+    if (unsupportedExt.includes(ext)) {
+      setState({ phase: 'error', error: `${ext.toUpperCase()} format support nahi hai. JPEG/PNG convert karein.` })
+      setTimeout(() => setState({ phase: 'idle' }), 5000)
+      return null
+    }
+
+    // Read file data immediately to avoid detached File issues on mobile
+    let fileBytes: ArrayBuffer
+    try {
+      fileBytes = await file.arrayBuffer()
+    } catch {
+      setState({ phase: 'error', error: 'File read nahi ho saka. Dobara try karein.' })
+      setTimeout(() => setState({ phase: 'idle' }), 4000)
+      return null
+    }
+
     setState({ phase: 'compressing' })
 
     let result: CompressResult
     try {
-      result = await compressImage(file, {
+      // Use Blob from ArrayBuffer so it's independent of the original File reference
+      const blob = new Blob([fileBytes], { type: file.type })
+      result = await compressImage(blob, {
         maxWidthPx:   1024,
         maxHeightPx:  1024,
         qualityStart: 0.82,
@@ -62,7 +81,8 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
         hardLimitKB:  280,
       })
     } catch (e) {
-      console.error('Photo compression failed:', e)
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error('Photo compression failed:', msg, file.name, file.type, Math.round(file.size / 1024) + 'KB')
       setState({ phase: 'error', error: 'Photo compress nahi ho saki. Dobara try karein.' })
       setTimeout(() => setState({ phase: 'idle' }), 4000)
       return null
