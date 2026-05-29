@@ -24,7 +24,7 @@ import { format } from 'date-fns'
 import { usePlan } from '@/hooks/usePlan'
 import { AccessNotice } from '@/components/billing/AccessNotice'
 import { orderFinancialSummary, orderPaymentProgress } from '@/lib/payments/calculations'
-import { deleteFromCloudinary, getOptimisedUrl, publicIdFromCloudinaryUrl } from '@/lib/photos/cloudinary'
+import { deleteFromCloudinary, publicIdFromCloudinaryUrl } from '@/lib/photos/cloudinary'
 import { supabase } from '@/lib/supabase/client'
 import { mapCustomer, mapMeasurement, mapShop } from '@/lib/supabase/records'
 import { isParentRelation, napOwnerLabel, recipientLabel } from '@/lib/order-recipient'
@@ -77,7 +77,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           _deleted: 0 as const,
         }))
         const localPhotos = await db.photos.where('orderId').equals(order.id).filter(p => p._deleted !== 1).toArray()
-        setPhotos(remotePhotos.length > 0 ? remotePhotos : localPhotos)
+        const remoteIds = new Set(remotePhotos.map((p: any) => p.id))
+        const merged = remotePhotos.map((rp: any) => {
+          const local = localPhotos.find((lp: PhotoRecord) => lp.id === rp.id)
+          return local ? { ...rp, base64: local.base64 || '' } : rp
+        })
+        const unsyncedLocals = localPhotos.filter((lp: PhotoRecord) => !remoteIds.has(lp.id))
+        setPhotos([...merged, ...unsyncedLocals])
       }
       let measurementRow: any
       if (!order) return undefined
@@ -126,6 +132,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     src: string
     label: string
   } | null>(null)
+  const [erroredImages, setErroredImages] = useState<Set<string>>(new Set())
 
   if (!order) {
     return (
@@ -154,18 +161,41 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     ? orderPaymentProgress(order)
     : 0
   const finance = orderFinancialSummary(order, payments)
-  const displayPhotos = photos.length > 0
-    ? photos.map(photo => ({
-        id: photo.id,
-        src: photo.cloudUrl ? getOptimisedUrl(photo.cloudUrl, { width: 800 }) : photo.base64,
+  interface DisplayPhoto {
+    id: string; src: string; label: string; type: string; publicId?: string; source: 'local' | 'order'
+  }
+  const displayPhotos: DisplayPhoto[] = (() => {
+    const seen = new Set<string>()
+    const result: DisplayPhoto[] = []
+    for (const photo of photos) {
+      if (!photo.cloudUrl && !photo.base64) continue
+      const id = photo.id
+      if (seen.has(id)) continue
+      seen.add(id)
+      result.push({
+        id,
+        src: photo.cloudUrl || photo.base64,
         label: `${photo.type} photo`,
         type: photo.type,
         publicId: photo.publicId,
         source: 'local' as const,
-      }))
-    : order.fabricPhotoUrl
-      ? [{ id: 'fabric-photo-url', src: order.fabricPhotoUrl, label: 'fabric photo', type: 'fabric', source: 'order' as const }]
-      : []
+      })
+    }
+    if (order.fabricPhotoUrl) {
+      const dedupKey = `fabric-photo-url-${order.fabricPhotoUrl}`
+      if (!seen.has(dedupKey)) {
+        seen.add(dedupKey)
+        result.push({
+          id: dedupKey,
+          src: order.fabricPhotoUrl,
+          label: 'fabric photo',
+          type: 'fabric',
+          source: 'order',
+        })
+      }
+    }
+    return result
+  })()
 
   const waLink = (() => {
     const phone = `92${order.customerPhone.replace(/^0/, '').replace(/\D/g, '')}`
@@ -206,7 +236,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         const publicId = publicIdFromCloudinaryUrl(photo.src)
         if (publicId) {
           const deleted = await deleteFromCloudinary(publicId, shopId, currentUser.id)
-          if (!deleted) throw new Error('Cloudinary photo delete failed')
+          if (!deleted) console.warn('Cloudinary legacy photo delete failed (non-fatal)')
         }
         await (supabase as any)
           .from('orders')
@@ -644,11 +674,18 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     })}
                     className="block w-full text-left"
                   >
-                    <img
-                      src={photo.src}
-                      alt={photo.label}
-                      className="aspect-4/3 w-full object-cover"
-                    />
+                    {erroredImages.has(photo.id) ? (
+                      <div className="aspect-4/3 w-full flex items-center justify-center bg-slate-100 text-slate-400">
+                        <ImageIcon size={32} />
+                      </div>
+                    ) : (
+                      <img
+                        src={photo.src}
+                        alt={photo.label}
+                        className="aspect-4/3 w-full object-cover"
+                        onError={() => setErroredImages(prev => new Set(prev).add(photo.id))}
+                      />
+                    )}
                   </button>
                   <button
                     type="button"

@@ -25,7 +25,7 @@ export async function deleteOrderPhotoEverywhere(
 
   if (publicId) {
     const deleted = await deleteFromCloudinary(publicId, shopId, memberId)
-    if (!deleted) throw new Error('Cloudinary photo delete failed')
+    if (!deleted) console.warn('Cloudinary photo delete failed (non-fatal)')
   }
 
   const { error } = await (supabase as any)

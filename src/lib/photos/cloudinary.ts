@@ -98,16 +98,30 @@ export function publicIdFromCloudinaryUrl(url?: string | null): string | null {
 }
 
 // ── Get optimised URL with transformations ────────────────────────
+// Strips any existing Cloudinary transformations before adding new ones,
+// so calling this function multiple times is safe.
 export function getOptimisedUrl(
   cloudUrl: string,
   opts: { width?: number; quality?: string } = {}
 ): string {
-  if (!cloudUrl.includes('cloudinary.com')) return cloudUrl
+  if (!cloudUrl || !cloudUrl.includes('cloudinary.com')) return cloudUrl
 
   const { width = 800, quality = 'auto:good' } = opts
+  const newPart = `w_${width},q_${quality},f_auto`
 
-  return cloudUrl.replace(
-    '/upload/',
-    `/upload/w_${width},q_${quality},f_auto/`
-  )
+  const uploadIdx = cloudUrl.indexOf('/upload/')
+  if (uploadIdx === -1) return cloudUrl
+
+  const after = uploadIdx + '/upload/'.length
+  const rest  = cloudUrl.slice(after)
+  const nextSlash = rest.indexOf('/')
+  const segment   = nextSlash === -1 ? rest : rest.slice(0, nextSlash)
+
+  // If the segment after /upload/ is not a plain version (v12345),
+  // it already has transformations — replace the whole segment.
+  if (!/^v\d+$/.test(segment)) {
+    return cloudUrl.slice(0, after) + newPart + rest.slice(segment.length)
+  }
+
+  return cloudUrl.slice(0, after) + newPart + '/' + rest
 }
