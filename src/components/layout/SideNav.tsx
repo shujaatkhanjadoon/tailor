@@ -1,4 +1,4 @@
-﻿// src/components/layout/SideNav.tsx
+// src/components/layout/SideNav.tsx
 'use client'
 
 import Link from 'next/link'
@@ -10,23 +10,25 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth/AuthContext'
+import { useTranslation } from 'react-i18next'
 import Image from 'next/image'
 import { shopOps } from '@/lib/db/operations'
 import type { ShopRecord } from '@/lib/db/schema'
 
 const navItems = [
-  { href: '/', icon: Home, label: 'Dashboard' },
-  { href: '/orders', icon: ClipboardList, label: 'Orders' },
-  { href: '/customers', icon: Users, label: 'Gahak' },
-  { href: '/payments', icon: Wallet, label: 'Payments' },
-  { href: '/reports', icon: BarChart3, label: 'Reports' },
-  { href: '/settings', icon: Settings, label: 'Settings' },
+  { href: '/', icon: Home, key: 'dashboard' },
+  { href: '/orders', icon: ClipboardList, key: 'orders' },
+  { href: '/customers', icon: Users, key: 'customers' },
+  { href: '/payments', icon: Wallet, key: 'payments' },
+  { href: '/reports', icon: BarChart3, key: 'reports' },
+  { href: '/settings', icon: Settings, key: 'settings' },
 ]
 
 export function SideNav() {
   const pathname = usePathname()
   const router = useRouter()
   const { shopId, currentUser, logout } = useAuth()
+  const { t } = useTranslation()
   const [shop, setShop] = useState<ShopRecord | undefined>()
   useEffect(() => {
     if (!shopId) return
@@ -71,13 +73,13 @@ export function SideNav() {
                      rounded-xl transition-colors"
         >
           <Plus size={16} strokeWidth={2.5} />
-          Naya Order
+          {t('navSide.newOrder')}
         </Link>
       </div>
 
       {/* Nav items */}
       <nav className="flex-1 px-3 space-y-1">
-        {navItems.map(({ href, icon: Icon, label }) => {
+        {navItems.map(({ href, icon: Icon, key }) => {
           const isActive = pathname === href
           return (
             <Link
@@ -91,7 +93,7 @@ export function SideNav() {
               )}
             >
               <Icon size={18} strokeWidth={isActive ? 2.5 : 1.8} />
-              {label}
+              {t(`navSide.${key}`)}
             </Link>
           )
         })}
@@ -113,11 +115,10 @@ export function SideNav() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-white">
-              {/* {shop?.brandName || shop?.shopName ? `${shop?.brandName || shop?.shopName} · ` : ''} */}
               {currentUser?.name ?? 'User'}
             </p>
             <p className="mt-0.5 truncate text-[11px] font-medium text-slate-400">
-              {currentUser?.role === 'owner' ? 'Owner' : 'Karigar'}
+              {currentUser?.role === 'owner' ? t('settings.profile.roleOwner') : t('settings.profile.roleKarigar')}
             </p>
           </div>
           <Settings size={16} className="text-slate-500 transition-colors group-hover:text-slate-300" />
@@ -127,7 +128,7 @@ export function SideNav() {
           className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:bg-red-500/10 hover:text-red-200"
         >
           <LogOut size={14} />
-          Logout
+          {t('nav.logout')}
         </button>
       </div>
     </div>

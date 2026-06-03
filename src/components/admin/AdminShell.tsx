@@ -80,7 +80,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             >
               <item.icon size={16} className="shrink-0" />
               {item.label}
-              {isActive && <ChevronRight size={13} className="ml-auto opacity-60" />}
+              {isActive && <ChevronRight size={13} className="ms-auto opacity-60" />}
             </button>
           )
         })}
@@ -106,7 +106,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
       {/* â”€â”€ Desktop sidebar â”€â”€ */}
       <aside className="hidden lg:flex flex-col w-60 shrink-0
-                        bg-slate-900 border-r border-slate-800 fixed inset-y-0 z-30">
+                        bg-slate-900 border-e border-slate-800 fixed inset-y-0 start-0 z-30">
         <NavContent />
       </aside>
 
@@ -122,14 +122,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
       {/* â”€â”€ Mobile sidebar drawer â”€â”€ */}
       <aside className={cn(
-        'fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 border-r border-slate-800',
+        'fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 border-e border-slate-800',
         'transform transition-transform duration-300 ease-in-out lg:hidden',
         sideOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         {/* Close button */}
         <button
           onClick={() => setSideOpen(false)}
-          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center
+          className="absolute top-4 end-4 w-8 h-8 flex items-center justify-center
                      rounded-full bg-slate-800 text-slate-400"
         >
           <X size={16} />
@@ -138,7 +138,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* â”€â”€ Main content area â”€â”€ */}
-      <div className="flex-1 lg:ml-60 flex min-w-0 flex-col min-h-screen">
+      <div className="flex-1 lg:ms-60 flex min-w-0 flex-col min-h-screen">
 
         {/* Top bar */}
         <header className="bg-slate-900 border-b border-slate-800 px-4 lg:px-6 py-3

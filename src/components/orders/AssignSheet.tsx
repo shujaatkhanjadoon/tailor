@@ -14,6 +14,7 @@ import { GARMENT_LABELS, GarmentType } from '@/types'
 import { supabase } from '@/lib/supabase/client'
 import { mapOrder } from '@/lib/supabase/records'
 import { canKarigarHandleGarment } from '@/lib/team/karigar-skills'
+import { useTranslation } from 'react-i18next'
 
 interface AssignSheetProps {
   orderId:         string
@@ -26,6 +27,7 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
   const router = useRouter()
   const { shopId } = useAuth()
   const plan = usePlan()
+  const { t } = useTranslation()
   const [members,  setMembers]  = useState<TeamMemberRecord[]>([])
   const [order,    setOrder]    = useState<OrderRecord | null>(null)
   const [selected, setSelected] = useState<string | null>(currentAssignee ?? null)
@@ -93,7 +95,7 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
         <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-5 lg:hidden" />
 
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base font-bold text-slate-800">Karigar Ko Assign Karein</h3>
+          <h3 className="text-base font-bold text-slate-800">{t('orders.assign.title')}</h3>
           <button
             aria-label="Close assign sheet"
             onClick={onClose}
@@ -106,9 +108,9 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
         {members.length === 0 ? (
           <div className="text-center py-8">
             <Scissors size={32} className="text-slate-200 mx-auto mb-3" />
-            <p className="text-slate-500 text-sm font-medium">Koi karigar nahi</p>
+            <p className="text-slate-500 text-sm font-medium">{t('orders.assign.noKarigar')}</p>
             <p className="text-slate-400 text-xs mt-1">
-              Pehle karigar add karein, phir order assign ho sake ga.
+              {t('orders.assign.noKarigarDesc')}
             </p>
             <button
               onClick={() => {
@@ -119,7 +121,7 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
                          text-sm font-bold px-4 py-2.5 rounded-xl"
             >
               <Plus size={14} />
-              Naya Karigar Add Karein
+              {t('orders.assign.addKarigar')}
             </button>
           </div>
         ) : (
@@ -139,7 +141,7 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
                   <UserX size={16} className="text-slate-500" />
                 </div>
                 <p className="font-semibold text-slate-700 text-sm flex-1 text-left">
-                  Kisi Ko Assign Na Karein
+                  {t('orders.assign.unassign')}
                 </p>
                 {!selected && <Check size={16} className="text-slate-600 shrink-0" />}
               </button>
@@ -181,7 +183,7 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
                         {!canSelect && (
                           <span className="text-[10px] text-slate-500 font-semibold">
                             {!selectableIds.has(m.id)
-                              ? 'Plan limit'
+                              ? t('orders.assign.planLimit')
                               : `${garmentLabel ?? 'Order'} ka kaam nahi`}
                           </span>
                         )}
@@ -210,9 +212,9 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
             >
               {selectedIsDisabled
                 ? selectedMember && !canKarigarHandleGarment(selectedMember, order?.garmentType)
-                  ? `${selectedMember.name} ${garmentLabel ?? 'is order'} ke liye select nahi ho sakta`
+                  ? t('orders.assign.cantHandle', { name: selectedMember.name, garment: garmentLabel ?? 'this order' })
                   : getKarigarLimitMessage(plan.karigarLimit)
-                : saving ? 'Assign ho raha hai...' : 'Assign Karein ✓'}
+                : saving ? t('orders.assign.assigning') : t('orders.assign.assignConfirm')}
             </button>
           </>
         )}

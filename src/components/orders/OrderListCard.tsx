@@ -12,6 +12,7 @@ import { memo, useEffect, useState } from 'react'
 import { orderBalance, orderPaymentProgress } from '@/lib/payments/calculations'
 import { recipientLabel } from '@/lib/order-recipient'
 import { supabase } from '@/lib/supabase/client'
+import { useTranslation } from 'react-i18next'
 
 interface OrderListCardProps {
   order: OrderRecord
@@ -22,14 +23,14 @@ interface OrderListCardProps {
   photoCount?: number
 }
 
-function formatDueDate(dateStr: string): { label: string; urgent: boolean } {
+function formatDueDate(dateStr: string, t: any): { label: string; urgent: boolean } {
   const date = new Date(dateStr)
   const today = new Date().toISOString().split('T')[0]
   const isLate = dateStr < today
 
-  if (isLate) return { label: `${formatDistanceToNow(date)} late`, urgent: true }
-  if (isToday(date)) return { label: 'Aaj tayyar hona chahiye', urgent: true }
-  if (isTomorrow(date)) return { label: 'Kal due hai', urgent: false }
+  if (isLate) return { label: t('orders.dueDate.late', { time: formatDistanceToNow(date) }), urgent: true }
+  if (isToday(date)) return { label: t('orders.dueDate.dueToday'), urgent: true }
+  if (isTomorrow(date)) return { label: t('orders.dueDate.dueTomorrow'), urgent: false }
   return { label: format(date, 'd MMM'), urgent: false }
 }
 
@@ -42,10 +43,11 @@ export const OrderListCard = memo(function OrderListCard({
   photoCount: propPhotoCount,
 }: OrderListCardProps) {
   const router = useRouter()
+  const { t } = useTranslation()
   const sc = ORDER_STATUS_CONFIG[order.status as keyof typeof ORDER_STATUS_CONFIG]
   const gc = GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS]
   const balance = orderBalance(order)
-  const { label: dueLabel, urgent: dueUrgent } = formatDueDate(order.dueDate)
+  const { label: dueLabel, urgent: dueUrgent } = formatDueDate(order.dueDate, t)
   const isTerminal = ['delivered', 'cancelled'].includes(order.status)
 
   const [localPhotoCount, setLocalPhotoCount] = useState(0)
@@ -66,10 +68,15 @@ export const OrderListCard = memo(function OrderListCard({
 
   const waLink = (() => {
     const phone = `92${order.customerPhone.replace(/^0/, '').replace(/\D/g, '')}`
+    const balanceStr = balance > 0
+      ? t('orders.card.whatsappBalance', { amount: balance.toLocaleString() })
+      : ''
     const msg = encodeURIComponent(
-      `Assalam o Alaikum ${order.customerName}!\n` +
-      `Aapka order #${String(order.orderNumber).padStart(3, '0')} tayyar hai! ✅\n` +
-      (balance > 0 ? `Baaki: Rs.${balance.toLocaleString()}\nJaldi tashreef laaein 🙏` : 'Jaldi tashreef laaein 🙏')
+      t('orders.card.whatsappMsg', {
+        customer: order.customerName,
+        orderNumber: String(order.orderNumber).padStart(3, '0'),
+        balanceMsg: balanceStr,
+      })
     )
     return `https://wa.me/${phone}?text=${msg}`
   })()
@@ -83,7 +90,7 @@ export const OrderListCard = memo(function OrderListCard({
       {/* Urgent ribbon */}
       {order.isUrgent === 1 && !isTerminal && (
         <div className="bg-orange-500 px-4 py-1">
-          <p className="text-white text-[10px] font-bold uppercase tracking-wider">⚡ Urgent Order</p>
+          <p className="text-white text-[10px] font-bold uppercase tracking-wider">{t('orders.card.urgentRibbon')}</p>
         </div>
       )}
 
@@ -130,7 +137,7 @@ export const OrderListCard = memo(function OrderListCard({
             <p className="font-semibold text-slate-800">{order.customerName}</p>
             {order.orderForRelation && order.orderForRelation !== 'self' && (
               <p className="text-[11px] font-semibold text-blue-600">
-                For: {recipientLabel(order.orderForRelation, order.orderForName)}
+                {t('orders.card.for', { recipient: recipientLabel(order.orderForRelation, order.orderForName) })}
               </p>
             )}
           </div>
@@ -152,7 +159,7 @@ export const OrderListCard = memo(function OrderListCard({
                 Rs.{order.amountPaid.toLocaleString()} / Rs.{order.totalPrice.toLocaleString()}
               </span>
               <span className={cn('font-semibold', balance > 0 ? 'text-red-500' : 'text-green-600')}>
-                {balance > 0 ? `Rs.${balance.toLocaleString()} baaki` : 'Poora ✓'}
+                {balance > 0 ? t('orders.card.balance', { amount: balance.toLocaleString() }) : t('orders.card.paid')}
               </span>
             </div>
             <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
@@ -183,7 +190,7 @@ export const OrderListCard = memo(function OrderListCard({
                     : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300'
                 )}
               >
-                {order.assignedToName ? '✎ Reassign' : '+ Assign'}
+                {order.assignedToName ? t('orders.card.reassign') : t('orders.card.assign')}
               </button>
             )}
 
@@ -198,7 +205,7 @@ export const OrderListCard = memo(function OrderListCard({
                            font-semibold px-2.5 py-1.5 rounded-lg"
               >
                 <MessageCircle size={11} />
-                Bata Do
+                {t('orders.card.notify')}
               </a>
             )}
 
@@ -208,7 +215,7 @@ export const OrderListCard = memo(function OrderListCard({
         {photoCount > 0 && (
           <span className="flex items-center gap-0.5 text-[10px] text-slate-400">
             <Image size={10} />
-            {photoCount}
+            {t('orders.card.photoCount', { count: photoCount })}
           </span>
         )}
       </div>

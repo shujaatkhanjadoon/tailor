@@ -5,10 +5,12 @@ import { useState } from 'react';
 import { X, Zap } from 'lucide-react';
 import { usePlan } from '@/hooks/usePlan';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 export function ExpiryReminderBanner() {
   const plan = usePlan();
   const [dismissed, setDismissed] = useState(false);
+  const { t } = useTranslation();
 
   if (dismissed) return null;
   if (plan.isLoading) return null;
@@ -17,23 +19,23 @@ export function ExpiryReminderBanner() {
 
   const config = plan.isExpired ? {
     bg:     'bg-red-600',
-    text:   'Plan expire ho gaya — features band hain',
-    sub:    'Upgrade karein data backup ke liye',
+    text:   t('billing.expiryReminder.expired'),
+    sub:    t('billing.expiryReminder.expiredSub'),
     urgent: true,
   } : plan.inGrace ? {
     bg:     'bg-orange-500',
-    text:   `Grace period — ${plan.daysLeft} din baaki`,
-    sub:    'Abhi renew karein taake features na bandein',
+    text:   t('billing.expiryReminder.grace', { days: plan.daysLeft }),
+    sub:    t('billing.expiryReminder.graceSub'),
     urgent: true,
   } : plan.daysLeft !== null && plan.daysLeft <= 3 ? {
     bg:     'bg-red-500',
-    text:   `Trial sirf ${plan.daysLeft} din mein khatam!`,
-    sub:    'Upgrade karein features band hone se pehle',
+    text:   t('billing.expiryReminder.ending', { days: plan.daysLeft }),
+    sub:    t('billing.expiryReminder.endingSub'),
     urgent: true,
   } : {
     bg:     'bg-blue-600',
-    text:   `Trial: ${plan.daysLeft} din baaki`,
-    sub:    'Upgrade kar ke sab features rakhhein',
+    text:   t('billing.expiryReminder.remaining', { days: plan.daysLeft }),
+    sub:    t('billing.expiryReminder.remainingSub'),
     urgent: false,
   };
 
@@ -54,7 +56,7 @@ export function ExpiryReminderBanner() {
         className="shrink-0 bg-white text-blue-700 font-bold text-xs
                    px-3 py-2 rounded-xl transition-colors hover:bg-blue-50 active:scale-95 whitespace-nowrap"
       >
-        Upgrade →
+        {t('billing.upgrade')}
       </button>
 
       {!config.urgent && (

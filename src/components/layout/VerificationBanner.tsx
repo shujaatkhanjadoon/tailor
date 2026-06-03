@@ -5,6 +5,7 @@ import { useState, useEffect }  from 'react'
 import { ShieldAlert, X, ShieldX, MessageCircle } from 'lucide-react'
 import { useAuth }              from '@/lib/auth/AuthContext'
 import { supabase }             from '@/lib/supabase/client'
+import { useTranslation } from 'react-i18next'
 
 type VerifStatus = 'pending' | 'approved' | 'rejected' | null
 
@@ -14,6 +15,7 @@ export function VerificationBanner() {
   const { shopId }                  = useAuth()
   const [status, setStatus]         = useState<VerifStatus>(null)
   const [dismissed, setDismissed]   = useState(false)
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (!shopId) return
@@ -39,7 +41,7 @@ export function VerificationBanner() {
   if (status === 'rejected') {
     const waLink = ADMIN_WA
       ? `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(
-          'Assalam o Alaikum, mera MeraDarzi account reject ho gaya hai. Kripaya help karein.'
+          t('auth.whatsappVerifyMsg')
         )}`
       : null
 
@@ -49,10 +51,10 @@ export function VerificationBanner() {
           <ShieldX size={18} className="text-red-200 shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="font-bold text-white text-sm">
-              Account Verify Nahi Hua
+              {t('auth.accountNotVerified')}
             </p>
             <p className="text-red-200 text-xs mt-0.5 leading-relaxed">
-              Aapka account verify nahi ho saka. Kripaya admin se contact karein.
+              {t('auth.accountNotVerifiedDesc')}
             </p>
           </div>
           {waLink && (
@@ -65,7 +67,7 @@ export function VerificationBanner() {
                          px-3 py-2 rounded-xl transition-colors"
             >
               <MessageCircle size={13} />
-              WhatsApp
+              {t('auth.contactAdminShort')}
             </a>
           )}
         </div>
@@ -79,8 +81,7 @@ export function VerificationBanner() {
       <div className="max-w-2xl mx-auto flex items-center gap-3">
         <ShieldAlert size={16} className="text-amber-100 shrink-0" />
         <p className="flex-1 text-amber-900 text-xs font-medium">
-          ⏳ Aapka account verification pending hai — 24 ghante mein complete hogi.
-          Tab tak sab features available hain.
+          {t('auth.verificationPending')}
         </p>
         <button
           onClick={() => setDismissed(true)}

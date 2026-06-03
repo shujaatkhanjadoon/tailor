@@ -44,11 +44,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <AuthGuard>
       <div className="flex min-h-dvh overflow-x-clip bg-slate-100">
         {!isKarigar && (
-          <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:z-40">
+          <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:start-0 lg:z-40">
             <SideNav />
           </aside>
         )}
-        <div className={`min-w-0 flex-1 ${!isKarigar ? 'lg:pl-64' : ''}`}>
+        <div className={`min-w-0 flex-1 ${!isKarigar ? 'lg:ps-64' : ''}`}>
           <div className="min-h-dvh bg-white shadow-xl lg:hidden relative overflow-x-clip">
             <MobileAccountBar />
             <VerificationBanner />

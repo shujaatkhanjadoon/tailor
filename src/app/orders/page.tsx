@@ -18,31 +18,33 @@ import { usePlan }                    from '@/hooks/usePlan'
 import { AppFooter }                  from '@/components/layout/AppFooter'
 import { supabase } from '@/lib/supabase/client'
 import { exportCSV, exportPrintablePDF } from '@/lib/export/download'
-
-const QUICK_FILTERS: { key: OrderFilter; label: string; emoji: string }[] = [
-  { key: 'all',        label: 'Sab',         emoji: '📋' },
-  { key: 'overdue',    label: 'Deri',        emoji: '🔴' },
-  { key: 'ready',      label: 'Tayyar',      emoji: '✅' },
-  { key: 'today',      label: 'Aaj',         emoji: '📅' },
-  { key: 'unassigned', label: 'Bina Assign', emoji: '👤' },
-]
-
-const STATUS_OPTIONS: { key: OrderStatus | 'all'; label: string }[] = [
-  { key: 'all',       label: 'Sab Status' },
-  { key: 'received',  label: 'Kapra Mila' },
-  { key: 'cutting',   label: 'Katai'      },
-  { key: 'stitching', label: 'Silai'      },
-  { key: 'finishing', label: 'Finishing'  },
-  { key: 'ready',     label: 'Tayyar'     },
-  { key: 'delivered', label: 'De Diya'    },
-  { key: 'cancelled', label: 'Cancel'     },
-]
+import { useTranslation } from 'react-i18next'
 
 function OrdersContent() {
   const router      = useRouter()
   const searchParams = useSearchParams()
   const { shopId, isOwner, isKarigar, currentUser } = useAuth()
   const plan = usePlan()
+  const { t } = useTranslation()
+
+  const QUICK_FILTERS: { key: OrderFilter; label: string; emoji: string }[] = [
+    { key: 'all',        label: t('orders.quickFilters.sab'),         emoji: '📋' },
+    { key: 'overdue',    label: t('orders.quickFilters.deri'),        emoji: '🔴' },
+    { key: 'ready',      label: t('orders.quickFilters.tayyar'),      emoji: '✅' },
+    { key: 'today',      label: t('orders.quickFilters.aaj'),         emoji: '📅' },
+    { key: 'unassigned', label: t('orders.quickFilters.binaAssign'),  emoji: '👤' },
+  ]
+
+  const STATUS_OPTIONS: { key: OrderStatus | 'all'; label: string }[] = [
+    { key: 'all',       label: t('orders.filters.allStatus') },
+    { key: 'received',  label: t('orders.statusLabelsShort.received') },
+    { key: 'cutting',   label: t('orders.statusLabelsShort.cutting') },
+    { key: 'stitching', label: t('orders.statusLabelsShort.stitching') },
+    { key: 'finishing', label: t('orders.statusLabelsShort.finishing') },
+    { key: 'ready',     label: t('orders.statusLabelsShort.ready') },
+    { key: 'delivered', label: t('orders.statusLabelsShort.delivered') },
+    { key: 'cancelled', label: t('orders.statusLabelsShort.cancelled') },
+  ]
 
   const [statusSheet, setStatusSheet]         = useState<OrderRecord | null>(null)
   const [assignSheet, setAssignSheet]         = useState<OrderRecord | null>(null)
@@ -115,12 +117,12 @@ function OrdersContent() {
         <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-xl font-bold text-slate-800">
-              {isKarigar ? 'Mere Orders' : 'Sare Orders'}
+              {isKarigar ? t('orders.titleKarigar') : t('orders.titleOwner')}
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
               {isLoading
-                ? 'Loading...'
-                : `${orders.length} dikh rahe · ${total} total`
+                ? t('orders.loading')
+                : t('orders.showingCount', { count: orders.length, total })
               }
             </p>
           </div>
@@ -132,7 +134,7 @@ function OrdersContent() {
                 className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-40"
               >
                 <Download size={15} />
-                <span className="hidden min-[420px]:inline">CSV</span>
+                <span className="hidden min-[420px]:inline">{t('orders.exportCSV')}</span>
               </button>
               <button
                 onClick={() => exportPrintablePDF('MeraDarzi Orders', exportRows, 'darzi-orders')}
@@ -140,7 +142,7 @@ function OrdersContent() {
                 className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-40"
               >
                 <Download size={15} />
-                <span className="hidden min-[420px]:inline">PDF</span>
+                <span className="hidden min-[420px]:inline">{t('orders.exportPDF')}</span>
               </button>
               <button
                 onClick={() => router.push('/orders/new')}
@@ -149,7 +151,7 @@ function OrdersContent() {
                          active:scale-95 transition-colors hover:bg-blue-700"
               >
                 <Plus size={15} />
-                Naya
+                {t('orders.newOrder')}
               </button>
             </div>
           )}
@@ -161,7 +163,7 @@ function OrdersContent() {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Naam, order #005, phone ya tracking..."
+              placeholder={t('orders.searchPlaceholder')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-9 py-2.5 bg-slate-100 rounded-xl text-sm
@@ -194,8 +196,8 @@ function OrdersContent() {
               <Filter size={14} />
               <span className="hidden sm:inline">
                 {statusFilter !== 'all'
-                  ? ORDER_STATUS_CONFIG[statusFilter as OrderStatus]?.label ?? 'Status'
-                  : 'Status'
+                  ? ORDER_STATUS_CONFIG[statusFilter as OrderStatus]?.label ?? t('orders.filters.status')
+                  : t('orders.filters.status')
                 }
               </span>
             </button>
@@ -301,12 +303,12 @@ function OrdersContent() {
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <p className="text-5xl mb-4">📋</p>
             <p className="font-bold text-slate-600 text-base mb-1">
-              {isKarigar ? 'Koi order assign nahi' : 'Koi order nahi'}
+              {isKarigar ? t('orders.emptyTitleKarigar') : t('orders.emptyTitleOwner')}
             </p>
             <p className="text-sm text-slate-400 mb-6">
               {isKarigar
-                ? 'Owner aapko orders assign kare ga'
-                : 'Pehla order add kar ke kaam shuru karein'
+                ? t('orders.emptyDescKarigar')
+                : t('orders.emptyDescOwner')
               }
             </p>
             {isOwner && (
@@ -317,7 +319,7 @@ function OrdersContent() {
                            active:scale-95 transition-transform"
               >
                 <Plus size={16} />
-                Naya Order Add Karein
+                {t('orders.addFirstOrder')}
               </button>
             )}
           </div>
@@ -327,9 +329,9 @@ function OrdersContent() {
         {!isLoading && orders.length === 0 && hasActiveFilters && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <p className="text-4xl mb-3">🔍</p>
-            <p className="font-semibold text-slate-500 mb-1">Koi order nahi mila</p>
+            <p className="font-semibold text-slate-500 mb-1">{t('orders.emptyFilterTitle')}</p>
             <p className="text-sm text-slate-400 mb-5">
-              Alag filter try karein ya search clear karein
+              {t('orders.emptyFilterDesc')}
             </p>
             <button
               onClick={() => {
@@ -339,7 +341,7 @@ function OrdersContent() {
               }}
               className="text-blue-600 font-semibold text-sm underline"
             >
-              Sab Filters Hatayein
+              {t('orders.clearFilters')}
             </button>
           </div>
         )}
@@ -350,13 +352,13 @@ function OrdersContent() {
             {isOwner && !plan.isLoading && !plan.canAddKarigar && (
               <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3">
                 <p className="text-sm font-semibold text-blue-800">
-                  Karigar assignment Professional plan mein available hai.
+                  {t('orders.upgradePlan')}
                 </p>
                 <button
                   onClick={() => plan.upgrade('professional')}
                   className="text-xs font-bold text-blue-700 underline mt-1"
                 >
-                  Upgrade karein
+                  {t('orders.upgrade')}
                 </button>
               </div>
             )}
@@ -376,14 +378,14 @@ function OrdersContent() {
                 onClick={loadMore}
                 className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
               >
-                Aur Orders Load Karein
+                {t('orders.loadMore')}
               </button>
             )}
 
             {/* End of list indicator */}
             {orders.length >= 20 && !hasMore && (
               <p className="text-center text-xs text-slate-400 py-4">
-                {orders.length} orders dikh rahe hain
+                {t('orders.endOfList', { count: orders.length })}
               </p>
             )}
           </div>

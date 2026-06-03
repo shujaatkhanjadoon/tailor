@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/auth/AuthContext'
 import { cn } from '@/lib/utils'
 import { toast } from "sonner"
 import { orderBalance } from '@/lib/payments/calculations'
+import { useTranslation } from 'react-i18next'
 
 // Valid next statuses from current
 const NEXT_STATUSES: Record<OrderStatus, OrderStatus[]> = {
@@ -32,6 +33,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
   const { currentUser } = useAuth()
   const [saving, setSaving] = useState<OrderStatus | null>(null)
   const [deliveryWarningAccepted, setDeliveryWarningAccepted] = useState(false)
+  const { t } = useTranslation()
 
   const nextStatuses = NEXT_STATUSES[order.status as OrderStatus]
   const currentConfig = ORDER_STATUS_CONFIG[order.status as OrderStatus]
@@ -46,8 +48,8 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
 
       if (unpaidBalance > 0 && !deliveryWarningAccepted) {
         setDeliveryWarningAccepted(true)
-        toast.warning('Payment abhi baaki hai', {
-          description: `Rs. ${unpaidBalance.toLocaleString()} baaki hai. Dobara Deliver dabayein agar phir bhi dena hai.`,
+        toast.warning(t('orders.statusUpdate.deliveryWarning'), {
+          description: t('orders.statusUpdate.deliveryWarningDesc', { amount: unpaidBalance.toLocaleString() }),
         })
         return
       }
@@ -56,7 +58,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
     setSaving(newStatus)
     try {
       await orderOps.updateStatus(order.id, newStatus, currentUser.id)
-      toast.success('Status Update Ho Gaya', {
+      toast.success(t('orders.statusUpdate.success'), {
         description: `${order.status} -> ${newStatus}`,
       })
       setDeliveryWarningAccepted(false)
@@ -64,7 +66,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
       onClose()
     } catch (e) {
       console.error('[StatusUpdate] Error:', e)
-      toast.error('Status update nahi hua', {
+      toast.error(t('orders.statusUpdate.error'), {
         description: e instanceof Error ? e.message : String(e),
       })
     } finally {
@@ -92,9 +94,9 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
         <div className="flex items-center justify-between mb-5">
           <div>
             <p className="text-xs text-slate-400 font-medium">
-              Order #{String(order.orderNumber).padStart(3, '0')}
+              {t('orders.statusUpdate.orderNumber', { number: String(order.orderNumber).padStart(3, '0') })}
             </p>
-            <h3 className="text-base font-bold text-slate-800">Status Update Karein</h3>
+            <h3 className="text-base font-bold text-slate-800">{t('orders.statusUpdate.title')}</h3>
           </div>
           <button
             aria-label="Close status sheet"
@@ -112,7 +114,7 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
         )}>
           <span className="text-2xl">{currentConfig.emoji}</span>
           <div>
-            <p className="text-xs text-slate-500">Abhi ka status</p>
+            <p className="text-xs text-slate-500">{t('orders.statusUpdate.currentStatus')}</p>
             <p className={cn('font-bold text-sm', currentConfig.color)}>
               {currentConfig.label}
             </p>
@@ -123,12 +125,12 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
         {/* Next status options */}
         {nextStatuses.length === 0 ? (
           <div className="text-center py-4 text-slate-400 text-sm">
-            Aur koi status nahi — order complete hai
+            {t('orders.statusUpdate.noMoreStatus')}
           </div>
         ) : (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-              Aage kiya karna hai?
+              {t('orders.statusUpdate.nextStep')}
             </p>
             {nextStatuses.map(status => {
               const cfg = ORDER_STATUS_CONFIG[status]
@@ -148,10 +150,10 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
                         <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
                         <div>
                           <p className="text-amber-800 font-semibold text-sm">
-                            Rs. {unpaid.toLocaleString()} baaki hai
+                            {t('orders.statusUpdate.unpaidWarning', { amount: unpaid.toLocaleString() })}
                           </p>
                           <p className="text-amber-600 text-xs mt-0.5">
-                            Delivery allow hai. Pehli tap warning accept karegi, doosri tap deliver karegi.
+                            {t('orders.statusUpdate.deliveryNote')}
                           </p>
                         </div>
                       </div>
@@ -182,16 +184,16 @@ export function StatusUpdateSheet({ order, onClose, onUpdate }: StatusUpdateShee
                           : isBack ? 'text-slate-600'
                             : cfg.color
                       )}>
-                        {isSaving ? 'Update ho raha hai...' : cfg.label}
+                        {isSaving ? t('orders.statusUpdate.updating') : cfg.label}
                       </p>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        {status === 'delivered' && 'Gahak ne le liya'}
-                        {status === 'ready' && 'Tayyar — gahak ko batao'}
-                        {status === 'finishing' && 'Aakhri kaam ho raha hai'}
-                        {status === 'stitching' && 'Silai shuru'}
-                        {status === 'cutting' && 'Katai shuru'}
-                        {status === 'received' && 'Wapas received par'}
-                        {status === 'cancelled' && 'Order band karo'}
+                        {status === 'delivered' && t('orders.statusUpdate.labelDelivered')}
+                        {status === 'ready' && t('orders.statusUpdate.labelReady')}
+                        {status === 'finishing' && t('orders.statusUpdate.labelFinishing')}
+                        {status === 'stitching' && t('orders.statusUpdate.labelStitching')}
+                        {status === 'cutting' && t('orders.statusUpdate.labelCutting')}
+                        {status === 'received' && t('orders.statusUpdate.labelReceived')}
+                        {status === 'cancelled' && t('orders.statusUpdate.labelCancelled')}
                       </p>
                     </div>
                     {!isSaving && (

@@ -1,9 +1,10 @@
-﻿// src/app/layout.tsx
+// src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
-import { Poppins } from "next/font/google";
+import { Poppins, Noto_Nastaliq_Urdu } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 import { AuthProvider } from "@/lib/auth/AuthContext";
+import { LocaleProvider } from "@/lib/i18n/LocaleContext";
 import { Toaster } from "@/components/ui/sonner";
 import { PageErrorBoundary } from "@/components/ui/ErrorBoundary";
 
@@ -14,6 +15,13 @@ const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
+  display: "swap",
+});
+
+const notoNastaliqUrdu = Noto_Nastaliq_Urdu({
+  subsets: ["arabic"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-urdu",
   display: "swap",
 });
 
@@ -111,16 +119,25 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Server-rendered with Urdu as default; client-side LocaleProvider will
+  // read localStorage and update dir/lang dynamically
   return (
-    <html lang="en" data-scroll-behavior="smooth">
+    <html
+      lang="ur"
+      dir="rtl"
+      data-scroll-behavior="smooth"
+      className="locale-ur"
+    >
       <body
-        className={`${poppins.variable} min-w-0 overflow-x-clip font-sans antialiased`}
+        className={`${poppins.variable} ${notoNastaliqUrdu.variable} min-w-0 overflow-x-clip font-sans antialiased`}
         suppressHydrationWarning
       >
         <AuthProvider>
-          <AppShell>
-            <PageErrorBoundary>{children}</PageErrorBoundary>
-          </AppShell>
+          <LocaleProvider>
+            <AppShell>
+              <PageErrorBoundary>{children}</PageErrorBoundary>
+            </AppShell>
+          </LocaleProvider>
         </AuthProvider>
         <Toaster position="top-right" richColors closeButton />
       </body>

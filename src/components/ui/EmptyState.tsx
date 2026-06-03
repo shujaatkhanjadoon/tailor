@@ -1,6 +1,7 @@
 // src/components/ui/EmptyState.tsx
 import { LucideIcon } from 'lucide-react'
 import { cn }         from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface EmptyStateProps {
   icon?:       LucideIcon
@@ -28,6 +29,7 @@ export function EmptyState({
   secondaryAction,
   size = 'md',
 }: EmptyStateProps) {
+  const { t } = useTranslation()
   const sizes = {
     sm: { wrap: 'py-10', iconBox: 'w-12 h-12', iconSize: 20, emoji: 'text-3xl' },
     md: { wrap: 'py-16', iconBox: 'w-16 h-16', iconSize: 26, emoji: 'text-4xl' },
@@ -93,32 +95,32 @@ export function EmptyState({
 export const EMPTY_STATES = {
   orders: {
     emoji:       '📋',
-    title:       'Koi Order Nahi',
-    description: 'Pehla order add karein aur kaam shuru karein',
+    titleKey:    'emptyStates.orders.title',
+    descKey:     'emptyStates.orders.description',
   },
   customers: {
     emoji:       '👥',
-    title:       'Koi Gahak Nahi',
-    description: 'Pehle gahak ko register karein',
+    titleKey:    'emptyStates.customers.title',
+    descKey:     'emptyStates.customers.description',
   },
   payments: {
     emoji:       '💰',
-    title:       'Koi Payment Nahi',
-    description: 'Jab payment aaye gi yahan dikhegi',
+    titleKey:    'emptyStates.payments.title',
+    descKey:     'emptyStates.payments.description',
   },
   search: {
     emoji:       '🔍',
-    title:       'Kuch Nahi Mila',
-    description: 'Alag keywords se try karein',
+    titleKey:    'emptyStates.search.title',
+    descKey:     'emptyStates.search.description',
   },
   reports: {
     emoji:       '📊',
-    title:       'Data Nahi Hai',
-    description: 'Orders add karein to reports dikhenge',
+    titleKey:    'emptyStates.reports.title',
+    descKey:     'emptyStates.reports.description',
   },
   offline: {
     emoji:       '📡',
-    title:       'Internet Nahi Hai',
-    description: 'Connection check karein aur dobara try karein',
+    titleKey:    'emptyStates.offline.title',
+    descKey:     'emptyStates.offline.description',
   },
 }

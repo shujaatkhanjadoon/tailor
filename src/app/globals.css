@@ -8,6 +8,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
+  --font-urdu: var(--font-urdu);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -162,6 +163,13 @@
   html {
     @apply font-sans;
   }
+
+  /* Urdu font for RTL mode */
+  html.locale-ur body,
+  html[dir="rtl"] body {
+    font-family: var(--font-urdu), var(--font-sans), sans-serif;
+  }
+
   @media (max-width: 639px) {
     button {
       min-width: 40px;
@@ -170,6 +178,28 @@
   }
 
 }
+
+/* ── RTL overrides ──────────────────────────────────────────────── */
+html[dir="rtl"] .rtl-flip {
+  transform: scaleX(-1);
+}
+
+html[dir="rtl"] .space-x-reverse > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+}
+
+/* Flip directional icons in RTL */
+html[dir="rtl"] .lucide-chevron-right,
+html[dir="rtl"] .lucide-chevron-left,
+html[dir="rtl"] .lucide-arrow-right,
+html[dir="rtl"] .lucide-arrow-left,
+html[dir="rtl"] .lucide-chevrons-right,
+html[dir="rtl"] .lucide-chevrons-left {
+  transform: scaleX(-1);
+}
+
+
+
 /* ── Keyframes (outside layers) ─────────────────────────────────── */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }

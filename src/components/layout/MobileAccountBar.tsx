@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CreditCard, Lock, LogOut, Settings, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthContext'
+import { useTranslation } from 'react-i18next'
 import Image from 'next/image'
 import Link from 'next/link'
 import type { ShopRecord } from '@/lib/db/schema'
@@ -11,9 +12,9 @@ import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { shopOps } from '@/lib/db/operations'
 
 const actions = [
-  { href: '/settings',             icon: Settings,   label: 'Settings' },
-  { href: '/settings/change-pin',  icon: Lock,       label: 'PIN Badlein' },
-  { href: '/billing',              icon: CreditCard, label: 'Billing' },
+  { href: '/settings',             icon: Settings,   key: 'settings' },
+  { href: '/settings/change-pin',  icon: Lock,       key: 'changePin' },
+  { href: '/billing',              icon: CreditCard, key: 'billing' },
 ]
 
 export function MobileAccountBar() {
@@ -21,6 +22,7 @@ export function MobileAccountBar() {
   const { currentUser, logout, shopId } = useAuth()
   const [open, setOpen] = useState(false)
   const [shop, setShop] = useState<ShopRecord | undefined>()
+  const { t } = useTranslation()
   useEffect(() => {
     if (!shopId) return
     shopOps.get(shopId).then(setShop).catch(() => setShop(undefined))
@@ -95,25 +97,24 @@ export function MobileAccountBar() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-slate-800">
-                {/* {shop?.brandName || shop?.shopName ? `${shop?.brandName || shop?.shopName} · ` : ''} */}
                 {currentUser?.name ?? 'User'}
               </p>
               <p className="truncate text-xs text-slate-400">{currentUser?.phone}</p>
             </div>
             <span className="rounded-full bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-              {currentUser?.role === 'owner' ? 'Owner' : 'Karigar'}
+              {currentUser?.role === 'owner' ? t('settings.profile.roleOwner') : t('settings.profile.roleKarigar')}
             </span>
           </button>
           {visibleActions.length > 0 && (
           <div className="mt-2 grid grid-cols-3 gap-2">
-            {visibleActions.map(({ href, icon: Icon, label }) => (
+            {visibleActions.map(({ href, icon: Icon, key }) => (
               <button
                 key={href}
                 onClick={() => go(href)}
                 className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-[11px] font-semibold text-slate-600 active:bg-slate-50"
               >
                 <Icon size={16} />
-                <span className="max-w-full truncate">{label}</span>
+                <span className="max-w-full truncate">{t(`settings.account.${key}`)}</span>
               </button>
             ))}
           </div>
@@ -123,7 +124,7 @@ export function MobileAccountBar() {
             className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 px-3 py-3 text-sm font-semibold text-red-600 active:bg-red-100"
           >
             <LogOut size={16} />
-            Logout
+            {t('nav.logout')}
           </button>
         </div>
       )}

@@ -5,10 +5,12 @@ import { X }         from 'lucide-react'
 import { useState }  from 'react'
 import { usePlan }   from '@/hooks/usePlan'
 import { cn }        from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 export function TrialBanner() {
   const plan            = usePlan()
   const [dismissed, setDismissed] = useState(false)
+  const { t } = useTranslation()
 
   if (dismissed)                    return null
   if (!plan.isTrial && !plan.inGrace && !plan.isExpired) return null
@@ -36,12 +38,12 @@ export function TrialBanner() {
           plan.isExpired ? 'text-red-800' : plan.inGrace ? 'text-orange-800' : 'text-blue-800'
         )}>
           {plan.isExpired
-            ? 'Aapka plan expire ho gaya!'
+            ? t('billing.expired')
             : plan.inGrace
-            ? `Grace period — ${plan.daysLeft} din baaki`
+            ? t('billing.gracePeriod', { days: plan.daysLeft })
             : plan.isTrial
-            ? `Free trial — ${plan.daysLeft} din baaki`
-            : 'Plan expire hone wala hai'
+            ? t('billing.freeTrial', { days: plan.daysLeft })
+            : t('billing.expiringSoon')
           }
         </p>
         <p className={cn(
@@ -49,8 +51,8 @@ export function TrialBanner() {
           plan.isExpired ? 'text-red-600' : plan.inGrace ? 'text-orange-600' : 'text-blue-600'
         )}>
           {plan.isExpired
-            ? 'Features band ho gayi hain — upgrade karein'
-            : 'Upgrade kar ke sab features unlock karein'
+            ? t('billing.expiredDesc')
+            : t('billing.freeTrialDesc')
           }
         </p>
       </div>
@@ -64,7 +66,7 @@ export function TrialBanner() {
             : 'bg-blue-600 text-white'
         )}
       >
-        Upgrade →
+        {t('billing.upgrade')}
       </button>
 
       {!plan.isExpired && (

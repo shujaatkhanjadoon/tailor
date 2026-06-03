@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { Download, X, Smartphone } from 'lucide-react'
 import { ensureServiceWorkerRegistration } from '@/lib/notifications/push'
+import { useTranslation } from 'react-i18next'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -15,6 +16,7 @@ export function PWAInstallPrompt() {
   const [showBanner,     setShowBanner]     = useState(false)
   const [isIOS,          setIsIOS]          = useState(false)
   const [isInstalled,    setIsInstalled]    = useState(false)
+  const { t } = useTranslation()
 
   useEffect(() => {
     ensureServiceWorkerRegistration().catch(console.error)
@@ -76,14 +78,14 @@ export function PWAInstallPrompt() {
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold">App Install Karein</p>
+          <p className="text-sm font-bold">{t('pwa.install')}</p>
           {isIOS ? (
             <p className="text-xs text-slate-300 mt-0.5">
-              Safari mein Share → Add to Home Screen tap karein
+              {t('pwa.iosDesc')}
             </p>
           ) : (
             <p className="text-xs text-slate-300 mt-0.5">
-              Phone par install karein
+              {t('pwa.installDesc')}
             </p>
           )}
         </div>
@@ -96,7 +98,7 @@ export function PWAInstallPrompt() {
                          text-white text-xs font-bold px-3 py-2 rounded-xl transition-colors"
             >
               <Download size={13} />
-              Install
+              {t('pwa.installBtn')}
             </button>
           )}
           <button

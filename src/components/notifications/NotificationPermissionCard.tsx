@@ -4,6 +4,7 @@
 import { Bell, X } from 'lucide-react'
 import { useState } from 'react'
 import { useNotifications } from '@/hooks/useNotifications'
+import { useTranslation } from 'react-i18next'
 
 export function NotificationPermissionCard() {
   const { permission, requestPermission, isSupported } = useNotifications()
@@ -12,6 +13,7 @@ export function NotificationPermissionCard() {
       ? localStorage.getItem('notif-banner-dismissed') === '1'
       : false
   )
+  const { t } = useTranslation()
 
   // Don't show if: already granted, denied, unsupported, or dismissed
   if (!isSupported || permission !== 'default' || dismissed) return null
@@ -34,11 +36,10 @@ export function NotificationPermissionCard() {
 
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-blue-800 text-sm">
-          Due Orders Ki Yaad Dahi
+          {t('notifications.title')}
         </p>
         <p className="text-xs text-blue-600 mt-0.5 leading-relaxed">
-          Notifications on karein — jab order late ho ya aaj due ho,
-          hum aapko bata denge.
+          {t('notifications.desc')}
         </p>
         <div className="flex gap-2 mt-3">
           <button
@@ -46,14 +47,14 @@ export function NotificationPermissionCard() {
             className="flex-1 bg-blue-600 text-white text-xs font-bold
                        py-2.5 rounded-xl transition-colors active:scale-95"
           >
-            🔔 Haan, On Karein
+            {t('notifications.enable')}
           </button>
           <button
             onClick={handleDismiss}
             className="px-3 py-2.5 bg-white border border-blue-200
                        text-blue-600 text-xs font-semibold rounded-xl"
           >
-            Baad Mein
+            {t('notifications.later')}
           </button>
         </div>
       </div>

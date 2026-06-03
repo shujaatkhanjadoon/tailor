@@ -1,6 +1,8 @@
-﻿// src/app/track/[code]/not-found.tsx
+// src/app/track/[code]/not-found.tsx
 import { Scissors, SearchX } from 'lucide-react'
 
+// This is a server component — getLocaleFromCookie would be used for server-side i18n
+// For now, using static text; can be enhanced with cookie-based locale detection
 export default function TrackNotFound() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6 text-center">
