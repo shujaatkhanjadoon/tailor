@@ -13,7 +13,7 @@ interface LocaleContextValue {
 const LocaleContext = createContext<LocaleContextValue>({
   locale: 'ur',
   setLocale: () => {},
-  dir: 'rtl',
+  dir: 'ltr',
 })
 
 export function useLocale() {
@@ -28,7 +28,7 @@ function setCookie(name: string, value: string, days = 365) {
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<SupportedLocale>('ur')
-  const [dir, setDir] = useState<'ltr' | 'rtl'>('rtl')
+  const [dir, setDir] = useState<'ltr' | 'rtl'>('ltr')
   const [ready, setReady] = useState(false)
 
   // Initialize on mount

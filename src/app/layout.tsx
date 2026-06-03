@@ -124,7 +124,7 @@ export default function RootLayout({
   return (
     <html
       lang="ur"
-      dir="rtl"
+      dir="ltr"
       data-scroll-behavior="smooth"
       className="locale-ur"
     >

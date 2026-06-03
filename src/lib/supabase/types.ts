@@ -75,7 +75,6 @@ export interface TeamMemberRow {
   phone:        string
   role:         'owner' | 'karigar'
   pin_hash:     string      // bcrypt hash in production
-  pin_plain?:   string
   speciality?:  string
   pay_rate_type?: 'daily' | 'per_order' | 'monthly'
   pay_rate?:    number

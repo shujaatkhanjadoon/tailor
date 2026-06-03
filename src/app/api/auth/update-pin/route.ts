@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { encryptPIN } from '@/lib/security/pin-crypto'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 import { validate, schemas } from '@/lib/validation'
 

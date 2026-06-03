@@ -22,7 +22,10 @@ export function detectLocale(): SupportedLocale {
 }
 
 export function getLocaleDir(locale: SupportedLocale): 'ltr' | 'rtl' {
-  return locale === 'ur' ? 'rtl' : 'ltr'
+  // Urdu is intentionally rendered in LTR layouts for this app so switching
+  // languages does not mirror the operational UI.
+  void locale
+  return 'ltr'
 }
 
 // Initialize i18next

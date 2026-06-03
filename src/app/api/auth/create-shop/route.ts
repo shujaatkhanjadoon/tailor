@@ -5,7 +5,6 @@ import {
   sendShopOwnerAccountCreated,
   sendShopVerificationAlert,
 } from '@/lib/security/email-otp'
-import { encryptPIN } from '@/lib/security/pin-crypto'
 import { parseBody } from '@/lib/security/body'
 
 const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -118,26 +117,19 @@ export async function POST(req: NextRequest) {
   const parsed = await parseBody<{
     shopId?: string; shopName?: string; ownerPhone?: string; ownerName?: string;
     email?: string; city?: string; stateProvince?: string; addressLine?: string;
-    postalCode?: string; pinHash?: string; pinPlain?: string;
+    postalCode?: string; pinHash?: string;
   }>(req)
   if (!parsed.ok) {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status })
   }
   const {
     shopId, shopName, ownerPhone, ownerName,
-    email, city, stateProvince, addressLine, postalCode, pinHash, pinPlain,
+    email, city, stateProvince, addressLine, postalCode, pinHash,
   } = parsed.data
 
   if (!shopId || !shopName || !ownerPhone || !pinHash) {
     return NextResponse.json(
       { error: 'Required fields: shopId, shopName, ownerPhone, pinHash' },
-      { status: 400 }
-    )
-  }
-
-  if (pinPlain && !/^\d{6}$/.test(String(pinPlain))) {
-    return NextResponse.json(
-      { error: 'Shop account PIN must be exactly 6 digits' },
       { status: 400 }
     )
   }
@@ -192,7 +184,6 @@ export async function POST(req: NextRequest) {
       owner_name:          ownerName ?? shopName,
       owner_phone:         ownerPhone,
       whatsapp_number:     ownerPhone,
-      encrypted_owner_pin: pinPlain ? encryptPIN(pinPlain) : null,
       owner_email:         normalizedEmail || null,
       state_province:      stateProvince ?? null,
       city:                city   ?? null,

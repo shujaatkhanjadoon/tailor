@@ -35,10 +35,9 @@ export default function DashboardPage() {
   const router = useRouter();
   const { shopId, isOwner, currentUser } = useAuth();
 
-  // const [greeting, setGreeting] = useState("Assalam o Alaikum");
-  const [todayStr, setTodayStr] = useState("");
   const [shop, setShop] = useState<ShopRecord | undefined>()
   const today = karachiDateString();
+  const todayStr = today;
   const { orders: allOrders, isLoading } = useOrders(shopId, currentUser?.role === 'karigar' ? 'karigar' : 'owner', currentUser?.id)
   const { payments: allPayments } = usePayments(shopId, { orders: allOrders })
 
@@ -47,14 +46,7 @@ export default function DashboardPage() {
     shopOps.get(shopId).then(setShop).catch(() => setShop(undefined))
   }, [shopId])
 
-  const now        = new Date()
-  const greeting = (() => {
-    const h = now.getHours()
-    if (h < 11) return 'Assalam o Alaikum'
-    if (h < 16) return 'Dopahar Bakhair'
-    if (h < 18) return 'Sham Bakhair'
-    return 'Shab Bakhair'
-  })()
+  const greeting = 'Assalam o Alaikum'
 
   // ── DERIVED STATS (memoized) ────────────────────────────────────
   const { stats, recent, overdueOrders } = useMemo(() => {
@@ -81,17 +73,7 @@ export default function DashboardPage() {
     }
   }, [allOrders, allPayments, today]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-slate-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-if (isLoading || !shopId) return <DashboardSkeleton />
+  if (isLoading || !shopId) return <DashboardSkeleton />
   return (
     <div className="overflow-x-clip pb-24 lg:pb-0">
       {/* HEADER */}

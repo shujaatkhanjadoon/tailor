@@ -78,7 +78,7 @@ export async function getAuditLog(limit = 200): Promise<any[]> {
     const encodedLimit = encodeURIComponent(String(limit))
     const res = await fetch(
       `${url}/rest/v1/admin_audit_log?order=performed_at.desc&limit=${encodedLimit}&select=*`,
-      { headers: { ...headers, 'Prefer': '' } }
+      { headers: { ...headers, 'Prefer': '' }, cache: 'no-store' }
     )
 
     if (!res.ok) {

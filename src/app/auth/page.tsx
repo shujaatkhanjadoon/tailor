@@ -453,7 +453,7 @@ function AuthContent() {
       saveSessionLocally(member.id, member.shop_id)
       const sessionRes = await fetch('/api/auth/session', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-        body: JSON.stringify({ memberId: member.id, shopId: member.shop_id, pin: enteredPin }),
+        body: JSON.stringify({ memberId: member.id, shopId: member.shop_id, pinHash: member.pin_hash }),
       })
       if (!sessionRes.ok) {
         const errData = await sessionRes.json().catch(() => ({}))

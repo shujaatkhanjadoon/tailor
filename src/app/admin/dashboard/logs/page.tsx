@@ -1,3 +1,4 @@
+import { connection } from 'next/server'
 import { getAuditLog } from '@/lib/admin/audit'
 import { ScrollText, CheckCircle2, XCircle, Settings, Bell } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
@@ -24,6 +25,7 @@ const ACTION_CONFIG: Record<string, { label: string; icon: LucideIcon; color: st
 }
 
 export default async function AuditLogPage() {
+  await connection()
   const logs = await getAuditLog(200)
 
   return (

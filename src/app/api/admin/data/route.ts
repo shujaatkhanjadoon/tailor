@@ -1,7 +1,6 @@
 // src/app/api/admin/data/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, verifySessionToken } from '@/lib/admin/auth'
-import { decryptPIN } from '@/lib/security/pin-crypto'
 // Direct Supabase REST calls — avoids createClient DNS issues
 const SB_URL  = () => process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SB_HDRS = () => {

@@ -33,15 +33,6 @@ const nextConfig: NextConfig = {
 
   // Strict mode for better error catching
   reactStrictMode: true,
-
-  // Bundle analyzer (only in analyze mode)
-  ...(process.env.ANALYZE === 'true' && {
-    webpack(config: any) {
-      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer')
-      config.plugins.push(new BundleAnalyzerPlugin({ analyzerMode: 'static' }))
-      return config
-    },
-  }),
 }
 
-module.exports = nextConfig
+export default nextConfig

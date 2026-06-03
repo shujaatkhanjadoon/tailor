@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 import { generateMemberSessionToken, verifyMemberSessionToken, MEMBER_SESSION_COOKIE, getSessionCookieOptions } from '@/lib/auth/session'
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -9,17 +10,27 @@ const HEADERS: Record<string, string> = {
   'Authorization': `Bearer ${SB_KEY}`,
 }
 
-async function verifyPinServerSide(memberId: string, pin: string): Promise<boolean> {
+function safeEqual(a: string, b: string): boolean {
+  try {
+    const left = Buffer.from(a)
+    const right = Buffer.from(b)
+    return left.length === right.length && timingSafeEqual(left, right)
+  } catch {
+    return false
+  }
+}
+
+async function verifyPinHashServerSide(memberId: string, shopId: string, pinHash: string): Promise<boolean> {
   try {
     const res = await fetch(
-      `${SB_URL}/rest/v1/team_members?id=eq.${encodeURIComponent(memberId)}&is_active=eq.true&deleted_at=is.null&select=pin_hash&limit=1`,
+      `${SB_URL}/rest/v1/team_members?id=eq.${encodeURIComponent(memberId)}&shop_id=eq.${encodeURIComponent(shopId)}&is_active=eq.true&deleted_at=is.null&select=pin_hash&limit=1`,
       { headers: HEADERS, signal: AbortSignal.timeout(5000) }
     )
     if (!res.ok) return false
     const members = await res.json()
     if (!members?.length) return false
-    const { compare } = await import('bcryptjs')
-    return compare(pin, members[0].pin_hash)
+    const storedHash = String(members[0].pin_hash ?? '')
+    return storedHash.startsWith('$2') && pinHash.startsWith('$2') && safeEqual(pinHash, storedHash)
   } catch {
     return false
   }
@@ -28,17 +39,17 @@ async function verifyPinServerSide(memberId: string, pin: string): Promise<boole
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { memberId, shopId, pin } = body
+    const { memberId, shopId, pinHash } = body
 
     if (!memberId || !shopId) {
       return NextResponse.json({ error: 'memberId and shopId required' }, { status: 400 })
     }
 
-    if (!pin) {
-      return NextResponse.json({ error: 'PIN required' }, { status: 400 })
+    if (!pinHash) {
+      return NextResponse.json({ error: 'PIN proof required' }, { status: 400 })
     }
 
-    const pinValid = await verifyPinServerSide(memberId, pin)
+    const pinValid = await verifyPinHashServerSide(memberId, shopId, pinHash)
     if (!pinValid) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
