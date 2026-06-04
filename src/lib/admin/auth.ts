@@ -8,8 +8,32 @@ export function generateTOTPSecret(): string {
   return authenticator.generateSecret()
 }
 
+// RFC 4648 Base32 alphabet
+const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+
+function hexToBase32(hex: string): string {
+  const bytes = Buffer.from(hex, 'hex')
+  let bits = ''
+  for (const b of bytes) {
+    bits += b.toString(2).padStart(8, '0')
+  }
+  // Pad to multiple of 5 bits
+  while (bits.length % 5 !== 0) bits += '0'
+  let result = ''
+  for (let i = 0; i < bits.length; i += 5) {
+    result += BASE32_ALPHABET[parseInt(bits.slice(i, i + 5), 2)]
+  }
+  return result
+}
+
 export function normalizeTOTPSecret(secret: string): string {
-  return secret.replace(/\s/g, '').toUpperCase().replace(/=+$/, '')
+  const cleaned = secret.replace(/\s/g, '')
+  // Detect hex (40+ chars, only 0-9 a-f A-F) vs Base32 (A-Z 2-7)
+  const isHex = cleaned.length >= 32 && /^[0-9a-fA-F]+$/.test(cleaned)
+  if (isHex) {
+    return hexToBase32(cleaned)
+  }
+  return cleaned.toUpperCase().replace(/=+$/, '')
 }
 
 export function generateTOTP(secret: string): string {

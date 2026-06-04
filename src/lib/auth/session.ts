@@ -4,7 +4,7 @@ const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 const COOKIE_NAME = '__Secure-md_session'
 
 function getSecret(): string {
-  const secret = process.env.SESSION_SIGNING_SECRET ?? process.env.ADMIN_SECRET
+  const secret = process.env.SESSION_SIGNING_SECRET
   if (!secret) throw new Error('SESSION_SIGNING_SECRET not set (required for session signing)')
   return secret
 }

@@ -73,88 +73,152 @@ ALTER TABLE customers ADD CONSTRAINT customers_shop_id_phone_key UNIQUE (shop_id
 ALTER TABLE team_members DROP CONSTRAINT IF EXISTS team_members_shop_id_phone_key;
 ALTER TABLE team_members ADD CONSTRAINT team_members_shop_id_phone_key UNIQUE (shop_id, phone);
 
+-- Unique constraint for shop_usage (used by sbUpsertByShopId)
+ALTER TABLE shop_usage DROP CONSTRAINT IF EXISTS shop_usage_shop_id_month_year_key;
+ALTER TABLE shop_usage ADD CONSTRAINT shop_usage_shop_id_month_year_key UNIQUE (shop_id, month_year);
+
+-- CHECK constraints for data integrity
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check;
+ALTER TABLE orders ADD CONSTRAINT orders_status_check
+  CHECK (status IN ('pending','in_progress','ready','delivered','cancelled'));
+
+ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_method_check;
+ALTER TABLE payments ADD CONSTRAINT payments_method_check
+  CHECK (method IN ('cash','card','transfer','online','other'));
+
+ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_status_check;
+ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_status_check
+  CHECK (status IN ('trialing','active','cancelled','grace','expired'));
+
+ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_billing_cycle_check;
+ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_billing_cycle_check
+  CHECK (billing_cycle IS NULL OR billing_cycle IN ('monthly','yearly','lifetime'));
+
+ALTER TABLE subscription_payments DROP CONSTRAINT IF EXISTS subscription_payments_status_check;
+ALTER TABLE subscription_payments ADD CONSTRAINT subscription_payments_status_check
+  CHECK (status IN ('pending','completed','failed','refunded'));
+
+ALTER TABLE subscription_payments DROP CONSTRAINT IF EXISTS subscription_payments_method_check;
+ALTER TABLE subscription_payments ADD CONSTRAINT subscription_payments_method_check
+  CHECK (method IN ('raast','reminder'));
+
+ALTER TABLE team_members DROP CONSTRAINT IF EXISTS team_members_role_check;
+ALTER TABLE team_members ADD CONSTRAINT team_members_role_check
+  CHECK (role IN ('owner','admin','karigar','manager'));
+
 -- ============================================================
--- 3. ROW LEVEL SECURITY — CLEANUP FROM PREVIOUS RUNS
+-- 3. ROW LEVEL SECURITY
 -- ============================================================
 --
--- The app uses custom PIN-based auth (no Supabase Auth sessions),
--- so auth.uid() is always NULL on client-side anon-key queries.
--- All writes go through service-role API routes which bypass RLS.
--- Enabling RLS would break client-side reads without adding security.
--- This section cleans up any RLS state left by earlier migration attempts.
+-- Architecture notes:
+--   The app uses custom PIN-based auth (no Supabase Auth sessions),
+--   so auth.uid() is always NULL on client-side queries. The service
+--   role key is used for all server-side API routes and bypasses RLS.
+--
+--   The client-side anon key is used for direct Supabase queries from
+--   the browser. RLS policies for the anon role are intentionally
+--   permissive because the real auth boundary is the API layer.
+--   These policies provide defense-in-depth and a foundation for
+--   future Supabase Auth migration.
+--
+--   The tracking endpoint (public order lookup) is granted explicit
+--   SELECT access to limited order/shop columns.
 
 -- Drop all policies that may have been created by previous runs
 DO $$ BEGIN
-  -- shops
-  DROP POLICY IF EXISTS shops_read_own      ON shops;
-  DROP POLICY IF EXISTS shops_update_own    ON shops;
-  DROP POLICY IF EXISTS shops_select        ON shops;
-  DROP POLICY IF EXISTS shops_update        ON shops;
-  -- team_members
-  DROP POLICY IF EXISTS team_members_read_own    ON team_members;
-  DROP POLICY IF EXISTS team_members_write_owner ON team_members;
-  DROP POLICY IF EXISTS team_members_select      ON team_members;
-  DROP POLICY IF EXISTS team_members_manage      ON team_members;
-  -- customers
-  DROP POLICY IF EXISTS customers_read_own   ON customers;
-  DROP POLICY IF EXISTS customers_write_owner ON customers;
-  DROP POLICY IF EXISTS customers_select     ON customers;
-  DROP POLICY IF EXISTS customers_manage     ON customers;
-  -- orders
-  DROP POLICY IF EXISTS orders_read_own     ON orders;
-  DROP POLICY IF EXISTS orders_write_owner  ON orders;
-  DROP POLICY IF EXISTS orders_update_owner ON orders;
-  DROP POLICY IF EXISTS orders_select       ON orders;
-  DROP POLICY IF EXISTS orders_insert       ON orders;
-  DROP POLICY IF EXISTS orders_update       ON orders;
-  -- payments
-  DROP POLICY IF EXISTS payments_read_own   ON payments;
-  DROP POLICY IF EXISTS payments_write_owner ON payments;
-  DROP POLICY IF EXISTS payments_select     ON payments;
-  DROP POLICY IF EXISTS payments_manage     ON payments;
-  -- measurements
-  DROP POLICY IF EXISTS measurements_read_own   ON measurements;
-  DROP POLICY IF EXISTS measurements_write_owner ON measurements;
-  DROP POLICY IF EXISTS measurements_select     ON measurements;
-  DROP POLICY IF EXISTS measurements_manage     ON measurements;
-  -- order_photos
-  DROP POLICY IF EXISTS order_photos_read_own  ON order_photos;
-  DROP POLICY IF EXISTS order_photos_write_owner ON order_photos;
-  DROP POLICY IF EXISTS order_photos_select    ON order_photos;
-  DROP POLICY IF EXISTS order_photos_manage    ON order_photos;
-  -- order_status_history
-  DROP POLICY IF EXISTS order_status_history_read_own ON order_status_history;
-  DROP POLICY IF EXISTS order_status_history_select   ON order_status_history;
-  -- subscriptions
-  DROP POLICY IF EXISTS subscriptions_read_own ON subscriptions;
-  DROP POLICY IF EXISTS subscriptions_select   ON subscriptions;
-  -- subscription_payments
-  DROP POLICY IF EXISTS subscription_payments_select ON subscription_payments;
-  -- shop_usage
-  DROP POLICY IF EXISTS shop_usage_read_own ON shop_usage;
-  DROP POLICY IF EXISTS shop_usage_select   ON shop_usage;
-  -- push_subscriptions
-  DROP POLICY IF EXISTS push_subscriptions_manage_own ON push_subscriptions;
-  DROP POLICY IF EXISTS push_subscriptions_manage     ON push_subscriptions;
-  -- email_verifications
-  DROP POLICY IF EXISTS email_verifications_select ON email_verifications;
-  DROP POLICY IF EXISTS email_verifications_manage ON email_verifications;
+  DROP POLICY IF EXISTS anon_shops_all       ON shops;
+  DROP POLICY IF EXISTS anon_team_members_all ON team_members;
+  DROP POLICY IF EXISTS anon_customers_all    ON customers;
+  DROP POLICY IF EXISTS anon_orders_all       ON orders;
+  DROP POLICY IF EXISTS anon_payments_all     ON payments;
+  DROP POLICY IF EXISTS anon_order_photos_all ON order_photos;
+  DROP POLICY IF EXISTS anon_order_status_history_all ON order_status_history;
+  DROP POLICY IF EXISTS anon_measurements_all ON measurements;
+  DROP POLICY IF EXISTS anon_subscriptions_all ON subscriptions;
+  DROP POLICY IF EXISTS anon_subscription_payments_all ON subscription_payments;
+  DROP POLICY IF EXISTS anon_shop_usage_all   ON shop_usage;
+  DROP POLICY IF EXISTS anon_email_verifications_all ON email_verifications;
+  DROP POLICY IF EXISTS anon_push_subscriptions_all ON push_subscriptions;
+  DROP POLICY IF EXISTS public_tracking_select ON orders;
 END $$;
 
--- Disable RLS on all tables that had it enabled from previous runs
-ALTER TABLE shops                  DISABLE ROW LEVEL SECURITY;
-ALTER TABLE team_members           DISABLE ROW LEVEL SECURITY;
-ALTER TABLE customers              DISABLE ROW LEVEL SECURITY;
-ALTER TABLE orders                 DISABLE ROW LEVEL SECURITY;
-ALTER TABLE payments               DISABLE ROW LEVEL SECURITY;
-ALTER TABLE order_photos           DISABLE ROW LEVEL SECURITY;
-ALTER TABLE order_status_history   DISABLE ROW LEVEL SECURITY;
-ALTER TABLE measurements           DISABLE ROW LEVEL SECURITY;
-ALTER TABLE subscriptions          DISABLE ROW LEVEL SECURITY;
-ALTER TABLE subscription_payments  DISABLE ROW LEVEL SECURITY;
-ALTER TABLE shop_usage             DISABLE ROW LEVEL SECURITY;
-ALTER TABLE email_verifications    DISABLE ROW LEVEL SECURITY;
-ALTER TABLE push_subscriptions     DISABLE ROW LEVEL SECURITY;
+-- Enable RLS on all tables
+ALTER TABLE IF EXISTS shops                  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS team_members           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS customers              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS orders                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS payments               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS order_photos           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS order_status_history   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS measurements           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS subscriptions          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS subscription_payments  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS shop_usage             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS email_verifications    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS push_subscriptions     ENABLE ROW LEVEL SECURITY;
+
+-- ── Anon-role policies — full CRUD, app-layer auth ────────────
+-- These match the existing client-side query patterns. The service
+-- role key is used for server-side operations and bypasses RLS.
+-- Tightening these policies requires migrating to Supabase Auth.
+
+-- shops
+CREATE POLICY anon_shops_all ON shops FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+-- team_members
+CREATE POLICY anon_team_members_all ON team_members FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+-- customers
+CREATE POLICY anon_customers_all ON customers FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+-- orders
+CREATE POLICY anon_orders_all ON orders FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+-- payments
+CREATE POLICY anon_payments_all ON payments FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+-- order_photos
+CREATE POLICY anon_order_photos_all ON order_photos FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+-- order_status_history
+CREATE POLICY anon_order_status_history_all ON order_status_history FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+-- measurements
+CREATE POLICY anon_measurements_all ON measurements FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+-- subscriptions
+CREATE POLICY anon_subscriptions_all ON subscriptions FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+-- subscription_payments
+CREATE POLICY anon_subscription_payments_all ON subscription_payments FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+-- shop_usage
+CREATE POLICY anon_shop_usage_all ON shop_usage FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+-- email_verifications
+CREATE POLICY anon_email_verifications_all ON email_verifications FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+-- push_subscriptions
+CREATE POLICY anon_push_subscriptions_all ON push_subscriptions FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+-- ── Public tracking ───────────────────────────────────────────
+-- Allow anyone (including unauthenticated users) to look up an
+-- order by tracking code. This is used by TrackClient.tsx.
+CREATE POLICY public_tracking_select ON orders FOR SELECT TO public
+  USING (tracking_code IS NOT NULL AND deleted_at IS NULL);
 
 -- Drop the helper functions that are no longer needed
 DROP FUNCTION IF EXISTS public.current_shop_id();

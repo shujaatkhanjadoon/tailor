@@ -56,7 +56,10 @@ export async function sbFetch(path: string, init: RequestInit = {}): Promise<Res
     : new Error('Supabase request failed')
 }
 
-export async function sbGet(path: string): Promise<any[]> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Row = Record<string, any>
+
+export async function sbGet(path: string): Promise<Row[]> {
   const res = await sbFetch(path)
   if (!res.ok) {
     const err = await res.text()
@@ -65,7 +68,7 @@ export async function sbGet(path: string): Promise<any[]> {
   return res.json()
 }
 
-export async function sbPost(table: string, data: object): Promise<any> {
+export async function sbPost(table: string, data: object): Promise<Row | null> {
   const res = await sbFetch(table, {
     method:  'POST',
     headers: { 'Prefer': 'return=representation' },

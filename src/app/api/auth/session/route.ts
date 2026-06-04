@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { timingSafeEqual } from 'crypto'
 import { generateMemberSessionToken, verifyMemberSessionToken, MEMBER_SESSION_COOKIE, getSessionCookieOptions } from '@/lib/auth/session'
 import { sbFetch } from '@/lib/supabase/service'
+import { ok, badRequest, unauthorized, serverError } from '@/lib/api-response'
 
 function safeEqual(a: string, b: string): boolean {
   try {
@@ -34,26 +35,26 @@ export async function POST(req: NextRequest) {
     const { memberId, shopId, pinHash } = body
 
     if (!memberId || !shopId) {
-      return NextResponse.json({ error: 'memberId and shopId required' }, { status: 400 })
+      return badRequest('memberId and shopId required')
     }
 
     if (!pinHash) {
-      return NextResponse.json({ error: 'PIN proof required' }, { status: 400 })
+      return badRequest('PIN proof required')
     }
 
     const pinValid = await verifyPinHashServerSide(memberId, shopId, pinHash)
     if (!pinValid) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+      return unauthorized('Invalid credentials')
     }
 
     const token = generateMemberSessionToken(memberId, shopId)
-    const res = NextResponse.json({ success: true })
+    const res = ok({ authenticated: true })
     res.cookies.set(MEMBER_SESSION_COOKIE, token, getSessionCookieOptions())
 
     return res
   } catch (e) {
     console.error('[Session POST]', e)
-    return NextResponse.json({ error: 'Session creation failed' }, { status: 500 })
+    return serverError('Session creation failed')
   }
 }
 
@@ -61,12 +62,12 @@ export async function GET(req: NextRequest) {
   try {
     const token = req.cookies.get(MEMBER_SESSION_COOKIE)?.value
     if (!token) {
-      return NextResponse.json({ authenticated: false }, { status: 401 })
+      return unauthorized('No session')
     }
 
     const session = verifyMemberSessionToken(token)
     if (!session) {
-      const res = NextResponse.json({ authenticated: false }, { status: 401 })
+      const res = unauthorized('Session expired')
       res.cookies.set(MEMBER_SESSION_COOKIE, '', { ...getSessionCookieOptions(0), maxAge: 0 })
       return res
     }
@@ -77,31 +78,32 @@ export async function GET(req: NextRequest) {
     )
 
     if (!memberRes.ok) {
-      return NextResponse.json({ error: 'Failed to fetch member' }, { status: 500 })
+      return serverError('Failed to fetch member')
     }
 
     const members = await memberRes.json()
     if (!members?.length) {
-      const res = NextResponse.json({ authenticated: false }, { status: 401 })
+      const res = unauthorized('Member not found')
       res.cookies.set(MEMBER_SESSION_COOKIE, '', { ...getSessionCookieOptions(0), maxAge: 0 })
       return res
     }
 
     const member = members[0]
+    // NOTE: Flat response — client code reads data.authenticated, data.memberId etc.
     return NextResponse.json({
       authenticated: true,
       memberId: session.memberId,
       shopId: session.shopId,
-      member, // raw Supabase row — mapTeamMember expects snake_case
+      member,
     })
   } catch (e) {
     console.error('[Session GET]', e)
-    return NextResponse.json({ error: 'Session check failed' }, { status: 500 })
+    return serverError('Session check failed')
   }
 }
 
 export async function DELETE(_req: NextRequest) {
-  const res = NextResponse.json({ success: true })
+  const res = ok({ loggedOut: true })
   res.cookies.set(MEMBER_SESSION_COOKIE, '', { ...getSessionCookieOptions(0), maxAge: 0 })
   return res
 }

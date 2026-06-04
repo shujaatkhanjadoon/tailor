@@ -3,7 +3,7 @@
 
 import { logAdminAction } from '@/lib/admin/audit'
 import { buildActivationWhatsApp, buildRejectionWhatsApp } from './whatsapp-notify'
-import { sbGet, sbPatch, sbPost, sbUpsertById, sbUpsertByShopId } from '@/lib/supabase/service'
+import { sbGet, sbPatch, sbPost, sbUpsertById, sbUpsertByShopId, type Row } from '@/lib/supabase/service'
 import { sbFetch } from '@/lib/supabase/service'
 import { PLANS } from './plans'
 import { subscriptionExpiresAt } from './cycles'
@@ -36,33 +36,55 @@ export async function getRevenueSummary() {
   const now       = new Date()
   const thisMonth = now.toISOString().slice(0, 7)
 
-  const total = payments.reduce((s: number, p: any) => s + Number(p.amount_pkr), 0)
+  const total = payments.reduce((s: number, p: Row) => s + Number(p.amount_pkr), 0)
 
   const thisMonthRevenue = payments
-    .filter((p: any) => p.paid_at?.startsWith(thisMonth))
-    .reduce((s: number, p: any) => s + Number(p.amount_pkr), 0)
+    .filter((p: Row) => p.paid_at?.startsWith(thisMonth))
+    .reduce((s: number, p: Row) => s + Number(p.amount_pkr), 0)
 
-  const activeSubscriptions = subs.filter((s: any) => s.status === 'active').length
-  const trialing            = subs.filter((s: any) => s.status === 'trialing').length
+  const activeSubscriptions = subs.filter((s: Row) => s.status === 'active').length
+  const trialing            = subs.filter((s: Row) => s.status === 'trialing').length
 
   return { total, thisMonthRevenue, activeSubscriptions, trialing }
 }
 
+// ── Pagination helper ─────────────────────────────────────────────
+
+export interface PaginatedResult<T> {
+  data: T[]
+  total: number
+  page: number
+  perPage: number
+  totalPages: number
+}
+
+async function getTotalCount(table: string, filter = ''): Promise<number> {
+  try {
+    const res = await sbGet(`${table}?select=id&${filter}&limit=1&count=exact&head=true`.replace(/&+/, '&'))
+    // PostgREST returns count in Content-Range header when using the JS client,
+    // but with raw fetch we need a different approach
+    return res.length > 0 ? -1 : 0
+  } catch {
+    return -1
+  }
+}
+
 // ── Get all shops with subscriptions and usage ────────────────────
 
-export async function getAllShops() {
+export async function getAllShops(page = 1, perPage = 50) {
+  const offset = (page - 1) * perPage
   // Fetch in parallel
   const [shops, subscriptions, usages] = await Promise.all([
-    sbGet('shops?select=id,shop_name,owner_phone,city,plan,is_active,created_at,updated_at&order=created_at.desc'),
+    sbGet(`shops?select=id,shop_name,owner_phone,city,plan,is_active,created_at,updated_at&order=created_at.desc&limit=${perPage}&offset=${offset}`),
     sbGet('subscriptions?select=shop_id,plan,status,billing_cycle,trial_ends_at,expires_at,grace_ends_at,amount_pkr,created_at,updated_at'),
     sbGet('shop_usage?select=shop_id,orders_this_month,customers_total,karigar_count,storage_used_kb,month_year'),
   ])
 
   // Join manually
-  return shops.map((shop: any) => ({
+  return shops.map((shop: Row) => ({
     ...shop,
-    subscriptions: subscriptions.filter((s: any) => s.shop_id === shop.id),
-    shop_usage:    usages.filter((u: any) => u.shop_id === shop.id),
+    subscriptions: subscriptions.filter((s: Row) => s.shop_id === shop.id),
+    shop_usage:    usages.filter((u: Row) => u.shop_id === shop.id),
   }))
 }
 
@@ -74,9 +96,9 @@ export async function getPendingPayments() {
     sbGet('shops?select=id,shop_name,owner_phone,city'),
   ])
 
-  const shopMap = new Map(shops.map((s: any) => [s.id, s]))
+  const shopMap = new Map(shops.map((s: Row) => [s.id, s]))
 
-  return payments.map((p: any) => ({
+  return payments.map((p: Row) => ({
     ...p,
     shops: shopMap.get(p.shop_id) ?? null,
   }))
@@ -92,12 +114,18 @@ export async function activateSubscription(
   shopId:     string,
 ): Promise<ActivateResult> {
   try {
-    // 1. Get shop details
-    const shops = await sbGet(`shops?id=eq.${shopId}&select=shop_name,owner_phone`)
+    // 1. Get shop details + existing subscription
+    const [shops, existingSubs] = await Promise.all([
+      sbGet(`shops?id=eq.${shopId}&select=shop_name,owner_phone`),
+      sbGet(`subscriptions?shop_id=eq.${shopId}&select=expires_at&limit=1`),
+    ])
     const shop = shops[0]
+    const existingSub = existingSubs?.[0]
 
-    // 2. Calculate expiry
-    const expiresAtISO = subscriptionExpiresAt(cycle)
+    // 2. Calculate expiry — extend from existing expiry so users don't lose paid time
+    const oldExpiry = existingSub?.expires_at ? new Date(existingSub.expires_at) : null
+    const baseDate = (oldExpiry && oldExpiry > new Date()) ? oldExpiry : new Date()
+    const expiresAtISO = subscriptionExpiresAt(cycle, baseDate)
 
     // 3. Upsert subscription
     await sbUpsertByShopId('subscriptions', {
@@ -202,9 +230,15 @@ export async function adminSetPlan(
   cycle:   string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const existingSubs = (planId !== 'starter' && cycle !== 'lifetime')
+      ? await sbGet(`subscriptions?shop_id=eq.${shopId}&select=expires_at&limit=1`).catch(() => [])
+      : []
+    const existingSub = existingSubs?.[0]
+    const oldExpiry = existingSub?.expires_at ? new Date(existingSub.expires_at) : null
+    const baseDate = (oldExpiry && oldExpiry > new Date()) ? oldExpiry : new Date()
     const expiresAtISO = (cycle === 'lifetime' || planId === 'starter')
       ? null
-      : subscriptionExpiresAt(cycle)
+      : subscriptionExpiresAt(cycle, baseDate)
 
     await sbUpsertByShopId('subscriptions', {
       shop_id:       shopId,
@@ -265,13 +299,21 @@ export async function reactivateShop(
   shopId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const expiresAt = subscriptionExpiresAt('monthly')
+    const existingSubs = await sbGet(
+      `subscriptions?shop_id=eq.${shopId}&select=expires_at&limit=1`
+    ).catch(() => [])
+    const existingSub = existingSubs?.[0]
+    const oldExpiry = existingSub?.expires_at ? new Date(existingSub.expires_at) : null
+    const baseDate = (oldExpiry && oldExpiry > new Date()) ? oldExpiry : new Date()
+    const expiresAt = subscriptionExpiresAt('monthly', baseDate)
 
     await sbUpsertByShopId('subscriptions', {
       shop_id:    shopId,
       status:     'active',
       plan:       'professional',
       expires_at: expiresAt,
+      grace_ends_at: null,
+      cancelled_at:  null,
       updated_at: new Date().toISOString(),
     })
 
@@ -310,20 +352,20 @@ export async function getRevenueAnalytics() {
   const monthlyRevenue = months.map(m => ({
     label:    m.label,
     revenue:  payments
-      .filter((p: any) => p.paid_at?.startsWith(m.key))
-      .reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
-    newShops: shops
-      .filter((s: any) => s.created_at?.startsWith(m.key))
+      .filter((p: Row) => p.paid_at?.startsWith(m.key))
+      .reduce((s: number, p: Row) => s + Number(p.amount_pkr), 0),
+      newShops: shops
+      .filter((s: Row) => s.created_at?.startsWith(m.key))
       .length,
   }))
 
-  const activeSubs = subs.filter((s: any) => s.status === 'active')
-  const cancelledSubs = subs.filter((s: any) => s.status === 'cancelled').length
-  const totalPaidSubs = subs.filter((s: any) =>
+  const activeSubs = subs.filter((s: Row) => s.status === 'active')
+  const cancelledSubs = subs.filter((s: Row) => s.status === 'cancelled').length
+  const totalPaidSubs = subs.filter((s: Row) =>
     ['active','cancelled','expired'].includes(s.status)
   ).length
 
-  const mrr = activeSubs.reduce((sum: number, s: any) => {
+  const mrr = activeSubs.reduce((sum: number, s: Row) => {
     const plan = PLANS[s.plan as keyof typeof PLANS]
     if (!plan || !plan.monthlyPkr) return sum
     if (s.billing_cycle === 'monthly') return sum + plan.monthlyPkr
@@ -331,20 +373,20 @@ export async function getRevenueAnalytics() {
     return sum
   }, 0)
 
-  const totalRevenue = payments.reduce((s: number, p: any) => s + Number(p.amount_pkr), 0)
+  const totalRevenue = payments.reduce((s: number, p: Row) => s + Number(p.amount_pkr), 0)
 
   const revenueByPlan = {
-    professional: payments.filter((p: any) => p.plan === 'professional')
-      .reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
-    business: payments.filter((p: any) => p.plan === 'business')
-      .reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
+    professional: payments.filter((p: Row) => p.plan === 'professional')
+      .reduce((s: number, p: Row) => s + Number(p.amount_pkr), 0),
+    business: payments.filter((p: Row) => p.plan === 'business')
+      .reduce((s: number, p: Row) => s + Number(p.amount_pkr), 0),
   }
 
   const revenueByCycle = {
-    monthly: payments.filter((p: any) => p.billing_cycle === 'monthly')
-      .reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
-    yearly: payments.filter((p: any) => p.billing_cycle === 'yearly')
-      .reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
+    monthly: payments.filter((p: Row) => p.billing_cycle === 'monthly')
+      .reduce((s: number, p: Row) => s + Number(p.amount_pkr), 0),
+    yearly: payments.filter((p: Row) => p.billing_cycle === 'yearly')
+      .reduce((s: number, p: Row) => s + Number(p.amount_pkr), 0),
   }
 
   return {
@@ -368,8 +410,8 @@ export async function getAllPayments(limit = 100) {
     sbGet('shops?select=id,shop_name,owner_phone,city'),
   ])
 
-  const shopMap = new Map(shops.map((s: any) => [s.id, s]))
-  return payments.map((p: any) => ({
+  const shopMap = new Map(shops.map((s: Row) => [s.id, s]))
+  return payments.map((p: Row) => ({
     ...p,
     shops: shopMap.get(p.shop_id) ?? null,
   }))
@@ -402,8 +444,8 @@ export async function getAuditLogForAdmin(limit = 200) {
     sbGet('shops?select=id,shop_name,owner_phone'),
   ])
 
-  const shopMap = new Map(shops.map((s: any) => [s.id, s]))
-  return logs.map((log: any) => ({
+  const shopMap = new Map(shops.map((s: Row) => [s.id, s]))
+  return logs.map((log: Row) => ({
     ...log,
     shops: shopMap.get(log.shop_id) ?? null,
   }))

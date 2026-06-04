@@ -15,10 +15,6 @@ function addUtcMonthsInclusive(start: Date, months: number): Date {
   target.setUTCDate(targetDay)
   target.setUTCHours(0, 0, 0, 0)
 
-  if (targetDay === day) {
-    target.setUTCDate(target.getUTCDate() - 1)
-  }
-
   return target
 }
 
@@ -29,10 +25,6 @@ function addUtcYearsInclusive(start: Date, years: number): Date {
   const maxTargetDay = daysInUtcMonth(year, month)
   const targetDay = Math.min(day, maxTargetDay)
   const target = new Date(Date.UTC(year, month, targetDay))
-
-  if (targetDay === day) {
-    target.setUTCDate(target.getUTCDate() - 1)
-  }
 
   return target
 }

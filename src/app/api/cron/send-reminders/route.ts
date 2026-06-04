@@ -4,7 +4,7 @@
 // (Full WhatsApp Business API can be added later)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { sbGet, sbPost } from '@/lib/supabase/service'
+import { sbGet, sbPost, type Row } from '@/lib/supabase/service'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mydarzi.vercel.app'
 
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
         `&expires_at=lte.${encodeURIComponent(targetEnd.toISOString())}`
       )
 
-      const allExpiring = [
+      const allExpiring: Array<Row & { isTrial: boolean }> = [
         ...(trialExpiring ?? []).map(s => ({ ...s, isTrial: true })),
         ...(paidExpiring  ?? []).map(s => ({ ...s, isTrial: false })),
       ]

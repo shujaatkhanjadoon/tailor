@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const monthYear = now.slice(0, 7)
 
   try {
-    await sbPatch(`shop_usage?month_year=neq.${monthYear}`, {
+    await sbPatch(`shop_usage?or=(month_year.neq.${monthYear},month_year.is.null)`, {
       orders_this_month: 0,
       month_year:        monthYear,
       updated_at:        now,

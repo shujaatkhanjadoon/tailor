@@ -41,6 +41,12 @@ export async function proxy(req: NextRequest) {
   addSecurityHeaders(res)
   res.headers.set('Content-Security-Policy', cspHeader)
 
+  // ── Public / internal endpoints (skip auth + rate limiting) ──
+  const PUBLIC_API = ['/api/health']
+  if (PUBLIC_API.some(p => pathname === p)) {
+    return res
+  }
+
   // ── Global API rate limiting ─────────────────────────────────
   if (pathname.startsWith('/api/')) {
     // Session endpoints are called on every page load — use generous API limiter
@@ -61,19 +67,37 @@ export async function proxy(req: NextRequest) {
     res.headers.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=120')
   }
 
-  // ── CSRF origin check for state-changing API requests ──────────
+  // ── CSRF origin/referer check for state-changing API requests ──
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && pathname.startsWith('/api/')) {
-    const origin = req.headers.get('origin')
-    const host   = req.headers.get('host')
+    const origin  = req.headers.get('origin')
+    const referer = req.headers.get('referer')
+    const host    = req.headers.get('host')
+    const allowedHost = process.env.NEXT_PUBLIC_APP_URL?.replace(/^https?:\/\//, '')
+
+    function isAllowedHost(checkHost: string): boolean {
+      return checkHost === host || checkHost === allowedHost
+    }
+
+    let csrfOk = true
     if (origin) {
       try {
-        const originUrl = new URL(origin)
-        if (originUrl.host !== host && originUrl.host !== process.env.NEXT_PUBLIC_APP_URL?.replace(/^https?:\/\//, '')) {
-          return NextResponse.json({ error: 'Cross-origin request rejected' }, { status: 403 })
-        }
+        csrfOk = isAllowedHost(new URL(origin).host)
       } catch {
-        return NextResponse.json({ error: 'Invalid origin' }, { status: 400 })
+        csrfOk = false
       }
+    } else if (referer) {
+      try {
+        csrfOk = isAllowedHost(new URL(referer).host)
+      } catch {
+        csrfOk = false
+      }
+    }
+    // If neither origin nor referer is sent, allow the request
+    // (e.g., server-to-server, curl, Postman) - auth cookie SameSite=Strict
+    // provides protection against CSRF in modern browsers.
+
+    if (!csrfOk) {
+      return NextResponse.json({ error: 'Cross-origin request rejected' }, { status: 403 })
     }
   }
 
