@@ -1,4 +1,5 @@
 // src/middleware.ts
+import { timingSafeEqual }              from 'crypto'
 import { NextRequest, NextResponse }    from 'next/server'
 import { verifySessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 import { rotateMemberSessionToken, MEMBER_SESSION_COOKIE, getSessionCookieOptions } from '@/lib/auth/session'
@@ -117,7 +118,13 @@ export async function proxy(req: NextRequest) {
   if (pathname === '/api/admin/totp-uri') {
     const secret      = req.headers.get('x-admin-secret')
     const token       = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
-    const secretOk    = secret === process.env.ADMIN_SECRET
+    const adminSecret = process.env.ADMIN_SECRET
+    let secretOk = false
+    if (secret && adminSecret) {
+      try {
+        secretOk = timingSafeEqual(Buffer.from(secret), Buffer.from(adminSecret))
+      } catch { /* length mismatch or other — stays false */ }
+    }
     const sessionOk   = token  && verifySessionToken(token)
     if (!secretOk && !sessionOk) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
