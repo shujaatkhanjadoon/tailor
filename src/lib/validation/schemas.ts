@@ -99,6 +99,44 @@ export const schemas = {
     targetPlan: z.enum(['all', 'starter', 'professional', 'business']),
     expiresAt: z.string().min(1, 'expiresAt required'),
   }),
+
+  sessionCreate: z.object({
+    memberId: uuid,
+    shopId: uuid,
+    pinHash: z.string().min(1, 'pinHash required'),
+  }),
+
+  subscriptionEvent: z.object({
+    shopId: uuid,
+    event: z.enum(['upgraded', 'downgraded', 'renewed', 'expired', 'cancelled', 'payment_submitted']),
+    plan: z.string().optional(),
+    previousPlan: z.string().optional(),
+    cycle: z.string().optional(),
+    amountPkr: z.number().positive().optional(),
+    reason: z.string().optional(),
+    paymentRef: z.string().optional(),
+    transactionId: z.string().optional(),
+    payerName: z.string().optional(),
+    expiresAt: z.string().optional(),
+  }),
+
+  pushSubscribe: z.object({
+    shopId: uuid,
+    memberId: uuid,
+    subscription: z.object({
+      endpoint: z.string().url('endpoint must be a valid URL'),
+      keys: z.object({
+        p256dh: z.string().min(1, 'p256dh required'),
+        auth: z.string().min(1, 'auth required'),
+      }),
+    }),
+  }),
+
+  pushUnsubscribe: z.object({
+    endpoint: z.string().url('endpoint must be a valid URL'),
+    memberId: uuid,
+    shopId: uuid,
+  }),
 } as const
 
 export async function validate<T extends z.ZodType>(

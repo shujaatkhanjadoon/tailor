@@ -12,3 +12,7 @@ export type EncryptPinInput = z.infer<typeof schemas.encryptPin>
 export type AdminActionInput = z.infer<typeof schemas.adminAction>
 export type AdminNotificationPostInput = z.infer<typeof schemas.adminNotificationPost>
 export type AdminNotificationPatchInput = z.infer<typeof schemas.adminNotificationPatch>
+export type SessionCreateInput = z.infer<typeof schemas.sessionCreate>
+export type SubscriptionEventInput = z.infer<typeof schemas.subscriptionEvent>
+export type PushSubscribeInput = z.infer<typeof schemas.pushSubscribe>
+export type PushUnsubscribeInput = z.infer<typeof schemas.pushUnsubscribe>

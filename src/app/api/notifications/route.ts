@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 import { sbFetch } from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
+import { z } from 'zod'
+
+const uuidSchema = z.string().uuid()
 
 async function cleanupExpired() {
   await sbFetch(`admin_notifications?expires_at=lt.${encodeURIComponent(new Date().toISOString())}`, {
@@ -12,7 +15,8 @@ async function cleanupExpired() {
 
 export async function GET(req: NextRequest) {
   const shopId = req.nextUrl.searchParams.get('shopId')
-  if (!shopId) return NextResponse.json({ error: 'shopId required' }, { status: 400 })
+  const uuidResult = uuidSchema.safeParse(shopId)
+  if (!uuidResult.success) return NextResponse.json({ error: 'Invalid shopId' }, { status: 400 })
 
   const token = req.cookies.get(MEMBER_SESSION_COOKIE)?.value
   const session = token ? verifyMemberSessionToken(token) : null

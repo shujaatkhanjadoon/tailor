@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { OrderRecord, OrderStatusHistoryRecord, PaymentRecord } from '@/lib/db/schema'
 import { orderBalance } from '@/lib/payments/calculations'
 import { supabase } from '@/lib/supabase/client'
+import type { PostgrestFilterBuilder } from '@supabase/supabase-js'
 import { mapOrder, mapPayment, mapStatusHistory } from '@/lib/supabase/records'
 import { karachiDateString } from '@/lib/time'
 
@@ -17,7 +18,7 @@ function uniqueChannelName(name: string) {
 }
 
 function applyOrderFilters(
-  query: any,
+  query: PostgrestFilterBuilder<any, any, any, any[], any, any, any>,
   params: {
     today: string
     activeFilter: OrderFilter

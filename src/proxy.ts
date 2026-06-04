@@ -72,14 +72,13 @@ export async function proxy(req: NextRequest) {
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && pathname.startsWith('/api/')) {
     const origin  = req.headers.get('origin')
     const referer = req.headers.get('referer')
-    const host    = req.headers.get('host')
-    const allowedHost = process.env.NEXT_PUBLIC_APP_URL?.replace(/^https?:\/\//, '')
+    const allowedHost = process.env.NEXT_PUBLIC_APP_URL!.replace(/^https?:\/\//, '')
 
     function isAllowedHost(checkHost: string): boolean {
-      return checkHost === host || checkHost === allowedHost
+      return checkHost === allowedHost
     }
 
-    let csrfOk = true
+    let csrfOk = false
     if (origin) {
       try {
         csrfOk = isAllowedHost(new URL(origin).host)
@@ -93,9 +92,6 @@ export async function proxy(req: NextRequest) {
         csrfOk = false
       }
     }
-    // If neither origin nor referer is sent, allow the request
-    // (e.g., server-to-server, curl, Postman) - auth cookie SameSite=Strict
-    // provides protection against CSRF in modern browsers.
 
     if (!csrfOk) {
       return NextResponse.json({ error: 'Cross-origin request rejected' }, { status: 403 })

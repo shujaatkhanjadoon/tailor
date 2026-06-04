@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'crypto'
 import { generateMemberSessionToken, verifyMemberSessionToken, MEMBER_SESSION_COOKIE, getSessionCookieOptions } from '@/lib/auth/session'
 import { sbFetch } from '@/lib/supabase/service'
 import { ok, badRequest, unauthorized, serverError } from '@/lib/api-response'
+import { validate, schemas } from '@/lib/validation'
 import { logger } from '@/lib/logger'
 
 function safeEqual(a: string, b: string): boolean {
@@ -32,16 +33,11 @@ async function verifyPinHashServerSide(memberId: string, shopId: string, pinHash
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { memberId, shopId, pinHash } = body
-
-    if (!memberId || !shopId) {
-      return badRequest('memberId and shopId required')
+    const parsed = await validate(schemas.sessionCreate, req)
+    if (!parsed.ok) {
+      return badRequest(parsed.error)
     }
-
-    if (!pinHash) {
-      return badRequest('PIN proof required')
-    }
+    const { memberId, shopId, pinHash } = parsed.data
 
     const pinValid = await verifyPinHashServerSide(memberId, shopId, pinHash)
     if (!pinValid) {

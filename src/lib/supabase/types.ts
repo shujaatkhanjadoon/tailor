@@ -4,22 +4,22 @@
 export interface Database {
   public: {
     Tables: {
-      shops:                     { Row: ShopRow;                     Insert: any;    Update: any; Relationships: [] }
-      team_members:              { Row: TeamMemberRow;              Insert: any;    Update: any; Relationships: [] }
-      customers:                 { Row: CustomerRow;                 Insert: any;    Update: any; Relationships: [] }
-      measurements:              { Row: MeasurementRow;              Insert: any;    Update: any; Relationships: [] }
-      orders:                    { Row: OrderRow;                    Insert: any;    Update: any; Relationships: [] }
-      payments:                  { Row: PaymentRow;                  Insert: any;    Update: any; Relationships: [] }
-      order_photos:              { Row: PhotoRow;                    Insert: any;    Update: any; Relationships: [] }
-      order_status_history:      { Row: StatusHistoryRow;            Insert: any;    Update: any; Relationships: [] }
-      subscriptions:             { Row: SubscriptionRow;             Insert: any;    Update: any; Relationships: [] }
-      subscription_payments:     { Row: SubscriptionPaymentRow;      Insert: any;    Update: any; Relationships: [] }
-      shop_usage:                { Row: ShopUsageRow;                Insert: any;    Update: any; Relationships: [] }
-      admin_audit_log:           { Row: AdminAuditLogRow;            Insert: any;    Update: any; Relationships: [] }
-      admin_notifications:       { Row: AdminNotificationRow;        Insert: any;    Update: any; Relationships: [] }
-      shop_verification_requests: { Row: ShopVerificationRequestRow;  Insert: any;  Update: any; Relationships: [] }
-      email_verifications:       { Row: EmailVerificationRow;        Insert: any;    Update: any; Relationships: [] }
-      push_subscriptions:        { Row: PushSubscriptionRow;         Insert: any;    Update: any; Relationships: [] }
+      shops:                     { Row: ShopRow;                     Insert: Partial<ShopRow>;    Update: Partial<ShopRow>; Relationships: [] }
+      team_members:              { Row: TeamMemberRow;              Insert: Partial<TeamMemberRow>;    Update: Partial<TeamMemberRow>; Relationships: [] }
+      customers:                 { Row: CustomerRow;                 Insert: Partial<CustomerRow>;    Update: Partial<CustomerRow>; Relationships: [] }
+      measurements:              { Row: MeasurementRow;              Insert: Partial<MeasurementRow>;    Update: Partial<MeasurementRow>; Relationships: [] }
+      orders:                    { Row: OrderRow;                    Insert: Partial<OrderRow>;    Update: Partial<OrderRow>; Relationships: [] }
+      payments:                  { Row: PaymentRow;                  Insert: Partial<PaymentRow>;    Update: Partial<PaymentRow>; Relationships: [] }
+      order_photos:              { Row: PhotoRow;                    Insert: Partial<PhotoRow>;    Update: Partial<PhotoRow>; Relationships: [] }
+      order_status_history:      { Row: StatusHistoryRow;            Insert: Partial<StatusHistoryRow>;    Update: Partial<StatusHistoryRow>; Relationships: [] }
+      subscriptions:             { Row: SubscriptionRow;             Insert: Partial<SubscriptionRow>;    Update: Partial<SubscriptionRow>; Relationships: [] }
+      subscription_payments:     { Row: SubscriptionPaymentRow;      Insert: Partial<SubscriptionPaymentRow>;    Update: Partial<SubscriptionPaymentRow>; Relationships: [] }
+      shop_usage:                { Row: ShopUsageRow;                Insert: Partial<ShopUsageRow>;    Update: Partial<ShopUsageRow>; Relationships: [] }
+      admin_audit_log:           { Row: AdminAuditLogRow;            Insert: Partial<AdminAuditLogRow>;    Update: Partial<AdminAuditLogRow>; Relationships: [] }
+      admin_notifications:       { Row: AdminNotificationRow;        Insert: Partial<AdminNotificationRow>;    Update: Partial<AdminNotificationRow>; Relationships: [] }
+      shop_verification_requests: { Row: ShopVerificationRequestRow;  Insert: Partial<ShopVerificationRequestRow>;  Update: Partial<ShopVerificationRequestRow>; Relationships: [] }
+      email_verifications:       { Row: EmailVerificationRow;        Insert: Partial<EmailVerificationRow>;    Update: Partial<EmailVerificationRow>; Relationships: [] }
+      push_subscriptions:        { Row: PushSubscriptionRow;         Insert: Partial<PushSubscriptionRow>;    Update: Partial<PushSubscriptionRow>; Relationships: [] }
     }
     Views: {}
     Functions: {}

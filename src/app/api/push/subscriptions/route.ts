@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sbFetch } from '@/lib/supabase/service'
+import { validate, schemas } from '@/lib/validation'
 
 async function validateMember(memberId: string, shopId: string): Promise<boolean> {
   try {
@@ -19,18 +20,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY missing' }, { status: 500 })
   }
 
-  const { shopId, memberId, subscription } = await req.json()
-  if (!shopId || !memberId) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  const parsed = await validate(schemas.pushSubscribe, req)
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 })
   }
+
+  const { shopId, memberId, subscription } = parsed.data
 
   const valid = await validateMember(memberId, shopId)
   if (!valid) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
-    return NextResponse.json({ error: 'Invalid push subscription' }, { status: 400 })
   }
 
   // ── Dedup: ensure endpoint not already registered to a different shop ──
@@ -69,18 +68,17 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { endpoint, memberId, shopId } = await req.json()
-
-  if (!memberId || !shopId) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  const parsed = await validate(schemas.pushUnsubscribe, req)
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 })
   }
+
+  const { endpoint, memberId, shopId } = parsed.data
 
   const valid = await validateMember(memberId, shopId)
   if (!valid) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-
-  if (!endpoint) return NextResponse.json({ error: 'endpoint required' }, { status: 400 })
 
   const res = await sbFetch(`push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, {
     method: 'DELETE',

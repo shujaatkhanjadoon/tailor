@@ -88,12 +88,12 @@ export function usePayments(shopId: string | null, options?: UsePaymentsOptions)
       orders = new Map(ordersRef.current.map(o => [o.id, o]))
     } else {
       const { data: orderRows } = await supabase.from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null)
-      orders = new Map((orderRows ?? []).map((row: any) => {
+      orders = new Map((orderRows ?? []).map((row) => {
         const order = mapOrder(row)
         return [order.id, order]
       }))
     }
-    const rows = (paymentRows ?? []).map((row: any) => {
+    const rows = (paymentRows ?? []).map((row) => {
       const payment = mapPayment(row)
       const order = orders.get(payment.orderId)
       return {

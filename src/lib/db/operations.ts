@@ -45,7 +45,7 @@ function clean<T extends Record<string, unknown>>(row: T): T {
   return row
 }
 
-async function requireOk<T>(query: PromiseLike<{ data: T; error: any }>): Promise<T> {
+async function requireOk<T>(query: PromiseLike<{ data: T; error: { message: string } | null }>): Promise<T> {
   const { data, error } = await query
   if (error) throw new Error(error.message)
   return data
@@ -78,7 +78,7 @@ async function getOrderPhotoPublicIds(orderIds: string[]) {
       .in('order_id', orderIds)
       .not('public_id', 'is', null)
   )
-  return asRows(rows).map((row: any) => row.public_id).filter(Boolean)
+  return asRows(rows).map((row) => row.public_id).filter(Boolean)
 }
 
 async function deleteOrdersByIds(orderIds: string[]) {
@@ -96,7 +96,7 @@ async function deleteOrdersByIds(orderIds: string[]) {
   const orderRows = await requireOk(
     supabase.from('orders').select('measurement_id').in('id', orderIds)
   )
-  const measurementIds = asRows(orderRows).map((row: any) => row.measurement_id).filter(Boolean)
+  const measurementIds = asRows(orderRows).map((row) => row.measurement_id).filter(Boolean)
   if (measurementIds.length > 0) {
     await requireOk(supabase.from('measurements').update({ deleted_at: ts }).in('id', measurementIds))
   }
@@ -576,7 +576,7 @@ export const paymentOps = {
     const rows = await requireOk(
       supabase.from('payments').select('amount').eq('shop_id', shopId).is('deleted_at', null).gte('paid_at', `${today}T00:00:00+05:00`)
     )
-    return asRows(rows).reduce((sum: number, p: any) => sum + (p.amount ?? 0), 0)
+    return asRows(rows).reduce((sum: number, p) => sum + (p.amount ?? 0), 0)
   },
 
   async add(
@@ -642,7 +642,7 @@ export const dashboardOps = {
         .eq('shop_id', shopId).is('deleted_at', null).lt('due_date', today).not('status', 'in', '("delivered","cancelled")'),
     ])
     const overdueOrders = (overdueResult.data ?? []) as any[]
-    const pendingBalance = overdueOrders.reduce((sum: number, o: any) => sum + Math.max(0, Number(o.total_price ?? 0) - Number(o.amount_paid ?? 0)), 0)
+    const pendingBalance = overdueOrders.reduce((sum: number, o) => sum + Math.max(0, Number(o.total_price ?? 0) - Number(o.amount_paid ?? 0)), 0)
     return {
       totalOrdersToday: todayResult.count ?? 0,
       readyOrders: readyResult.count ?? 0,

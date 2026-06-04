@@ -20,7 +20,7 @@ function formatMessage(level: Level, module: string, message: string, data?: unk
 
 export const logger = {
   info(module: string, message: string, data?: unknown) {
-    console.log(formatMessage('info', module, message, data))
+    console.info(formatMessage('info', module, message, data))
   },
   warn(module: string, message: string, data?: unknown) {
     console.warn(formatMessage('warn', module, message, data))

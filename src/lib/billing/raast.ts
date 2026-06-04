@@ -9,11 +9,11 @@ export interface RaastConfig {
   instructions:  string[]    // Step-by-step for customer
 }
 
-// â”€â”€ YOUR RAAST DETAILS â€” update these with real values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ YOUR RAAST DETAILS â€” set via NEXT_PUBLIC_RAAST_* env vars â”€â”€â”€â”€â”€â”€â”€â”€
 export const RAAST_CONFIG: RaastConfig = {
-  raastId:      '03135931459',         // â† your Raast ID (usually mobile number)
-  accountTitle: 'Shujaat Khan',
-  bankName:     'Bank Alfalah',
+  raastId:      process.env.NEXT_PUBLIC_RAAST_ID ?? '03135931459',
+  accountTitle: process.env.NEXT_PUBLIC_RAAST_NAME ?? 'Shujaat Khan',
+  bankName:     process.env.NEXT_PUBLIC_RAAST_BANK ?? 'Bank Alfalah',
   instructions: [
     'Apni bank app ya Easypaisa/JazzCash kholein',
     'Raast ya "Send Money" option chunein',

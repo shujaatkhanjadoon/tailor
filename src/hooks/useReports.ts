@@ -168,23 +168,23 @@ export function useReports(shopId: string | null) {
           setTotalCustomers(customersCountRes.count ?? 0)
 
           setStatusDistribution(
-            (statusRes.data ?? []).map((d: any) => ({ status: d.status, count: d.count }))
+            ((statusRes.data ?? []) as any[]).map((d) => ({ status: d.status, count: d.count }))
           )
           setGarmentBreakdown(
-            (garmentRes.data ?? []).map((d: any) => ({ type: d.garment_type, count: d.count, revenue: d.sum }))
+            ((garmentRes.data ?? []) as any[]).map((d) => ({ type: d.garment_type, count: d.count, revenue: d.sum }))
           )
           setTopCustomers(
-            (customerAggRes.data ?? []).map((d: any) => ({
+            ((customerAggRes.data ?? []) as any[]).map((d) => ({
               id: d.customer_id, name: d.customer_name,
               orders: d.count, revenue: d.sum, paid: d.amount_paid_sum,
             }))
           )
 
           const rawMethods = (methodRes.data ?? []) as any[]
-          const totalMethodAmount = rawMethods.reduce((s: number, m: any) => s + (m.sum ?? 0), 0)
+          const totalMethodAmount = rawMethods.reduce((s: number, m) => s + (m.sum ?? 0), 0)
           setPaymentMethods(
             rawMethods
-              .map((m: any) => ({
+              .map((m) => ({
                 method: m.method,
                 amount: m.sum ?? 0,
                 pct: totalMethodAmount > 0 ? Math.round(((m.sum ?? 0) / totalMethodAmount) * 100) : 0,

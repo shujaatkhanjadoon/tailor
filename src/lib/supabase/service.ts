@@ -58,8 +58,9 @@ export async function sbFetch(path: string, init: RequestInit = {}): Promise<Res
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Row = Record<string, any>
+export type TableRow<T> = T extends { Row: infer R } ? R : Row
 
-export async function sbGet(path: string): Promise<Row[]> {
+export async function sbGet<T = Row>(path: string): Promise<T[]> {
   const res = await sbFetch(path)
   if (!res.ok) {
     const err = await res.text()
