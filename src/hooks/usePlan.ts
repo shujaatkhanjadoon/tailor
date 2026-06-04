@@ -3,11 +3,12 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter }  from 'next/navigation'
 import { useAuth }    from '@/lib/auth/AuthContext'
 import { supabase }   from '@/lib/supabase/client'
-import { PLANS, PlanId, SubStatus } from '@/lib/billing/plans'
+import { PLANS, PlanId, SubStatus, BillingCycle } from '@/lib/billing/plans'
 
 export interface PlanState {
   // Plan info
   plan:           PlanId
+  billingCycle:   BillingCycle
   status:         SubStatus
   trialEndsAt:    Date | null
   expiresAt:      Date | null
@@ -139,8 +140,9 @@ export function usePlan(): PlanState {
 
   // ── Derive values safely ──────────────────────────────────────
 
-  const rawPlanId: PlanId    = safePlan(subData?.plan)
-  const rawStatus: SubStatus = safeStatus(subData?.status)
+  const rawPlanId: PlanId       = safePlan(subData?.plan)
+  const rawStatus: SubStatus    = safeStatus(subData?.status)
+  const billingCycle: BillingCycle = (subData?.billing_cycle as BillingCycle) ?? 'monthly'
   const rawExpiresAt = subData?.expires_at
     ? new Date(subData.expires_at as string)
     : null
@@ -199,6 +201,7 @@ export function usePlan(): PlanState {
 
   return {
     plan:   planId,
+    billingCycle,
     status,
     trialEndsAt,
     expiresAt,

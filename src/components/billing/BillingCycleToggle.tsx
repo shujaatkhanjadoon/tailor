@@ -38,12 +38,12 @@ export function BillingCycleToggle({ value, onChange }: BillingCycleToggleProps)
         </button>
       </div>
 
-      {/* Yearly savings badge */}
       {value === 'yearly' && (
-        <div className="flex items-center gap-2 bg-green-50 border border-green-200
+        <div className="flex items-center gap-2 bg-linear-to-r from-emerald-50 to-green-50 border border-emerald-200
                         rounded-full px-4 py-1.5">
-          <span className="text-green-600 text-xs font-bold">
-            🎉 2 mahine free — 21% bachat!
+          <span className="text-emerald-700 text-xs font-bold flex items-center gap-1">
+            <span>🏆</span>
+            <span>Best Value — 2 months free + extra savings!</span>
           </span>
         </div>
       )}

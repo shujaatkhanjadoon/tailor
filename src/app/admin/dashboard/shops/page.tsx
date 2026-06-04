@@ -26,9 +26,9 @@ import { cn } from "@/lib/utils";
 const PLAN_OPTIONS = [
   { value: "starter|monthly", label: "🌱 Starter (Free)" },
   { value: "professional|monthly", label: "⭐ Professional Monthly (Rs.999)" },
-  { value: "professional|yearly", label: "⭐ Professional Yearly (Rs.9,500)" },
+  { value: "professional|yearly", label: "⭐ Professional Yearly (Rs.9,999)" },
   { value: "business|monthly", label: "👑 Business Monthly (Rs.2,499)" },
-  { value: "business|yearly", label: "👑 Business Yearly (Rs.23,999)" },
+  { value: "business|yearly", label: "👑 Business Yearly (Rs.25,000)" },
 ];
 
 type ShopTab =

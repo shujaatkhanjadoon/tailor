@@ -70,10 +70,11 @@ function UpgradeContent() {
         <div className="grid lg:grid-cols-3 gap-4">
           {(['starter', 'professional', 'business'] as PlanId[]).map(planId => (
             <PricingCard
-              key={planId}
+              key={`${planId}-${cycle}`}
               plan={PLANS[planId]}
               cycle={cycle}
               currentPlanId={plan.plan}
+              currentCycle={plan.billingCycle}
               onSelect={handleSelectPlan}
             />
           ))}
