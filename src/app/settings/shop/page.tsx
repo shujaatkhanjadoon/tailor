@@ -109,7 +109,7 @@ export default function ShopSettingsPage() {
     if (!shopName.trim() || !ownerName.trim() || !shopId) return
     setSaving(true)
     try {
-      const { error } = await (supabase as any).from('shops').update({
+      const { error } = await supabase.from('shops').update({
         shop_name: shopName.trim(),
         owner_name: ownerName.trim(),
         whatsapp_number: whatsapp || null,

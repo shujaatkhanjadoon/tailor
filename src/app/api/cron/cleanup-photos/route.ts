@@ -1,29 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-
-
-const BASE = () => `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`
-
-const getHeaders = () => ({
-  'Content-Type':  'application/json',
-  'apikey':        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-})
-
-async function sbGet(path: string) {
-  const res = await fetch(`${BASE()}/${path}`, { headers: getHeaders() })
-  if (!res.ok) throw new Error(`GET ${path}: ${await res.text()}`)
-  return res.json()
-}
-
-async function sbPatch(path: string, data: object) {
-  const res = await fetch(`${BASE()}/${path}`, {
-    method:  'PATCH',
-    headers: { ...getHeaders(), 'Prefer': 'return=minimal' },
-    body:    JSON.stringify(data),
-  })
-  if (!res.ok) throw new Error(`PATCH ${path}: ${await res.text()}`)
-}
+import { sbGet, sbDelete } from '@/lib/supabase/service'
 
 async function destroyCloudinaryImage(publicId: string) {
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
@@ -60,25 +37,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY not set' }, { status: 500 })
-  }
-
   const now = new Date()
   const cutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString()
-  const deletedAt = now.toISOString()
   const results = { scanned: 0, deleted: 0, errors: [] as string[] }
 
   try {
     const photos = await sbGet(
-      `order_photos?taken_at=lt.${cutoff}&deleted_at=is.null&select=id,public_id`
+      `order_photos?taken_at=lt.${cutoff}&select=id,public_id`
     )
     results.scanned = photos.length
 
     for (const photo of photos) {
       try {
         if (photo.public_id) await destroyCloudinaryImage(photo.public_id)
-        await sbPatch(`order_photos?id=eq.${photo.id}`, { deleted_at: deletedAt })
+        await sbDelete(`order_photos?id=eq.${photo.id}`)
         results.deleted++
       } catch (e) {
         results.errors.push(`${photo.id}: ${String(e)}`)

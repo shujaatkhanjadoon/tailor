@@ -157,8 +157,8 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
 
   const load = async () => {
     const [{ data: customerRow }, { data: measurementRows }] = await Promise.all([
-      (supabase as any).from('customers').select('id,shop_id,name,phone,whatsapp,gender,notes,photo_url,total_orders,created_at,updated_at,last_order_at,deleted_at').eq('id', id).maybeSingle(),
-      (supabase as any).from('measurements').select('id,customer_id,shop_id,garment_type,order_for_relation,order_for_name,recipient_gender,values,notes,taken_at,deleted_at').eq('customer_id', id).is('deleted_at', null).order('taken_at', { ascending: false }),
+      supabase.from('customers').select('id,shop_id,name,phone,whatsapp,gender,notes,photo_url,total_orders,created_at,updated_at,last_order_at,deleted_at').eq('id', id).maybeSingle(),
+      supabase.from('measurements').select('id,customer_id,shop_id,garment_type,order_for_relation,order_for_name,recipient_gender,values,notes,taken_at,deleted_at').eq('customer_id', id).is('deleted_at', null).order('taken_at', { ascending: false }),
     ])
     setCustomer(customerRow ? mapCustomer(customerRow) : undefined)
     setMeasurements((measurementRows ?? []).map(mapMeasurement))
@@ -201,14 +201,14 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
         _deleted:    0,
       }
       if (editingId) {
-        const { error } = await (supabase as any).from('measurements').update({
+        const { error } = await supabase.from('measurements').update({
           garment_type: record.garmentType,
           values: record.values,
           notes: record.notes,
         }).eq('id', editingId)
         if (error) throw new Error(error.message)
       } else {
-        const { error } = await (supabase as any).from('measurements').insert({
+        const { error } = await supabase.from('measurements').insert({
           id: record.id,
           customer_id: record.customerId,
           shop_id: record.shopId,

@@ -25,6 +25,7 @@ import { shopOps } from "@/lib/db/operations";
 import type { ShopRecord } from "@/lib/db/schema";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "@/lib/i18n/LocaleContext";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -66,9 +67,9 @@ export default function SettingsPage() {
       if (shopId) {
         shopOps.get(shopId).then(setShop).catch(() => setShop(undefined));
         const [{ count: members }, { count: orders }] = await Promise.all([
-          (supabase as any).from("team_members").select("id", { count: "exact", head: true })
+          supabase.from("team_members").select("id", { count: "exact" })
             .eq("shop_id", shopId).eq("is_active", true).is("deleted_at", null),
-          (supabase as any).from("orders").select("id", { count: "exact", head: true })
+          supabase.from("orders").select("id", { count: "exact" })
             .eq("shop_id", shopId).is("deleted_at", null),
         ]);
         setMemberCount(members ?? 0);
@@ -88,6 +89,7 @@ export default function SettingsPage() {
   };
 
   return (
+    <ErrorBoundary>
     <div className="flex flex-col min-h-screen bg-slate-50 pb-20 lg:pb-8">
       <header className="bg-white border-b border-slate-100 px-5 pt-2 lg:pt-0 pb-5">
         <h1 className="text-xl font-bold text-slate-800">{t('settings.title')}</h1>
@@ -256,5 +258,6 @@ export default function SettingsPage() {
         </p>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

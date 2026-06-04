@@ -38,8 +38,6 @@ export async function logAdminAction(
     if (!res.ok) {
       const errText = await res.text()
       console.error('[Audit] Insert failed:', res.status, errText)
-    } else {
-      console.log('[Audit] ✓ logged:', action, targetType, targetId)
     }
   } catch (e) {
     // Never throw — audit failure must not block the admin action

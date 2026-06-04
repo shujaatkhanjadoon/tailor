@@ -5,71 +5,7 @@ import { ADMIN_SESSION_COOKIE, verifySessionToken, verifyTOTP } from "@/lib/admi
 import { logAdminAction } from "@/lib/admin/audit";
 import { parseBody } from "@/lib/security/body";
 import { validate, schemas } from "@/lib/validation";
-
-const SB_URL = () => process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SB_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const SB_HDRS = () => ({
-  "Content-Type": "application/json",
-  apikey: SB_KEY(),
-  Authorization: `Bearer ${SB_KEY()}`,
-  Prefer: "return=minimal",
-});
-
-async function sbPatch(
-  table: string,
-  filter: string,
-  data: object,
-): Promise<void> {
-  const res = await fetch(`${SB_URL()}/rest/v1/${table}?${filter}`, {
-    method: "PATCH",
-    headers: SB_HDRS(),
-    body: JSON.stringify(data),
-  });
-  if (!res.ok)
-    throw new Error(`PATCH ${table}: ${res.status} ${await res.text()}`);
-}
-
-async function sbPost(
-  table: string,
-  data: object,
-  prefer = "return=minimal",
-): Promise<void> {
-  const res = await fetch(`${SB_URL()}/rest/v1/${table}`, {
-    method: "POST",
-    headers: { ...SB_HDRS(), Prefer: prefer },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok)
-    throw new Error(`POST ${table}: ${res.status} ${await res.text()}`);
-}
-
-async function sbGet<T = Record<string, unknown>>(path: string): Promise<T[]> {
-  const res = await fetch(`${SB_URL()}/rest/v1/${path}`, {
-    headers: { apikey: SB_KEY(), Authorization: `Bearer ${SB_KEY()}` },
-  });
-  if (!res.ok) throw new Error(`GET ${path}: ${res.status} ${await res.text()}`);
-  return res.json() as Promise<T[]>;
-}
-
-async function sbUpsert(
-  table: string,
-  data: object,
-  onConflict: string,
-): Promise<void> {
-  const res = await fetch(
-    `${SB_URL()}/rest/v1/${table}?on_conflict=${onConflict}`,
-    {
-      method: "POST",
-      headers: {
-        ...SB_HDRS(),
-        Prefer: "resolution=merge-duplicates,return=minimal",
-      },
-      body: JSON.stringify(data),
-    },
-  );
-  if (!res.ok)
-    throw new Error(`UPSERT ${table}: ${res.status} ${await res.text()}`);
-}
+import { sbGet, sbPatch, sbPost, sbUpsertByShopId } from "@/lib/supabase/service";
 
 async function logAction(
   action: string,
@@ -86,7 +22,6 @@ async function logAction(
       details,
       performed_at: new Date().toISOString(),
     });
-    console.log("[Admin Action] Logged:", action, shopId);
   } catch (e) {
     console.error("[Admin Action] Audit log failed (non-fatal):", e);
   }
@@ -168,29 +103,25 @@ export async function POST(req: NextRequest) {
         }
 
         const now = new Date().toISOString();
-        const previousSub = (await sbGet<SubscriptionSnapshot>(`subscriptions?shop_id=eq.${shopId}&select=plan,status,expires_at&limit=1`))[0];
+        const previousSub = (await sbGet(`subscriptions?shop_id=eq.${shopId}&select=plan,status,expires_at&limit=1`))[0];
 
         const expiresAt = nextExpiry(cycle, planId);
 
         // Update subscription
-        await sbUpsert(
-          "subscriptions",
-          {
-            shop_id: shopId,
-            plan: planId,
-            billing_cycle: planId === "starter" ? null : (cycle ?? "monthly"),
-            status: "active",
-            expires_at: expiresAt,
-            grace_ends_at: null,
-            cancelled_at: null,
-            trial_ends_at: null,
-            updated_at: now,
-          },
-          "shop_id",
-        );
+        await sbUpsertByShopId("subscriptions", {
+          shop_id: shopId,
+          plan: planId,
+          billing_cycle: planId === "starter" ? null : (cycle ?? "monthly"),
+          status: "active",
+          expires_at: expiresAt,
+          grace_ends_at: null,
+          cancelled_at: null,
+          trial_ends_at: null,
+          updated_at: now,
+        });
 
         // Update subscription plan only. Shop account activation is controlled separately.
-        await sbPatch("shops", `id=eq.${shopId}`, {
+        await sbPatch(`shops?id=eq.${shopId}`, {
           plan: planId,
           plan_expires_at: expiresAt,
           updated_at: now,
@@ -216,13 +147,6 @@ export async function POST(req: NextRequest) {
           expiresAt,
         }).catch((e) => console.error("[Admin Action] Admin subscription email failed (non-fatal):", e));
 
-        console.log(
-          "[Admin Action] Plan changed:",
-          shopId,
-          "->",
-          planId,
-          cycle,
-        );
         return NextResponse.json({ success: true });
       }
 
@@ -236,7 +160,7 @@ export async function POST(req: NextRequest) {
         }
 
         const now = new Date().toISOString();
-        const previousSub = (await sbGet<SubscriptionSnapshot>(`subscriptions?shop_id=eq.${shopId}&select=plan,status,expires_at&limit=1`))[0];
+        const previousSub = (await sbGet(`subscriptions?shop_id=eq.${shopId}&select=plan,status,expires_at&limit=1`))[0];
 
         const expiresAt = (() => {
           const d = new Date();
@@ -247,31 +171,27 @@ export async function POST(req: NextRequest) {
         })();
 
         // Activate subscription
-        await sbUpsert(
-          "subscriptions",
-          {
-            shop_id: shopId,
-            plan: planId,
-            billing_cycle: cycle,
-            status: "active",
-            expires_at: expiresAt,
-            grace_ends_at: null,
-            cancelled_at: null,
-            trial_ends_at: null,
-            amount_pkr: amountPkr,
-            updated_at: now,
-          },
-          "shop_id",
-        );
+        await sbUpsertByShopId("subscriptions", {
+          shop_id: shopId,
+          plan: planId,
+          billing_cycle: cycle,
+          status: "active",
+          expires_at: expiresAt,
+          grace_ends_at: null,
+          cancelled_at: null,
+          trial_ends_at: null,
+          amount_pkr: amountPkr,
+          updated_at: now,
+        });
 
         // Mark payment completed
-        await sbPatch("subscription_payments", `id=eq.${paymentId}`, {
+        await sbPatch(`subscription_payments?id=eq.${paymentId}`, {
           status: "completed",
           paid_at: now,
         });
 
         // Update subscription plan only. Shop account activation is controlled separately.
-        await sbPatch("shops", `id=eq.${shopId}`, {
+        await sbPatch(`shops?id=eq.${shopId}`, {
           plan: planId,
           plan_expires_at: expiresAt,
           updated_at: now,
@@ -312,16 +232,12 @@ export async function POST(req: NextRequest) {
         }
 
         // Get existing receipt_data
-        const existingRes = await fetch(
-          `${SB_URL()}/rest/v1/subscription_payments?id=eq.${paymentId}&select=receipt_data`,
-          {
-            headers: { apikey: SB_KEY(), Authorization: `Bearer ${SB_KEY()}` },
-          },
+        const existing = await sbGet(
+          `subscription_payments?id=eq.${paymentId}&select=receipt_data`
         );
-        const existing = await existingRes.json();
         const receiptData = existing?.[0]?.receipt_data ?? {};
 
-        await sbPatch("subscription_payments", `id=eq.${paymentId}`, {
+        await sbPatch(`subscription_payments?id=eq.${paymentId}`, {
           status: "failed",
           receipt_data: {
             ...receiptData,
@@ -348,7 +264,7 @@ export async function POST(req: NextRequest) {
             { status: 400 },
           );
 
-        await sbPatch("shops", `id=eq.${shopId}`, {
+        await sbPatch(`shops?id=eq.${shopId}`, {
           is_active: false,
           updated_at: new Date().toISOString(),
         });
@@ -370,7 +286,7 @@ export async function POST(req: NextRequest) {
 
         const now = new Date().toISOString();
 
-        await sbPatch("shops", `id=eq.${shopId}`, {
+        await sbPatch(`shops?id=eq.${shopId}`, {
           is_active: true,
           updated_at: now,
         });
@@ -392,15 +308,14 @@ export async function POST(req: NextRequest) {
         }
         const now = new Date().toISOString();
         await sbPatch(
-          "shop_verification_requests",
-          `shop_id=eq.${shopId}&status=eq.pending`,
+          `shop_verification_requests?shop_id=eq.${shopId}&status=eq.pending`,
           {
             status,
             admin_note: note ?? null,
             reviewed_at: now,
           },
         );
-        await sbPatch("shops", `id=eq.${shopId}`, {
+        await sbPatch(`shops?id=eq.${shopId}`, {
           verification_status: status,
           is_active: status === "approved",
           verified_at: status === "approved" ? now : null,
@@ -432,24 +347,24 @@ export async function POST(req: NextRequest) {
         // Soft-delete/deactivate related login and billing data first so
         // rejected accounts cannot continue signing in while preserving audit.
         await Promise.all([
-          sbPatch("team_members", `shop_id=eq.${shopId}`, {
+          sbPatch(`team_members?shop_id=eq.${shopId}`, {
             is_active: false,
             deleted_at: now,
             updated_at: now,
           }).catch((e) => console.warn("[Admin Action] team cleanup:", e)),
-          sbPatch("subscriptions", `shop_id=eq.${shopId}`, {
+          sbPatch(`subscriptions?shop_id=eq.${shopId}`, {
             status: "cancelled",
             cancelled_at: now,
             updated_at: now,
           }).catch((e) => console.warn("[Admin Action] subscription cleanup:", e)),
-          sbPatch("shop_verification_requests", `shop_id=eq.${shopId}`, {
+          sbPatch(`shop_verification_requests?shop_id=eq.${shopId}`, {
             status: "rejected",
             admin_note: reason ?? "Account deleted by admin",
             reviewed_at: now,
           }).catch((e) => console.warn("[Admin Action] verification cleanup:", e)),
         ]);
 
-        await sbPatch("shops", `id=eq.${shopId}`, {
+        await sbPatch(`shops?id=eq.${shopId}`, {
           is_active: false,
           verification_status: "rejected",
           deleted_at: now,

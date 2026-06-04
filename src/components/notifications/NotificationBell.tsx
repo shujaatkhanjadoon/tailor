@@ -35,7 +35,7 @@ export function NotificationBell() {
   useEffect(() => {
     const load = async () => {
       if (!shopId) return []
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('orders')
         .select('id,shop_id,order_number,customer_name,status,due_date')
         .eq('shop_id', shopId)

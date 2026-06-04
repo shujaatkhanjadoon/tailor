@@ -72,7 +72,7 @@ async function deleteCloudinaryAssets(publicIds: string[]) {
 async function getOrderPhotoPublicIds(orderIds: string[]) {
   if (orderIds.length === 0) return []
   const rows = await requireOk(
-    (supabase as any)
+    supabase
       .from('order_photos')
       .select('public_id')
       .in('order_id', orderIds)
@@ -88,20 +88,20 @@ async function deleteOrdersByIds(orderIds: string[]) {
   await deleteCloudinaryAssets(publicIds)
 
   await Promise.all([
-    requireOk((supabase as any).from('order_photos').update({ deleted_at: ts }).in('order_id', orderIds)),
-    requireOk((supabase as any).from('payments').update({ deleted_at: ts }).in('order_id', orderIds)),
-    requireOk((supabase as any).from('order_status_history').update({ deleted_at: ts }).in('order_id', orderIds)),
+    requireOk(supabase.from('order_photos').delete().in('order_id', orderIds)),
+    requireOk(supabase.from('payments').update({ deleted_at: ts }).in('order_id', orderIds)),
+    requireOk(supabase.from('order_status_history').update({ deleted_at: ts }).in('order_id', orderIds)),
   ])
 
   const orderRows = await requireOk(
-    (supabase as any).from('orders').select('measurement_id').in('id', orderIds)
+    supabase.from('orders').select('measurement_id').in('id', orderIds)
   )
   const measurementIds = asRows(orderRows).map((row: any) => row.measurement_id).filter(Boolean)
   if (measurementIds.length > 0) {
-    await requireOk((supabase as any).from('measurements').update({ deleted_at: ts }).in('id', measurementIds))
+    await requireOk(supabase.from('measurements').update({ deleted_at: ts }).in('id', measurementIds))
   }
 
-  await requireOk((supabase as any).from('orders').update({ deleted_at: ts }).in('id', orderIds))
+  await requireOk(supabase.from('orders').update({ deleted_at: ts }).in('id', orderIds))
 }
 
 function customerToRow(customer: CustomerRecord) {
@@ -192,7 +192,7 @@ export const shopOps = {
 
   async get(shopId: string) {
     const row = await requireOk(
-      (supabase as any).from('shops').select('id, shop_name, owner_name, owner_phone, whatsapp_number, state_province, city, address_line, postal_code, brand_name, brand_color, brand_logo_url, is_active, created_at, updated_at').eq('id', shopId).maybeSingle()
+      supabase.from('shops').select('id, shop_name, owner_name, owner_phone, whatsapp_number, state_province, city, address_line, postal_code, brand_name, brand_color, brand_logo_url, is_active, created_at, updated_at').eq('id', shopId).maybeSingle()
     )
     return row ? mapShop(row) : undefined
   },
@@ -205,7 +205,7 @@ export const shopOps = {
     const id = uuid()
     const ts = nowKarachiIso()
     await requireOk(
-      (supabase as any).from('shops').insert({
+      supabase.from('shops').insert({
         id,
         shop_name: shopName,
         owner_phone: ownerPhone,
@@ -222,7 +222,7 @@ export const shopOps = {
 export const teamOps = {
   async getAll(shopId: string, limit = 100, offset = 0): Promise<TeamMemberRecord[]> {
     const rows = await requireOk(
-      (supabase as any)
+      supabase
         .from('team_members')
         .select(TEAM_MEMBER_COLUMNS)
         .eq('shop_id', shopId)
@@ -251,7 +251,7 @@ export const teamOps = {
       created_at: ts,
     }
     const saved = await requireOk(
-      (supabase as any).from('team_members').upsert(row, { onConflict: 'id' }).select('*').single()
+      supabase.from('team_members').upsert(row, { onConflict: 'id' }).select('*').single()
     )
     return mapTeamMember(saved)
   },
@@ -262,7 +262,7 @@ export const teamOps = {
 
   async verifyPin(memberId: string, pinHash: string): Promise<boolean> {
     const row = await requireOk(
-      (supabase as any).from('team_members').select('pin_hash').eq('id', memberId).maybeSingle()
+      supabase.from('team_members').select('pin_hash').eq('id', memberId).maybeSingle()
     )
     const pinRow = row as any
     return !!pinRow && pinRow.pin_hash === pinHash
@@ -271,20 +271,20 @@ export const teamOps = {
   async deactivate(memberId: string): Promise<void> {
     const ts = nowKarachiIso()
     await requireOk(
-      (supabase as any).from('orders').update({
+      supabase.from('orders').update({
         assigned_to: null,
         assigned_to_name: null,
         updated_at: ts,
       }).eq('assigned_to', memberId).is('deleted_at', null)
     )
     await requireOk(
-      (supabase as any).from('team_members').update({ deleted_at: ts, is_active: false }).eq('id', memberId).eq('role', 'karigar')
+      supabase.from('team_members').update({ deleted_at: ts, is_active: false }).eq('id', memberId).eq('role', 'karigar')
     )
   },
 
   async update(memberId: string, data: Partial<AddTeamMemberData>): Promise<void> {
     await requireOk(
-      (supabase as any).from('team_members').update(clean({
+      supabase.from('team_members').update(clean({
         name: data.name,
         phone: data.phone,
         pin_hash: data.pin,
@@ -297,7 +297,7 @@ export const teamOps = {
 
   async getByPhone(phone: string): Promise<TeamMemberRecord | undefined> {
     const row = await requireOk(
-      (supabase as any)
+      supabase
         .from('team_members')
         .select(TEAM_MEMBER_COLUMNS)
         .eq('phone', phone)
@@ -312,7 +312,7 @@ export const teamOps = {
 export const customerOps = {
   async getAll(shopId: string, limit = 100, offset = 0): Promise<CustomerRecord[]> {
     const rows = await requireOk(
-      (supabase as any)
+      supabase
         .from('customers')
         .select(CUSTOMER_COLUMNS)
         .eq('shop_id', shopId)
@@ -328,7 +328,7 @@ export const customerOps = {
     if (!q) return customerOps.getAll(shopId)
     const escaped = q.replace(/[%_\\]/g, '\\$&')
     const rows = await requireOk(
-      (supabase as any)
+      supabase
         .from('customers')
         .select(CUSTOMER_COLUMNS)
         .eq('shop_id', shopId)
@@ -355,14 +355,14 @@ export const customerOps = {
       ...data,
     }
     const saved = await requireOk(
-      (supabase as any).from('customers').insert(customerToRow(customer)).select(CUSTOMER_COLUMNS).single()
+      supabase.from('customers').insert(customerToRow(customer)).select(CUSTOMER_COLUMNS).single()
     )
     return mapCustomer(saved)
   },
 
   async get(id: string): Promise<CustomerRecord | undefined> {
     const row = await requireOk(
-      (supabase as any).from('customers').select(CUSTOMER_COLUMNS).eq('id', id).is('deleted_at', null).maybeSingle()
+      supabase.from('customers').select(CUSTOMER_COLUMNS).eq('id', id).is('deleted_at', null).maybeSingle()
     )
     return row ? mapCustomer(row) : undefined
   },
@@ -380,7 +380,7 @@ export const customerOps = {
       })
 
     await requireOk(
-      (supabase as any).from('customers').update(customerPatch).eq('id', id)
+      supabase.from('customers').update(customerPatch).eq('id', id)
     )
 
     const orderPatch = clean({
@@ -391,7 +391,7 @@ export const customerOps = {
 
     if (Object.keys(orderPatch).length > 0) {
       await requireOk(
-        (supabase as any)
+        supabase
           .from('orders')
           .update(orderPatch)
           .eq('customer_id', id)
@@ -402,13 +402,13 @@ export const customerOps = {
 
   async softDelete(id: string): Promise<void> {
     const orderRows = await requireOk(
-      (supabase as any).from('orders').select('id').eq('customer_id', id)
+      supabase.from('orders').select('id').eq('customer_id', id)
     )
     await deleteOrdersByIds(asRows(orderRows).map((row: any) => row.id).filter(Boolean))
     const ts = nowKarachiIso()
     await Promise.all([
-      requireOk((supabase as any).from('measurements').update({ deleted_at: ts }).eq('customer_id', id)),
-      requireOk((supabase as any).from('customers').update({ deleted_at: ts }).eq('id', id)),
+      requireOk(supabase.from('measurements').update({ deleted_at: ts }).eq('customer_id', id)),
+      requireOk(supabase.from('customers').update({ deleted_at: ts }).eq('id', id)),
     ])
   },
 }
@@ -416,7 +416,7 @@ export const customerOps = {
 export const orderOps = {
   async getAll(shopId: string, limit = 100, offset = 0): Promise<OrderRecord[]> {
     const rows = await requireOk(
-      (supabase as any)
+      supabase
         .from('orders')
         .select(ORDER_COLUMNS)
         .eq('shop_id', shopId)
@@ -429,7 +429,7 @@ export const orderOps = {
 
   async getAssignedTo(memberId: string): Promise<OrderRecord[]> {
     const rows = await requireOk(
-      (supabase as any)
+      supabase
         .from('orders')
         .select(ORDER_COLUMNS)
         .eq('assigned_to', memberId)
@@ -442,7 +442,7 @@ export const orderOps = {
 
   async getNextOrderNumber(shopId: string): Promise<number> {
     const rows = await requireOk(
-      (supabase as any)
+      supabase
         .from('orders')
         .select('order_number')
         .eq('shop_id', shopId)
@@ -483,11 +483,11 @@ export const orderOps = {
       ...data,
     }
     const saved = await requireOk(
-      (supabase as any).from('orders').insert(orderToRow(order)).select(ORDER_COLUMNS).single()
+      supabase.from('orders').insert(orderToRow(order)).select(ORDER_COLUMNS).single()
     )
     if (customer) {
       await requireOk(
-        (supabase as any)
+        supabase
           .from('customers')
           .update({
             last_order_at: ts,
@@ -502,18 +502,18 @@ export const orderOps = {
 
   async updateStatus(orderId: string, newStatus: OrderRecord['status'], changedBy: string): Promise<void> {
     const current = await requireOk(
-      (supabase as any).from('orders').select('status, shop_id').eq('id', orderId).single()
+      supabase.from('orders').select('status, shop_id').eq('id', orderId).single()
     ) as any
     const ts = nowKarachiIso()
     await requireOk(
-      (supabase as any).from('orders').update(clean({
+      supabase.from('orders').update(clean({
         status: newStatus,
         updated_at: ts,
         delivered_at: newStatus === 'delivered' ? ts : undefined,
       })).eq('id', orderId)
     )
     await requireOk(
-      (supabase as any).from('order_status_history').insert({
+      supabase.from('order_status_history').insert({
         id: uuid(),
         order_id: orderId,
         shop_id: current.shop_id,
@@ -527,7 +527,7 @@ export const orderOps = {
 
   async assign(orderId: string, memberId: string | null, memberName?: string): Promise<void> {
     await requireOk(
-      (supabase as any).from('orders').update({
+      supabase.from('orders').update({
         assigned_to: memberId,
         assigned_to_name: memberId ? memberName ?? null : null,
         updated_at: nowKarachiIso(),
@@ -553,7 +553,7 @@ export const orderOps = {
       updated_at: nowKarachiIso(),
     })
     const saved = await requireOk(
-      (supabase as any).from('orders').update(patch).eq('id', orderId).select(ORDER_COLUMNS).single()
+      supabase.from('orders').update(patch).eq('id', orderId).select(ORDER_COLUMNS).single()
     )
     return mapOrder(saved)
   },
@@ -566,7 +566,7 @@ export const orderOps = {
 export const paymentOps = {
   async getForOrder(orderId: string): Promise<PaymentRecord[]> {
     const rows = await requireOk(
-      (supabase as any).from('payments').select(PAYMENT_COLUMNS).eq('order_id', orderId).is('deleted_at', null).order('paid_at')
+      supabase.from('payments').select(PAYMENT_COLUMNS).eq('order_id', orderId).is('deleted_at', null).order('paid_at')
     )
     return asRows(rows).map(mapPayment)
   },
@@ -574,7 +574,7 @@ export const paymentOps = {
   async getTodayTotal(shopId: string): Promise<number> {
     const today = karachiDateString()
     const rows = await requireOk(
-      (supabase as any).from('payments').select('amount').eq('shop_id', shopId).is('deleted_at', null).gte('paid_at', `${today}T00:00:00+05:00`)
+      supabase.from('payments').select('amount').eq('shop_id', shopId).is('deleted_at', null).gte('paid_at', `${today}T00:00:00+05:00`)
     )
     return asRows(rows).reduce((sum: number, p: any) => sum + (p.amount ?? 0), 0)
   },
@@ -590,7 +590,7 @@ export const paymentOps = {
     if (!Number.isFinite(amount) || amount <= 0) throw new Error('Payment amount must be greater than zero')
 
     const orderRow = await requireOk(
-      (supabase as any).from('orders').select(ORDER_COLUMNS).eq('id', data.orderId).eq('shop_id', shopId).is('deleted_at', null).single()
+      supabase.from('orders').select(ORDER_COLUMNS).eq('id', data.orderId).eq('shop_id', shopId).is('deleted_at', null).single()
     )
     const order = mapOrder(orderRow)
     const existing = await paymentOps.getForOrder(data.orderId)
@@ -611,11 +611,11 @@ export const paymentOps = {
       appliedToBalance,
     }
     const saved = await requireOk(
-      (supabase as any).from('payments').insert(paymentToRow(payment)).select(PAYMENT_COLUMNS).single()
+      supabase.from('payments').insert(paymentToRow(payment)).select(PAYMENT_COLUMNS).single()
     )
     const nextPaid = Math.min(order.totalPrice, paidTowardBalance + appliedToBalance)
     const ts = nowKarachiIso()
-    const { error: updateError } = await (supabase as any)
+    const { error: updateError } = await supabase
       .from('orders')
       .update({ amount_paid: nextPaid, updated_at: ts })
       .eq('id', order.id)
@@ -632,13 +632,13 @@ export const dashboardOps = {
     const today = karachiDateString()
     const [incomeToday, activeResult, todayResult, readyResult, overdueResult] = await Promise.all([
       paymentOps.getTodayTotal(shopId),
-      (supabase as any).from('orders').select('id', { count: 'exact', head: true })
+      supabase.from('orders').select('id', { count: 'exact' })
         .eq('shop_id', shopId).is('deleted_at', null).not('status', 'in', '("delivered","cancelled")'),
-      (supabase as any).from('orders').select('id', { count: 'exact', head: true })
+      supabase.from('orders').select('id', { count: 'exact' })
         .eq('shop_id', shopId).is('deleted_at', null).gte('created_at', `${today}T00:00:00+05:00`),
-      (supabase as any).from('orders').select('id', { count: 'exact', head: true })
+      supabase.from('orders').select('id', { count: 'exact' })
         .eq('shop_id', shopId).is('deleted_at', null).eq('status', 'ready'),
-      (supabase as any).from('orders').select('total_price, amount_paid')
+      supabase.from('orders').select('total_price, amount_paid')
         .eq('shop_id', shopId).is('deleted_at', null).lt('due_date', today).not('status', 'in', '("delivered","cancelled")'),
     ])
     const overdueOrders = (overdueResult.data ?? []) as any[]

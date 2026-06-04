@@ -19,6 +19,7 @@ import { AppFooter }                  from '@/components/layout/AppFooter'
 import { supabase } from '@/lib/supabase/client'
 import { exportCSV, exportPrintablePDF } from '@/lib/export/download'
 import { useTranslation } from 'react-i18next'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
 function OrdersContent() {
   const router      = useRouter()
@@ -72,7 +73,7 @@ function OrdersContent() {
   useEffect(() => {
     if (orders.length === 0) { setPhotoCounts({}); return }
     const ids = orders.map(o => o.id)
-    ;(supabase as any)
+    ;supabase
       .from('order_photos')
       .select('order_id')
       .in('order_id', ids)
@@ -426,17 +427,19 @@ function OrdersContent() {
 
 export default function OrdersPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-slate-50 pb-20">
-        <div className="bg-white border-b border-slate-100 px-4 pt-12 pb-4 h-36" />
-        <div className="px-4 pt-4 space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <OrderCardSkeleton key={i} />
-          ))}
+    <ErrorBoundary>
+      <Suspense fallback={
+        <div className="min-h-screen bg-slate-50 pb-20">
+          <div className="bg-white border-b border-slate-100 px-4 pt-12 pb-4 h-36" />
+          <div className="px-4 pt-4 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <OrderCardSkeleton key={i} />
+            ))}
+          </div>
         </div>
-      </div>
-    }>
-      <OrdersContent />
-    </Suspense>
+      }>
+        <OrdersContent />
+      </Suspense>
+    </ErrorBoundary>
   )
 }

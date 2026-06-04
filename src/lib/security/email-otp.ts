@@ -2,6 +2,7 @@
 import { Resend } from 'resend'
 import { randomInt } from 'crypto'
 import bcrypt from 'bcryptjs'
+import { sbGet } from '@/lib/supabase/service'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -876,16 +877,10 @@ export async function sendShopOwnerAdminActionEmail(opts: {
   message:  string
   details?: [string, unknown][]
 }): Promise<void> {
-  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!serviceKey || !supabaseUrl) return
-
-  const res = await fetch(
-    `${supabaseUrl}/rest/v1/team_members?shop_id=eq.${opts.shopId}&role=eq.owner&is_active=eq.true&select=email,name&limit=1`,
-    { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
-  )
-  if (!res.ok) return
-  const [owner] = await res.json()
+  const ownerRows = await sbGet(
+    `team_members?shop_id=eq.${opts.shopId}&role=eq.owner&is_active=eq.true&select=email,name&limit=1`
+  ).catch(() => [])
+  const owner = ownerRows?.[0]
   if (!owner?.email) return
 
   await sendSystemEmail({
@@ -930,25 +925,17 @@ export async function sendAdminSubscriptionEventEmail(opts: {
 }): Promise<void> {
   type ShopRow = { shop_name?: string; owner_phone?: string; city?: string; plan?: string }
 
-  const adminEmail  = process.env.ADMIN_NOTIFICATION_EMAIL ?? process.env.ADMIN_EMAIL
-  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL ?? process.env.ADMIN_EMAIL
   if (!adminEmail) return
 
   let shop: ShopRow | null = null
-  if (serviceKey && supabaseUrl) {
-    try {
-      const res = await fetch(
-        `${supabaseUrl}/rest/v1/shops?id=eq.${opts.shopId}&select=shop_name,owner_phone,city,plan&limit=1`,
-        { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
-      )
-      if (res.ok) {
-        const rows = await res.json() as ShopRow[]
-        shop = rows?.[0] ?? null
-      }
-    } catch (e) {
-      console.error('[Email] Shop lookup failed:', e)
-    }
+  try {
+    const rows = await sbGet(
+      `shops?id=eq.${opts.shopId}&select=shop_name,owner_phone,city,plan&limit=1`
+    )
+    shop = (rows as ShopRow[])?.[0] ?? null
+  } catch (e) {
+    console.error('[Email] Shop lookup failed:', e)
   }
 
   const LABEL: Record<typeof opts.event, string> = {

@@ -1,21 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const SB_URL = () => process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SB_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const headers = () => ({
-  'Content-Type': 'application/json',
-  apikey: SB_KEY(),
-  Authorization: `Bearer ${SB_KEY()}`,
-  Prefer: 'resolution=merge-duplicates,return=minimal',
-})
+import { sbFetch } from '@/lib/supabase/service'
 
 async function validateMember(memberId: string, shopId: string): Promise<boolean> {
-  if (!SB_URL() || !SB_KEY()) return false
   try {
-    const res = await fetch(
-      `${SB_URL()}/rest/v1/team_members?id=eq.${memberId}&shop_id=eq.${shopId}&is_active=eq.true&deleted_at=is.null&select=id&limit=1`,
-      { headers: headers(), signal: AbortSignal.timeout(10000) }
+    const res = await sbFetch(
+      `team_members?id=eq.${memberId}&shop_id=eq.${shopId}&is_active=eq.true&deleted_at=is.null&select=id&limit=1`
     )
     if (!res.ok) return false
     const rows = await res.json()
@@ -46,9 +35,8 @@ export async function POST(req: NextRequest) {
 
   // ── Dedup: ensure endpoint not already registered to a different shop ──
   try {
-    const dup = await fetch(
-      `${SB_URL()}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(subscription.endpoint)}&shop_id=neq.${shopId}&select=id,shop_id&limit=1`,
-      { headers: headers(), signal: AbortSignal.timeout(5000) }
+    const dup = await sbFetch(
+      `push_subscriptions?endpoint=eq.${encodeURIComponent(subscription.endpoint)}&shop_id=neq.${shopId}&select=id,shop_id&limit=1`
     )
     if (dup.ok) {
       const rows = await dup.json()
@@ -58,9 +46,9 @@ export async function POST(req: NextRequest) {
     }
   } catch { /* network error — proceed to upsert */ }
 
-  const res = await fetch(`${SB_URL()}/rest/v1/push_subscriptions?on_conflict=endpoint`, {
+  const res = await sbFetch('push_subscriptions?on_conflict=endpoint', {
     method: 'POST',
-    headers: headers(),
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
     body: JSON.stringify({
       shop_id: shopId,
       member_id: memberId ?? null,
@@ -94,9 +82,9 @@ export async function DELETE(req: NextRequest) {
 
   if (!endpoint) return NextResponse.json({ error: 'endpoint required' }, { status: 400 })
 
-  const res = await fetch(`${SB_URL()}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, {
+  const res = await sbFetch(`push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, {
     method: 'DELETE',
-    headers: { ...headers(), Prefer: 'return=minimal' },
+    headers: { Prefer: 'return=minimal' },
   })
 
   if (!res.ok) return NextResponse.json({ error: await res.text() }, { status: 500 })

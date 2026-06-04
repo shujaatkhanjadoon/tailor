@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { CustomerRecord, OrderRecord, PaymentRecord, TeamMemberRecord } from '@/lib/db/schema'
+import type { OrderRecord, PaymentRecord, TeamMemberRecord } from '@/lib/db/schema'
 import { orderBalance, sumPayments } from '@/lib/payments/calculations'
 import { supabase } from '@/lib/supabase/client'
-import { mapCustomer, mapOrder, mapPayment, mapTeamMember } from '@/lib/supabase/records'
+import { mapOrder, mapPayment, mapTeamMember } from '@/lib/supabase/records'
 
 export type ReportPeriod = '7d' | '30d' | '90d' | '365d' | 'all'
 
 const ORDER_COLUMNS = 'id,shop_id,order_number,tracking_code,customer_id,customer_name,customer_phone,order_for_relation,order_for_name,recipient_gender,measurement_id,garment_type,status,assigned_to,assigned_to_name,total_price,amount_paid,is_urgent,due_date,special_instructions,fabric_photo_url,style_photo_url,created_at,updated_at,delivered_at,deleted_at'
 const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,applied_to_balance,kind,method,recorded_by,paid_at,notes,deleted_at'
-const CUSTOMER_COLUMNS = 'id,shop_id,name,phone,whatsapp,gender,notes,photo_url,created_at,deleted_at'
 const TEAM_COLUMNS = 'id,shop_id,name,role,speciality,pay_rate_type,pay_rate,is_active,deleted_at'
 
 let chanId = 0
@@ -39,19 +38,31 @@ function lastNMonths(n: number): { key: string; label: string }[] {
   return result
 }
 
+function prevPeriodStart(period: ReportPeriod): string | null {
+  if (period === 'all') return null
+  const days = { '7d':7,'30d':30,'90d':90,'365d':365 }[period]
+  const d = new Date(periodStart(period)!)
+  d.setDate(d.getDate() - days)
+  return d.toISOString()
+}
+
 export function useReports(shopId: string | null) {
   const [period, setPeriod] = useState<ReportPeriod>('30d')
   const [allOrders, setAllOrders] = useState<OrderRecord[]>([])
   const [allPayments, setAllPayments] = useState<PaymentRecord[]>([])
-  const [allCustomers, setAllCustomers] = useState<CustomerRecord[]>([])
   const [teamMembers, setTeamMembers] = useState<TeamMemberRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  const [statusDistribution, setStatusDistribution] = useState<{status: string; count: number}[]>([])
+  const [garmentBreakdown, setGarmentBreakdown] = useState<{type: string; count: number; revenue: number}[]>([])
+  const [topCustomers, setTopCustomers] = useState<{name: string; id: string; orders: number; revenue: number; paid: number}[]>([])
+  const [paymentMethods, setPaymentMethods] = useState<{method: string; amount: number; pct: number}[]>([])
+  const [totalCustomers, setTotalCustomers] = useState(0)
 
   useEffect(() => {
     if (!shopId) {
       setAllOrders([])
       setAllPayments([])
-      setAllCustomers([])
       setTeamMembers([])
       setIsLoading(false)
       return
@@ -64,45 +75,122 @@ export function useReports(shopId: string | null) {
       try {
         const rangeStart = period === 'all' ? periodStart('365d') : periodStart(period)
 
-        let ordersQuery = (supabase as any)
-          .from('orders')
-          .select(ORDER_COLUMNS)
+        const ordersPromise = (() => {
+          let q = supabase
+            .from('orders')
+            .select(ORDER_COLUMNS)
+            .eq('shop_id', shopId)
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false })
+          if (rangeStart) q = q.gte('created_at', rangeStart)
+          return q
+        })()
+
+        const paymentsPromise = (() => {
+          let q = supabase
+            .from('payments')
+            .select(PAYMENT_COLUMNS)
+            .eq('shop_id', shopId)
+            .is('deleted_at', null)
+            .order('paid_at', { ascending: true })
+          if (rangeStart) q = q.gte('paid_at', rangeStart)
+          return q
+        })()
+
+        const teamPromise = supabase
+          .from('team_members')
+          .select(TEAM_COLUMNS)
+          .eq('shop_id', shopId)
+          .eq('is_active', true)
+          .is('deleted_at', null)
+
+        const customersCountPromise = supabase
+          .from('customers')
+          .select('id', { count: 'exact' })
           .eq('shop_id', shopId)
           .is('deleted_at', null)
-          .order('created_at', { ascending: false })
-        if (rangeStart) ordersQuery = ordersQuery.gte('created_at', rangeStart)
 
-        let paymentsQuery = (supabase as any)
-          .from('payments')
-          .select(PAYMENT_COLUMNS)
-          .eq('shop_id', shopId)
-          .is('deleted_at', null)
-          .order('paid_at', { ascending: true })
-        if (rangeStart) paymentsQuery = paymentsQuery.gte('paid_at', rangeStart)
+        const statusPromise = (() => {
+          let q = supabase
+            .from('orders')
+            .select('status, count(*)')
+            .eq('shop_id', shopId)
+            .is('deleted_at', null)
+            .not('status', 'eq', 'cancelled')
+          if (rangeStart) q = q.gte('created_at', rangeStart)
+          return q
+        })()
 
-        const [ordersRes, paymentsRes, customersRes, teamRes] = await Promise.all([
-          ordersQuery,
-          paymentsQuery,
-          (supabase as any)
-            .from('customers')
-            .select(CUSTOMER_COLUMNS)
+        const garmentPromise = (() => {
+          let q = supabase
+            .from('orders')
+            .select('garment_type, count(*), total_price.sum()')
             .eq('shop_id', shopId)
-            .is('deleted_at', null),
-          (supabase as any)
-            .from('team_members')
-            .select(TEAM_COLUMNS)
+            .is('deleted_at', null)
+            .not('status', 'eq', 'cancelled')
+          if (rangeStart) q = q.gte('created_at', rangeStart)
+          return q
+        })()
+
+        const customerAggPromise = (() => {
+          let q = supabase
+            .from('orders')
+            .select('customer_id, customer_name, count(*), total_price.sum(), amount_paid.sum()')
             .eq('shop_id', shopId)
-            .eq('is_active', true)
-            .is('deleted_at', null),
+            .is('deleted_at', null)
+            .not('status', 'eq', 'cancelled')
+          if (rangeStart) q = q.gte('created_at', rangeStart)
+          return q.order('sum', { ascending: false }).limit(8)
+        })()
+
+        const methodPromise = (() => {
+          let q = supabase
+            .from('payments')
+            .select('method, amount.sum()')
+            .eq('shop_id', shopId)
+            .is('deleted_at', null)
+          if (rangeStart) q = q.gte('paid_at', rangeStart)
+          return q
+        })()
+
+        const [
+          ordersRes, paymentsRes, teamRes, customersCountRes,
+          statusRes, garmentRes, customerAggRes, methodRes,
+        ] = await Promise.all([
+          ordersPromise, paymentsPromise, teamPromise, customersCountPromise,
+          statusPromise, garmentPromise, customerAggPromise, methodPromise,
         ])
 
-        const error = ordersRes.error ?? paymentsRes.error ?? customersRes.error ?? teamRes.error
-        if (error) throw new Error(error.message)
         if (!cancelled) {
           setAllOrders((ordersRes.data ?? []).map(mapOrder))
           setAllPayments((paymentsRes.data ?? []).map(mapPayment))
-          setAllCustomers((customersRes.data ?? []).map(mapCustomer))
           setTeamMembers((teamRes.data ?? []).map(mapTeamMember))
+          setTotalCustomers(customersCountRes.count ?? 0)
+
+          setStatusDistribution(
+            (statusRes.data ?? []).map((d: any) => ({ status: d.status, count: d.count }))
+          )
+          setGarmentBreakdown(
+            (garmentRes.data ?? []).map((d: any) => ({ type: d.garment_type, count: d.count, revenue: d.sum }))
+          )
+          setTopCustomers(
+            (customerAggRes.data ?? []).map((d: any) => ({
+              id: d.customer_id, name: d.customer_name,
+              orders: d.count, revenue: d.sum, paid: d.amount_paid_sum,
+            }))
+          )
+
+          const rawMethods = (methodRes.data ?? []) as any[]
+          const totalMethodAmount = rawMethods.reduce((s: number, m: any) => s + (m.sum ?? 0), 0)
+          setPaymentMethods(
+            rawMethods
+              .map((m: any) => ({
+                method: m.method,
+                amount: m.sum ?? 0,
+                pct: totalMethodAmount > 0 ? Math.round(((m.sum ?? 0) / totalMethodAmount) * 100) : 0,
+              }))
+              .sort((a, b) => b.amount - a.amount)
+          )
         }
       } finally {
         if (!cancelled && showLoading) setIsLoading(false)
@@ -119,11 +207,7 @@ export function useReports(shopId: string | null) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `shop_id=eq.${shopId}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `shop_id=eq.${shopId}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
-          console.log('[useReports] Realtime subscription status:', status)
-        }
-      })
+      .subscribe()
 
     const interval = setInterval(refresh, 60_000)
 
@@ -135,17 +219,15 @@ export function useReports(shopId: string | null) {
   }, [shopId, period])
 
   const filteredOrders = useMemo(() => {
-    const orders = allOrders
-    const start  = periodStart(period)
-    if (!start) return orders
-    return orders.filter(o => o.createdAt >= start)
+    const start = periodStart(period)
+    if (!start) return allOrders
+    return allOrders.filter(o => o.createdAt >= start)
   }, [allOrders, period])
 
   const filteredPayments = useMemo(() => {
-    const payments = allPayments
-    const start    = periodStart(period)
+    const start = periodStart(period)
     const validOrderIds = new Set(allOrders.filter(o => o.status !== 'cancelled').map(o => o.id))
-    const scoped = payments.filter(p => validOrderIds.has(p.orderId))
+    const scoped = allPayments.filter(p => validOrderIds.has(p.orderId))
     if (!start) return scoped
     return scoped.filter(p => p.paidAt >= start)
   }, [allPayments, allOrders, period])
@@ -178,18 +260,11 @@ export function useReports(shopId: string | null) {
 
     const urgentOrders = orders.filter(o => o.isUrgent === 1).length
 
-    const prevStart = (() => {
-      if (period === 'all') return null
-      const days = { '7d':7,'30d':30,'90d':90,'365d':365 }[period]
-      const d = new Date(periodStart(period)!)
-      d.setDate(d.getDate() - days)
-      return d.toISOString()
-    })()
-
+    const pStart = prevPeriodStart(period)
     const validOrderIds = new Set(allOrders.filter(o => o.status !== 'cancelled').map(o => o.id))
     const prevPayments = allPayments.filter(p =>
       validOrderIds.has(p.orderId) &&
-      prevStart && p.paidAt >= prevStart && p.paidAt < (periodStart(period) ?? '')
+      pStart && p.paidAt >= pStart && p.paidAt < (periodStart(period) ?? '')
     )
     const prevRevenue = sumPayments(prevPayments).received
     const revenueGrowth = prevRevenue > 0
@@ -208,14 +283,13 @@ export function useReports(shopId: string | null) {
       appliedRevenue: paymentTotals.applied,
       tips: paymentTotals.tips,
       overpayments: paymentTotals.overpayments,
-      totalCustomers: allCustomers.length,
+      totalCustomers,
     }
-  }, [filteredOrders, filteredPayments, allOrders, allPayments, allCustomers, period])
+  }, [filteredOrders, filteredPayments, allOrders, allPayments, totalCustomers, period])
 
   const monthlyIncome = useMemo(() => {
     const months   = lastNMonths(12)
     const payments = reportPayments
-
     return months.map(({ key, label }) => {
       const monthPayments = payments.filter(p => p.paidAt.startsWith(key))
       const income        = sumPayments(monthPayments).received
@@ -228,76 +302,26 @@ export function useReports(shopId: string | null) {
   const weeklyIncome = useMemo(() => {
     const payments = reportPayments
     const result   = []
-
     for (let i = 7; i >= 0; i--) {
       const weekStart = new Date()
       weekStart.setDate(weekStart.getDate() - (weekStart.getDay() + 7 * i))
       weekStart.setHours(0, 0, 0, 0)
       const weekEnd = new Date(weekStart)
       weekEnd.setDate(weekEnd.getDate() + 7)
-
       const weekP   = payments.filter(p => {
         const t = new Date(p.paidAt)
         return t >= weekStart && t < weekEnd
       })
       const income  = sumPayments(weekP).received
       const label   = `W${8 - i}`
-
       result.push({ label, income })
     }
     return result
   }, [reportPayments])
 
-  const statusDistribution = useMemo(() => {
-    const orders = filteredOrders.filter(o => o.status !== 'cancelled')
-    const groups: Record<string, number> = {}
-    orders.forEach(o => {
-      groups[o.status] = (groups[o.status] || 0) + 1
-    })
-    return Object.entries(groups).map(([status, count]) => ({ status, count }))
-  }, [filteredOrders])
-
-  const garmentBreakdown = useMemo(() => {
-    const orders = filteredOrders.filter(o => o.status !== 'cancelled')
-    const groups: Record<string, { count: number; revenue: number }> = {}
-    orders.forEach(o => {
-      if (!groups[o.garmentType]) groups[o.garmentType] = { count: 0, revenue: 0 }
-      groups[o.garmentType].count++
-      groups[o.garmentType].revenue += o.totalPrice
-    })
-    return Object.entries(groups)
-      .map(([type, data]) => ({ type, ...data }))
-      .sort((a, b) => b.count - a.count)
-  }, [filteredOrders])
-
-  const topCustomers = useMemo(() => {
-    const orders   = filteredOrders.filter(o => o.status !== 'cancelled')
-    const customers: Record<string, {
-      name: string; id: string
-      orders: number; revenue: number; paid: number
-    }> = {}
-
-    orders.forEach(o => {
-      if (!customers[o.customerId]) {
-        customers[o.customerId] = {
-          name: o.customerName, id: o.customerId,
-          orders: 0, revenue: 0, paid: 0,
-        }
-      }
-      customers[o.customerId].orders++
-      customers[o.customerId].revenue += o.totalPrice
-      customers[o.customerId].paid    += o.amountPaid
-    })
-
-    return Object.values(customers)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 8)
-  }, [filteredOrders])
-
   const karigarStats = useMemo(() => {
     const orders  = filteredOrders.filter(o => o.status !== 'cancelled')
     const members = teamMembers
-
     return members
       .filter(m => m.role === 'karigar')
       .map(m => {
@@ -305,7 +329,6 @@ export function useReports(shopId: string | null) {
         const completed = assigned.filter(o => o.status === 'delivered')
         const pending   = assigned.filter(o => !['delivered','cancelled'].includes(o.status))
         const revenue   = assigned.reduce((s, o) => s + o.totalPrice, 0)
-
         return {
           id:           m.id,
           name:         m.name,
@@ -324,29 +347,12 @@ export function useReports(shopId: string | null) {
       .sort((a, b) => b.totalAssigned - a.totalAssigned)
   }, [filteredOrders, teamMembers])
 
-  const paymentMethods = useMemo(() => {
-    const payments = filteredPayments
-    const total    = sumPayments(payments).received
-    const groups: Record<string, number> = {}
-    payments.forEach(p => {
-      groups[p.method] = (groups[p.method] || 0) + p.amount
-    })
-    return Object.entries(groups)
-      .map(([method, amount]) => ({
-        method,
-        amount,
-        pct: total > 0 ? Math.round((amount / total) * 100) : 0,
-      }))
-      .sort((a, b) => b.amount - a.amount)
-  }, [filteredPayments])
-
   const paymentSummary = useMemo(() => sumPayments(filteredPayments), [filteredPayments])
 
   const dailyActivity = useMemo(() => {
     const orders   = allOrders
     const payments = reportPayments
     const result   = []
-
     for (let i = 29; i >= 0; i--) {
       const d = new Date()
       d.setDate(d.getDate() - i)
@@ -355,7 +361,6 @@ export function useReports(shopId: string | null) {
       const dayIncome  = payments
         .filter(p => p.paidAt.startsWith(key))
         .reduce((s, p) => s + p.amount, 0)
-
       result.push({
         date:   key,
         label:  d.toLocaleDateString('en-PK', { day:'numeric', month:'short' }),

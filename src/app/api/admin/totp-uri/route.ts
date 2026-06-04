@@ -8,8 +8,6 @@ export async function GET(req: NextRequest) {
   const headerSecret = req.headers.get('x-admin-secret')
   const adminSecret  = process.env.ADMIN_SECRET
 
-  console.log('[TOTP Setup] token:', !!token, 'header:', !!headerSecret, 'env:', !!adminSecret)
-
   const sessionOk = token && verifySessionToken(token)
   const secretOk  = headerSecret && adminSecret && headerSecret === adminSecret
 

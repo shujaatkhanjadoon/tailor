@@ -1,37 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { validate, schemas } from '@/lib/validation'
-
-const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-function headers(extra: Record<string, string> = {}) {
-  return {
-    'Content-Type':  'application/json',
-    'apikey':        SB_KEY!,
-    'Authorization': `Bearer ${SB_KEY}`,
-    ...extra,
-  }
-}
-
-async function sbFetch(path: string, init: RequestInit = {}) {
-  if (!SB_URL || !SB_KEY) throw new Error('Supabase service role is not configured')
-  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
-    ...init,
-    headers: { ...headers(), ...(init.headers ?? {}) },
-    signal:  AbortSignal.timeout(30000),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`${init.method ?? 'GET'} ${path} failed (${res.status}): ${err}`)
-  }
-  return res
-}
-
-async function sbGet(path: string): Promise<any[]> {
-  const res = await sbFetch(path)
-  return res.json()
-}
+import { sbFetch, sbGet } from '@/lib/supabase/service'
 
 export async function POST(req: NextRequest) {
   const parsed = await validate(schemas.deletePhoto, req)

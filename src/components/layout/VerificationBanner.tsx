@@ -20,7 +20,7 @@ export function VerificationBanner() {
   useEffect(() => {
     if (!shopId) return
 
-    ;(supabase as any)
+    supabase
       .from('shops')
       .select('verification_status')
       .eq('id', shopId)
@@ -30,7 +30,6 @@ export function VerificationBanner() {
           setStatus(data.verification_status as VerifStatus)
         }
       })
-      .catch(console.error)
   }, [shopId])
 
   // Already approved — show nothing

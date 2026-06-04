@@ -91,12 +91,12 @@ export function usePlan(): PlanState {
 
     try {
       const [subResult, usageResult] = await Promise.all([
-        (supabase as any)
+        supabase
           .from('subscriptions')
           .select('plan, status, billing_cycle, trial_ends_at, expires_at, grace_ends_at, amount_pkr')
           .eq('shop_id', shopId)
           .maybeSingle(),
-        (supabase as any)
+        supabase
           .from('shop_usage')
           .select('orders_this_month, customers_total, karigar_count, storage_used_kb')
           .eq('shop_id', shopId)
@@ -104,10 +104,6 @@ export function usePlan(): PlanState {
       ])
 
       if (mountedRef.current) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[usePlan] errors:', subResult.error, usageResult.error)
-        }
-
         if (subResult.error) {
           console.error('[usePlan] subscription fetch error:', subResult.error.message)
         }

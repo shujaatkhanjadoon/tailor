@@ -712,7 +712,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
       }
 
       const [measurementRes, orderRes] = await Promise.all([
-        (supabase as any)
+        supabase
           .from('measurements')
           .select('order_for_name,recipient_gender,taken_at')
           .eq('customer_id', data.customerId)
@@ -720,7 +720,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
           .not('order_for_name', 'is', null)
           .is('deleted_at', null)
           .order('taken_at', { ascending: false }),
-        (supabase as any)
+        supabase
           .from('orders')
           .select('order_for_name,recipient_gender,created_at')
           .eq('customer_id', data.customerId)
@@ -782,7 +782,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
         setPreviousMeasurements([])
         return
       }
-      const { data: rows, error } = await (supabase as any)
+      const { data: rows, error } = await supabase
         .from('measurements')
         .select('id,customer_id,shop_id,garment_type,order_for_relation,order_for_name,recipient_gender,values,notes,taken_at,deleted_at')
         .eq('customer_id', data.customerId)

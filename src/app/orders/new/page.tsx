@@ -146,7 +146,7 @@ function NewOrderWizard({
     let cancelled = false;
     const loadLatestRelation = async () => {
       const [orderRes, measurementRes] = await Promise.all([
-        (supabase as any)
+        supabase
           .from("orders")
           .select("order_for_relation,order_for_name,recipient_gender,created_at")
           .eq("customer_id", data.customerId)
@@ -154,7 +154,7 @@ function NewOrderWizard({
           .is("deleted_at", null)
           .order("created_at", { ascending: false })
           .limit(1),
-        (supabase as any)
+        supabase
           .from("measurements")
           .select("order_for_relation,order_for_name,recipient_gender,taken_at")
           .eq("customer_id", data.customerId)
@@ -241,9 +241,9 @@ function NewOrderWizard({
           taken_at: nowKarachiIso(),
         };
 
-        let { error } = await (supabase as any).from("measurements").insert(measurementRow);
+        let { error } = await supabase.from("measurements").insert(measurementRow);
         if (error && isParentRelation(selectedRelation) && isRelationCheckError(error)) {
-          const retry = await (supabase as any).from("measurements").insert({
+          const retry = await supabase.from("measurements").insert({
             ...measurementRow,
             order_for_relation: measurementRelationForLegacyDb(selectedRelation),
             order_for_name: null,
@@ -256,7 +256,7 @@ function NewOrderWizard({
       if (!measurementId) {
         const selectedRelation = data.orderForRelation ?? "self";
         const lookupRelation = measurementRelationForLegacyDb(selectedRelation);
-        let query = (supabase as any)
+        let query = supabase
           .from("measurements")
           .select("*")
           .eq("customer_id", data.customerId!)
@@ -303,7 +303,7 @@ function NewOrderWizard({
         if (cloudinaryEnabled && typeof navigator !== "undefined" && navigator.onLine) {
           const uploaded = await uploadToCloudinary(data.fabricPhotoBase64, shopId, order.id, "fabric");
           if (uploaded) {
-            await (supabase as any).from("order_photos").insert({
+            await supabase.from("order_photos").insert({
               id: uuid(),
               order_id: order.id,
               shop_id: shopId,

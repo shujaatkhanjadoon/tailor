@@ -27,9 +27,7 @@ export default function SetupTOTPPage() {
         },
         cache: "no-store",
       });
-      console.log("[Setup TOTP] Response status:", res.status);
       const data = await res.json();
-      console.log("[Setup TOTP] Response data:", data);
 
       if (!res.ok) {
         setError(data.error ?? `Error ${res.status} — check ADMIN_SECRET`);

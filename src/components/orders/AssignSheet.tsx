@@ -37,7 +37,7 @@ export function AssignSheet({ orderId, currentAssignee, onClose, onAssigned }: A
     if (shopId) {
       Promise.all([
         teamOps.getAll(shopId),
-        (supabase as any).from('orders').select('id,shop_id,order_number,customer_name,status,assigned_to,assigned_to_name,garment_type,total_price,amount_paid,is_urgent,due_date,created_at,updated_at,deleted_at').eq('id', orderId).eq('shop_id', shopId).is('deleted_at', null).maybeSingle(),
+        supabase.from('orders').select('id,shop_id,order_number,customer_name,status,assigned_to,assigned_to_name,garment_type,total_price,amount_paid,is_urgent,due_date,created_at,updated_at,deleted_at').eq('id', orderId).eq('shop_id', shopId).is('deleted_at', null).maybeSingle(),
       ]).then(([all, orderRes]) => {
         const karigars = all
           .filter(m => m.role === 'karigar')

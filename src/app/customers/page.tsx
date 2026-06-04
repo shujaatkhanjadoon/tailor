@@ -17,6 +17,7 @@ import { useCustomers } from '@/hooks/useCustomers'
 import { AppFooter } from '@/components/layout/AppFooter'
 import { exportCSV } from '@/lib/export/download'
 import { useTranslation } from 'react-i18next'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
 type GenderFilter = 'all' | 'male' | 'female' | 'child'
 
@@ -155,6 +156,7 @@ export default function CustomersPage() {
   ]
 
   return (
+    <ErrorBoundary>
     <div className="flex min-h-dvh flex-col overflow-x-clip bg-slate-50 pb-24 lg:pb-8">
       <header className="bg-white border-b border-slate-100 px-4 pt-2 lg:pt-0 pb-4 sticky top-14 lg:top-1 z-10">
         <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
@@ -264,5 +266,6 @@ export default function CustomersPage() {
         {!isLoading && <AppFooter className="mt-4" />}
       </main>
     </div>
+    </ErrorBoundary>
   )
 }

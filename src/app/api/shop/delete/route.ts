@@ -1,48 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { validate, schemas } from '@/lib/validation'
-
-const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-function headers(extra: Record<string, string> = {}) {
-  return {
-    'Content-Type':  'application/json',
-    'apikey':        SB_KEY!,
-    'Authorization': `Bearer ${SB_KEY}`,
-    ...extra,
-  }
-}
-
-async function sbFetch(path: string, init: RequestInit = {}) {
-  if (!SB_URL || !SB_KEY) throw new Error('Supabase service role is not configured')
-  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
-    ...init,
-    headers: { ...headers(), ...(init.headers ?? {}) },
-    signal:  AbortSignal.timeout(30000),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`${init.method ?? 'GET'} ${path} failed (${res.status}): ${err}`)
-  }
-  return res
-}
-
-async function sbGet(path: string): Promise<any[]> {
-  const res = await sbFetch(path)
-  return res.json()
-}
-
-async function sbDelete(table: string, filter: string) {
-  await sbFetch(`${table}?${filter}`, {
-    method:  'DELETE',
-    headers: { Prefer: 'return=minimal' },
-  })
-}
+import { sbFetch, sbGet, sbDelete } from '@/lib/supabase/service'
 
 async function tryDelete(table: string, filter: string, warnings: string[]) {
   try {
-    await sbDelete(table, filter)
+    await sbDelete(`${table}?${filter}`)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     warnings.push(`${table}: ${message}`)
@@ -84,10 +47,6 @@ function inFilter(column: string, ids: string[]) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!SB_URL || !SB_KEY) {
-    return NextResponse.json({ error: 'Server misconfigured: Supabase service key missing' }, { status: 500 })
-  }
-
   const parsed = await validate(schemas.deleteShop, req)
   if (!parsed.ok) {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status })
@@ -136,7 +95,7 @@ export async function POST(req: NextRequest) {
     await tryDelete('shop_usage', shopFilter, warnings)
     await tryDelete('shop_verification_requests', shopFilter, warnings)
 
-    await sbDelete('shops', `id=eq.${encodeURIComponent(shopId)}`)
+    await sbDelete(`shops?id=eq.${encodeURIComponent(shopId)}`)
 
     return NextResponse.json({ success: true, warnings })
   } catch (error) {

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, verifySessionToken } from '@/lib/admin/auth'
-
-const SB_URL = () => process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SB_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY!
+import { sbFetch } from '@/lib/supabase/service'
 
 function cleanPhone(value: string) {
   const digits = value.replace(/\D/g, '').replace(/^0/, '92')
@@ -21,14 +19,8 @@ export async function POST(req: NextRequest) {
   }
 
   const [shopsRes, subsRes] = await Promise.all([
-    fetch(`${SB_URL()}/rest/v1/shops?is_active=eq.true&select=id,shop_name,owner_phone,whatsapp_number`, {
-      headers: { apikey: SB_KEY(), Authorization: `Bearer ${SB_KEY()}` },
-      cache: 'no-store',
-    }),
-    fetch(`${SB_URL()}/rest/v1/subscriptions?select=shop_id,plan,status`, {
-      headers: { apikey: SB_KEY(), Authorization: `Bearer ${SB_KEY()}` },
-      cache: 'no-store',
-    }),
+    sbFetch(`shops?is_active=eq.true&select=id,shop_name,owner_phone,whatsapp_number`),
+    sbFetch(`subscriptions?select=shop_id,plan,status`),
   ])
 
   if (!shopsRes.ok || !subsRes.ok) {

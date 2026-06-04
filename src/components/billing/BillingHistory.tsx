@@ -24,7 +24,7 @@ export function BillingHistory() {
   useEffect(() => {
     if (!shopId) return
     const load = async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('subscription_payments')
         .select('id,shop_id,plan,billing_cycle,amount_pkr,status,paid_at,gateway_tx_id')
         .eq('shop_id', shopId)

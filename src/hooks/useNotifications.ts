@@ -70,9 +70,9 @@ export function useNotificationCount(shopId: string | null) {
     tomorrowDate.setDate(tomorrowDate.getDate() + 1)
     const tomorrow = karachiDateString(tomorrowDate)
     const load = async () => {
-      const { count: total } = await (supabase as any)
+      const { count: total } = await supabase
         .from('orders')
-        .select('id', { count: 'exact', head: true })
+        .select('id', { count: 'exact' })
         .eq('shop_id', shopId)
         .is('deleted_at', null)
         .lte('due_date', tomorrow)
@@ -83,11 +83,7 @@ export function useNotificationCount(shopId: string | null) {
     const channel = supabase
       .channel(`notification-count-${shopId}-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
-          console.log('[useNotificationCount] Realtime subscription status:', status)
-        }
-      })
+      .subscribe()
     const interval = setInterval(load, 60_000)
     return () => {
       clearInterval(interval)

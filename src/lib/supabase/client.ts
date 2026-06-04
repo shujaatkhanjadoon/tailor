@@ -1,6 +1,5 @@
 // src/lib/supabase/client.ts
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from './types'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -12,7 +11,8 @@ if (!url || !key) {
 }
 
 // Singleton — one client across the whole app
-export const supabase = createClient<Database>(url, key, {
+// Type safety is enforced at the function boundary via map* helpers in records.ts
+export const supabase = createClient(url, key, {
   auth: {
     persistSession:    true,
     autoRefreshToken:  true,

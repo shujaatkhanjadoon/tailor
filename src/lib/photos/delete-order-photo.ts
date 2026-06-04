@@ -14,7 +14,7 @@ export async function deleteOrderPhotoEverywhere(
   let publicId = photo.publicId?.trim()
 
   if (!publicId) {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('order_photos')
       .select('public_id')
       .eq('id', photo.id)
@@ -28,7 +28,7 @@ export async function deleteOrderPhotoEverywhere(
     if (!deleted) console.warn('Cloudinary photo delete failed (non-fatal)')
   }
 
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('order_photos')
     .delete()
     .eq('id', photo.id)

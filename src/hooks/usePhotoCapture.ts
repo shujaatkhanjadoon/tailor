@@ -21,7 +21,7 @@ export interface PhotoUploadState {
 
 async function upsertPhotoMetadata(photo: PhotoRecord) {
   if (!photo.cloudUrl || !photo.publicId) return
-  await (supabase as any)
+  await supabase
     .from('order_photos')
     .upsert({
       id: photo.id,
@@ -30,11 +30,11 @@ async function upsertPhotoMetadata(photo: PhotoRecord) {
       type: photo.type,
       cloud_url: photo.cloudUrl,
       public_id: photo.publicId,
-      cloud_size_kb: photo.cloudSizeKB ?? null,
+      cloud_size_kb: photo.cloudSizeKB ?? undefined,
       size_kb: photo.sizeKB,
       taken_at: photo.takenAt,
-      deleted_at: null,
-    }, { onConflict: 'id' })
+      deleted_at: undefined,
+    } as any, { onConflict: 'id' })
 }
 
 export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {

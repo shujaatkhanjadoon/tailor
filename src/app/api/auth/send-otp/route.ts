@@ -4,14 +4,7 @@ import { generateOTP, hashOTP, sendOTPEmail } from '@/lib/security/email-otp'
 import { getOTPRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { validatePakistaniPhone }        from '@/lib/security/phone'
 import { validate, schemas }             from '@/lib/validation'
-
-const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const HEADERS = {
-  'Content-Type':  'application/json',
-  'apikey':        SB_KEY,
-  'Authorization': `Bearer ${SB_KEY}`,
-}
+import { sbGet, sbPatch, sbFetch } from '@/lib/supabase/service'
 
 export async function POST(req: NextRequest) {
   // ── Rate limit by IP + fingerprint ────────────────────────────
@@ -40,13 +33,10 @@ export async function POST(req: NextRequest) {
   const normalizedEmail = email
 
   if (purpose === 'signup') {
-    const emailOwnerRes = await fetch(
-      `${SB_URL}/rest/v1/team_members` +
-      `?email=eq.${encodeURIComponent(normalizedEmail)}` +
-      `&is_active=eq.true&select=id&limit=1`,
-      { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } }
+    const emailOwners = await sbGet(
+      `team_members?email=eq.${encodeURIComponent(normalizedEmail)}` +
+      `&is_active=eq.true&select=id&limit=1`
     )
-    const emailOwners = emailOwnerRes.ok ? await emailOwnerRes.json() : []
 
     if (emailOwners.length > 0) {
       return NextResponse.json(
@@ -72,29 +62,23 @@ export async function POST(req: NextRequest) {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()  // 10 min
 
   // ── Invalidate previous OTPs for this phone ───────────────────
-  await fetch(
-    `${SB_URL}/rest/v1/email_verifications?phone=eq.${phoneResult.cleaned}&verified_at=is.null`,
-    {
-      method:  'PATCH',
-      headers: { ...HEADERS, 'Prefer': 'return=minimal' },
-      body:    JSON.stringify({ expires_at: new Date(0).toISOString() }),
-    }
+  await sbPatch(
+    `email_verifications?phone=eq.${phoneResult.cleaned}&verified_at=is.null`,
+    { expires_at: new Date(0).toISOString() }
   )
 
   // ── Store OTP in database ─────────────────────────────────────
-  const { error: dbError } = await fetch(
-    `${SB_URL}/rest/v1/email_verifications`,
-    {
-      method:  'POST',
-      headers: { ...HEADERS, 'Prefer': 'return=minimal' },
-      body:    JSON.stringify({
-        phone:      phoneResult.cleaned,
-        email:      normalizedEmail,
-        otp_hash:   otpHash,
-        expires_at: expiresAt,
-      }),
-    }
-  ).then(r => r.ok ? { error: null } : r.json().then(d => ({ error: d })))
+  const dbRes = await sbFetch('email_verifications', {
+    method:  'POST',
+    headers: { 'Prefer': 'return=minimal' },
+    body:    JSON.stringify({
+      phone:      phoneResult.cleaned,
+      email:      normalizedEmail,
+      otp_hash:   otpHash,
+      expires_at: expiresAt,
+    }),
+  })
+  const dbError = dbRes.ok ? null : await dbRes.text()
 
   if (dbError) {
     console.error('[Send OTP] DB error:', dbError)
@@ -110,8 +94,6 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     )
   }
-
-  console.log(`[Send OTP] Sent successfully`)
 
   return NextResponse.json({
     success:    true,

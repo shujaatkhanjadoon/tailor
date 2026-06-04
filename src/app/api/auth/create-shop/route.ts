@@ -214,10 +214,7 @@ export async function POST(req: NextRequest) {
       const msg = encodeURIComponent(
         `🆕 New Shop: ${shopName} | ${ownerPhone} | ${city ?? 'N/A'}`
       )
-      console.log(`[New Shop] WhatsApp admin: https://wa.me/${adminWA}?text=${msg}`)
     }
-
-    console.log(`[create-shop] ✓ Created: ${shopName} (${shopId})`)
 
     return NextResponse.json({
       success:  true,

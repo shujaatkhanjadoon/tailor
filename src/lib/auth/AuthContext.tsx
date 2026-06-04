@@ -112,7 +112,7 @@ function clearCachedShopId(): void {
 async function isRemoteShopActive(shopId: string): Promise<boolean> {
   if (typeof navigator === 'undefined' || !navigator.onLine) return true
   try {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('shops')
       .select('is_active')
       .eq('id', shopId)
@@ -273,7 +273,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const actualMemberId = apiData.memberId
 
-    const { data: ownerRow } = await (supabase as any)
+    const { data: ownerRow } = await supabase
       .from('team_members')
       .select('id,shop_id,name,phone,role,pin_hash,email,email_verified,is_active,joined_at,created_at,updated_at,deleted_at')
       .eq('id', actualMemberId)

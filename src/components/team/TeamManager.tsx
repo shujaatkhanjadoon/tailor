@@ -196,7 +196,7 @@ export function TeamManager() {
       valid = false
     } else {
       // Check uniqueness in Supabase (don't allow duplicate phone)
-      const existing = await (supabase as any)
+      const existing = await supabase
         .from('team_members')
         .select('id, name, role')
         .eq('phone', phoneResult.cleaned)
@@ -273,7 +273,7 @@ export function TeamManager() {
       // ── Write to Supabase via API (immediate) ─────────────────
       if (editingId) {
         // Update in Supabase
-        await (supabase as any)
+        await supabase
           .from('team_members')
           .update({
             name:          memberData.name,
@@ -305,7 +305,7 @@ export function TeamManager() {
         // Create new karigar — write to Supabase first
         const newId = crypto.randomUUID()
 
-        const { error: sbError } = await (supabase as any)
+        const { error: sbError } = await supabase
           .from('team_members')
           .insert({
             id:             newId,

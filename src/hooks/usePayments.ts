@@ -56,16 +56,38 @@ export function usePayments(shopId: string | null, options?: UsePaymentsOptions)
   ordersRef.current = options?.orders
 
   const fetchPayments = useCallback(async () => {
+    if (!shopId) return { rows: [], total: 0 }
+    let countQuery = supabase
+      .from('payments')
+      .select('id', { count: 'exact' })
+      .eq('shop_id', shopId)
+      .is('deleted_at', null)
+
+    let dataQuery = supabase
+      .from('payments')
+      .select(PAYMENT_COLUMNS)
+      .eq('shop_id', shopId)
+      .is('deleted_at', null)
+      .order('paid_at', { ascending: false })
+      .range(page * PAYMENTS_PER_PAGE, page * PAYMENTS_PER_PAGE + PAYMENTS_PER_PAGE - 1)
+
+    const sq = searchQuery.trim()
+    if (sq) {
+      const filter = `customer_name.ilike.%${sq}%`
+      countQuery = countQuery.or(filter)
+      dataQuery = dataQuery.or(filter)
+    }
+
     const [{ count: totalCount }, { data: paymentRows }] = await Promise.all([
-      (supabase as any).from('payments').select('id', { count: 'exact', head: true }).eq('shop_id', shopId).is('deleted_at', null),
-      (supabase as any).from('payments').select(PAYMENT_COLUMNS).eq('shop_id', shopId).is('deleted_at', null).order('paid_at', { ascending: false }).range(page * PAYMENTS_PER_PAGE, page * PAYMENTS_PER_PAGE + PAYMENTS_PER_PAGE - 1),
+      countQuery,
+      dataQuery,
     ])
 
     let orders: Map<string, OrderRecord>
     if (ordersRef.current) {
       orders = new Map(ordersRef.current.map(o => [o.id, o]))
     } else {
-      const { data: orderRows } = await (supabase as any).from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null)
+      const { data: orderRows } = await supabase.from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null)
       orders = new Map((orderRows ?? []).map((row: any) => {
         const order = mapOrder(row)
         return [order.id, order]
@@ -86,7 +108,11 @@ export function usePayments(shopId: string | null, options?: UsePaymentsOptions)
       }
     })
     return { rows, total: totalCount ?? 0 }
-  }, [shopId, page])
+  }, [shopId, page, searchQuery])
+
+  useEffect(() => {
+    setPage(0)
+  }, [filter, methodFilter, searchQuery])
 
   useEffect(() => {
     if (!shopId) {
@@ -112,11 +138,7 @@ export function usePayments(shopId: string | null, options?: UsePaymentsOptions)
       .channel(uniqueChannelName(`payments-${shopId}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `shop_id=eq.${shopId}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
-          console.log('[usePayments] Realtime subscription status:', status)
-        }
-      })
+      .subscribe()
     const interval = setInterval(load, 60_000)
     return () => {
       cancelled = true
@@ -189,7 +211,7 @@ export function usePendingBalances(shopId: string | null) {
 
   const fetchPending = useCallback(async () => {
     if (!shopId) return []
-    const { data } = await (supabase as any).from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null)
+    const { data } = await supabase.from('orders').select(PAYMENT_ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null)
     return (data ?? []).map(mapOrder).filter((o: OrderRecord) => o.status !== 'cancelled' && orderBalance(o) > 0)
   }, [shopId])
 
@@ -215,11 +237,7 @@ export function usePendingBalances(shopId: string | null) {
       .channel(uniqueChannelName(`pending-balances-${shopId}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
-          console.log('[usePendingBalances] Realtime subscription status:', status)
-        }
-      })
+      .subscribe()
     const interval = setInterval(load, 60_000)
     return () => {
       cancelled = true

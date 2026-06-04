@@ -13,6 +13,7 @@ import { PaymentCardSkeleton } from '@/components/ui/Skeleton'
 import { AppFooter } from '@/components/layout/AppFooter'
 import { exportCSV, exportPrintablePDF } from '@/lib/export/download'
 import { useTranslation } from 'react-i18next'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
 export default function PaymentsPage() {
   const { shopId, isOwner }   = useAuth()
@@ -69,6 +70,7 @@ export default function PaymentsPage() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="flex min-h-dvh flex-col overflow-x-clip bg-slate-50 pb-24 lg:pb-8">
       <header className="bg-white border-b border-slate-100 px-4 pt-2 lg:pt-0 pb-4 sticky top-14 lg:top-1 z-10">
         <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
@@ -249,5 +251,6 @@ export default function PaymentsPage() {
         <QuickPaymentSheet onClose={() => setShowSheet(false)} onSaved={() => { refresh(); setShowSheet(false) }} />
       )}
     </div>
+    </ErrorBoundary>
   )
 }

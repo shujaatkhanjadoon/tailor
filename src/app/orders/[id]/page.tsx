@@ -75,9 +75,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     let cancelled = false
     const load = async () => {
       const [{ data: shopRow }, { data: customerRow }, { data: photoRows }] = await Promise.all([
-        (supabase as any).from('shops').select('id,shop_name,is_active').eq('id', order.shopId).maybeSingle(),
-        (supabase as any).from('customers').select('id,shop_id,name,phone,whatsapp,gender,notes,photo_url,created_at,deleted_at').eq('id', order.customerId).maybeSingle(),
-        (supabase as any).from('order_photos').select('id,order_id,shop_id,type,cloud_url,public_id,cloud_size_kb,size_kb,taken_at').eq('order_id', order.id).is('deleted_at', null).order('taken_at', { ascending: false }),
+        supabase.from('shops').select('id,shop_name,is_active').eq('id', order.shopId).maybeSingle(),
+        supabase.from('customers').select('id,shop_id,name,phone,whatsapp,gender,notes,photo_url,created_at,deleted_at').eq('id', order.customerId).maybeSingle(),
+        supabase.from('order_photos').select('id,order_id,shop_id,type,cloud_url,public_id,cloud_size_kb,size_kb,taken_at').eq('order_id', order.id).is('deleted_at', null).order('taken_at', { ascending: false }),
       ])
       if (!cancelled) {
         setShop(shopRow ? mapShop(shopRow) : undefined)
@@ -100,7 +100,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       let measurementRow: any
       if (!order) return undefined
       if (order.measurementId) {
-        const { data } = await (supabase as any)
+        const { data } = await supabase
           .from('measurements')
           .select('id,customer_id,shop_id,garment_type,order_for_relation,order_for_name,recipient_gender,values,notes,taken_at,deleted_at')
           .eq('id', order.measurementId)
@@ -111,7 +111,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       if (!measurementRow) {
         const orderRelation = order.orderForRelation ?? 'self'
         const measurementRelation = isParentRelation(orderRelation) ? 'other' : orderRelation
-        let query = (supabase as any)
+        let query = supabase
           .from('measurements')
           .select('id,customer_id,shop_id,garment_type,order_for_relation,order_for_name,recipient_gender,values,notes,taken_at,deleted_at')
           .eq('customer_id', order.customerId)
@@ -250,7 +250,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           const deleted = await deleteFromCloudinary(publicId, shopId, currentUser.id)
           if (!deleted) console.warn('Cloudinary legacy photo delete failed (non-fatal)')
         }
-        await (supabase as any)
+        await supabase
           .from('orders')
           .update({ fabric_photo_url: null, updated_at: new Date().toISOString() })
           .eq('id', order?.id)

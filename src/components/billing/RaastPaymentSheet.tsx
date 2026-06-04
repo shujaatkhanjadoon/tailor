@@ -97,7 +97,7 @@ export function RaastPaymentSheet({
       // Step 1: Get or create subscription row
       let subscriptionId: string | null = null
 
-      const { data: existingSub } = await (supabase as any)
+      const { data: existingSub } = await supabase
         .from('subscriptions')
         .select('id')
         .eq('shop_id', shopId)
@@ -107,7 +107,7 @@ export function RaastPaymentSheet({
         subscriptionId = existingSub.id
       } else {
         // Create subscription row if missing
-        const { data: newSub, error: subCreateErr } = await (supabase as any)
+        const { data: newSub, error: subCreateErr } = await supabase
           .from('subscriptions')
           .insert({
             shop_id: shopId,
@@ -152,7 +152,7 @@ export function RaastPaymentSheet({
         paymentRecord.subscription_id = subscriptionId
       }
 
-      const { error: payErr } = await (supabase as any)
+      const { error: payErr } = await supabase
         .from('subscription_payments')
         .insert(paymentRecord)
 
@@ -165,7 +165,7 @@ export function RaastPaymentSheet({
 
       // Step 3: Mark subscription as pending
       if (subscriptionId) {
-        await (supabase as any)
+        await supabase
           .from('subscriptions')
           .update({
             gateway: 'raast',

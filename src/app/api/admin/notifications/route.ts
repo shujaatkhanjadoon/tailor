@@ -2,33 +2,17 @@ import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, verifySessionToken } from '@/lib/admin/auth'
 import { validate, schemas } from '@/lib/validation'
-
-const SB_URL = () => process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SB_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY!
-const headers = () => ({
-  'Content-Type': 'application/json',
-  apikey: SB_KEY(),
-  Authorization: `Bearer ${SB_KEY()}`,
-})
+import { sbGet, sbFetch } from '@/lib/supabase/service'
 
 function authorized(req: NextRequest) {
   const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
   return !!token && verifySessionToken(token)
 }
 
-async function sbGet<T>(path: string): Promise<T[]> {
-  const res = await fetch(`${SB_URL()}/rest/v1/${path}`, {
-    headers: headers(),
-    cache: 'no-store',
-  })
-  if (!res.ok) throw new Error(`GET ${path}: ${res.status} ${await res.text()}`)
-  return res.json()
-}
-
 async function cleanupExpired() {
-  await fetch(`${SB_URL()}/rest/v1/admin_notifications?expires_at=lt.${encodeURIComponent(new Date().toISOString())}`, {
+  await sbFetch(`admin_notifications?expires_at=lt.${encodeURIComponent(new Date().toISOString())}`, {
     method: 'DELETE',
-    headers: { ...headers(), Prefer: 'return=minimal' },
+    headers: { Prefer: 'return=minimal' },
   })
 }
 
@@ -59,9 +43,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(`${SB_URL()}/rest/v1/admin_notifications`, {
+    const res = await sbFetch('admin_notifications', {
       method: 'POST',
-      headers: { ...headers(), Prefer: 'return=representation' },
+      headers: { Prefer: 'return=representation' },
       body: JSON.stringify({
         id: crypto.randomUUID(),
         title,
@@ -95,9 +79,9 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(`${SB_URL()}/rest/v1/admin_notifications?id=eq.${encodeURIComponent(id)}`, {
+    const res = await sbFetch(`admin_notifications?id=eq.${encodeURIComponent(id)}`, {
       method: 'PATCH',
-      headers: { ...headers(), Prefer: 'return=representation' },
+      headers: { Prefer: 'return=representation' },
       body: JSON.stringify({
         title,
         message,
@@ -121,9 +105,9 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: 'Notification id required' }, { status: 400 })
 
   try {
-    const res = await fetch(`${SB_URL()}/rest/v1/admin_notifications?id=eq.${encodeURIComponent(id)}`, {
+    const res = await sbFetch(`admin_notifications?id=eq.${encodeURIComponent(id)}`, {
       method: 'DELETE',
-      headers: { ...headers(), Prefer: 'return=minimal' },
+      headers: { Prefer: 'return=minimal' },
     })
     if (!res.ok) throw new Error(`DELETE notification: ${res.status} ${await res.text()}`)
     return NextResponse.json({ success: true })

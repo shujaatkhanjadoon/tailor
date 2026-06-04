@@ -41,7 +41,7 @@ export default function CancelPage() {
 
     try {
       // Set status to cancelled — access continues until expiry
-      await (supabase as any)
+      await supabase
         .from('subscriptions')
         .update({
           status:       'cancelled',

@@ -4,54 +4,7 @@ import { verifyOTP }                  from '@/lib/security/email-otp'
 import { getLoginRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { parseBody }                  from '@/lib/security/body'
 import { validate, schemas }          from '@/lib/validation'
-
-const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const HEADERS = {
-  'Content-Type':  'application/json',
-  'apikey':        SB_KEY,
-  'Authorization': `Bearer ${SB_KEY}`,
-}
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-
-function isRetryableFetchError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error)
-  const cause = (error as { cause?: { code?: string } })?.cause
-  return (
-    message.includes('fetch failed') ||
-    message.includes('Connect Timeout') ||
-    cause?.code === 'UND_ERR_CONNECT_TIMEOUT'
-  )
-}
-
-async function sbFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  let lastError: unknown
-
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    try {
-      const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
-        ...init,
-        signal: AbortSignal.timeout(30000),
-      })
-
-      if (res.status >= 500 && attempt < 3) {
-        await sleep(500 * attempt)
-        continue
-      }
-
-      return res
-    } catch (error) {
-      lastError = error
-      if (attempt >= 3 || !isRetryableFetchError(error)) break
-      await sleep(700 * attempt)
-    }
-  }
-
-  throw lastError instanceof Error
-    ? lastError
-    : new Error('Supabase request failed')
-}
+import { sbFetch, sbPatch }           from '@/lib/supabase/service'
 
 export async function POST(req: NextRequest) {
   // ── Rate limit ────────────────────────────────────────────────
@@ -78,8 +31,7 @@ export async function POST(req: NextRequest) {
     `?phone=eq.${encodeURIComponent(phone)}` +
     `&verified_at=is.null` +
     `&expires_at=gt.${encodeURIComponent(new Date().toISOString())}` +
-    `&order=created_at.desc&limit=1`,
-    { headers: HEADERS }
+    `&order=created_at.desc&limit=1`
   )
   if (!res.ok) {
     const err = await res.text()
@@ -108,13 +60,9 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Increment attempt count ───────────────────────────────────
-  await sbFetch(
+  await sbPatch(
     `email_verifications?id=eq.${record.id}`,
-    {
-      method:  'PATCH',
-      headers: { ...HEADERS, 'Prefer': 'return=minimal' },
-      body:    JSON.stringify({ attempts: record.attempts + 1 }),
-    }
+    { attempts: record.attempts + 1 }
   )
 
   // ── Verify OTP hash ───────────────────────────────────────────
@@ -130,13 +78,9 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Mark as verified ──────────────────────────────────────────
-  await sbFetch(
+  await sbPatch(
     `email_verifications?id=eq.${record.id}`,
-    {
-      method:  'PATCH',
-      headers: { ...HEADERS, 'Prefer': 'return=minimal' },
-      body:    JSON.stringify({ verified_at: new Date().toISOString() }),
-    }
+    { verified_at: new Date().toISOString() }
   )
 
   return NextResponse.json({

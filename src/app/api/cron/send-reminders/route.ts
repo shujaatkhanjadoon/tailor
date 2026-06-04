@@ -4,32 +4,9 @@
 // (Full WhatsApp Business API can be added later)
 
 import { NextRequest, NextResponse } from 'next/server'
+import { sbGet, sbPost } from '@/lib/supabase/service'
 
-
-
-const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const HEADERS = {
-  'apikey':        SB_KEY,
-  'Authorization': `Bearer ${SB_KEY}`,
-}
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mydarzi.vercel.app'
-
-async function sbGet(path: string): Promise<any[]> {
-  const res = await fetch(`${SB_URL}/rest/v1/${path}`, { headers: HEADERS })
-  return res.ok ? res.json() : []
-}
-
-async function sbPost(path: string, data: object): Promise<{ error?: { code?: string } }> {
-  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
-    method: 'POST',
-    headers: { ...HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok && res.status === 409) return { error: { code: '23505' } }
-  if (!res.ok) return { error: { code: String(res.status) } }
-  return {}
-}
 
 function buildReminderMessage(
   shopName:  string,
@@ -138,37 +115,35 @@ export async function GET(req: NextRequest) {
 
         // Store reminder in DB as a log record
         // In production: call WhatsApp Business API here
-        const insertResult = await sbPost('subscription_payments', {
-          shop_id:       sub.shop_id,
-          plan:          sub.plan,
-          billing_cycle: 'monthly',
-          amount_pkr:    0,
-          method:        'reminder',
-          gateway_tx_id: reminderKey,
-          status:        'pending',
-          receipt_data:  {
-            type:       'reminder',
-            days_left:  days,
-            wa_link:    waLink,
-            message:    message,
-            sent_at:    now.toISOString(),
-          },
-        })
-        if (insertResult.error) {
-          if (insertResult.error.code === '23505') {
+        try {
+          await sbPost('subscription_payments', {
+            shop_id:       sub.shop_id,
+            plan:          sub.plan,
+            billing_cycle: 'monthly',
+            amount_pkr:    0,
+            method:        'reminder',
+            gateway_tx_id: reminderKey,
+            status:        'pending',
+            receipt_data:  {
+              type:       'reminder',
+              days_left:  days,
+              wa_link:    waLink,
+              message:    message,
+              sent_at:    now.toISOString(),
+            },
+          })
+        } catch (insertErr: any) {
+          if (insertErr?.message?.includes('409') || insertErr?.message?.includes('23505')) {
             results.skipped++
             continue
           }
-          throw new Error(`Insert failed: ${insertResult.error.code}`)
+          throw new Error(`Insert failed: ${insertErr?.message ?? insertErr}`)
         }
 
-        // Log the WhatsApp link so admin can send manually
-        console.log(`[Cron] Reminder ${days}d: ${shop.shop_name} → ${waLink}`)
         results.remindersQueued++
       }
     }
 
-    console.log('[Cron] send-reminders complete:', results)
     return NextResponse.json({ success: true, ...results })
 
   } catch (e) {

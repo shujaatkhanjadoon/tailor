@@ -62,7 +62,7 @@ async function fetchOrders(
   },
 ) {
   if (role === 'karigar' && !memberId) return { rows: [], total: 0 }
-  let query = (supabase as any)
+  let query = supabase
     .from('orders')
     .select(ORDER_LIST_COLUMNS, { count: 'exact' })
     .eq('shop_id', shopId)
@@ -135,11 +135,7 @@ export function useOrders(
     const channel = supabase
       .channel(uniqueChannelName(`orders-list-${shopId}-${memberId ?? 'all'}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
-          console.log('[useOrders] Realtime subscription status:', status)
-        }
-      })
+      .subscribe()
     const interval = setInterval(refresh, 60_000)
     return () => {
       cancelled = true
@@ -176,9 +172,9 @@ export function useOrder(orderId: string) {
 
   const fetchOrder = useCallback(async () => {
     const [{ data: orderData }, { data: paymentData }, { data: historyData }] = await Promise.all([
-      (supabase as any).from('orders').select(ORDER_LIST_COLUMNS).eq('id', orderId).is('deleted_at', null).maybeSingle(),
-      (supabase as any).from('payments').select(PAYMENT_COLUMNS).eq('order_id', orderId).is('deleted_at', null).order('paid_at'),
-      (supabase as any).from('order_status_history').select(HISTORY_COLUMNS).eq('order_id', orderId).order('changed_at', { ascending: false }),
+      supabase.from('orders').select(ORDER_LIST_COLUMNS).eq('id', orderId).is('deleted_at', null).maybeSingle(),
+      supabase.from('payments').select(PAYMENT_COLUMNS).eq('order_id', orderId).is('deleted_at', null).order('paid_at'),
+      supabase.from('order_status_history').select(HISTORY_COLUMNS).eq('order_id', orderId).order('changed_at', { ascending: false }),
     ])
     return {
       order: orderData ? mapOrder(orderData) : undefined,

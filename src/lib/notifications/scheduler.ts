@@ -75,7 +75,7 @@ export const notifScheduler = {
     const today    = new Date().toISOString().split('T')[0]
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
 
-    const { data: rows = [] } = await (supabase as any)
+    const { data: rows = [] } = await supabase
       .from('orders')
       .select('order_number,customer_name,due_date,status')
       .eq('shop_id', shopId)

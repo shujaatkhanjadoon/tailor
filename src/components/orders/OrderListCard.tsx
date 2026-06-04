@@ -55,9 +55,9 @@ export const OrderListCard = memo(function OrderListCard({
   useEffect(() => {
     if (propPhotoCount !== undefined) return
     let cancelled = false
-    ;(supabase as any)
+    supabase
       .from('order_photos')
-      .select('id', { count: 'exact', head: true })
+      .select('id', { count: 'exact' })
       .eq('order_id', order.id)
       .is('deleted_at', null)
       .then(({ count }: { count: number | null }) => {

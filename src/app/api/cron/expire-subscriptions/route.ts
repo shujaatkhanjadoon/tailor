@@ -1,36 +1,7 @@
 // src/app/api/cron/expire-subscriptions/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { sendAdminSubscriptionEventEmail } from '@/lib/security/email-otp'
-
-
-const jsonHeaders = (serviceKey: string) => ({
-  'Content-Type': 'application/json',
-  'apikey': serviceKey,
-  'Authorization': `Bearer ${serviceKey}`,
-})
-
-const getHeaders = () => ({
-  'Content-Type':  'application/json',
-  'apikey':        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-})
-
-const BASE = () => `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`
-
-async function sbGet(path: string) {
-  const res = await fetch(`${BASE()}/${path}`, { headers: getHeaders() })
-  if (!res.ok) throw new Error(`GET ${path}: ${await res.text()}`)
-  return res.json()
-}
-
-async function sbPatch(path: string, data: object) {
-  const res = await fetch(`${BASE()}/${path}`, {
-    method:  'PATCH',
-    headers: { ...getHeaders(), 'Prefer': 'return=minimal' },
-    body:    JSON.stringify(data),
-  })
-  if (!res.ok) throw new Error(`PATCH ${path}: ${await res.text()}`)
-}
+import { sbGet, sbPatch } from '@/lib/supabase/service'
 
 export async function GET(req: NextRequest) {
   if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -135,7 +106,6 @@ export async function GET(req: NextRequest) {
       } catch (e) { results.errors.push(String(e)) }
     }
 
-    console.log('[Cron] expire-subscriptions complete:', results)
     return NextResponse.json({ success: true, timestamp: now, ...results })
   } catch (e) {
     console.error('[Cron] expire-subscriptions error:', e)

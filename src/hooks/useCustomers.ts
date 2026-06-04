@@ -25,6 +25,10 @@ export function useCustomers(shopId: string | null) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    setPage(0)
+  }, [query, genderFilter])
+
+  useEffect(() => {
     if (!shopId) {
       setAllCustomers([])
       setTotalCustomers(0)
@@ -35,18 +39,31 @@ export function useCustomers(shopId: string | null) {
 
     const fetchAndSet = async (showLoading: boolean) => {
       if (showLoading) setIsLoading(true)
-      const { count: totalCount } = await (supabase as any)
+
+      const q = query.trim()
+
+      let countQuery = supabase
         .from('customers')
-        .select('id', { count: 'exact', head: true })
+        .select('id', { count: 'exact' })
         .eq('shop_id', shopId)
         .is('deleted_at', null)
-      const { data, error } = await (supabase as any)
+      if (q) {
+        countQuery = countQuery.or(`name.ilike.%${q}%,phone.ilike.%${q}%`)
+      }
+
+      let dataQuery = supabase
         .from('customers')
         .select(CUSTOMER_COLUMNS)
         .eq('shop_id', shopId)
         .is('deleted_at', null)
         .order('last_order_at', { ascending: false })
-        .range(page * CUSTOMERS_PER_PAGE, page * CUSTOMERS_PER_PAGE + CUSTOMERS_PER_PAGE - 1)
+      if (q) {
+        dataQuery = dataQuery.or(`name.ilike.%${q}%,phone.ilike.%${q}%`)
+      }
+      dataQuery = dataQuery.range(page * CUSTOMERS_PER_PAGE, page * CUSTOMERS_PER_PAGE + CUSTOMERS_PER_PAGE - 1)
+
+      const { count: totalCount } = await countQuery
+      const { data, error } = await dataQuery
       if (!cancelled && !error) {
         setAllCustomers(prev => page > 0 ? [...prev, ...(data ?? []).map(mapCustomer)] : (data ?? []).map(mapCustomer))
         setTotalCustomers(totalCount ?? 0)
@@ -61,18 +78,14 @@ export function useCustomers(shopId: string | null) {
     const channel = supabase
       .channel(uniqueChannelName(`customers-${shopId}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
-          console.log('[useCustomers] Realtime subscription status:', status)
-        }
-      })
+      .subscribe()
     const interval = setInterval(refresh, 60_000)
     return () => {
       cancelled = true
       clearInterval(interval)
       supabase.removeChannel(channel)
     }
-  }, [shopId, page])
+  }, [shopId, page, query])
 
   const filtered = useMemo(() => {
     let list = allCustomers
@@ -110,20 +123,20 @@ export function useCustomer(id: string) {
     let cancelled = false
 
     const load = async () => {
-      const { data: customerData } = await (supabase as any)
+      const { data: customerData } = await supabase
         .from('customers')
         .select(CUSTOMER_COLUMNS)
         .eq('id', id)
         .is('deleted_at', null)
         .maybeSingle()
       const [{ data: orderData }, { data: measurementData }] = await Promise.all([
-        (supabase as any).from('orders').select(ORDER_COLUMNS).eq('customer_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
-        (supabase as any).from('measurements').select(MEASUREMENT_COLUMNS).eq('customer_id', id).is('deleted_at', null).order('taken_at', { ascending: false }),
+        supabase.from('orders').select(ORDER_COLUMNS).eq('customer_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
+        supabase.from('measurements').select(MEASUREMENT_COLUMNS).eq('customer_id', id).is('deleted_at', null).order('taken_at', { ascending: false }),
       ])
       const orderRows = (orderData ?? []).map(mapOrder)
       const orderIds = orderRows.map((o: OrderRecord) => o.id)
       const { data: paymentData } = orderIds.length
-        ? await (supabase as any).from('payments').select(PAYMENT_COLUMNS).in('order_id', orderIds).is('deleted_at', null)
+        ? await supabase.from('payments').select(PAYMENT_COLUMNS).in('order_id', orderIds).is('deleted_at', null)
         : { data: [] }
       if (cancelled) return
       setCustomer(customerData ? mapCustomer(customerData) : undefined)
@@ -134,7 +147,7 @@ export function useCustomer(id: string) {
 
     const refresh = async () => {
       if (cancelled) return
-      const { data: customerData } = await (supabase as any)
+      const { data: customerData } = await supabase
         .from('customers')
         .select(CUSTOMER_COLUMNS)
         .eq('id', id)
@@ -151,11 +164,7 @@ export function useCustomer(id: string) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `customer_id=eq.${id}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'measurements', filter: `customer_id=eq.${id}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, load)
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
-          console.log('[useCustomer] Realtime subscription status:', status)
-        }
-      })
+      .subscribe()
     const interval = setInterval(refresh, 60_000)
     return () => {
       cancelled = true
@@ -167,16 +176,16 @@ export function useCustomer(id: string) {
   const finance = useMemo(() => customerFinancialSummary(orders, payments), [orders, payments])
 
   const fetchFull = useCallback(async () => {
-    const { data: customerData } = await (supabase as any)
+    const { data: customerData } = await supabase
       .from('customers').select(CUSTOMER_COLUMNS).eq('id', id).is('deleted_at', null).maybeSingle()
     const [{ data: orderData }, { data: measurementData }] = await Promise.all([
-      (supabase as any).from('orders').select(ORDER_COLUMNS).eq('customer_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
-      (supabase as any).from('measurements').select(MEASUREMENT_COLUMNS).eq('customer_id', id).is('deleted_at', null).order('taken_at', { ascending: false }),
+      supabase.from('orders').select(ORDER_COLUMNS).eq('customer_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
+      supabase.from('measurements').select(MEASUREMENT_COLUMNS).eq('customer_id', id).is('deleted_at', null).order('taken_at', { ascending: false }),
     ])
     const orderRows = (orderData ?? []).map(mapOrder)
     const orderIds = orderRows.map((o: OrderRecord) => o.id)
     const { data: paymentData } = orderIds.length
-      ? await (supabase as any).from('payments').select(PAYMENT_COLUMNS).in('order_id', orderIds).is('deleted_at', null)
+      ? await supabase.from('payments').select(PAYMENT_COLUMNS).in('order_id', orderIds).is('deleted_at', null)
       : { data: [] }
     setCustomer(customerData ? mapCustomer(customerData) : undefined)
     setOrders(orderRows)

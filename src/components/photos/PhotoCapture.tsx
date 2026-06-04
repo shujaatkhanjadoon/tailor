@@ -68,7 +68,7 @@ export function PhotoCapture({
     if (!orderId) return
     let cancelled = false
     const load = async () => {
-      const { data: rows } = await (supabase as any)
+      const { data: rows } = await supabase
         .from('order_photos')
         .select('id,order_id,shop_id,type,cloud_url,public_id,cloud_size_kb,size_kb,taken_at')
         .eq('order_id', orderId)
