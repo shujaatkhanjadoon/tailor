@@ -1,20 +1,20 @@
 // src/app/orders/[id]/page.tsx
 'use client'
 
-import { use, useEffect, useMemo, useState } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { use, useEffect, useState } from 'react'
+
 import { useRouter } from 'next/navigation'
 import { QuickPaymentSheet } from '@/components/payments/QuickPaymentSheet'
 import { QRCodeDisplay } from '@/components/orders/QRCodeDisplay'
 import {
   ArrowLeft, MessageCircle, Clock, Wallet,
   User2, QrCode, ChevronRight, Plus,
-  Ruler, Image as ImageIcon, StickyNote, Phone, Trash2, X, Pencil,
+  Ruler, StickyNote, Phone, Pencil,
 } from 'lucide-react'
 import { useOrder } from '@/hooks/useOrders'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { paymentOps } from '@/lib/db/operations'
-import { db, type CustomerRecord, type MeasurementRecord, type PhotoRecord, type ShopRecord } from '@/lib/db/schema'
+import { type CustomerRecord, type MeasurementRecord, type PhotoRecord, type ShopRecord } from '@/lib/db/schema'
 import { ORDER_STATUS_CONFIG, GARMENT_LABELS, OrderStatus } from '@/types'
 import { StatusUpdateSheet } from '@/components/orders/StatusUpdateSheet'
 import { AssignSheet } from '@/components/orders/AssignSheet'
@@ -25,13 +25,12 @@ import { format } from 'date-fns'
 import { usePlan } from '@/hooks/usePlan'
 import { AccessNotice } from '@/components/billing/AccessNotice'
 import { orderFinancialSummary, orderPaymentProgress } from '@/lib/payments/calculations'
-import { deleteFromCloudinary, publicIdFromCloudinaryUrl } from '@/lib/photos/cloudinary'
+
 import { supabase } from '@/lib/supabase/client'
 import { mapCustomer, mapMeasurement, mapShop } from '@/lib/supabase/records'
 import { isParentRelation, napOwnerLabel, recipientLabel } from '@/lib/order-recipient'
 import { formatAmount } from '@/lib/format/currency'
 import { AppFooter } from '@/components/layout/AppFooter'
-import { deleteOrderPhotoEverywhere } from '@/lib/photos/delete-order-photo'
 
 const PAYMENT_METHODS = [
   { key: 'cash', label: 'Cash', emoji: '💵' },
@@ -50,25 +49,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [customer, setCustomer] = useState<CustomerRecord | undefined>()
   const [measurement, setMeasurement] = useState<MeasurementRecord | undefined>()
   const [remotePhotos, setRemotePhotos] = useState<PhotoRecord[]>([])
-
-  const rawLocalPhotos = useLiveQuery(
-    async () => !order?.id ? [] : db.photos
-      .where('orderId').equals(order.id)
-      .filter(p => p._deleted !== 1)
-      .sortBy('takenAt'),
-    [order?.id]
-  ) ?? []
-  const localPhotos: PhotoRecord[] = rawLocalPhotos
-
-  const photos: PhotoRecord[] = useMemo(() => {
-    const remoteIds = new Set(remotePhotos.map(rp => rp.id))
-    const merged = remotePhotos.map(rp => {
-      const local = localPhotos.find(lp => lp.id === rp.id)
-      return local ? { ...rp, base64: local.base64 || '' } : rp
-    })
-    const unsynced = localPhotos.filter(lp => !remoteIds.has(lp.id))
-    return [...merged, ...unsynced]
-  }, [remotePhotos, localPhotos])
 
   useEffect(() => {
     if (!order) return
@@ -139,12 +119,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [savingPay, setSavingPay] = useState(false)
   const [showPaySheet, setShowPaySheet] = useState(false)
   const [showQR, setShowQR] = useState(false)
-  const [deletingDisplayPhotoId, setDeletingDisplayPhotoId] = useState<string | null>(null)
-  const [previewPhoto, setPreviewPhoto] = useState<{
-    src: string
-    label: string
-  } | null>(null)
-  const [erroredImages, setErroredImages] = useState<Set<string>>(new Set())
 
   if (!order) {
     return (
@@ -173,41 +147,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     ? orderPaymentProgress(order)
     : 0
   const finance = orderFinancialSummary(order, payments)
-  interface DisplayPhoto {
-    id: string; src: string; label: string; type: string; publicId?: string; source: 'local' | 'order'
-  }
-  const displayPhotos: DisplayPhoto[] = (() => {
-    const seen = new Set<string>()
-    const result: DisplayPhoto[] = []
-    for (const photo of photos) {
-      if (!photo.cloudUrl && !photo.base64) continue
-      const id = photo.id
-      if (seen.has(id)) continue
-      seen.add(id)
-      result.push({
-        id,
-        src: photo.base64 || photo.cloudUrl || '',
-        label: `${photo.type} photo`,
-        type: photo.type,
-        publicId: photo.publicId,
-        source: 'local' as const,
-      })
-    }
-    if (order.fabricPhotoUrl) {
-      const dedupKey = `fabric-photo-url-${order.fabricPhotoUrl}`
-      if (!seen.has(dedupKey)) {
-        seen.add(dedupKey)
-        result.push({
-          id: dedupKey,
-          src: order.fabricPhotoUrl,
-          label: 'fabric photo',
-          type: 'fabric',
-          source: 'order',
-        })
-      }
-    }
-    return result
-  })()
 
   const waLink = (() => {
     const phone = `92${order.customerPhone.replace(/^0/, '').replace(/\D/g, '')}`
@@ -237,30 +176,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       setShowPayForm(false)
     } finally {
       setSavingPay(false)
-    }
-  }
-
-  const handleDeleteDisplayPhoto = async (photo: (typeof displayPhotos)[number]) => {
-    if (!shopId || !currentUser) return
-    setDeletingDisplayPhotoId(photo.id)
-    try {
-      if (photo.source === 'order') {
-        const publicId = publicIdFromCloudinaryUrl(photo.src)
-        if (publicId) {
-          const deleted = await deleteFromCloudinary(publicId, shopId, currentUser.id)
-          if (!deleted) console.warn('Cloudinary legacy photo delete failed (non-fatal)')
-        }
-        await supabase
-          .from('orders')
-          .update({ fabric_photo_url: null, updated_at: new Date().toISOString() })
-          .eq('id', order?.id)
-        patchOrder({ fabricPhotoUrl: undefined })
-      } else {
-        await deleteOrderPhotoEverywhere({ id: photo.id, publicId: photo.publicId }, shopId, currentUser.id)
-      }
-      if (previewPhoto?.src === photo.src) setPreviewPhoto(null)
-    } finally {
-      setDeletingDisplayPhotoId(null)
     }
   }
 
@@ -664,63 +579,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           )}
         </div>
 
-        {/* UPLOADED IMAGES */}
-        {displayPhotos.length > 0 && (
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
-            <h2 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <ImageIcon size={15} className="text-blue-600" />
-              Uploaded Images
-            </h2>
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              {displayPhotos.map(photo => (
-                <div
-                  key={photo.id}
-                  className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setPreviewPhoto({
-                      src: photo.src,
-                      label: photo.label,
-                    })}
-                    className="block w-full text-left"
-                  >
-                    {erroredImages.has(photo.id) ? (
-                      <div className="aspect-4/3 w-full flex items-center justify-center bg-slate-100 text-slate-400">
-                        <ImageIcon size={32} />
-                      </div>
-                    ) : (
-                      <img
-                        src={photo.src}
-                        alt={photo.label}
-                        className="aspect-4/3 w-full object-cover"
-                        onError={() => setErroredImages(prev => new Set(prev).add(photo.id))}
-                      />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Delete ${photo.label}`}
-                    title={`Delete ${photo.label}`}
-                    onClick={() => handleDeleteDisplayPhoto(photo)}
-                    disabled={deletingDisplayPhotoId === photo.id}
-                    className="absolute right-2 top-2 flex min-h-10 min-w-10 items-center justify-center rounded-full bg-red-500 text-white shadow-lg shadow-red-950/20 active:scale-95 disabled:opacity-60"
-                  >
-                    {deletingDisplayPhotoId === photo.id ? (
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    ) : (
-                      <Trash2 size={18} />
-                    )}
-                  </button>
-                  <p className="px-3 py-2 text-xs font-semibold capitalize text-slate-600">
-                    {photo.type}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* STATUS HISTORY */}
         {history.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-2xl p-4">
@@ -792,32 +650,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         />
       )}
 
-      {previewPhoto && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setPreviewPhoto(null)}
-        >
-          <div
-            className="relative max-h-full w-full max-w-3xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              aria-label="Close image preview"
-              onClick={() => setPreviewPhoto(null)}
-              className="absolute right-2 top-2 z-10 flex h-10 w-10 items-center
-                         justify-center rounded-full bg-black/60 text-white"
-            >
-              <X size={18} />
-            </button>
-            <img
-              src={previewPhoto.src}
-              alt={previewPhoto.label}
-              className="max-h-[85vh] w-full rounded-2xl object-contain"
-            />
-          </div>
-        </div>
-      )}
     </div>
   )
 }

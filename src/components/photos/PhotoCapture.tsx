@@ -1,7 +1,7 @@
 // src/components/photos/PhotoCapture.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image                   from 'next/image'
 import { useLiveQuery }       from 'dexie-react-hooks'
 import {
@@ -98,28 +98,30 @@ export function PhotoCapture({
 
   // Re-sync local photos that have cloudUrl but no matching remote entry
   // (e.g. due to RLS blocking upserts during failed migration runs)
+  const syncingRef = useRef(new Set<string>())
   useEffect(() => {
     if (!orderId || localPhotos.length === 0) return
     if (remotePhotos.length === 0 && localPhotos.some(p => p.cloudUrl)) return
-    let cancelled = false
     const remoteIds = new Set(remotePhotos.map(r => r.id))
     for (const local of localPhotos) {
-      if (local.cloudUrl && !remoteIds.has(local.id)) {
+      if (local.cloudUrl && !remoteIds.has(local.id) && !syncingRef.current.has(local.id)) {
+        syncingRef.current.add(local.id)
         syncPhotoMetadata(local)
           .then(() => {
-            if (!cancelled) {
-              setRemotePhotos(prev => [{
+            syncingRef.current.delete(local.id)
+            setRemotePhotos(prev => {
+              if (prev.some(r => r.id === local.id)) return prev
+              return [{
                 ...local,
                 base64: '',
                 _synced: 1,
                 _deleted: 0,
-              } as PhotoRecord, ...prev])
-            }
+              } as PhotoRecord, ...prev]
+            })
           })
-          .catch(() => {})
+          .catch(() => { syncingRef.current.delete(local.id) })
       }
     }
-    return () => { cancelled = true }
   }, [orderId, type, localPhotos, remotePhotos])
 
   const localIds = new Set(localPhotos.map(p => p.id))
@@ -173,7 +175,10 @@ export function PhotoCapture({
               <button
                 aria-label={`Delete ${label} photo`}
                 title={`Delete ${label} photo`}
-                onClick={() => deletePhoto(photo)}
+                onClick={() => {
+                  deletePhoto(photo)
+                  setRemotePhotos(prev => prev.filter(p => p.id !== photo.id))
+                }}
                 disabled={isDeleting}
                 className="absolute right-1.5 top-1.5 z-10 flex min-h-10 min-w-10 items-center justify-center rounded-full bg-red-500 text-white shadow-lg shadow-red-950/20 transition-all active:scale-90 disabled:opacity-60 sm:right-2 sm:top-2"
               >

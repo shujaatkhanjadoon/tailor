@@ -5,7 +5,6 @@ const appTimeZone = process.env.TIMEZONE ?? process.env.TIMEZ ?? process.env.TZ 
 process.env.TZ = appTimeZone
 
 const nextConfig: NextConfig = {
-  // Enable Cache Components for instant navigation support
   cacheComponents: true,
 
   env: {
