@@ -37,7 +37,7 @@ export default function SetupTOTPPage() {
       setUri(data.uri);
       setAuthorized(true);
     } catch (e) {
-      console.error("[Setup TOTP] Fetch error:", e);
+      console.warn("[Setup TOTP] Fetch error:", e);
       setError("Server se connect nahi ho saka");
     } finally {
       setLoading(false);

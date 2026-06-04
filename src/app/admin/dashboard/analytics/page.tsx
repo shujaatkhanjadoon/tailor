@@ -6,14 +6,15 @@ import {
   Package, BarChart2,
 } from 'lucide-react'
 import { sbGet } from '@/lib/supabase/service'
+import type { SubscriptionPaymentRow, SubscriptionRow, ShopRow } from '@/lib/supabase/types'
 import { PLANS } from '@/lib/billing/plans'
 import { format, subMonths } from 'date-fns'
 
 async function getAnalytics() {
   const [allPayments, allShops, allSubs] = await Promise.all([
-    sbGet('subscription_payments?select=amount_pkr,status,paid_at,plan,billing_cycle,shop_id&status=eq.completed'),
-    sbGet('shops?select=id,created_at&order=created_at.asc'),
-    sbGet('subscriptions?select=plan,status,billing_cycle,created_at'),
+    sbGet('subscription_payments?select=amount_pkr,status,paid_at,plan,billing_cycle,shop_id&status=eq.completed') as Promise<SubscriptionPaymentRow[]>,
+    sbGet('shops?select=id,created_at&order=created_at.asc') as Promise<ShopRow[]>,
+    sbGet('subscriptions?select=plan,status,billing_cycle,created_at') as Promise<SubscriptionRow[]>,
   ])
 
   const payments = allPayments ?? []
@@ -33,18 +34,18 @@ async function getAnalytics() {
     label:   m.label,
     revenue: payments
       .filter(p => p.paid_at?.startsWith(m.key))
-      .reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
+      .reduce((s, p) => s + Number(p.amount_pkr), 0),
     newShops: shops
-      .filter((s: any) => s.created_at?.startsWith(m.key))
+      .filter(s => s.created_at?.startsWith(m.key))
       .length,
   }))
 
-  const cancelledSubs = subs.filter((s: any) => s.status === 'cancelled').length
-  const totalPaid     = subs.filter((s: any) => ['active','cancelled','expired'].includes(s.status)).length
+  const cancelledSubs = subs.filter(s => s.status === 'cancelled').length
+  const totalPaid     = subs.filter(s => ['active','cancelled','expired'].includes(s.status)).length
   const churnRate     = totalPaid > 0 ? Math.round((cancelledSubs / totalPaid) * 100) : 0
 
-  const activeSubs    = subs.filter((s: any) => s.status === 'active')
-  const mrr           = activeSubs.reduce((sum: number, s: any) => {
+  const activeSubs    = subs.filter(s => s.status === 'active')
+  const mrr           = activeSubs.reduce((sum, s) => {
     const plan = PLANS[s.plan as keyof typeof PLANS]
     if (!plan || !plan.monthlyPkr) return sum
     if (s.billing_cycle === 'monthly') return sum + plan.monthlyPkr
@@ -53,13 +54,13 @@ async function getAnalytics() {
   }, 0)
 
   const revenueByPlan = {
-    professional: payments.filter((p: any) => p.plan === 'professional').reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
-    business:     payments.filter((p: any) => p.plan === 'business').reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
+    professional: payments.filter(p => p.plan === 'professional').reduce((s, p) => s + Number(p.amount_pkr), 0),
+    business:     payments.filter(p => p.plan === 'business').reduce((s, p) => s + Number(p.amount_pkr), 0),
   }
 
   const revenueByCycle = {
-    monthly: payments.filter((p: any) => p.billing_cycle === 'monthly').reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
-    yearly:  payments.filter((p: any) => p.billing_cycle === 'yearly').reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
+    monthly: payments.filter(p => p.billing_cycle === 'monthly').reduce((s, p) => s + Number(p.amount_pkr), 0),
+    yearly:  payments.filter(p => p.billing_cycle === 'yearly').reduce((s, p) => s + Number(p.amount_pkr), 0),
   }
 
   return {
@@ -68,7 +69,7 @@ async function getAnalytics() {
     mrr,
     revenueByPlan,
     revenueByCycle,
-    totalRevenue: payments.reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
+    totalRevenue: payments.reduce((s, p) => s + Number(p.amount_pkr), 0),
     totalShops:   shops.length,
     activeSubs:   activeSubs.length,
   }
