@@ -10,6 +10,7 @@ import {
 import { activateSubscription, rejectPayment } from '@/lib/billing/admin'
 import { buildActivationWhatsApp, buildRejectionWhatsApp } from '@/lib/billing/whatsapp-notify'
 import { PLANS, PlanId } from '@/lib/billing/plans'
+import { subscriptionExpiresAt } from '@/lib/billing/cycles'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 
@@ -54,11 +55,7 @@ export function PaymentVerificationCard({ payment, onUpdated }: PaymentVerificat
       setResult('activated')
       // Open WhatsApp in new tab to notify shop owner
       if (res.shopPhone) {
-        const expiresAt = payment.billing_cycle === 'yearly'
-          ? new Date(Date.now() + 365 * 86400000).toISOString()
-          : payment.billing_cycle === 'monthly'
-          ? new Date(Date.now() + 30 * 86400000).toISOString()
-          : null
+        const expiresAt = subscriptionExpiresAt(payment.billing_cycle)
         const waLink = buildActivationWhatsApp(
           res.shopPhone,
           res.shopName ?? 'Shop',

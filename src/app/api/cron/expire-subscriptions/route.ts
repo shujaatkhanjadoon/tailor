@@ -30,9 +30,9 @@ export async function GET(req: NextRequest) {
       } catch (e) { results.errors.push(String(e)) }
     }
 
-    // 1. Active past expiry → Starter immediately
+    // 1. Paid subscriptions past expiry, including cancelled access-through-expiry plans → Starter immediately
     const expiredPaid = await sbGet(
-      `subscriptions?status=eq.active&expires_at=lt.${now}&expires_at=not.is.null&select=id,shop_id,plan,billing_cycle,expires_at`
+      `subscriptions?status=in.(active,cancelled)&expires_at=lt.${now}&expires_at=not.is.null&select=id,shop_id,plan,billing_cycle,expires_at`
     )
     for (const sub of expiredPaid) {
       try {

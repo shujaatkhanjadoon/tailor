@@ -6,6 +6,7 @@ import { logAdminAction } from "@/lib/admin/audit";
 import { parseBody } from "@/lib/security/body";
 import { validate, schemas } from "@/lib/validation";
 import { sbGet, sbPatch, sbPost, sbUpsertByShopId } from "@/lib/supabase/service";
+import { subscriptionExpiresAt } from "@/lib/billing/cycles";
 
 async function logAction(
   action: string,
@@ -35,11 +36,7 @@ function notifyOwner(shopId: string, action: string, title: string, message: str
 
 function nextExpiry(cycle: string | undefined, planId = "professional") {
   if (planId === "starter") return null;
-  const d = new Date();
-  if (cycle === "yearly") d.setFullYear(d.getFullYear() + 1);
-  else if (cycle === "lifetime") d.setFullYear(d.getFullYear() + 100);
-  else d.setMonth(d.getMonth() + 1);
-  return d.toISOString();
+  return subscriptionExpiresAt(cycle ?? "monthly");
 }
 
 function planRank(planId?: string | null) {
@@ -162,13 +159,7 @@ export async function POST(req: NextRequest) {
         const now = new Date().toISOString();
         const previousSub = (await sbGet(`subscriptions?shop_id=eq.${shopId}&select=plan,status,expires_at&limit=1`))[0];
 
-        const expiresAt = (() => {
-          const d = new Date();
-          if (cycle === "monthly") d.setMonth(d.getMonth() + 1);
-          if (cycle === "yearly") d.setFullYear(d.getFullYear() + 1);
-          if (cycle === "lifetime") d.setFullYear(d.getFullYear() + 100);
-          return d.toISOString();
-        })();
+        const expiresAt = subscriptionExpiresAt(cycle);
 
         // Activate subscription
         await sbUpsertByShopId("subscriptions", {

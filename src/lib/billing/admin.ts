@@ -6,6 +6,7 @@ import { buildActivationWhatsApp, buildRejectionWhatsApp } from './whatsapp-noti
 import { sbGet, sbPatch, sbPost, sbUpsertById, sbUpsertByShopId } from '@/lib/supabase/service'
 import { sbFetch } from '@/lib/supabase/service'
 import { PLANS } from './plans'
+import { subscriptionExpiresAt } from './cycles'
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -96,12 +97,7 @@ export async function activateSubscription(
     const shop = shops[0]
 
     // 2. Calculate expiry
-    const expiresAt = new Date()
-    if (cycle === 'monthly')  expiresAt.setMonth(expiresAt.getMonth() + 1)
-    if (cycle === 'yearly')   expiresAt.setFullYear(expiresAt.getFullYear() + 1)
-    if (cycle === 'lifetime') expiresAt.setFullYear(expiresAt.getFullYear() + 100)
-
-    const expiresAtISO = cycle === 'lifetime' ? null : expiresAt.toISOString()
+    const expiresAtISO = subscriptionExpiresAt(cycle)
 
     // 3. Upsert subscription
     await sbUpsertByShopId('subscriptions', {
@@ -206,14 +202,9 @@ export async function adminSetPlan(
   cycle:   string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const expiresAt = new Date()
-    if (cycle === 'monthly')  expiresAt.setMonth(expiresAt.getMonth() + 1)
-    if (cycle === 'yearly')   expiresAt.setFullYear(expiresAt.getFullYear() + 1)
-    if (cycle === 'lifetime') expiresAt.setFullYear(expiresAt.getFullYear() + 100)
-
     const expiresAtISO = (cycle === 'lifetime' || planId === 'starter')
       ? null
-      : expiresAt.toISOString()
+      : subscriptionExpiresAt(cycle)
 
     await sbUpsertByShopId('subscriptions', {
       shop_id:       shopId,
@@ -274,19 +265,18 @@ export async function reactivateShop(
   shopId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const expiresAt = new Date()
-    expiresAt.setMonth(expiresAt.getMonth() + 1)
+    const expiresAt = subscriptionExpiresAt('monthly')
 
     await sbUpsertByShopId('subscriptions', {
       shop_id:    shopId,
       status:     'active',
       plan:       'professional',
-      expires_at: expiresAt.toISOString(),
+      expires_at: expiresAt,
       updated_at: new Date().toISOString(),
     })
 
     await sbPatch(`shops?id=eq.${shopId}`,
-      { plan: 'professional', plan_expires_at: expiresAt.toISOString(), updated_at: new Date().toISOString() }
+      { plan: 'professional', plan_expires_at: expiresAt, updated_at: new Date().toISOString() }
     )
 
     await logAdminAction('shop_activated', 'shop', shopId, shopId)
