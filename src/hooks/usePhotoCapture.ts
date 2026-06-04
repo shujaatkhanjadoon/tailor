@@ -34,7 +34,13 @@ async function upsertPhotoMetadata(photo: PhotoRecord) {
       size_kb: photo.sizeKB,
       taken_at: photo.takenAt,
       deleted_at: undefined,
-    } as any, { onConflict: 'id' })
+    }, { onConflict: 'id' })
+}
+
+export async function syncPhotoMetadata(photo: PhotoRecord) {
+  if (!photo.cloudUrl || !photo.publicId) return
+  await upsertPhotoMetadata(photo)
+  await db.photos.update(photo.id, { _synced: 1 })
 }
 
 export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
@@ -123,20 +129,25 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
 
         if (uploaded) {
           const cloudSizeKB = Math.round(uploaded.bytes / 1024)
-          await db.photos.update(photo.id, {
-            cloudUrl:  uploaded.url,
-            publicId:  uploaded.publicId,
-            cloudSizeKB,
-            _synced:   1,
-          })
           photo.cloudUrl = uploaded.url
           photo.publicId = uploaded.publicId
           photo.cloudSizeKB = cloudSizeKB
-          photo._synced = 1
           try {
             await upsertPhotoMetadata(photo)
+            await db.photos.update(photo.id, {
+              cloudUrl:  uploaded.url,
+              publicId:  uploaded.publicId,
+              cloudSizeKB,
+              _synced:   1,
+            })
+            photo._synced = 1
           } catch (metaError) {
             console.error('Photo metadata upsert failed (non-fatal):', metaError)
+            await db.photos.update(photo.id, {
+              cloudUrl:  uploaded.url,
+              publicId:  uploaded.publicId,
+              cloudSizeKB,
+            })
           }
         }
       } catch (cloudError) {
@@ -198,19 +209,26 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
       )
       if (uploaded) {
         const cloudSizeKB = Math.round(uploaded.bytes / 1024)
-        await db.photos.update(photo.id, {
-          cloudUrl: uploaded.url,
-          publicId: uploaded.publicId,
-          cloudSizeKB,
-          _synced: 1,
-        })
-        await upsertPhotoMetadata({
-          ...photo,
-          cloudUrl: uploaded.url,
-          publicId: uploaded.publicId,
-          cloudSizeKB,
-          _synced: 1,
-        })
+        try {
+          await upsertPhotoMetadata({
+            ...photo,
+            cloudUrl: uploaded.url,
+            publicId: uploaded.publicId,
+            cloudSizeKB,
+          })
+          await db.photos.update(photo.id, {
+            cloudUrl: uploaded.url,
+            publicId: uploaded.publicId,
+            cloudSizeKB,
+            _synced: 1,
+          })
+        } catch {
+          await db.photos.update(photo.id, {
+            cloudUrl: uploaded.url,
+            publicId: uploaded.publicId,
+            cloudSizeKB,
+          })
+        }
         setState({ phase: 'done', sizeKB: photo.sizeKB })
       } else {
         setState({ phase: 'error', error: 'Cloud upload nahi ho saka. Dobara try karein.' })

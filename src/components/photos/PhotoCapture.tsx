@@ -10,7 +10,7 @@ import {
   AlertCircle, Upload,
 } from 'lucide-react'
 import { db, PhotoRecord }     from '@/lib/db/schema'
-import { usePhotoCapture }     from '@/hooks/usePhotoCapture'
+import { usePhotoCapture, syncPhotoMetadata } from '@/hooks/usePhotoCapture'
 import { getOptimisedUrl }     from '@/lib/photos/cloudinary'
 import { supabase }            from '@/lib/supabase/client'
 import { cn }                  from '@/lib/utils'
@@ -89,12 +89,38 @@ export function PhotoCapture({
           takenAt: r.taken_at,
           _synced: 1 as const,
           _deleted: 0 as const,
-        })))
+        } as PhotoRecord)))
       }
     }
     load()
     return () => { cancelled = true }
   }, [orderId, type])
+
+  // Re-sync local photos that have cloudUrl but no matching remote entry
+  // (e.g. due to RLS blocking upserts during failed migration runs)
+  useEffect(() => {
+    if (!orderId || localPhotos.length === 0) return
+    if (remotePhotos.length === 0 && localPhotos.some(p => p.cloudUrl)) return
+    let cancelled = false
+    const remoteIds = new Set(remotePhotos.map(r => r.id))
+    for (const local of localPhotos) {
+      if (local.cloudUrl && !remoteIds.has(local.id)) {
+        syncPhotoMetadata(local)
+          .then(() => {
+            if (!cancelled) {
+              setRemotePhotos(prev => [{
+                ...local,
+                base64: '',
+                _synced: 1,
+                _deleted: 0,
+              } as PhotoRecord, ...prev])
+            }
+          })
+          .catch(() => {})
+      }
+    }
+    return () => { cancelled = true }
+  }, [orderId, type, localPhotos, remotePhotos])
 
   const localIds = new Set(localPhotos.map(p => p.id))
   const photos = [

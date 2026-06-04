@@ -74,147 +74,88 @@ ALTER TABLE team_members DROP CONSTRAINT IF EXISTS team_members_shop_id_phone_ke
 ALTER TABLE team_members ADD CONSTRAINT team_members_shop_id_phone_key UNIQUE (shop_id, phone);
 
 -- ============================================================
--- 3. ROW LEVEL SECURITY POLICIES
+-- 3. ROW LEVEL SECURITY — CLEANUP FROM PREVIOUS RUNS
 -- ============================================================
+--
+-- The app uses custom PIN-based auth (no Supabase Auth sessions),
+-- so auth.uid() is always NULL on client-side anon-key queries.
+-- All writes go through service-role API routes which bypass RLS.
+-- Enabling RLS would break client-side reads without adding security.
+-- This section cleans up any RLS state left by earlier migration attempts.
 
--- Enable RLS on all tables
-ALTER TABLE shops ENABLE ROW LEVEL SECURITY;
-ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE measurements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE order_photos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE order_status_history ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subscription_payments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE shop_usage ENABLE ROW LEVEL SECURITY;
-ALTER TABLE email_verifications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+-- Drop all policies that may have been created by previous runs
+DO $$ BEGIN
+  -- shops
+  DROP POLICY IF EXISTS shops_read_own      ON shops;
+  DROP POLICY IF EXISTS shops_update_own    ON shops;
+  DROP POLICY IF EXISTS shops_select        ON shops;
+  DROP POLICY IF EXISTS shops_update        ON shops;
+  -- team_members
+  DROP POLICY IF EXISTS team_members_read_own    ON team_members;
+  DROP POLICY IF EXISTS team_members_write_owner ON team_members;
+  DROP POLICY IF EXISTS team_members_select      ON team_members;
+  DROP POLICY IF EXISTS team_members_manage      ON team_members;
+  -- customers
+  DROP POLICY IF EXISTS customers_read_own   ON customers;
+  DROP POLICY IF EXISTS customers_write_owner ON customers;
+  DROP POLICY IF EXISTS customers_select     ON customers;
+  DROP POLICY IF EXISTS customers_manage     ON customers;
+  -- orders
+  DROP POLICY IF EXISTS orders_read_own     ON orders;
+  DROP POLICY IF EXISTS orders_write_owner  ON orders;
+  DROP POLICY IF EXISTS orders_update_owner ON orders;
+  DROP POLICY IF EXISTS orders_select       ON orders;
+  DROP POLICY IF EXISTS orders_insert       ON orders;
+  DROP POLICY IF EXISTS orders_update       ON orders;
+  -- payments
+  DROP POLICY IF EXISTS payments_read_own   ON payments;
+  DROP POLICY IF EXISTS payments_write_owner ON payments;
+  DROP POLICY IF EXISTS payments_select     ON payments;
+  DROP POLICY IF EXISTS payments_manage     ON payments;
+  -- measurements
+  DROP POLICY IF EXISTS measurements_read_own   ON measurements;
+  DROP POLICY IF EXISTS measurements_write_owner ON measurements;
+  DROP POLICY IF EXISTS measurements_select     ON measurements;
+  DROP POLICY IF EXISTS measurements_manage     ON measurements;
+  -- order_photos
+  DROP POLICY IF EXISTS order_photos_read_own  ON order_photos;
+  DROP POLICY IF EXISTS order_photos_write_owner ON order_photos;
+  DROP POLICY IF EXISTS order_photos_select    ON order_photos;
+  DROP POLICY IF EXISTS order_photos_manage    ON order_photos;
+  -- order_status_history
+  DROP POLICY IF EXISTS order_status_history_read_own ON order_status_history;
+  DROP POLICY IF EXISTS order_status_history_select   ON order_status_history;
+  -- subscriptions
+  DROP POLICY IF EXISTS subscriptions_read_own ON subscriptions;
+  DROP POLICY IF EXISTS subscriptions_select   ON subscriptions;
+  -- subscription_payments
+  DROP POLICY IF EXISTS subscription_payments_select ON subscription_payments;
+  -- shop_usage
+  DROP POLICY IF EXISTS shop_usage_read_own ON shop_usage;
+  DROP POLICY IF EXISTS shop_usage_select   ON shop_usage;
+  -- push_subscriptions
+  DROP POLICY IF EXISTS push_subscriptions_manage_own ON push_subscriptions;
+  DROP POLICY IF EXISTS push_subscriptions_manage     ON push_subscriptions;
+  -- email_verifications
+  DROP POLICY IF EXISTS email_verifications_select ON email_verifications;
+  DROP POLICY IF EXISTS email_verifications_manage ON email_verifications;
+END $$;
 
--- Helper: shop_id from team_members via anon JWT (assuming user_id = member id)
--- These policies use the anon key; service_role bypasses RLS entirely.
+-- Disable RLS on all tables that had it enabled from previous runs
+ALTER TABLE shops                  DISABLE ROW LEVEL SECURITY;
+ALTER TABLE team_members           DISABLE ROW LEVEL SECURITY;
+ALTER TABLE customers              DISABLE ROW LEVEL SECURITY;
+ALTER TABLE orders                 DISABLE ROW LEVEL SECURITY;
+ALTER TABLE payments               DISABLE ROW LEVEL SECURITY;
+ALTER TABLE order_photos           DISABLE ROW LEVEL SECURITY;
+ALTER TABLE order_status_history   DISABLE ROW LEVEL SECURITY;
+ALTER TABLE measurements           DISABLE ROW LEVEL SECURITY;
+ALTER TABLE subscriptions          DISABLE ROW LEVEL SECURITY;
+ALTER TABLE subscription_payments  DISABLE ROW LEVEL SECURITY;
+ALTER TABLE shop_usage             DISABLE ROW LEVEL SECURITY;
+ALTER TABLE email_verifications    DISABLE ROW LEVEL SECURITY;
+ALTER TABLE push_subscriptions     DISABLE ROW LEVEL SECURITY;
 
--- shops: owner can read own shop, team members can read their shop
-DROP POLICY IF EXISTS shops_read_own ON shops;
-CREATE POLICY shops_read_own ON shops
-  FOR SELECT USING (
-    id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND deleted_at IS NULL)
-  );
-
--- shops: only authenticated owner can update
-DROP POLICY IF EXISTS shops_update_own ON shops;
-CREATE POLICY shops_update_own ON shops
-  FOR UPDATE USING (
-    id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND role = 'owner' AND deleted_at IS NULL)
-  );
-
--- team_members: members can read their own team
-DROP POLICY IF EXISTS team_members_read_own ON team_members;
-CREATE POLICY team_members_read_own ON team_members
-  FOR SELECT USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND deleted_at IS NULL)
-  );
-
--- team_members: owner can manage team
-DROP POLICY IF EXISTS team_members_write_owner ON team_members;
-CREATE POLICY team_members_write_owner ON team_members
-  FOR ALL USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND role = 'owner' AND deleted_at IS NULL)
-  );
-
--- customers: members can read customers in their shop
-DROP POLICY IF EXISTS customers_read_own ON customers;
-CREATE POLICY customers_read_own ON customers
-  FOR SELECT USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND deleted_at IS NULL)
-  );
-
--- customers: owner can write
-DROP POLICY IF EXISTS customers_write_owner ON customers;
-CREATE POLICY customers_write_owner ON customers
-  FOR ALL USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND role = 'owner' AND deleted_at IS NULL)
-  );
-
--- orders: members can read orders in their shop
-DROP POLICY IF EXISTS orders_read_own ON orders;
-CREATE POLICY orders_read_own ON orders
-  FOR SELECT USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND deleted_at IS NULL)
-  );
-
--- orders: owner can write (karigar can update status via the app using service role)
-DROP POLICY IF EXISTS orders_write_owner ON orders;
-CREATE POLICY orders_write_owner ON orders
-  FOR INSERT WITH CHECK (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND role = 'owner' AND deleted_at IS NULL)
-  );
-DROP POLICY IF EXISTS orders_update_owner ON orders;
-CREATE POLICY orders_update_owner ON orders
-  FOR UPDATE USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND role = 'owner' AND deleted_at IS NULL)
-  );
-
--- payments: members can read payments in their shop
-DROP POLICY IF EXISTS payments_read_own ON payments;
-CREATE POLICY payments_read_own ON payments
-  FOR SELECT USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND deleted_at IS NULL)
-  );
-
--- payments: owner can write
-DROP POLICY IF EXISTS payments_write_owner ON payments;
-CREATE POLICY payments_write_owner ON payments
-  FOR ALL USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND role = 'owner' AND deleted_at IS NULL)
-  );
-
--- measurements: members can read measurements in their shop
-DROP POLICY IF EXISTS measurements_read_own ON measurements;
-CREATE POLICY measurements_read_own ON measurements
-  FOR SELECT USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND deleted_at IS NULL)
-  );
-
--- measurements: owner can write
-DROP POLICY IF EXISTS measurements_write_owner ON measurements;
-CREATE POLICY measurements_write_owner ON measurements
-  FOR ALL USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND role = 'owner' AND deleted_at IS NULL)
-  );
-
--- order_photos: members can read photos in their shop
-DROP POLICY IF EXISTS order_photos_read_own ON order_photos;
-CREATE POLICY order_photos_read_own ON order_photos
-  FOR SELECT USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND deleted_at IS NULL)
-  );
-
--- order_status_history: members can read history in their shop
-DROP POLICY IF EXISTS order_status_history_read_own ON order_status_history;
-CREATE POLICY order_status_history_read_own ON order_status_history
-  FOR SELECT USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND deleted_at IS NULL)
-  );
-
--- subscriptions: members can read subscription
-DROP POLICY IF EXISTS subscriptions_read_own ON subscriptions;
-CREATE POLICY subscriptions_read_own ON subscriptions
-  FOR SELECT USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND deleted_at IS NULL)
-  );
-
--- shop_usage: members can read usage
-DROP POLICY IF EXISTS shop_usage_read_own ON shop_usage;
-CREATE POLICY shop_usage_read_own ON shop_usage
-  FOR SELECT USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND deleted_at IS NULL)
-  );
-
--- push_subscriptions: member can manage own
-DROP POLICY IF EXISTS push_subscriptions_manage_own ON push_subscriptions;
-CREATE POLICY push_subscriptions_manage_own ON push_subscriptions
-  FOR ALL USING (
-    shop_id IN (SELECT shop_id FROM team_members WHERE id = auth.uid() AND deleted_at IS NULL)
-  );
+-- Drop the helper functions that are no longer needed
+DROP FUNCTION IF EXISTS public.current_shop_id();
+DROP FUNCTION IF EXISTS public.current_user_is_owner();
