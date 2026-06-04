@@ -4,6 +4,7 @@ import { NextRequest, NextResponse }                          from 'next/server'
 import { verifyTOTP, generateSessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 import { logAdminAction }                                     from '@/lib/admin/audit'
 import { validate, schemas }                                  from '@/lib/validation'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
   const parsed = await validate(schemas.login, req)
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
   // ── 1. Verify admin secret ────────────────────────────────────────
   const adminSecret = process.env.ADMIN_SECRET
   if (!adminSecret) {
-    console.error('[Admin Login] ADMIN_SECRET not configured')
+    logger.error('admin', 'ADMIN_SECRET not configured')
     return NextResponse.json({ error: 'Server not configured' }, { status: 500 })
   }
 

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, verifySessionToken } from '@/lib/admin/auth'
 import { validate, schemas } from '@/lib/validation'
 import { sbGet, sbFetch } from '@/lib/supabase/service'
+import { logger } from '@/lib/logger'
 
 function authorized(req: NextRequest) {
   const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
     const rows = await sbGet('admin_notifications?order=created_at.desc&limit=100&select=*')
     return NextResponse.json({ data: rows })
   } catch (e) {
-    console.error('[Admin Notifications GET]', e)
+    logger.error('admin', 'Notifications GET error', e)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
@@ -94,7 +95,7 @@ export async function PATCH(req: NextRequest) {
     const [row] = await res.json()
     return NextResponse.json({ data: row })
   } catch (e) {
-    console.error('[Admin Notifications PATCH]', e)
+    logger.error('admin', 'Notifications PATCH error', e)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
@@ -112,7 +113,7 @@ export async function DELETE(req: NextRequest) {
     if (!res.ok) throw new Error(`DELETE notification: ${res.status} ${await res.text()}`)
     return NextResponse.json({ success: true })
   } catch (e) {
-    console.error('[Admin Notifications DELETE]', e)
+    logger.error('admin', 'Notifications DELETE error', e)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

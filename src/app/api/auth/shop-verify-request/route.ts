@@ -4,6 +4,7 @@ import { sendShopVerificationAlert }           from '@/lib/security/email-otp'
 import { getSignupRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { validate, schemas }                  from '@/lib/validation/schemas'
 import { sbFetch, sbPatch }                   from '@/lib/supabase/service'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
   const limiter = getSignupRatelimiter()
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 
   if (!res.ok) {
     const err = await res.text()
-    console.error('[Shop Verify] Insert error:', err)
+    logger.error('shop-verify', 'Insert error', err)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
     shopName, ownerName, ownerPhone,
     ownerEmail: ownerEmail || 'N/A',
     city, shopId,
-  }).catch(console.error)
+  }).catch(err => logger.error('shop-verify', 'Verification alert notification failed', err))
 
   // Also update shop verification_status
   await sbPatch(

@@ -7,6 +7,7 @@ import { parseBody } from "@/lib/security/body";
 import { validate, schemas } from "@/lib/validation";
 import { sbGet, sbPatch, sbPost, sbUpsertByShopId } from "@/lib/supabase/service";
 import { subscriptionExpiresAt } from "@/lib/billing/cycles";
+import { logger } from '@/lib/logger';
 
 async function logAction(
   action: string,
@@ -24,13 +25,13 @@ async function logAction(
       performed_at: new Date().toISOString(),
     });
   } catch (e) {
-    console.error("[Admin Action] Audit log failed (non-fatal):", e);
+    logger.error('admin', 'Audit log failed (non-fatal)', e);
   }
 }
 
 function notifyOwner(shopId: string, action: string, title: string, message: string, details?: [string, unknown][]) {
   sendShopOwnerAdminActionEmail({ shopId, action, title, message, details }).catch((e) => {
-    console.error("[Admin Action] Owner email failed (non-fatal):", e);
+    logger.error('admin', 'Owner email failed (non-fatal)', e);
   });
 }
 
@@ -142,7 +143,7 @@ export async function POST(req: NextRequest) {
           plan: planId,
           cycle: cycle ?? "monthly",
           expiresAt,
-        }).catch((e) => console.error("[Admin Action] Admin subscription email failed (non-fatal):", e));
+        }).catch((e) => logger.error('admin', 'Admin subscription email failed (non-fatal)', e));
 
         return NextResponse.json({ success: true });
       }
@@ -208,7 +209,7 @@ export async function POST(req: NextRequest) {
           cycle,
           amountPkr,
           expiresAt,
-        }).catch((e) => console.error("[Admin Action] Admin subscription email failed (non-fatal):", e));
+        }).catch((e) => logger.error('admin', 'Admin subscription email failed (non-fatal)', e));
 
         return NextResponse.json({ success: true, expiresAt });
       }
@@ -342,17 +343,17 @@ export async function POST(req: NextRequest) {
             is_active: false,
             deleted_at: now,
             updated_at: now,
-          }).catch((e) => console.warn("[Admin Action] team cleanup:", e)),
+          }).catch((e) => logger.warn('admin', 'team cleanup', e)),
           sbPatch(`subscriptions?shop_id=eq.${shopId}`, {
             status: "cancelled",
             cancelled_at: now,
             updated_at: now,
-          }).catch((e) => console.warn("[Admin Action] subscription cleanup:", e)),
+          }).catch((e) => logger.warn('admin', 'subscription cleanup', e)),
           sbPatch(`shop_verification_requests?shop_id=eq.${shopId}`, {
             status: "rejected",
             admin_note: reason ?? "Account deleted by admin",
             reviewed_at: now,
-          }).catch((e) => console.warn("[Admin Action] verification cleanup:", e)),
+          }).catch((e) => logger.warn('admin', 'verification cleanup', e)),
         ]);
 
         await sbPatch(`shops?id=eq.${shopId}`, {
@@ -373,7 +374,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Unknown action" }, { status: 400 });
     }
   } catch (e) {
-    console.error("[Admin Action API] error:", e);
+    logger.error('admin', 'Action API error', e);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

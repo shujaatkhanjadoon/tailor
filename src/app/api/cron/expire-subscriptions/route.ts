@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendAdminSubscriptionEventEmail } from '@/lib/security/email-otp'
 import { sbGet, sbPatch } from '@/lib/supabase/service'
+import { logger } from '@/lib/logger'
 import { mapConcurrent } from '@/lib/concurrent'
 
 export async function GET(req: NextRequest) {
@@ -123,7 +124,7 @@ export async function GET(req: NextRequest) {
       errors: allErrors.length > 0 ? allErrors : undefined,
     })
   } catch (e) {
-    console.error('[Cron] expire-subscriptions error:', e)
+    logger.error('expire-subscriptions', 'error', e)
     return NextResponse.json({ success: false, error: 'Cron job failed' }, { status: 500 })
   }
 }

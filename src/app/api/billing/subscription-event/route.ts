@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendAdminSubscriptionEventEmail } from '@/lib/security/email-otp'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
+import { logger } from '@/lib/logger'
 
 const VALID_EVENTS = new Set([
   'upgraded',
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (e) {
-    console.error('[Billing Event] Admin email failed:', e)
+    logger.error('BillingEvent', 'Admin email failed', e)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

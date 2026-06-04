@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 import { sbFetch } from '@/lib/supabase/service'
+import { logger } from '@/lib/logger'
 
 async function cleanupExpired() {
   await sbFetch(`admin_notifications?expires_at=lt.${encodeURIComponent(new Date().toISOString())}`, {
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
     if (!notificationRes.ok) throw new Error(await notificationRes.text())
     return NextResponse.json({ data: await notificationRes.json() })
   } catch (e) {
-    console.error('[Notifications]', e)
+    logger.error('Notifications', 'Fetch notifications failed', e)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

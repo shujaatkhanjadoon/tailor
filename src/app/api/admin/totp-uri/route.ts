@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse }                          from 'next/server'
 import { verifySessionToken, getTOTPUri, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 import QRCode from 'qrcode'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: NextRequest) {
   const token       = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
   const secretOk  = headerSecret && adminSecret && headerSecret === adminSecret
 
   if (!sessionOk && !secretOk) {
-    console.error('[TOTP Setup] Unauthorized — neither session nor secret matched')
+    logger.error('admin', 'TOTP Setup Unauthorized — neither session nor secret matched')
     return NextResponse.json(
       { error: 'Unauthorized — check ADMIN_SECRET env var' },
       { status: 401 }
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
     })
     return NextResponse.json({ uri, qrData, hasSetup: true })
   } catch (e) {
-    console.error('[TOTP Setup] Error:', e)
+    logger.error('admin', 'TOTP Setup error', e)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

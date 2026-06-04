@@ -9,6 +9,7 @@ import {
 import { parseBody } from '@/lib/security/body'
 import { getSignupRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { sbFetch, sbGet, sbPost, sbUpsertById, sbUpsertByShopId } from '@/lib/supabase/service'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
   const limiter = getSignupRatelimiter()
@@ -157,7 +158,7 @@ export async function POST(req: NextRequest) {
       })
     } catch (verifErr) {
       // Non-fatal — shop still created successfully
-      console.error('[create-shop] Verification request failed (non-fatal):', verifErr)
+      logger.error('create-shop', 'Verification request failed (non-fatal)', verifErr)
     }
 
     // ── 7. Admin notifications (non-blocking) ─────────────────────
@@ -172,7 +173,7 @@ export async function POST(req: NextRequest) {
       ownerEmail: normalizedEmail || 'N/A',
       city,
       shopId,
-    }).catch(console.error)
+    }).catch(err => logger.error('create-shop', 'Shop verification alert failed', err))
 
     sendAdminShopRegistrationEmail({
       shopName,
@@ -183,7 +184,7 @@ export async function POST(req: NextRequest) {
       registrationDate: new Date().toISOString(),
       city,
       shopId,
-    }).catch(console.error)
+    }).catch(err => logger.error('create-shop', 'Admin registration email failed', err))
 
     sendShopOwnerAccountCreated({
       shopName,
@@ -191,7 +192,7 @@ export async function POST(req: NextRequest) {
       ownerPhone,
       ownerEmail: normalizedEmail || undefined,
       city,
-    }).catch(console.error)
+    }).catch(err => logger.error('create-shop', 'Owner account email failed', err))
 
     // WhatsApp via CallMeBot (if configured)
     // NOTE: CallMeBot API requires the key as a query param (API design constraint).
@@ -209,7 +210,7 @@ export async function POST(req: NextRequest) {
       fetch(
         `https://api.callmebot.com/whatsapp.php` +
         `?phone=${adminWA}&text=${msg}&apikey=${callMeBotKey}`
-      ).catch(console.error)
+      ).catch(err => logger.error('create-shop', 'WhatsApp notification failed', err))
     } else if (adminWA) {
       // Log link for manual sending
       const msg = encodeURIComponent(
@@ -224,7 +225,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (e) {
-    console.error('[create-shop] error:', e)
+    logger.error('create-shop', 'Account creation failed', e)
     return NextResponse.json(
       { error: 'Account creation failed. Dobara try karein.' },
       { status: 500 }

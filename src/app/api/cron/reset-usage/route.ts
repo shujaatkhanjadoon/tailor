@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { sbPatch } from '@/lib/supabase/service'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: NextRequest) {
   if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, monthYear, timestamp: now })
   } catch (e) {
-    console.error('[Cron] reset-usage error:', e)
+    logger.error('reset-usage', 'error', e)
     return NextResponse.json({ success: false, error: 'Cron job failed' }, { status: 500 })
   }
 }

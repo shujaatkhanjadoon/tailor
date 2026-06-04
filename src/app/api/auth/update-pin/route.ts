@@ -3,6 +3,7 @@ import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/sess
 import { validate, schemas } from '@/lib/validation'
 import { getAPIRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { sbPatch } from '@/lib/supabase/service'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
   const limiter = getAPIRatelimiter()
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (e) {
-    console.error('[update-pin]', e)
+    logger.error('update-pin', 'PIN update error', e)
     return NextResponse.json(
       { error: 'PIN update failed' },
       { status: 500 }

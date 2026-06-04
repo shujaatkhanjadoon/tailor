@@ -5,6 +5,7 @@ import { getLoginRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/secur
 import { parseBody }                  from '@/lib/security/body'
 import { validate, schemas }          from '@/lib/validation'
 import { sbFetch, sbPatch }           from '@/lib/supabase/service'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
   // ── Rate limit ────────────────────────────────────────────────
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
   )
   if (!res.ok) {
     const err = await res.text()
-    console.error('[verify-otp] lookup failed:', err)
+    logger.error('verify-otp', 'OTP lookup failed', err)
     return NextResponse.json(
       { error: 'OTP verify nahi ho saka. Dobara try karein.' },
       { status: 502 }
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
     phone,
   })
   } catch (e) {
-    console.error('[verify-otp] error:', e)
+    logger.error('verify-otp', 'OTP verification error', e)
     return NextResponse.json(
       { error: 'Supabase se connect nahi ho saka. Dobara try karein.' },
       { status: 502 }

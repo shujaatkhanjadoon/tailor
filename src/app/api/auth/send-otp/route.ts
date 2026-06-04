@@ -5,6 +5,7 @@ import { getOTPRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/securit
 import { validatePakistaniPhone }        from '@/lib/security/phone'
 import { validate, schemas }             from '@/lib/validation'
 import { sbGet, sbPatch, sbFetch } from '@/lib/supabase/service'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
   // ── Rate limit by IP + fingerprint ────────────────────────────
@@ -81,14 +82,14 @@ export async function POST(req: NextRequest) {
   const dbError = dbRes.ok ? null : await dbRes.text()
 
   if (dbError) {
-    console.error('[Send OTP] DB error:', dbError)
+    logger.error('send-otp', 'DB error', dbError)
     return NextResponse.json({ error: 'Server error. Dobara try karein.' }, { status: 500 })
   }
 
   // ── Send OTP email ────────────────────────────────────────────
   const emailResult = await sendOTPEmail(normalizedEmail, otp, purpose)
   if (!emailResult.success) {
-    console.error('[Send OTP] Resend error:', emailResult.error)
+    logger.error('send-otp', 'Resend error', emailResult.error)
     return NextResponse.json(
       { error: 'Email nahi aayi. Email address check karein.' },
       { status: 500 }

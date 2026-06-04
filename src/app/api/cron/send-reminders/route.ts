@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { sbGet, sbPost, type Row } from '@/lib/supabase/service'
+import { logger } from '@/lib/logger'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mydarzi.vercel.app'
 
@@ -132,12 +133,13 @@ export async function GET(req: NextRequest) {
               sent_at:    now.toISOString(),
             },
           })
-        } catch (insertErr: any) {
-          if (insertErr?.message?.includes('409') || insertErr?.message?.includes('23505')) {
+        } catch (insertErr: unknown) {
+          const errMsg = insertErr instanceof Error ? insertErr.message : String(insertErr)
+          if (errMsg.includes('409') || errMsg.includes('23505')) {
             results.skipped++
             continue
           }
-          throw new Error(`Insert failed: ${insertErr?.message ?? insertErr}`)
+          throw new Error(`Insert failed: ${errMsg}`)
         }
 
         results.remindersQueued++
@@ -147,7 +149,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, ...results })
 
   } catch (e) {
-    console.error('[Cron] send-reminders error:', e)
+    logger.error('send-reminders', 'error', e)
     return NextResponse.json({ success: false, error: 'Cron job failed' }, { status: 500 })
   }
 }

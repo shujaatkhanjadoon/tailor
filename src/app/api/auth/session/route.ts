@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'crypto'
 import { generateMemberSessionToken, verifyMemberSessionToken, MEMBER_SESSION_COOKIE, getSessionCookieOptions } from '@/lib/auth/session'
 import { sbFetch } from '@/lib/supabase/service'
 import { ok, badRequest, unauthorized, serverError } from '@/lib/api-response'
+import { logger } from '@/lib/logger'
 
 function safeEqual(a: string, b: string): boolean {
   try {
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     return res
   } catch (e) {
-    console.error('[Session POST]', e)
+    logger.error('session', 'POST error', e)
     return serverError('Session creation failed')
   }
 }
@@ -97,7 +98,7 @@ export async function GET(req: NextRequest) {
       member,
     })
   } catch (e) {
-    console.error('[Session GET]', e)
+    logger.error('session', 'GET error', e)
     return serverError('Session check failed')
   }
 }

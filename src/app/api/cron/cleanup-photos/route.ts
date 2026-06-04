@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { sbGet, sbDelete } from '@/lib/supabase/service'
+import { logger } from '@/lib/logger'
 
 async function destroyCloudinaryImage(publicId: string) {
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
