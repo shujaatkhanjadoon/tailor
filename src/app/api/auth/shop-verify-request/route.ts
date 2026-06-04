@@ -3,14 +3,7 @@ import { NextRequest, NextResponse }           from 'next/server'
 import { sendShopVerificationAlert }           from '@/lib/security/email-otp'
 import { getSignupRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { validate, schemas }                  from '@/lib/validation/schemas'
-
-const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const HEADERS = {
-  'Content-Type':  'application/json',
-  'apikey':        SB_KEY,
-  'Authorization': `Bearer ${SB_KEY}`,
-}
+import { sbFetch, sbPatch }                   from '@/lib/supabase/service'
 
 export async function POST(req: NextRequest) {
   const limiter = getSignupRatelimiter()
@@ -31,9 +24,9 @@ export async function POST(req: NextRequest) {
   const { shopId, shopName, ownerName, ownerPhone, ownerEmail, city } = parsed.data
 
   // Insert verification request
-  const res = await fetch(`${SB_URL}/rest/v1/shop_verification_requests`, {
+  const res = await sbFetch('shop_verification_requests', {
     method:  'POST',
-    headers: { ...HEADERS, 'Prefer': 'return=minimal' },
+    headers: { 'Prefer': 'return=minimal' },
     body:    JSON.stringify({
       shop_id:      shopId,
       owner_name:   ownerName,
@@ -58,11 +51,10 @@ export async function POST(req: NextRequest) {
   }).catch(console.error)
 
   // Also update shop verification_status
-  await fetch(`${SB_URL}/rest/v1/shops?id=eq.${shopId}`, {
-    method:  'PATCH',
-    headers: { ...HEADERS, 'Prefer': 'return=minimal' },
-    body:    JSON.stringify({ verification_status: 'pending' }),
-  })
+  await sbPatch(
+    `shops?id=eq.${shopId}`,
+    { verification_status: 'pending' }
+  )
 
   return NextResponse.json({ success: true })
 }

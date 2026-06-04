@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { timingSafeEqual } from 'crypto'
 import { generateMemberSessionToken, verifyMemberSessionToken, MEMBER_SESSION_COOKIE, getSessionCookieOptions } from '@/lib/auth/session'
-
-const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const HEADERS: Record<string, string> = {
-  'Content-Type': 'application/json',
-  'apikey': SB_KEY,
-  'Authorization': `Bearer ${SB_KEY}`,
-}
+import { sbFetch } from '@/lib/supabase/service'
 
 function safeEqual(a: string, b: string): boolean {
   try {
@@ -22,9 +15,8 @@ function safeEqual(a: string, b: string): boolean {
 
 async function verifyPinHashServerSide(memberId: string, shopId: string, pinHash: string): Promise<boolean> {
   try {
-    const res = await fetch(
-      `${SB_URL}/rest/v1/team_members?id=eq.${encodeURIComponent(memberId)}&shop_id=eq.${encodeURIComponent(shopId)}&is_active=eq.true&deleted_at=is.null&select=pin_hash&limit=1`,
-      { headers: HEADERS, signal: AbortSignal.timeout(5000) }
+    const res = await sbFetch(
+      `team_members?id=eq.${encodeURIComponent(memberId)}&shop_id=eq.${encodeURIComponent(shopId)}&is_active=eq.true&deleted_at=is.null&select=pin_hash&limit=1`
     )
     if (!res.ok) return false
     const members = await res.json()
@@ -80,9 +72,8 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch full member info (return raw snake_case for mapTeamMember)
-    const memberRes = await fetch(
-      `${SB_URL}/rest/v1/team_members?id=eq.${session.memberId}&is_active=eq.true&deleted_at=is.null&select=id,shop_id,name,phone,role,pin_hash,speciality,pay_rate_type,pay_rate,email,email_verified,is_active,joined_at,created_at,deleted_at,updated_at&limit=1`,
-      { headers: HEADERS, signal: AbortSignal.timeout(10000) }
+    const memberRes = await sbFetch(
+      `team_members?id=eq.${session.memberId}&is_active=eq.true&deleted_at=is.null&select=id,shop_id,name,phone,role,pin_hash,speciality,pay_rate_type,pay_rate,email,email_verified,is_active,joined_at,created_at,deleted_at,updated_at&limit=1`
     )
 
     if (!memberRes.ok) {

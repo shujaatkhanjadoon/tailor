@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  console.log(`[Send OTP] Sent to ${email} for phone ${phoneResult.cleaned}`)
+  console.log(`[Send OTP] Sent successfully`)
 
   return NextResponse.json({
     success:    true,

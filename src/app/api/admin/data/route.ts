@@ -1,25 +1,8 @@
 // src/app/api/admin/data/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, verifySessionToken } from '@/lib/admin/auth'
-// Direct Supabase REST calls — avoids createClient DNS issues
-const SB_URL  = () => process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SB_HDRS = () => {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
-  return {
-    'apikey':        key,
-    'Authorization': `Bearer ${key}`,
-    'Content-Type':  'application/json',
-  }
-}
-
-async function sbGet(path: string): Promise<any[]> {
-  const res = await fetch(`${SB_URL()}/rest/v1/${path}`, {
-    headers: SB_HDRS(),
-    cache:   'no-store',
-  })
-  if (!res.ok) throw new Error(`GET ${path}: ${res.status} ${await res.text()}`)
-  return res.json()
-}
+import { PLANS } from '@/lib/billing/plans'
+import { sbGet } from '@/lib/supabase/service'
 
 export async function GET(req: NextRequest) {
   const type  = req.nextUrl.searchParams.get('type')
@@ -28,13 +11,6 @@ export async function GET(req: NextRequest) {
 
   if (!token || !verifySessionToken(token)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json(
-      { error: 'SUPABASE_SERVICE_ROLE_KEY not configured' },
-      { status: 500 }
-    )
   }
 
   try {
@@ -127,10 +103,10 @@ export async function GET(req: NextRequest) {
 
         const activeSubs  = subs.filter((s: any) => s.status === 'active')
         const mrr         = activeSubs.reduce((sum: number, s: any) => {
-          if (s.plan === 'professional' && s.billing_cycle === 'monthly') return sum + 999
-          if (s.plan === 'professional' && s.billing_cycle === 'yearly')  return sum + Math.round(9500/12)
-          if (s.plan === 'business'     && s.billing_cycle === 'monthly') return sum + 2499
-          if (s.plan === 'business'     && s.billing_cycle === 'yearly')  return sum + Math.round(23999/12)
+          const plan = PLANS[s.plan as keyof typeof PLANS]
+          if (!plan || !plan.monthlyPkr) return sum
+          if (s.billing_cycle === 'monthly') return sum + plan.monthlyPkr
+          if (s.billing_cycle === 'yearly' && plan.yearlyPkr) return sum + Math.round(plan.yearlyPkr / 12)
           return sum
         }, 0)
 

@@ -6,111 +6,16 @@ import {
   sendShopVerificationAlert,
 } from '@/lib/security/email-otp'
 import { parseBody } from '@/lib/security/body'
-
-const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const HEADERS = {
-  'Content-Type':  'application/json',
-  'apikey':        SB_KEY,
-  'Authorization': `Bearer ${SB_KEY}`,
-}
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-
-function isRetryableFetchError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error)
-  const cause = (error as { cause?: { code?: string } })?.cause
-  return (
-    message.includes('fetch failed') ||
-    message.includes('Connect Timeout') ||
-    cause?.code === 'UND_ERR_CONNECT_TIMEOUT'
-  )
-}
-
-async function sbFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  let lastError: unknown
-
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    try {
-      const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
-        ...init,
-        signal: AbortSignal.timeout(30000),
-      })
-
-      if (res.status >= 500 && attempt < 3) {
-        await sleep(500 * attempt)
-        continue
-      }
-
-      return res
-    } catch (error) {
-      lastError = error
-      if (attempt >= 3 || !isRetryableFetchError(error)) break
-      await sleep(700 * attempt)
-    }
-  }
-
-  throw lastError instanceof Error
-    ? lastError
-    : new Error('Supabase request failed')
-}
-
-async function sbPost(table: string, data: object): Promise<any> {
-  const res = await sbFetch(table, {
-    method:  'POST',
-    headers: { ...HEADERS, 'Prefer': 'return=representation' },
-    body:    JSON.stringify(data),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`INSERT ${table} failed (${res.status}): ${err}`)
-  }
-  const rows = await res.json()
-  return Array.isArray(rows) ? rows[0] : rows
-}
-
-async function sbUpsertById(table: string, data: Record<string, unknown>): Promise<void> {
-  // Always conflict on 'id' — every table has this unique constraint
-  const res = await sbFetch(`${table}?on_conflict=id`, {
-    method:  'POST',
-    headers: { ...HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-    body:    JSON.stringify(data),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`UPSERT ${table} failed (${res.status}): ${err}`)
-  }
-}
-
-async function sbUpsertByShopId(table: string, data: object): Promise<void> {
-  // For tables with unique constraint on shop_id
-  const res = await sbFetch(`${table}?on_conflict=shop_id`, {
-    method:  'POST',
-    headers: { ...HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-    body:    JSON.stringify(data),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`UPSERT ${table} failed (${res.status}): ${err}`)
-  }
-}
-
-async function sbGet(path: string): Promise<any[]> {
-  const res = await sbFetch(path, {
-    headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` },
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`SELECT failed (${res.status}): ${err}`)
-  }
-  return res.json()
-}
+import { getSignupRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
+import { sbFetch, sbGet, sbPost, sbUpsertById, sbUpsertByShopId } from '@/lib/supabase/service'
 
 export async function POST(req: NextRequest) {
-  if (!SB_KEY) {
+  const limiter = getSignupRatelimiter()
+  const rl      = await checkRateLimit(limiter, `signup:${getRateLimitId(req)}`, 'sensitive')
+  if (!rl.allowed) {
     return NextResponse.json(
-      { error: 'Server misconfigured: SUPABASE_SERVICE_ROLE_KEY missing' },
-      { status: 500 }
+      { error: 'Bahut zyada accounts bana rahe hain. 24 ghante mein dobara try karein.' },
+      { status: 429 }
     )
   }
 
@@ -322,12 +227,6 @@ export async function POST(req: NextRequest) {
 
   } catch (e) {
     console.error('[create-shop] error:', e)
-    if (isRetryableFetchError(e)) {
-      return NextResponse.json(
-        { error: 'Supabase se connect nahi ho saka. Dobara try karein.' },
-        { status: 502 }
-      )
-    }
     return NextResponse.json(
       { error: 'Account creation failed. Dobara try karein.' },
       { status: 500 }

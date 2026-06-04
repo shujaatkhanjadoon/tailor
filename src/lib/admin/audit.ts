@@ -1,25 +1,7 @@
 // src/lib/admin/audit.ts
 'use server'
 
-// ── REST-based audit logger — avoids createClient timeout ─────────
-
-function getSupabaseHeaders() {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const url  = process.env.NEXT_PUBLIC_SUPABASE_URL
-
-  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY not set')
-  if (!url) throw new Error('NEXT_PUBLIC_SUPABASE_URL not set')
-
-  return {
-    url,
-    headers: {
-      'Content-Type':  'application/json',
-      'apikey':        key,
-      'Authorization': `Bearer ${key}`,
-      'Prefer':        'return=minimal',
-    },
-  }
-}
+import { sbFetch } from '@/lib/supabase/service'
 
 export type AuditAction =
   | 'activate_subscription'
@@ -39,23 +21,18 @@ export async function logAdminAction(
   shopId?:     string,
   details?:    Record<string, unknown>
 ): Promise<void> {
-  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   try {
-    const { url, headers } = getSupabaseHeaders()
-
-    const body = JSON.stringify({
-      action,
-      target_type:  targetType,
-      target_id:    targetId,
-      shop_id:      shopId ?? null,
-      details:      details ?? {},
-      performed_at: new Date().toISOString(),
-    })
-
-    const res = await fetch(`${url}/rest/v1/admin_audit_log`, {
+    const res = await sbFetch('admin_audit_log', {
       method: 'POST',
-      headers,
-      body,
+      headers: { 'Prefer': 'return=minimal' },
+      body: JSON.stringify({
+        action,
+        target_type:  targetType,
+        target_id:    targetId,
+        shop_id:      shopId ?? null,
+        details:      details ?? {},
+        performed_at: new Date().toISOString(),
+      }),
     })
 
     if (!res.ok) {
@@ -66,19 +43,14 @@ export async function logAdminAction(
     }
   } catch (e) {
     // Never throw — audit failure must not block the admin action
-    const hostname = sbUrl ? new URL(sbUrl).hostname : 'SUPABASE_URL_NOT_SET'
-    console.error('[Audit] logAdminAction error (non-fatal):', String(e), `(hostname: ${hostname})`)
+    console.error('[Audit] logAdminAction error (non-fatal):', String(e))
   }
 }
 
 export async function getAuditLog(limit = 200): Promise<any[]> {
   try {
-    const { url, headers } = getSupabaseHeaders()
-
-    const encodedLimit = encodeURIComponent(String(limit))
-    const res = await fetch(
-      `${url}/rest/v1/admin_audit_log?order=performed_at.desc&limit=${encodedLimit}&select=*`,
-      { headers: { ...headers, 'Prefer': '' }, cache: 'no-store' }
+    const res = await sbFetch(
+      `admin_audit_log?order=performed_at.desc&limit=${encodeURIComponent(String(limit))}&select=*`
     )
 
     if (!res.ok) {

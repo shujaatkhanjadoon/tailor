@@ -103,22 +103,19 @@ export function usePlan(): PlanState {
           .maybeSingle(),
       ])
 
-      if (!mountedRef.current) return
+      if (mountedRef.current) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[usePlan] errors:', subResult.error, usageResult.error)
+        }
 
-      // Log for debugging — remove in production
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[usePlan] raw subscription:', subResult.data)
-        console.log('[usePlan] raw usage:', usageResult.data)
-        console.log('[usePlan] errors:', subResult.error, usageResult.error)
+        if (subResult.error) {
+          console.error('[usePlan] subscription fetch error:', subResult.error.message)
+        }
+
+        // If no subscription row exists yet, default to starter
+        setSubData(subResult.data ?? { plan: 'starter', status: 'active' })
+        setUsageData(usageResult.data ?? null)
       }
-
-      if (subResult.error) {
-        console.error('[usePlan] subscription fetch error:', subResult.error.message)
-      }
-
-      // If no subscription row exists yet, default to starter
-      setSubData(subResult.data ?? { plan: 'starter', status: 'active' })
-      setUsageData(usageResult.data ?? null)
 
     } catch (e) {
       console.error('[usePlan] fetch error:', e)

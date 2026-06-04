@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 import { validate, schemas } from '@/lib/validation'
-
-const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const HEADERS = {
-  'Content-Type':  'application/json',
-  'apikey':        SB_KEY,
-  'Authorization': `Bearer ${SB_KEY}`,
-}
+import { getAPIRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
+import { sbPatch } from '@/lib/supabase/service'
 
 export async function POST(req: NextRequest) {
+  const limiter = getAPIRatelimiter()
+  const rl      = await checkRateLimit(limiter, `update-pin:${getRateLimitId(req)}`, 'sensitive')
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Bahut zyada requests. Kuch der mein dobara try karein.' },
+      { status: 429 }
+    )
+  }
+
   try {
     const token = req.cookies.get(MEMBER_SESSION_COOKIE)?.value
     const session = token ? verifyMemberSessionToken(token) : null
@@ -29,28 +32,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cannot update another member\'s PIN' }, { status: 403 })
     }
 
-    const res = await fetch(
-      `${SB_URL}/rest/v1/team_members?id=eq.${encodeURIComponent(memberId)}`,
-      {
-        method:  'PATCH',
-        headers: {
-          'Content-Type':  'application/json',
-          'apikey':        SB_KEY,
-          'Authorization': `Bearer ${SB_KEY}`,
-          'Prefer':        'return=minimal',
-        },
-        body: JSON.stringify({
-          pin_hash:   pinHash,
-          updated_at: new Date().toISOString(),
-        }),
-      }
+    await sbPatch(
+      `team_members?id=eq.${encodeURIComponent(memberId)}`,
+      { pin_hash: pinHash, updated_at: new Date().toISOString() }
     )
-
-    if (!res.ok) {
-      const err = await res.text()
-      console.error('[update-pin] DB error:', err)
-      return NextResponse.json({ error: 'PIN update failed' }, { status: 500 })
-    }
 
     return NextResponse.json({ success: true })
   } catch (e) {

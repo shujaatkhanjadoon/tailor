@@ -1,19 +1,15 @@
+// src/app/api/admin/analytics/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { verifySessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 import { format, subMonths, startOfMonth } from 'date-fns'
+import { PLANS } from '@/lib/billing/plans'
+import { sbGet } from '@/lib/supabase/service'
 
 export async function GET(req: NextRequest) {
   const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
   if (!token || !verifySessionToken(token)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-
-  const adminSupabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
 
   const now = new Date()
 
@@ -27,65 +23,65 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  const { data: allPayments } = await adminSupabase
-    .from('subscription_payments')
-    .select('amount_pkr, status, paid_at, plan, billing_cycle, shop_id')
-    .eq('status', 'completed')
+  try {
+    const [allPayments, allShops, allSubs] = await Promise.all([
+      sbGet('subscription_payments?select=amount_pkr,status,paid_at,plan,billing_cycle,shop_id&status=eq.completed'),
+      sbGet('shops?select=id,created_at&order=created_at.asc'),
+      sbGet('subscriptions?select=plan,status,billing_cycle,created_at'),
+    ])
 
-  const { data: allShops } = await adminSupabase
-    .from('shops')
-    .select('id, created_at')
-    .order('created_at')
+    const payments = allPayments ?? []
+    const shops    = allShops    ?? []
+    const subs     = allSubs     ?? []
 
-  const { data: allSubs } = await adminSupabase
-    .from('subscriptions')
-    .select('plan, status, billing_cycle, created_at')
+    const monthlyRevenue = months.map(m => ({
+      label:   m.label,
+      revenue: payments
+        .filter(p => p.paid_at?.startsWith(m.key))
+        .reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
+      newShops: shops
+        .filter((s: any) => s.created_at?.startsWith(m.key))
+        .length,
+    }))
 
-  const payments = allPayments ?? []
-  const shops    = allShops    ?? []
-  const subs     = allSubs     ?? []
+    const cancelledSubs = subs.filter((s: any) => s.status === 'cancelled').length
+    const totalPaid     = subs.filter((s: any) => ['active','cancelled','expired'].includes(s.status)).length
+    const churnRate     = totalPaid > 0 ? Math.round((cancelledSubs / totalPaid) * 100) : 0
 
-  const monthlyRevenue = months.map(m => ({
-    label:   m.label,
-    revenue: payments
-      .filter(p => p.paid_at?.startsWith(m.key))
-      .reduce((s, p) => s + Number(p.amount_pkr), 0),
-    newShops: shops
-      .filter(s => s.created_at?.startsWith(m.key))
-      .length,
-  }))
+    const activeSubs    = subs.filter((s: any) => s.status === 'active')
+    const mrr           = activeSubs.reduce((sum: number, s: any) => {
+      const plan = PLANS[s.plan as keyof typeof PLANS]
+      if (!plan || !plan.monthlyPkr) return sum
+      if (s.billing_cycle === 'monthly') return sum + plan.monthlyPkr
+      if (s.billing_cycle === 'yearly' && plan.yearlyPkr) return sum + Math.round(plan.yearlyPkr / 12)
+      return sum
+    }, 0)
 
-  const cancelledSubs = subs.filter(s => s.status === 'cancelled').length
-  const totalPaid     = subs.filter(s => ['active','cancelled','expired'].includes(s.status)).length
-  const churnRate     = totalPaid > 0 ? Math.round((cancelledSubs / totalPaid) * 100) : 0
+    const revenueByPlan = {
+      professional: payments.filter((p: any) => p.plan === 'professional').reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
+      business:     payments.filter((p: any) => p.plan === 'business').reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
+    }
 
-  const activeSubs    = subs.filter(s => s.status === 'active')
-  const mrr           = activeSubs.reduce((sum, s) => {
-    if (s.plan === 'professional' && s.billing_cycle === 'monthly') return sum + 999
-    if (s.plan === 'professional' && s.billing_cycle === 'yearly')  return sum + Math.round(9500/12)
-    if (s.plan === 'business'     && s.billing_cycle === 'monthly') return sum + 2499
-    if (s.plan === 'business'     && s.billing_cycle === 'yearly')  return sum + Math.round(23999/12)
-    return sum
-  }, 0)
+    const revenueByCycle = {
+      monthly: payments.filter((p: any) => p.billing_cycle === 'monthly').reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
+      yearly:  payments.filter((p: any) => p.billing_cycle === 'yearly').reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
+    }
 
-  const revenueByPlan = {
-    professional: payments.filter(p => p.plan === 'professional').reduce((s, p) => s + Number(p.amount_pkr), 0),
-    business:     payments.filter(p => p.plan === 'business').reduce((s, p) => s + Number(p.amount_pkr), 0),
+    return NextResponse.json({
+      monthlyRevenue,
+      churnRate,
+      mrr,
+      revenueByPlan,
+      revenueByCycle,
+      totalRevenue: payments.reduce((s: number, p: any) => s + Number(p.amount_pkr), 0),
+      totalShops:   shops.length,
+      activeSubs:   activeSubs.length,
+    })
+  } catch (e) {
+    console.error('[Analytics API] error:', e)
+    return NextResponse.json(
+      { error: 'Failed to fetch analytics data', detail: String(e) },
+      { status: 500 }
+    )
   }
-
-  const revenueByCycle = {
-    monthly: payments.filter(p => p.billing_cycle === 'monthly').reduce((s, p) => s + Number(p.amount_pkr), 0),
-    yearly:  payments.filter(p => p.billing_cycle === 'yearly').reduce((s, p) => s + Number(p.amount_pkr), 0),
-  }
-
-  return NextResponse.json({
-    monthlyRevenue,
-    churnRate,
-    mrr,
-    revenueByPlan,
-    revenueByCycle,
-    totalRevenue: payments.reduce((s, p) => s + Number(p.amount_pkr), 0),
-    totalShops:   shops.length,
-    activeSubs:   activeSubs.length,
-  })
 }
