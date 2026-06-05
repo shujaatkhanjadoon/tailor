@@ -124,12 +124,15 @@ export async function POST(req: NextRequest) {
 
     logger.info('expire-subscriptions', 'completed', {
       expiryMirrored, cancelledToGrace, activeExpired, graceLapsed, trialLapsedCount,
+      errorCount: allErrors.length,
     })
+    for (const err of allErrors) {
+      logger.error('expire-subscriptions', 'batch-error', err)
+    }
 
     return NextResponse.json({
       success: true, timestamp: nowISO,
       expiryMirrored, cancelledToGrace, activeExpired, graceLapsed, trialLapsedCount,
-      errors: allErrors.length > 0 ? allErrors : undefined,
     })
   } catch (e) {
     logger.error('expire-subscriptions', 'error', e)

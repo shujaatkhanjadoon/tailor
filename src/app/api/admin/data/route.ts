@@ -9,10 +9,17 @@ import type {
 } from '@/lib/supabase/types'
 import { logger } from '@/lib/logger'
 
+function parseIntParam(value: string | null, defaultVal: number, maxVal: number): number {
+  if (!value) return defaultVal
+  const n = parseInt(value, 10)
+  return Number.isFinite(n) && n > 0 ? Math.min(n, maxVal) : defaultVal
+}
+
 export async function GET(req: NextRequest) {
-  const type  = req.nextUrl.searchParams.get('type')
-  const limit = req.nextUrl.searchParams.get('limit') ?? '50'
-  const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
+  const type   = req.nextUrl.searchParams.get('type')
+  const limit  = parseIntParam(req.nextUrl.searchParams.get('limit'), 50, 1000)
+  const offset = parseIntParam(req.nextUrl.searchParams.get('offset'), 0, 10000)
+  const token  = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
 
   if (!token || !verifySessionToken(token)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -41,7 +48,7 @@ export async function GET(req: NextRequest) {
 
       case 'pending': {
         const [payments, shops] = await Promise.all([
-          sbGet('subscription_payments?status=eq.pending&method=neq.reminder&order=paid_at.desc&select=*') as Promise<SubscriptionPaymentRow[]>,
+          sbGet(`subscription_payments?status=eq.pending&method=neq.reminder&order=paid_at.desc&limit=${limit}&select=*`) as Promise<SubscriptionPaymentRow[]>,
           sbGet('shops?select=id,shop_name,owner_phone,city') as Promise<ShopRow[]>,
         ])
         const shopMap = new Map(shops.map(s => [s.id, s]))
@@ -51,11 +58,10 @@ export async function GET(req: NextRequest) {
       }
 
       case 'shops': {
-        const safeLimit = /^\d+$/.test(limit) ? Math.min(parseInt(limit, 10), 1000) : 50
         const [shops, subs, usages, orders] = await Promise.all([
-          sbGet(`shops?select=*&order=created_at.desc&limit=${safeLimit}`) as Promise<ShopRow[]>,
-          sbGet('subscriptions?select=*') as Promise<SubscriptionRow[]>,
-          sbGet('shop_usage?select=*') as Promise<ShopUsageRow[]>,
+          sbGet(`shops?select=*&order=created_at.desc&limit=${limit}&offset=${offset}`) as Promise<ShopRow[]>,
+          sbGet('subscriptions?select=shop_id,plan,status,billing_cycle,amount_pkr') as Promise<SubscriptionRow[]>,
+          sbGet('shop_usage?select=shop_id,orders_this_month,customers_total,karigar_count') as Promise<ShopUsageRow[]>,
           sbGet('orders?select=id,shop_id,status,total_price,amount_paid,created_at,deleted_at') as Promise<OrderRow[]>,
         ])
         return NextResponse.json({
@@ -79,9 +85,10 @@ export async function GET(req: NextRequest) {
       }
 
       case 'logs': {
-        const logsLimit = req.nextUrl.searchParams.get('limit') ?? '200'
+        const logsLimit = parseIntParam(req.nextUrl.searchParams.get('limit'), 200, 1000)
+        const logsOffset = parseIntParam(req.nextUrl.searchParams.get('offset'), 0, 10000)
         const [logs, shops] = await Promise.all([
-          sbGet(`admin_audit_log?order=performed_at.desc&limit=${logsLimit}&select=*`) as Promise<AdminAuditLogRow[]>,
+          sbGet(`admin_audit_log?order=performed_at.desc&limit=${logsLimit}&offset=${logsOffset}&select=*`) as Promise<AdminAuditLogRow[]>,
           sbGet('shops?select=id,shop_name,owner_phone') as Promise<ShopRow[]>,
         ])
         const shopMap = new Map(shops.map(s => [s.id, s]))
@@ -140,7 +147,7 @@ export async function GET(req: NextRequest) {
       case 'pending_verifications': {
         const [verifications, shops] = await Promise.all([
           sbGet(
-            'shop_verification_requests?status=eq.pending&order=requested_at.desc&select=*'
+            `shop_verification_requests?status=eq.pending&order=requested_at.desc&limit=${limit}&select=*`
           ) as Promise<ShopVerificationRequestRow[]>,
           sbGet('shops?select=id') as Promise<ShopRow[]>,
         ])

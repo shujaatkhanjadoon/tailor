@@ -3,17 +3,18 @@ import crypto from 'crypto'
 import { validate, schemas } from '@/lib/validation'
 import { sbFetch, sbGet, sbDelete } from '@/lib/supabase/service'
 
-async function tryDelete(table: string, filter: string, warnings: string[]) {
+let deleteFailures = 0
+
+async function tryDelete(table: string, filter: string) {
   try {
     await sbDelete(`${table}?${filter}`)
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    warnings.push(`${table}: ${message}`)
-    console.warn(`[shop-delete] ${table}:`, message)
+    deleteFailures++
+    console.warn(`[shop-delete] ${table}:`, error instanceof Error ? error.message : String(error))
   }
 }
 
-async function deleteCloudinaryAsset(publicId: string, warnings: string[]) {
+async function deleteCloudinaryAsset(publicId: string) {
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
   const apiKey = process.env.CLOUDINARY_API_KEY ?? process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY
   const apiSecret = process.env.CLOUDINARY_API_SECRET
@@ -35,10 +36,10 @@ async function deleteCloudinaryAsset(publicId: string, warnings: string[]) {
     )
     const data = await res.json().catch(() => ({}))
     if (!res.ok || !['ok', 'not found'].includes(data.result)) {
-      warnings.push(`cloudinary:${publicId}: ${data.result ?? res.status}`)
+      deleteFailures++
     }
-  } catch (error) {
-    warnings.push(`cloudinary:${publicId}: ${error instanceof Error ? error.message : String(error)}`)
+  } catch {
+    deleteFailures++
   }
 }
 
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Only the active shop owner can permanently delete this shop' }, { status: 403 })
     }
 
-    const warnings: string[] = []
+    deleteFailures = 0
     const [orders, photos] = await Promise.all([
       sbGet(`orders?shop_id=eq.${encodeURIComponent(shopId)}&select=id`).catch(() => []),
       sbGet(`order_photos?shop_id=eq.${encodeURIComponent(shopId)}&select=public_id`).catch(() => []),
@@ -72,32 +73,31 @@ export async function POST(req: NextRequest) {
     const publicIds = photos.map((p: any) => p.public_id).filter(Boolean)
 
     await Promise.all(publicIds.map(async (publicId: string) => {
-      try {
-        await deleteCloudinaryAsset(publicId, warnings)
-      } catch {
-        warnings.push(`Failed to delete Cloudinary asset: ${publicId}`)
-      }
+      await deleteCloudinaryAsset(publicId)
     }))
 
     for (let i = 0; i < orderIds.length; i += 100) {
-      await tryDelete('order_status_history', inFilter('order_id', orderIds.slice(i, i + 100)), warnings)
+      await tryDelete('order_status_history', inFilter('order_id', orderIds.slice(i, i + 100)))
     }
 
     const shopFilter = `shop_id=eq.${encodeURIComponent(shopId)}`
-    await tryDelete('order_photos', shopFilter, warnings)
-    await tryDelete('payments', shopFilter, warnings)
-    await tryDelete('measurements', shopFilter, warnings)
-    await tryDelete('orders', shopFilter, warnings)
-    await tryDelete('customers', shopFilter, warnings)
-    await tryDelete('team_members', shopFilter, warnings)
-    await tryDelete('subscription_payments', shopFilter, warnings)
-    await tryDelete('subscriptions', shopFilter, warnings)
-    await tryDelete('shop_usage', shopFilter, warnings)
-    await tryDelete('shop_verification_requests', shopFilter, warnings)
+    await tryDelete('order_photos', shopFilter)
+    await tryDelete('payments', shopFilter)
+    await tryDelete('measurements', shopFilter)
+    await tryDelete('orders', shopFilter)
+    await tryDelete('customers', shopFilter)
+    await tryDelete('team_members', shopFilter)
+    await tryDelete('subscription_payments', shopFilter)
+    await tryDelete('subscriptions', shopFilter)
+    await tryDelete('shop_usage', shopFilter)
+    await tryDelete('shop_verification_requests', shopFilter)
 
     await sbDelete(`shops?id=eq.${encodeURIComponent(shopId)}`)
 
-    return NextResponse.json({ success: true, warnings })
+    return NextResponse.json({
+      success: true,
+      ...(deleteFailures > 0 && { warning: `${deleteFailures} cleanup task(s) failed` }),
+    })
   } catch (error) {
     console.error('[shop-delete] error:', error)
     return NextResponse.json(

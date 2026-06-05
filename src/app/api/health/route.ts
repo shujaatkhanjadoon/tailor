@@ -10,7 +10,8 @@ export async function GET() {
     await sbGet('shops?limit=1&select=id')
     checks.supabase = 'ok'
   } catch (e) {
-    checks.supabase = `error: ${e instanceof Error ? e.message : String(e)}`
+    checks.supabase = 'error'
+    console.error('[health] supabase:', e instanceof Error ? e.message : String(e))
     healthy = false
   }
 

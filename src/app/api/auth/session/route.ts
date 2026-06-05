@@ -97,10 +97,27 @@ export async function GET(req: NextRequest) {
 
     const member = members[0]
 
+    // Check if the shop is still active
+    let shopActive = true
+    if (session.shopId) {
+      try {
+        const shopRes = await sbFetch(
+          `shops?id=eq.${encodeURIComponent(session.shopId)}&select=is_active&limit=1`
+        )
+        if (shopRes.ok) {
+          const shops = await shopRes.json()
+          shopActive = shops?.[0]?.is_active !== false
+        }
+      } catch {
+        // non-fatal
+      }
+    }
+
     const res = NextResponse.json({
       authenticated: true,
       memberId: session.memberId,
       shopId: session.shopId,
+      shopActive,
       member,
     })
 

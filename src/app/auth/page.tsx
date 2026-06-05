@@ -19,10 +19,8 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { supabase } from "@/lib/supabase/client";
 import { validatePakistaniPhone } from "@/lib/security/phone";
-import { SHOP_PIN_LENGTH, KARIGAR_PIN_LENGTH, validatePIN, getPINStrength } from "@/lib/security/pin";
-import { verifyPIN } from "@/lib/security/pin";
+import { SHOP_PIN_LENGTH, validatePIN, getPINStrength } from "@/lib/security/pin";
 import { cn } from "@/lib/utils";
 import { PAKISTAN_STATE_CITIES } from "@/lib/locations/pakistan";
 import Image from "next/image";
@@ -269,17 +267,6 @@ function AuthContent() {
     );
   const isSubmittingRef = useRef(false);
   const [isOnline, setIsOnline] = useState(true);
-  const SESSION_KEY = 'md_session_v2'
-  const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
-
-  function saveSessionLocally(memberId: string, shopId: string) {
-    localStorage.setItem(SESSION_KEY, JSON.stringify({
-      memberId,
-      shopId,
-      expiresAt: Date.now() + SESSION_TTL_MS,
-    }))
-  }
-
   useEffect(() => {
     if (authLoading) return
     if (!currentUser) return
@@ -313,17 +300,6 @@ function AuthContent() {
     return () => clearInterval(interval);
   }, [lockoutEnd]);
 
-  const logAttempt = useCallback(
-    (success: boolean, reason?: string) => {
-      fetch("/api/auth/log-attempt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, success, failureReason: reason }),
-      }).catch(() => {});
-    },
-    [phone],
-  );
-
   const handlePhoneSubmit = useCallback(async () => {
     if (loading) return;
     const result = validatePakistaniPhone(phone);
@@ -332,42 +308,38 @@ function AuthContent() {
     setError("");
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members` +
-        `?phone=eq.${result.cleaned}&is_active=eq.true&deleted_at=is.null` +
-        `&select=id,name,role,shop_id,pin_hash,locked_until,failed_attempts`,
-        { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}` } },
-      );
-      const members: any[] = await res.json();
+      const res = await fetch('/api/auth/check-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: result.cleaned }),
+      })
+      const data = await res.json()
 
-      if (members && members.length > 0) {
-        const member = members[0];
-        setLoginPinLength(member.role === 'karigar' ? KARIGAR_PIN_LENGTH : SHOP_PIN_LENGTH);
+      if (!res.ok) {
+        setError(data.error ?? t('auth.serverError'))
+        return
+      }
 
-        if (member.locked_until && new Date(member.locked_until) > new Date()) {
-          const end = new Date(member.locked_until);
-          setLockoutEnd(end);
-          setError(t('auth.lockoutMessage', { minutes: Math.ceil((end.getTime() - Date.now()) / 60000) }));
-          setLoading(false);
-          return;
+      if (data.found) {
+        setLoginPinLength(SHOP_PIN_LENGTH)
+
+        if (data.lockedUntil && new Date(data.lockedUntil) > new Date()) {
+          const end = new Date(data.lockedUntil)
+          setLockoutEnd(end)
+          setError(t('auth.lockoutMessage', { minutes: Math.ceil((end.getTime() - Date.now()) / 60000) }))
+          setLoading(false)
+          return
         }
 
-        if (member.shop_id) {
-          const shopRes = await fetch(
-            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/shops?id=eq.${member.shop_id}&select=shop_name`,
-            { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}` } },
-          );
-          const shops: any[] = await shopRes.json();
-          if (shops?.[0]) setShopDisplay(shops[0].shop_name);
-        }
-        setStep("pin_login");
+        setShopDisplay(data.shopName || '')
+        setStep("pin_login")
       } else {
-        setStep("setup_email");
+        setStep("setup_email")
       }
     } catch {
-      setError(t('auth.serverError'));
+      setError(t('auth.serverError'))
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }, [phone, loading, t]);
 
@@ -379,91 +351,35 @@ function AuthContent() {
     const cleaned = phone.replace(/\D/g, '')
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members` +
-        `?phone=eq.${cleaned}&is_active=eq.true&select=*&limit=1`,
-        { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}` } }
-      )
-      const members: any[] = await res.json()
-      const member = members?.[0]
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleaned, pin: enteredPin }),
+      })
 
-      if (!member) {
-        setPinError(t('auth.accountNotFound'))
-        setLoading(false)
-        return
-      }
-
-      if (member.locked_until && new Date(member.locked_until) > new Date()) {
-        const minsLeft = Math.ceil((new Date(member.locked_until).getTime() - Date.now()) / 60000)
-        setPinError(t('auth.lockoutMinutes', { minutes: minsLeft }))
-        setLockoutEnd(new Date(member.locked_until))
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        setPinError(errData.error ?? t('auth.loginFailed'))
         setPin('')
         setLoading(false)
         return
       }
 
-      const { verifyPIN } = await import('@/lib/security/pin')
-      const isValid = await verifyPIN(enteredPin, member.pin_hash)
+      const data = await res.json()
 
-      if (!isValid) {
-        const newFailed = (member.failed_attempts ?? 0) + 1
-        const shouldLock = newFailed >= 5
-        const lockUntil = shouldLock ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null
-
-        fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members?id=eq.${member.id}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`, 'Prefer': 'return=minimal' },
-            body: JSON.stringify({ failed_attempts: newFailed, ...(lockUntil ? { locked_until: lockUntil } : {}) }),
-          }
-        ).catch(console.error)
-
-        fetch('/api/auth/log-attempt', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: cleaned, success: false, failureReason: `Wrong PIN (attempt ${newFailed})` }),
-        }).catch(console.error)
-
-        if (shouldLock) {
-          const end = new Date(Date.now() + 15 * 60 * 1000)
-          setLockoutEnd(end)
+      if (!data.success) {
+        if (data.lockedUntil) {
+          setLockoutEnd(new Date(data.lockedUntil))
           setPinError(t('auth.locked5Attempts'))
         } else {
-          setPinError(t('auth.wrongPin', { remaining: 5 - newFailed }))
+          setPinError(data.error ?? t('auth.wrongPin', { remaining: 3 }))
         }
         setPin('')
         setLoading(false)
         return
       }
 
-      fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members?id=eq.${member.id}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`, 'Prefer': 'return=minimal' },
-          body: JSON.stringify({ failed_attempts: 0, locked_until: null, last_login_at: new Date().toISOString() }),
-        }
-      ).catch(console.error)
-
-      fetch('/api/auth/log-attempt', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleaned, success: true }),
-      }).catch(console.error)
-
-      saveSessionLocally(member.id, member.shop_id)
-      const sessionRes = await fetch('/api/auth/session', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-        body: JSON.stringify({ memberId: member.id, shopId: member.shop_id, pinHash: member.pin_hash }),
-      })
-      if (!sessionRes.ok) {
-        const errData = await sessionRes.json().catch(() => ({}))
-        console.error('[Login] Session creation failed:', sessionRes.status, errData)
-        setPinError(t('auth.sessionError'))
-        setLoading(false)
-        return
-      }
-
-      const dest = member.role === 'karigar' ? '/karigar' : redirectTo === '/auth' || redirectTo.startsWith('/auth') ? '/' : redirectTo
+      const dest = data.role === 'karigar' ? '/karigar' : redirectTo === '/auth' || redirectTo.startsWith('/auth') ? '/' : redirectTo
       window.location.href = dest
 
     } catch (e) {
@@ -544,16 +460,6 @@ function AuthContent() {
     }
 
     const cleaned = phone.replace(/\D/g, "");
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members` +
-        `?phone=eq.${cleaned}&is_active=eq.true&deleted_at=is.null&select=id&limit=1`,
-        { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}` } },
-      );
-      const existing: any[] = await res.json();
-      if (existing?.length > 0) { setPinError(t('auth.numberRegistered')); setStep("phone"); return; }
-    } catch {}
-
     isSubmittingRef.current = true;
     setLoading(true);
     setPinError("");

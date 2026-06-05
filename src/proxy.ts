@@ -17,6 +17,8 @@ function buildCspHeader(): string {
     "connect-src 'self' https://*.supabase.co https://api.cloudinary.com https://*.upstash.io wss://*.supabase.co",
     "frame-ancestors 'none'",
     "form-action 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
   ].join('; ')
 }
 
@@ -33,14 +35,19 @@ function addSecurityHeaders(res: NextResponse): void {
   )
 }
 
+function respond(json: Record<string, unknown>, status: number, headers?: Record<string, string>) {
+  const res = NextResponse.json(json, { status, headers })
+  addSecurityHeaders(res)
+  res.headers.set('Content-Security-Policy', buildCspHeader())
+  return res
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  const cspHeader = buildCspHeader()
-
   const res = NextResponse.next()
   addSecurityHeaders(res)
-  res.headers.set('Content-Security-Policy', cspHeader)
+  res.headers.set('Content-Security-Policy', buildCspHeader())
 
   // ── Public / internal endpoints (skip auth + rate limiting) ──
   const PUBLIC_API = ['/api/health']
@@ -56,10 +63,7 @@ export async function proxy(req: NextRequest) {
     const prefix = isSensitive ? 'sensitive' : 'api'
     const rl = await checkRateLimit(limiter, `${prefix}:${getRateLimitId(req)}:${pathname}`, isSensitive ? 'sensitive' : 'normal')
     if (!rl.allowed) {
-      return NextResponse.json(
-        { error: rl.error ?? 'Too many requests. Please try again later.' },
-        { status: 429 }
-      )
+      return respond({ error: rl.error ?? 'Too many requests. Please try again later.' }, 429)
     }
   }
 
@@ -94,7 +98,7 @@ export async function proxy(req: NextRequest) {
     }
 
     if (!csrfOk) {
-      return NextResponse.json({ error: 'Cross-origin request rejected' }, { status: 403 })
+      return respond({ error: 'Cross-origin request rejected' }, 403)
     }
   }
 
@@ -123,7 +127,7 @@ export async function proxy(req: NextRequest) {
     }
     const sessionOk   = token  && verifySessionToken(token)
     if (!secretOk && !sessionOk) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return respond({ error: 'Unauthorized' }, 401)
     }
     return res
   }
@@ -143,7 +147,7 @@ export async function proxy(req: NextRequest) {
   if (pathname.startsWith('/api/admin')) {
     const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
     if (!token || !verifySessionToken(token)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return respond({ error: 'Unauthorized' }, 401)
     }
     return res
   }
@@ -152,7 +156,7 @@ export async function proxy(req: NextRequest) {
   if (pathname.startsWith('/api/cron')) {
     const auth = req.headers.get('authorization')
     if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return respond({ error: 'Unauthorized' }, 401)
     }
     return res
   }
@@ -218,10 +222,7 @@ export async function proxy(req: NextRequest) {
   if (pathname.startsWith('/api/')) {
     const contentLength = req.headers.get('content-length')
     if (contentLength && parseInt(contentLength) > 5 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: 'Request too large (max 5MB)' },
-        { status: 413 }
-      )
+      return respond({ error: 'Request too large (max 5MB)' }, 413)
     }
   }
 

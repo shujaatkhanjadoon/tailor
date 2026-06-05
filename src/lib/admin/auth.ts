@@ -112,4 +112,4 @@ export function verifySessionToken(token: string): boolean {
   }
 }
 
-export const ADMIN_SESSION_COOKIE = 'admin_session'
+export const ADMIN_SESSION_COOKIE = '__Secure-admin_session'

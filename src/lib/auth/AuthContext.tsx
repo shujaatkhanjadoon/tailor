@@ -6,9 +6,7 @@ import {
   useState, useCallback, ReactNode,
 } from 'react'
 import type { TeamMemberRecord } from '../db/schema'
-import { teamOps }     from '../db/operations'
-import { supabase }             from '../supabase/client'
-import { hashPIN, verifyPIN }   from '@/lib/security/pin'
+import { hashPIN }   from '@/lib/security/pin'
 import { mapTeamMember } from '@/lib/supabase/records'
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -48,13 +46,14 @@ async function readServerSession(): Promise<{
   memberId: string
   shopId: string
   member: Record<string, unknown>
+  shopActive: boolean
 } | null> {
   try {
     const res = await fetch('/api/auth/session', { credentials: 'include' })
     if (!res.ok) return null
     const data = await res.json()
     if (!data.authenticated) return null
-    return { memberId: data.memberId, shopId: data.shopId, member: data.member }
+    return { memberId: data.memberId, shopId: data.shopId, member: data.member, shopActive: data.shopActive !== false }
   } catch {
     return null
   }
@@ -107,23 +106,6 @@ function clearCachedShopId(): void {
   localStorage.removeItem(SESSION_KEY)
 }
 
-// ── Remote shop status check ──────────────────────────────────────
-
-async function isRemoteShopActive(shopId: string): Promise<boolean> {
-  if (typeof navigator === 'undefined' || !navigator.onLine) return true
-  try {
-    const { data, error } = await supabase
-      .from('shops')
-      .select('is_active')
-      .eq('id', shopId)
-      .maybeSingle()
-    if (error || !data) return true
-    return data.is_active !== false
-  } catch {
-    return true
-  }
-}
-
 // ── Core: read auth state from server session ────────────────────
 
 async function readStateFromDB(): Promise<Partial<AuthState>> {
@@ -132,8 +114,7 @@ async function readStateFromDB(): Promise<Partial<AuthState>> {
     if (serverSession) {
       const member = mapTeamMember(serverSession.member as any)
       if (member?.isActive) {
-        const active = await isRemoteShopActive(member.shopId)
-        if (!active) {
+        if (!serverSession.shopActive) {
           await deleteServerSession()
           clearCachedShopId()
           return { isSetupDone: true, shopId: member.shopId, currentUser: null }
@@ -180,34 +161,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Login ─────────────────────────────────────────────────────
   const login = useCallback(async (phone: string, pin: string): Promise<boolean> => {
-    const member = await teamOps.getByPhone(phone)
-    if (!member || !member.isActive) return false
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone.replace(/\D/g, ''), pin }),
+      })
+      if (!res.ok) return false
+      const data = await res.json()
+      if (!data.success) return false
 
-    const valid = await verifyPIN(pin, member.pin)
-    if (!valid) return false
-
-    const active = await isRemoteShopActive(member.shopId)
-    if (!active) {
-      clearCachedShopId()
+      const partial = await readStateFromDB()
+      setState(s => ({ ...s, ...partial, isLoading: false }))
+      return true
+    } catch {
       return false
     }
-
-    const sessionCreated = await createServerSession(member.id, member.shopId, member.pin)
-    if (!sessionCreated) {
-      console.error('[Auth] Failed to create server session during login')
-      return false
-    }
-    setCachedShopId(member.shopId)
-
-    setState(s => ({
-      ...s,
-      isSetupDone: true,
-      shopId:      member.shopId,
-      currentUser: member,
-      isOwner:     member.role === 'owner',
-      isKarigar:   member.role === 'karigar',
-    }))
-    return true
   }, [])
 
   // ── Logout ────────────────────────────────────────────────────
@@ -271,33 +240,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(apiData.error ?? 'Account creation failed on server')
     }
 
-    const actualMemberId = apiData.memberId
-
-    const { data: ownerRow } = await supabase
-      .from('team_members')
-      .select('id,shop_id,name,phone,role,pin_hash,email,email_verified,is_active,joined_at,created_at,updated_at,deleted_at')
-      .eq('id', actualMemberId)
-      .single()
-    const owner = ownerRow
-      ? mapTeamMember(ownerRow)
-      : await teamOps.addWithId(shopId, actualMemberId, {
-          name:  ownerName?.trim() || shopName + ' (Owner)',
-          phone: ownerPhone,
-          role:  'owner',
-          pin:   pinHash,
-        })
-
-    await createServerSession(owner.id, shopId, pinHash)
+    await createServerSession(apiData.memberId, shopId, pinHash)
     setCachedShopId(shopId)
 
-    setState({
-      isLoading:   false,
-      isSetupDone: true,
-      currentUser: owner,
-      shopId,
-      isOwner:     true,
-      isKarigar:   false,
-    })
+    const partial = await readStateFromDB()
+    setState(s => ({ ...s, ...partial, isLoading: false }))
 
     return shopId
   }, [reinitialize])

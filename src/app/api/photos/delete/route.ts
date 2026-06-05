@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json({ success: true })
     } else {
-      return NextResponse.json({ error: data.result }, { status: 400 })
+      return NextResponse.json({ error: 'Failed to delete photo from cloud storage' }, { status: 400 })
     }
   } catch (e) {
     return NextResponse.json({ error: 'Photo delete failed' }, { status: 500 })

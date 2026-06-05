@@ -40,25 +40,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Secret galat hai' }, { status: 401 })
   }
 
-  // ── 2. Verify TOTP if configured ─────────────────────────────────
+  // ── 2. Verify TOTP (required — fail closed) ──────────────────────
   const totpSecret = process.env.ADMIN_TOTP_SECRET
-  if (totpSecret) {
-    if (!totpCode) {
-      return NextResponse.json(
-        { error: 'Google Authenticator code chahiye', requiresTOTP: true },
-        { status: 401 }
-      )
-    }
+  if (!totpSecret) {
+    logger.error('admin', 'ADMIN_TOTP_SECRET not configured')
+    return NextResponse.json({ error: 'Server not configured' }, { status: 500 })
+  }
+  if (!totpCode) {
+    return NextResponse.json(
+      { error: 'Google Authenticator code chahiye', requiresTOTP: true },
+      { status: 401 }
+    )
+  }
 
-    const isValid = verifyTOTP(String(totpCode).trim(), totpSecret)
-    if (!isValid) {
-      await new Promise(r => setTimeout(r, 300))
-      logAdminAction('admin_login', 'admin_session', 'failed', undefined, { reason: 'invalid_totp' })
-      return NextResponse.json(
-        { error: 'Code galat hai ya expire ho gaya. Naya code try karein.' },
-        { status: 401 }
-      )
-    }
+  const isValid = verifyTOTP(String(totpCode).trim(), totpSecret)
+  if (!isValid) {
+    await new Promise(r => setTimeout(r, 300))
+    logAdminAction('admin_login', 'admin_session', 'failed', undefined, { reason: 'invalid_totp' })
+    return NextResponse.json(
+      { error: 'Code galat hai ya expire ho gaya. Naya code try karein.' },
+      { status: 401 }
+    )
   }
 
   // ── 3. Generate session ───────────────────────────────────────────
