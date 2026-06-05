@@ -1,7 +1,9 @@
 {
   "regions": ["bom1"],
-  "env": {
-    "TIMEZ": "Asia/Karachi"
+  "functions": {
+    "api/cron/*": {
+      "maxDuration": 300
+    }
   },
   "crons": [
     {

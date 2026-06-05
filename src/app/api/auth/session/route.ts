@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { timingSafeEqual } from 'crypto'
-import { generateMemberSessionToken, verifyMemberSessionToken, MEMBER_SESSION_COOKIE, getSessionCookieOptions } from '@/lib/auth/session'
+import { generateMemberSessionToken, verifyMemberSessionToken, rotateMemberSessionToken, MEMBER_SESSION_COOKIE, getSessionCookieOptions } from '@/lib/auth/session'
 import { sbFetch } from '@/lib/supabase/service'
 import { ok, badRequest, unauthorized, serverError } from '@/lib/api-response'
 import { validate, schemas } from '@/lib/validation'
 import { logger } from '@/lib/logger'
+import { getLoginRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 
 function safeEqual(a: string, b: string): boolean {
   try {
@@ -39,6 +40,12 @@ export async function POST(req: NextRequest) {
     }
     const { memberId, shopId, pinHash } = parsed.data
 
+    const limiter = getLoginRatelimiter()
+    const rl = await checkRateLimit(limiter, `session:${memberId}:${getRateLimitId(req)}`, 'sensitive')
+    if (!rl.allowed) {
+      return Response.json({ error: rl.error }, { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.reset?.getTime() ?? Date.now() + 900000 - Date.now()) / 1000)) } })
+    }
+
     const pinValid = await verifyPinHashServerSide(memberId, shopId, pinHash)
     if (!pinValid) {
       return unauthorized('Invalid credentials')
@@ -69,6 +76,9 @@ export async function GET(req: NextRequest) {
       return res
     }
 
+    // Rotate session token for security
+    const rotated = rotateMemberSessionToken(token)
+
     // Fetch full member info (return raw snake_case for mapTeamMember)
     const memberRes = await sbFetch(
       `team_members?id=eq.${session.memberId}&is_active=eq.true&deleted_at=is.null&select=id,shop_id,name,phone,role,pin_hash,speciality,pay_rate_type,pay_rate,email,email_verified,is_active,joined_at,created_at,deleted_at,updated_at&limit=1`
@@ -86,13 +96,19 @@ export async function GET(req: NextRequest) {
     }
 
     const member = members[0]
-    // NOTE: Flat response — client code reads data.authenticated, data.memberId etc.
-    return NextResponse.json({
+
+    const res = NextResponse.json({
       authenticated: true,
       memberId: session.memberId,
       shopId: session.shopId,
       member,
     })
+
+    if (rotated) {
+      res.cookies.set(MEMBER_SESSION_COOKIE, rotated.newToken, getSessionCookieOptions())
+    }
+
+    return res
   } catch (e) {
     logger.error('session', 'GET error', e)
     return serverError('Session check failed')

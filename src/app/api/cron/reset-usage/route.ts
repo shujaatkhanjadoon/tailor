@@ -5,6 +5,9 @@ import { sbPatch } from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
 
 export async function GET(req: NextRequest) {
+  return POST(req)
+}
+export async function POST(req: NextRequest) {
   if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

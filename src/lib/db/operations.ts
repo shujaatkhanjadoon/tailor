@@ -1,14 +1,30 @@
 // Supabase-backed operations. Local DB is intentionally not used for app data.
+import { timingSafeEqual as _timingSafeEqual } from 'crypto'
 import type { CustomerRecord, OrderRecord, PaymentRecord, TeamMemberRecord } from './schema'
+import bcrypt from 'bcryptjs'
 import { supabase } from '@/lib/supabase/client'
 import { mapCustomer, mapOrder, mapPayment, mapShop, mapTeamMember } from '@/lib/supabase/records'
 import { generateTrackingCode } from '../tracking'
 import { paymentAppliedAmount } from '@/lib/payments/calculations'
 import { karachiDateString, nowKarachiIso } from '@/lib/time'
 
+function timingSafeEqual(a: string, b: string): boolean {
+  try {
+    const left = Buffer.from(a)
+    const right = Buffer.from(b)
+    return left.length === right.length && _timingSafeEqual(left, right)
+  } catch { return false }
+}
+
 // In-memory shop name cache — avoids redundant queries in orderOps.add()
 const shopNameCache = new Map<string, { name: string; ts: number }>()
 const SHOP_CACHE_TTL = 5 * 60 * 1000
+const SALT_ROUNDS = 10
+
+export async function hashPin(pin: string): Promise<string> {
+  return bcrypt.hashSync(pin, SALT_ROUNDS)
+}
+
 async function getShopName(shopId: string): Promise<string> {
   const cached = shopNameCache.get(shopId)
   if (cached && Date.now() - cached.ts < SHOP_CACHE_TTL) return cached.name
@@ -242,7 +258,7 @@ export const teamOps = {
       name: data.name,
       phone: data.phone,
       role: data.role,
-      pin_hash: data.pin,
+      pin_hash: data.pin.startsWith('$2') ? data.pin : hashPin(data.pin),
       speciality: data.speciality ?? null,
       pay_rate_type: data.payRateType ?? null,
       pay_rate: data.payRate ?? null,
@@ -251,7 +267,7 @@ export const teamOps = {
       created_at: ts,
     }
     const saved = await requireOk(
-      supabase.from('team_members').upsert(row, { onConflict: 'id' }).select('*').single()
+      supabase.from('team_members').insert(row).select('*').single()
     )
     return mapTeamMember(saved)
   },
@@ -265,7 +281,12 @@ export const teamOps = {
       supabase.from('team_members').select('pin_hash').eq('id', memberId).maybeSingle()
     )
     const pinRow = row as any
-    return !!pinRow && pinRow.pin_hash === pinHash
+    if (!pinRow?.pin_hash) return false
+    const storedHash = String(pinRow.pin_hash)
+    if (storedHash.startsWith('$2')) {
+      return bcrypt.compareSync(pinHash, storedHash)
+    }
+    return timingSafeEqual(pinHash, storedHash)
   },
 
   async deactivate(memberId: string): Promise<void> {

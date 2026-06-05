@@ -200,27 +200,25 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
         _synced:     1,
         _deleted:    0,
       }
-      if (editingId) {
-        const { error } = await supabase.from('measurements').update({
-          garment_type: record.garmentType,
-          values: record.values,
-          notes: record.notes,
-        }).eq('id', editingId)
-        if (error) throw new Error(error.message)
-      } else {
-        const { error } = await supabase.from('measurements').insert({
-          id: record.id,
-          customer_id: record.customerId,
-          shop_id: record.shopId,
-          order_for_relation: record.orderForRelation ?? 'self',
-          order_for_name: record.orderForName ?? null,
-          recipient_gender: record.recipientGender ?? customer?.gender ?? null,
-          garment_type: record.garmentType,
-          values: record.values,
-          notes: record.notes ?? null,
-          taken_at: record.takenAt,
-        })
-        if (error) throw new Error(error.message)
+      const measPayload = {
+        id: record.id,
+        customerId: record.customerId,
+        orderForRelation: record.orderForRelation ?? 'self',
+        orderForName: record.orderForName ?? null,
+        recipientGender: record.recipientGender ?? customer?.gender ?? null,
+        garmentType: record.garmentType,
+        values: record.values,
+        notes: record.notes ?? null,
+        takenAt: record.takenAt,
+      }
+      const res = await fetch('/api/measurements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(measPayload),
+      })
+      if (!res.ok) {
+        const errBody = await res.json()
+        throw new Error(errBody.error ?? 'Measurement save failed')
       }
       await load()
       setShowForm(false)

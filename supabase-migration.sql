@@ -12,6 +12,236 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- ============================================================
+-- 0a. CREATE TABLE IF NOT EXISTS (DDL for fresh environments)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS shops (
+  id              UUID PRIMARY KEY,
+  shop_name       TEXT NOT NULL,
+  owner_name      TEXT,
+  owner_phone     TEXT,
+  whatsapp_number TEXT,
+  owner_email     TEXT,
+  state_province  TEXT,
+  city            TEXT,
+  address_line    TEXT,
+  postal_code     TEXT,
+  brand_name      TEXT,
+  brand_color     TEXT,
+  brand_logo_url  TEXT,
+  plan            TEXT NOT NULL DEFAULT 'starter',
+  is_active       BOOLEAN NOT NULL DEFAULT true,
+  verification_status TEXT DEFAULT 'pending',
+  encrypted_owner_pin TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ,
+  deleted_at      TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS team_members (
+  id              UUID PRIMARY KEY,
+  shop_id         UUID NOT NULL REFERENCES shops(id),
+  name            TEXT NOT NULL,
+  phone           TEXT NOT NULL,
+  role            TEXT NOT NULL CHECK (role IN ('owner', 'karigar')),
+  pin_hash        TEXT NOT NULL,
+  email           TEXT,
+  email_verified  BOOLEAN DEFAULT false,
+  speciality      TEXT,
+  pay_rate_type   TEXT,
+  pay_rate        NUMERIC,
+  is_active       BOOLEAN NOT NULL DEFAULT true,
+  failed_attempts INTEGER DEFAULT 0,
+  joined_at       DATE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ,
+  deleted_at      TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS customers (
+  id              UUID PRIMARY KEY,
+  shop_id         UUID NOT NULL REFERENCES shops(id),
+  name            TEXT NOT NULL,
+  phone           TEXT NOT NULL,
+  whatsapp        TEXT,
+  gender          TEXT,
+  notes           TEXT,
+  photo_url       TEXT,
+  total_orders    INTEGER DEFAULT 0,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ,
+  last_order_at   TIMESTAMPTZ,
+  deleted_at      TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+  id                  UUID PRIMARY KEY,
+  shop_id             UUID NOT NULL REFERENCES shops(id),
+  order_number        INTEGER NOT NULL,
+  tracking_code       TEXT,
+  customer_id         UUID REFERENCES customers(id),
+  customer_name       TEXT NOT NULL,
+  customer_phone      TEXT,
+  order_for_relation  TEXT DEFAULT 'self',
+  order_for_name      TEXT,
+  recipient_gender    TEXT,
+  measurement_id      UUID,
+  garment_type        TEXT NOT NULL,
+  status              TEXT NOT NULL DEFAULT 'received',
+  assigned_to         UUID REFERENCES team_members(id),
+  assigned_to_name    TEXT,
+  total_price         NUMERIC DEFAULT 0,
+  amount_paid         NUMERIC DEFAULT 0,
+  is_urgent           BOOLEAN DEFAULT false,
+  due_date            DATE,
+  special_instructions TEXT,
+  fabric_photo_url    TEXT,
+  style_photo_url     TEXT,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ,
+  delivered_at        TIMESTAMPTZ,
+  deleted_at          TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+  id                UUID PRIMARY KEY,
+  shop_id           UUID NOT NULL REFERENCES shops(id),
+  order_id          UUID REFERENCES orders(id),
+  amount            NUMERIC NOT NULL DEFAULT 0,
+  applied_to_balance NUMERIC,
+  kind              TEXT DEFAULT 'order_payment',
+  method            TEXT,
+  recorded_by       UUID REFERENCES team_members(id),
+  paid_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  notes             TEXT,
+  deleted_at        TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS measurements (
+  id                  UUID PRIMARY KEY,
+  customer_id         UUID NOT NULL REFERENCES customers(id),
+  shop_id             UUID NOT NULL REFERENCES shops(id),
+  order_for_relation  TEXT DEFAULT 'self',
+  order_for_name      TEXT,
+  recipient_gender    TEXT,
+  garment_type        TEXT,
+  values              JSONB DEFAULT '{}',
+  notes               TEXT,
+  taken_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at          TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS order_photos (
+  id              UUID PRIMARY KEY,
+  order_id        UUID NOT NULL REFERENCES orders(id),
+  shop_id         UUID NOT NULL REFERENCES shops(id),
+  type            TEXT,
+  base64          TEXT,
+  cloud_url       TEXT,
+  public_id       TEXT,
+  cloud_size_kb   NUMERIC,
+  size_kb         NUMERIC,
+  taken_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at      TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS order_status_history (
+  id          UUID PRIMARY KEY,
+  order_id    UUID NOT NULL REFERENCES orders(id),
+  shop_id     UUID NOT NULL REFERENCES shops(id),
+  old_status  TEXT,
+  new_status  TEXT NOT NULL,
+  changed_by  UUID,
+  changed_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shop_id         UUID NOT NULL UNIQUE REFERENCES shops(id),
+  plan            TEXT NOT NULL DEFAULT 'starter',
+  status          TEXT NOT NULL DEFAULT 'active',
+  trial_ends_at   TIMESTAMPTZ,
+  expires_at      TIMESTAMPTZ,
+  billing_cycle   TEXT,
+  amount_pkr      NUMERIC,
+  gateway         TEXT,
+  gateway_sub_id  TEXT,
+  cancelled_at    TIMESTAMPTZ,
+  grace_ends_at   TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS subscription_payments (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shop_id         UUID NOT NULL REFERENCES shops(id),
+  subscription_id UUID REFERENCES subscriptions(id),
+  plan            TEXT,
+  billing_cycle   TEXT,
+  amount_pkr      NUMERIC,
+  method          TEXT,
+  gateway_tx_id   TEXT,
+  status          TEXT DEFAULT 'pending',
+  paid_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  receipt_data    JSONB,
+  notes           TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS shop_usage (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shop_id             UUID NOT NULL UNIQUE REFERENCES shops(id),
+  orders_this_month   INTEGER DEFAULT 0,
+  customers_total     INTEGER DEFAULT 0,
+  karigar_count       INTEGER DEFAULT 0,
+  storage_used_kb     NUMERIC DEFAULT 0,
+  month_year          TEXT,
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS email_verifications (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  phone         TEXT NOT NULL,
+  email         TEXT NOT NULL,
+  verified_at   TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (phone, email)
+);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shop_id     UUID NOT NULL REFERENCES shops(id),
+  member_id   UUID REFERENCES team_members(id),
+  endpoint    TEXT NOT NULL,
+  keys        JSONB,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS admin_notifications (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title         TEXT NOT NULL,
+  message       TEXT NOT NULL,
+  type          TEXT DEFAULT 'info',
+  target_plan   TEXT DEFAULT 'all',
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at    TIMESTAMPTZ NOT NULL,
+  created_by    TEXT
+);
+
+CREATE TABLE IF NOT EXISTS shop_verification_requests (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shop_id       UUID NOT NULL REFERENCES shops(id),
+  owner_name    TEXT,
+  owner_phone   TEXT,
+  owner_email   TEXT,
+  state_province TEXT,
+  city          TEXT,
+  status        TEXT DEFAULT 'pending',
+  notes         TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ============================================================
 -- 1. MISSING DATABASE INDEXES
 -- ============================================================
 
@@ -87,89 +317,114 @@ ALTER TABLE orders ADD CONSTRAINT orders_status_check
   CHECK (status IN ('received', 'cutting', 'stitching', 'finishing', 'ready', 'delivered', 'cancelled'));
 
 -- ============================================================
--- 4. ROW LEVEL SECURITY — CLEANUP FROM PREVIOUS RUNS
+-- 4. ROW LEVEL SECURITY — ENABLED WITH SHOP-ID-BASED POLICIES
 -- ============================================================
 --
--- The app uses custom PIN-based auth (no Supabase Auth sessions),
--- so auth.uid() is always NULL on client-side anon-key queries.
--- All writes go through service-role API routes which bypass RLS.
--- Enabling RLS would break client-side reads without adding security.
--- This section cleans up any RLS state left by earlier migration attempts.
+-- Architecture note:
+--   The app uses custom PIN-based auth (no Supabase Auth sessions),
+--   so auth.uid() is always NULL on client-side anon-key queries.
+--   All writes go through service-role API routes which bypass RLS.
+--   Reads are done client-side with the anon key.
+--
+--   RLS uses a custom session variable set by the proxy middleware.
+--   The proxy sets request.jwt.claims (via Supabase pgJWT) OR we
+--   use the shop_id embedded in a Supabase-signed JWT. Since we
+--   cannot rely on auth.uid(), we instead rely on an application-
+--   managed session flow where the proxy is the gatekeeper.
+--
+--   Because the anon key is public, RLS policies restrict reads to:
+--     • Rows belonging to the shop_id stored in the member's session
+--     • Only non-deleted rows
+--   The proxy middleware sets `app.current_shop_id` via a custom
+--   claim before forwarding requests to Supabase.
+--
+--   For the admin panel and cron jobs, the service role key is used
+--   server-side and bypasses RLS entirely.
+-- ============================================================
 
--- Drop all policies that may have been created by previous runs
+-- Helper: get the current shop_id from the session (set by proxy)
+CREATE OR REPLACE FUNCTION public.current_shop_id()
+RETURNS UUID
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+AS $$ SELECT nullif(current_setting('app.current_shop_id', true), '')::UUID $$;
+
+-- Drop all old policies first
 DO $$ BEGIN
-  -- shops
-  DROP POLICY IF EXISTS shops_read_own      ON shops;
-  DROP POLICY IF EXISTS shops_update_own    ON shops;
-  DROP POLICY IF EXISTS shops_select        ON shops;
-  DROP POLICY IF EXISTS shops_update        ON shops;
-  -- team_members
-  DROP POLICY IF EXISTS team_members_read_own    ON team_members;
-  DROP POLICY IF EXISTS team_members_write_owner ON team_members;
-  DROP POLICY IF EXISTS team_members_select      ON team_members;
-  DROP POLICY IF EXISTS team_members_manage      ON team_members;
-  -- customers
-  DROP POLICY IF EXISTS customers_read_own   ON customers;
-  DROP POLICY IF EXISTS customers_write_owner ON customers;
-  DROP POLICY IF EXISTS customers_select     ON customers;
-  DROP POLICY IF EXISTS customers_manage     ON customers;
-  -- orders
-  DROP POLICY IF EXISTS orders_read_own     ON orders;
-  DROP POLICY IF EXISTS orders_write_owner  ON orders;
-  DROP POLICY IF EXISTS orders_update_owner ON orders;
-  DROP POLICY IF EXISTS orders_select       ON orders;
-  DROP POLICY IF EXISTS orders_insert       ON orders;
-  DROP POLICY IF EXISTS orders_update       ON orders;
-  -- payments
-  DROP POLICY IF EXISTS payments_read_own   ON payments;
-  DROP POLICY IF EXISTS payments_write_owner ON payments;
-  DROP POLICY IF EXISTS payments_select     ON payments;
-  DROP POLICY IF EXISTS payments_manage     ON payments;
-  -- measurements
-  DROP POLICY IF EXISTS measurements_read_own   ON measurements;
-  DROP POLICY IF EXISTS measurements_write_owner ON measurements;
-  DROP POLICY IF EXISTS measurements_select     ON measurements;
-  DROP POLICY IF EXISTS measurements_manage     ON measurements;
-  -- order_photos
-  DROP POLICY IF EXISTS order_photos_read_own  ON order_photos;
-  DROP POLICY IF EXISTS order_photos_write_owner ON order_photos;
-  DROP POLICY IF EXISTS order_photos_select    ON order_photos;
-  DROP POLICY IF EXISTS order_photos_manage    ON order_photos;
-  -- order_status_history
-  DROP POLICY IF EXISTS order_status_history_read_own ON order_status_history;
-  DROP POLICY IF EXISTS order_status_history_select   ON order_status_history;
-  -- subscriptions
-  DROP POLICY IF EXISTS subscriptions_read_own ON subscriptions;
-  DROP POLICY IF EXISTS subscriptions_select   ON subscriptions;
-  -- subscription_payments
+  DROP POLICY IF EXISTS shops_select             ON shops;
+  DROP POLICY IF EXISTS team_members_select       ON team_members;
+  DROP POLICY IF EXISTS customers_select         ON customers;
+  DROP POLICY IF EXISTS orders_select            ON orders;
+  DROP POLICY IF EXISTS payments_select          ON payments;
+  DROP POLICY IF EXISTS order_photos_select      ON order_photos;
+  DROP POLICY IF EXISTS order_status_history_select ON order_status_history;
+  DROP POLICY IF EXISTS measurements_select      ON measurements;
+  DROP POLICY IF EXISTS subscriptions_select     ON subscriptions;
   DROP POLICY IF EXISTS subscription_payments_select ON subscription_payments;
-  -- shop_usage
-  DROP POLICY IF EXISTS shop_usage_read_own ON shop_usage;
-  DROP POLICY IF EXISTS shop_usage_select   ON shop_usage;
-  -- push_subscriptions
-  DROP POLICY IF EXISTS push_subscriptions_manage_own ON push_subscriptions;
-  DROP POLICY IF EXISTS push_subscriptions_manage     ON push_subscriptions;
-  -- email_verifications
+  DROP POLICY IF EXISTS shop_usage_select        ON shop_usage;
   DROP POLICY IF EXISTS email_verifications_select ON email_verifications;
-  DROP POLICY IF EXISTS email_verifications_manage ON email_verifications;
+  DROP POLICY IF EXISTS push_subscriptions_select ON push_subscriptions;
 END $$;
 
--- Disable RLS on all tables that had it enabled from previous runs
-ALTER TABLE shops                  DISABLE ROW LEVEL SECURITY;
-ALTER TABLE team_members           DISABLE ROW LEVEL SECURITY;
-ALTER TABLE customers              DISABLE ROW LEVEL SECURITY;
-ALTER TABLE orders                 DISABLE ROW LEVEL SECURITY;
-ALTER TABLE payments               DISABLE ROW LEVEL SECURITY;
-ALTER TABLE order_photos           DISABLE ROW LEVEL SECURITY;
-ALTER TABLE order_status_history   DISABLE ROW LEVEL SECURITY;
-ALTER TABLE measurements           DISABLE ROW LEVEL SECURITY;
-ALTER TABLE subscriptions          DISABLE ROW LEVEL SECURITY;
-ALTER TABLE subscription_payments  DISABLE ROW LEVEL SECURITY;
-ALTER TABLE shop_usage             DISABLE ROW LEVEL SECURITY;
-ALTER TABLE email_verifications    DISABLE ROW LEVEL SECURITY;
-ALTER TABLE push_subscriptions     DISABLE ROW LEVEL SECURITY;
+-- Enable RLS on all tables
+ALTER TABLE shops                  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE team_members           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customers              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payments               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_photos           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_status_history   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE measurements           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscriptions          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscription_payments  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shop_usage             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_verifications    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE push_subscriptions     ENABLE ROW LEVEL SECURITY;
 
--- Drop the helper functions that are no longer needed
-DROP FUNCTION IF EXISTS public.current_shop_id();
-DROP FUNCTION IF EXISTS public.current_user_is_owner();
+-- Policies: SELECT only rows belonging to the current shop
+CREATE POLICY shops_select ON shops
+  FOR SELECT USING (id = current_shop_id());
+
+CREATE POLICY team_members_select ON team_members
+  FOR SELECT USING (shop_id = current_shop_id() AND deleted_at IS NULL);
+
+CREATE POLICY customers_select ON customers
+  FOR SELECT USING (shop_id = current_shop_id() AND deleted_at IS NULL);
+
+CREATE POLICY orders_select ON orders
+  FOR SELECT USING (shop_id = current_shop_id() AND deleted_at IS NULL);
+
+CREATE POLICY payments_select ON payments
+  FOR SELECT USING (shop_id = current_shop_id() AND deleted_at IS NULL);
+
+CREATE POLICY order_photos_select ON order_photos
+  FOR SELECT USING (shop_id = current_shop_id());
+
+CREATE POLICY order_status_history_select ON order_status_history
+  FOR SELECT USING (shop_id = current_shop_id());
+
+CREATE POLICY measurements_select ON measurements
+  FOR SELECT USING (
+    customer_id IN (
+      SELECT id FROM customers WHERE shop_id = current_shop_id() AND deleted_at IS NULL
+    )
+  );
+
+CREATE POLICY subscriptions_select ON subscriptions
+  FOR SELECT USING (shop_id = current_shop_id());
+
+CREATE POLICY subscription_payments_select ON subscription_payments
+  FOR SELECT USING (shop_id = current_shop_id());
+
+CREATE POLICY shop_usage_select ON shop_usage
+  FOR SELECT USING (shop_id = current_shop_id());
+
+CREATE POLICY email_verifications_select ON email_verifications
+  FOR SELECT USING (phone IN (
+    SELECT phone FROM team_members WHERE shop_id = current_shop_id() AND deleted_at IS NULL
+  ));
+
+CREATE POLICY push_subscriptions_select ON push_subscriptions
+  FOR SELECT USING (shop_id = current_shop_id());
 

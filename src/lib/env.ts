@@ -48,8 +48,8 @@ const ENV_VARS: EnvVar[] = [
   },
   {
     name: 'PIN_ENCRYPTION_KEY',
-    required: true,
-    description: '32-byte hex key for AES-256-GCM PIN encryption',
+    required: false,
+    description: '32-byte hex key for AES-256-GCM PIN encryption (unused; bcrypt used instead)',
   },
   {
     name: 'OTP_PEPPER_SECRET',

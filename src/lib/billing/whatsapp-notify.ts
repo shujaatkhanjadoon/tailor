@@ -11,7 +11,8 @@ export function buildActivationWhatsApp(
   cycle:     string,
   expiresAt: string | null,
 ): string {
-  const cleanPhone = `92${phone.replace(/^0/, '').replace(/\D/g, '')}`
+  const digits = phone.replace(/\D/g, '')
+  const cleanPhone = digits.startsWith('92') ? digits : `92${digits.replace(/^0/, '')}`
 
   const expiryText = expiresAt
     ? `\n📅 Expiry: ${new Date(expiresAt).toLocaleDateString('en-PK', {
@@ -37,7 +38,8 @@ export function buildRejectionWhatsApp(
   phone:  string,
   reason: string,
 ): string {
-  const cleanPhone = `92${phone.replace(/^0/, '').replace(/\D/g, '')}`
+  const digitsR = phone.replace(/\D/g, '')
+  const cleanPhone = digitsR.startsWith('92') ? digitsR : `92${digitsR.replace(/^0/, '')}`
 
   const message = encodeURIComponent(
     `Assalam o Alaikum,\n\n` +
@@ -58,7 +60,8 @@ export function buildExpiryReminderWhatsApp(
   planName:  string,
   daysLeft:  number,
 ): string {
-  const cleanPhone = `92${phone.replace(/^0/, '').replace(/\D/g, '')}`
+  const digitsE = phone.replace(/\D/g, '')
+  const cleanPhone = digitsE.startsWith('92') ? digitsE : `92${digitsE.replace(/^0/, '')}`
 
   const message = encodeURIComponent(
     `Assalam o Alaikum ${shopName}! ⏰\n\n` +

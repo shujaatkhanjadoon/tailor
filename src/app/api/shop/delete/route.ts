@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('[shop-delete] error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) },
+      { error: 'Shop delete failed. Please try again or contact support.' },
       { status: 500 },
     )
   }

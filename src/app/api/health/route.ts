@@ -20,7 +20,6 @@ export async function GET() {
     'ADMIN_SECRET',
     'SESSION_SIGNING_SECRET',
     'CRON_SECRET',
-    'PIN_ENCRYPTION_KEY',
   ]
   for (const name of requiredVars) {
     if (!process.env[name]) {

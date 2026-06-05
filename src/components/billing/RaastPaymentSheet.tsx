@@ -4,7 +4,6 @@
 import { useState, useEffect } from 'react'
 import { X, Copy, Check, AlertCircle, CheckCircle2, Loader2, MessageCircle } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
-import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { generatePaymentRef } from '@/lib/billing/raast'
 import { PLANS, PlanId } from '@/lib/billing/plans'
@@ -94,85 +93,24 @@ export function RaastPaymentSheet({
     setError('')
 
     try {
-      // Step 1: Get or create subscription row
-      let subscriptionId: string | null = null
+      const res = await fetch('/api/billing/submit-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planId,
+          cycle,
+          amountPkr,
+          paymentRef,
+          transactionId: txId.trim(),
+          payerName: payerName.trim(),
+        }),
+      })
 
-      const { data: existingSub } = await supabase
-        .from('subscriptions')
-        .select('id')
-        .eq('shop_id', shopId)
-        .maybeSingle()
-
-      if (existingSub?.id) {
-        subscriptionId = existingSub.id
-      } else {
-        // Create subscription row if missing
-        const { data: newSub, error: subCreateErr } = await supabase
-          .from('subscriptions')
-          .insert({
-            shop_id: shopId,
-            plan: 'starter',
-            status: 'active',
-            trial_ends_at: null,
-            expires_at: null,
-            billing_cycle: null,
-            amount_pkr: null,
-          })
-          .select('id')
-          .single()
-
-        if (subCreateErr) {
-          console.error('[Payment] Subscription create error:', subCreateErr)
-          // Continue without subscription_id — column is now nullable
-        } else {
-          subscriptionId = newSub?.id ?? null
-        }
-      }
-
-      // Step 2: Insert payment record 
-      const paymentRecord: Record<string, any> = {
-        shop_id: shopId,
-        plan: planId,
-        billing_cycle: cycle,
-        amount_pkr: amountPkr,
-        method: 'raast',
-        gateway_tx_id: txId.trim(),
-        status: 'pending',
-        paid_at: new Date().toISOString(),
-        receipt_data: {
-          payment_ref: paymentRef,
-          payer_name: payerName.trim() || null,
-          raast_id: RAAST_ID,
-          submitted_at: new Date().toISOString(),
-        },
-      }
-
-      // Only include subscription_id if we have one
-      if (subscriptionId) {
-        paymentRecord.subscription_id = subscriptionId
-      }
-
-      const { error: payErr } = await supabase
-        .from('subscription_payments')
-        .insert(paymentRecord)
-
-      if (payErr) {
-        console.error('[Payment] Insert error:', payErr)
-        setError(`Error: ${payErr.message}`)
+      if (!res.ok) {
+        const err = await res.json()
+        setError(err.error ?? 'Payment submission failed')
         setSaving(false)
         return
-      }
-
-      // Step 3: Mark subscription as pending
-      if (subscriptionId) {
-        await supabase
-          .from('subscriptions')
-          .update({
-            gateway: 'raast',
-            gateway_sub_id: paymentRef,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', subscriptionId)
       }
 
       await fetch('/api/billing/subscription-event', {

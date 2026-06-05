@@ -271,30 +271,35 @@ export function TeamManager() {
       }
 
       // ── Write to Supabase via API (immediate) ─────────────────
+      const payload = {
+        id: editingId ?? undefined,
+        name: memberData.name,
+        phone: memberData.phone,
+        pin: editingId && !pinChanged ? undefined : pinToSave,
+        speciality: memberData.speciality,
+        payRateType: memberData.payRateType,
+        payRate: memberData.payRate,
+      }
+
+      const res = await fetch('/api/team/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        setErrors(e => ({ ...e, general: err.error ?? 'Save failed' }))
+        return
+      }
+
       if (editingId) {
-        // Update in Supabase
-        await supabase
-          .from('team_members')
-          .update({
-            name:          memberData.name,
-            phone:         memberData.phone,
-            pin_hash:      pinToSave,
-            speciality:    memberData.speciality,
-            pay_rate_type: memberData.payRateType ?? null,
-            pay_rate:      memberData.payRate,
-            updated_at:    new Date().toISOString(),
-          })
-          .eq('id', editingId)
-
-        // Update in IndexedDB
         await teamOps.update(editingId, memberData)
-
         setMembers(prev => {
           const updated = prev.map(m => m.id === editingId
             ? { ...m, ...memberData, _synced: 1 as const }
             : m
           )
-          // Re-sort after edit
           return updated.sort((a, b) => {
             if (a.role === 'owner') return -1
             if (b.role === 'owner') return 1
@@ -302,35 +307,8 @@ export function TeamManager() {
           })
         })
       } else {
-        // Create new karigar — write to Supabase first
         const newId = crypto.randomUUID()
-
-        const { error: sbError } = await supabase
-          .from('team_members')
-          .insert({
-            id:             newId,
-            shop_id:        shopId,
-            name:           memberData.name,
-            phone:          memberData.phone,
-            role:           'karigar',
-            pin_hash:       pinToSave,
-            speciality:     memberData.speciality,
-            pay_rate_type:  memberData.payRateType ?? null,
-            pay_rate:       memberData.payRate,
-            is_active:      true,
-            failed_attempts: 0,
-            joined_at:      new Date().toISOString().split('T')[0],
-            created_at:     new Date().toISOString(),
-          })
-
-        if (sbError) {
-          setErrors(e => ({ ...e, general: `Save failed: ${sbError.message}` }))
-          return
-        }
-
-        // Now save to IndexedDB (with pre-generated ID)
         const member = await teamOps.addWithId(shopId, newId, memberData)
-
         setMembers(prev => {
           const updated = [...prev, { ...member, _synced: 1 as const }]
           return updated.sort((a, b) => {

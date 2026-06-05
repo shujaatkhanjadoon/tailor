@@ -43,7 +43,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Subscription already registered under a different shop' }, { status: 409 })
       }
     }
-  } catch { /* network error — proceed to upsert */ }
+  } catch (e) {
+    console.warn('[push-subscriptions] Dedup check failed (proceeding):', e)
+  }
 
   const res = await sbFetch('push_subscriptions?on_conflict=endpoint', {
     method: 'POST',
@@ -61,7 +63,7 @@ export async function POST(req: NextRequest) {
   })
 
   if (!res.ok) {
-    return NextResponse.json({ error: await res.text() }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to save push subscription' }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })
@@ -85,6 +87,6 @@ export async function DELETE(req: NextRequest) {
     headers: { Prefer: 'return=minimal' },
   })
 
-  if (!res.ok) return NextResponse.json({ error: await res.text() }, { status: 500 })
+  if (!res.ok) return NextResponse.json({ error: 'Failed to remove push subscription' }, { status: 500 })
   return NextResponse.json({ success: true })
 }

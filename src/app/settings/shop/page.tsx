@@ -13,7 +13,6 @@ import { cn } from '@/lib/utils'
 import { AccessNotice } from '@/components/billing/AccessNotice'
 import { usePlan } from '@/hooks/usePlan'
 import { PAKISTAN_STATE_CITIES } from '@/lib/locations/pakistan'
-import { supabase } from '@/lib/supabase/client'
 import type { ShopRecord } from '@/lib/db/schema'
 import { nowKarachiIso } from '@/lib/time'
 
@@ -109,20 +108,26 @@ export default function ShopSettingsPage() {
     if (!shopName.trim() || !ownerName.trim() || !shopId) return
     setSaving(true)
     try {
-      const { error } = await supabase.from('shops').update({
-        shop_name: shopName.trim(),
-        owner_name: ownerName.trim(),
-        whatsapp_number: whatsapp || null,
-        state_province: stateProvince || null,
-        city: city || null,
-        address_line: addressLine.trim() || null,
-        postal_code: postalCode.trim() || null,
-        brand_name: isBusiness ? shopName.trim() : null,
-        brand_color: isBusiness ? brandColor || null : null,
-        brand_logo_url: isBusiness ? brandLogoUrl || null : null,
-        updated_at: nowKarachiIso(),
-      }).eq('id', shopId)
-      if (error) throw new Error(error.message)
+      const res = await fetch('/api/shop/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopName: shopName.trim(),
+          ownerName: ownerName.trim(),
+          whatsapp: whatsapp || null,
+          stateProvince: stateProvince || null,
+          city: city || null,
+          addressLine: addressLine.trim() || null,
+          postalCode: postalCode.trim() || null,
+          brandName: isBusiness ? shopName.trim() : null,
+          brandColor: isBusiness ? brandColor || null : null,
+          brandLogoUrl: isBusiness ? brandLogoUrl || null : null,
+        }),
+      })
+      if (!res.ok) {
+        const errBody = await res.json()
+        throw new Error(errBody.error ?? 'Shop update failed')
+      }
       if (currentUser?.id) {
         await teamOps.update(currentUser.id, { name: ownerName.trim() })
         await reinitialize()

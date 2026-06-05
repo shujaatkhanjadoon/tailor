@@ -4,7 +4,6 @@
 import { useState }  from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, AlertTriangle, CheckCircle2, MessageCircle } from 'lucide-react'
-import { supabase }  from '@/lib/supabase/client'
 import { useAuth }   from '@/lib/auth/AuthContext'
 import { usePlan }   from '@/hooks/usePlan'
 import { PLANS }     from '@/lib/billing/plans'
@@ -40,19 +39,20 @@ export default function CancelPage() {
     setCancelling(true)
 
     try {
-      // Set status to cancelled — access continues until expiry
-      await supabase
-        .from('subscriptions')
-        .update({
-          status:       'cancelled',
-          cancelled_at: new Date().toISOString(),
-          // Grace period: 7 days after current expiry
-          grace_ends_at: plan.expiresAt
-            ? new Date(plan.expiresAt.getTime() + 7 * 86400000).toISOString()
-            : new Date(Date.now() + 7 * 86400000).toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('shop_id', shopId)
+      const res = await fetch('/api/billing/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason,
+          expiresAt: plan.expiresAt?.toISOString() ?? null,
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        console.error('[Billing Cancel] API error:', err.error)
+        return
+      }
 
       await fetch('/api/billing/subscription-event', {
         method: 'POST',

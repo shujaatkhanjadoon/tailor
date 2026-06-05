@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { sbGet, sbDelete } from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
+import { mapConcurrent } from '@/lib/concurrent'
 
 async function destroyCloudinaryImage(publicId: string) {
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
@@ -34,6 +35,9 @@ async function destroyCloudinaryImage(publicId: string) {
 }
 
 export async function GET(req: NextRequest) {
+  return POST(req)
+}
+export async function POST(req: NextRequest) {
   if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -44,22 +48,21 @@ export async function GET(req: NextRequest) {
 
   try {
     const photos = await sbGet(
-      `order_photos?taken_at=lt.${cutoff}&select=id,public_id`
+      `order_photos?taken_at=lt.${cutoff}&select=id,public_id&limit=500`
     )
     results.scanned = photos.length
 
-    for (const photo of photos) {
-      try {
-        if (photo.public_id) await destroyCloudinaryImage(photo.public_id)
-        await sbDelete(`order_photos?id=eq.${photo.id}`)
-        results.deleted++
-      } catch (e) {
-        results.errors.push(`${photo.id}: ${String(e)}`)
-      }
-    }
+    const deleteResults = await mapConcurrent(photos, async (photo) => {
+      if (photo.public_id) await destroyCloudinaryImage(photo.public_id)
+      await sbDelete(`order_photos?id=eq.${photo.id}`)
+    })
+    results.deleted = photos.length - deleteResults.filter(r => r !== undefined).length + deleteResults.length
+    results.errors.push(...deleteResults.filter((r): r is string => typeof r === 'string'))
+  
 
     return NextResponse.json({ success: true, cutoff, ...results })
   } catch (e) {
+    logger.error('cleanup-photos', 'error', e)
     return NextResponse.json({ success: false, error: 'Cron job failed' }, { status: 500 })
   }
 }

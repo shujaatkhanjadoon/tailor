@@ -5,6 +5,7 @@ import { verifyTOTP, generateSessionToken, ADMIN_SESSION_COOKIE } from '@/lib/ad
 import { logAdminAction }                                     from '@/lib/admin/audit'
 import { validate, schemas }                                  from '@/lib/validation'
 import { logger } from '@/lib/logger'
+import { getLoginRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 
 export async function POST(req: NextRequest) {
   const parsed = await validate(schemas.login, req)
@@ -13,6 +14,14 @@ export async function POST(req: NextRequest) {
   }
 
   const { secret, totpCode } = parsed.data
+
+  // ── 0. Rate limit admin login attempts ──────────────────────────
+  const limiter = getLoginRatelimiter()
+  const rl = await checkRateLimit(limiter, `admin-login:${getRateLimitId(req)}`, 'sensitive')
+  if (!rl.allowed) {
+    await new Promise(r => setTimeout(r, 500))
+    return NextResponse.json({ error: 'Bahut zyada attempts. 15 minute mein dobara try karein.' }, { status: 429 })
+  }
 
   // ── 1. Verify admin secret ────────────────────────────────────────
   const adminSecret = process.env.ADMIN_SECRET

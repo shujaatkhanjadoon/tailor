@@ -464,19 +464,19 @@ export function generateOTP(): string {
 }
 
 export function hashOTP(otp: string): string {
-  const pepper = process.env.OTP_PEPPER_SECRET ?? process.env.ADMIN_SECRET
+  const pepper = process.env.OTP_PEPPER_SECRET
+  if (!pepper) throw new Error('OTP_PEPPER_SECRET is required for OTP hashing')
   return bcrypt.hashSync(otp + pepper, 10)
 }
 
 export function verifyOTP(otp: string, storedHash: string): boolean {
-  const pepper = process.env.OTP_PEPPER_SECRET ?? process.env.ADMIN_SECRET
+  const pepper = process.env.OTP_PEPPER_SECRET
+  if (!pepper) throw new Error('OTP_PEPPER_SECRET is required for OTP verification')
   // bcrypt hash
   if (storedHash.startsWith('$2')) {
     return bcrypt.compareSync(otp + pepper, storedHash)
   }
-  // Legacy SHA256 fallback
-  const { createHash } = require('crypto')
-  return createHash('sha256').update(otp + pepper).digest('hex') === storedHash
+  return false
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -517,9 +517,9 @@ export async function sendOTPEmail(
       style="margin:0;padding:0;background-color:${T.bgPage};
              font-family:${T.fontSans};word-break:break-word;">
 
-  <!-- Preheader -->
+  <!-- Preheader (no OTP value — security: prevent preview leak) -->
   <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">
-    ${isSignup ? 'Verification code:' : 'Login OTP:'} ${otp}
+    ${isSignup ? 'Aapka verification code aa gaya hai' : 'Aapka login code aa gaya hai'}
     — 10 minute mein expire hoga.&#847;&#847;&#847;&#847;&#847;
   </div>
 

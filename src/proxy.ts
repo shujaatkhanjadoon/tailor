@@ -181,8 +181,10 @@ export async function proxy(req: NextRequest) {
     if (token) {
       const rotated = rotateMemberSessionToken(token)
       if (rotated) {
-        // Valid session — rotate the token and set the new cookie
+        // Valid session — rotate the token, set the new cookie, and expose shop_id for RLS
         res.cookies.set(MEMBER_SESSION_COOKIE, rotated.newToken, getSessionCookieOptions())
+        res.headers.set('X-Shop-ID', rotated.session.shopId)
+        res.headers.set('X-Member-ID', rotated.session.memberId)
       } else {
         // Invalid / expired session — redirect to login
         const url = new URL('/auth', req.url)

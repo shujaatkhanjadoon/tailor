@@ -253,16 +253,32 @@ function NewOrderWizard({
           taken_at: nowKarachiIso(),
         };
 
-        let { error } = await supabase.from("measurements").insert(measurementRow);
-        if (error && isParentRelation(selectedRelation) && isRelationCheckError(error)) {
-          const retry = await supabase.from("measurements").insert({
-            ...measurementRow,
-            order_for_relation: measurementRelationForLegacyDb(selectedRelation),
-            order_for_name: null,
-          });
-          error = retry.error;
+        const measPayload = {
+          id: measurementId,
+          customerId: data.customerId!,
+          orderForRelation: selectedRelation,
+          orderForName: data.orderForName?.trim() || null,
+          recipientGender: data.recipientGender ?? data.customerGender,
+          garmentType: data.garmentType!,
+          values: filledMeasurements,
+          takenAt: nowKarachiIso(),
         }
-        if (error) throw new Error(error.message)
+        let measRes = await fetch('/api/measurements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(measPayload),
+        })
+        if (!measRes.ok && isParentRelation(selectedRelation)) {
+          measRes = await fetch('/api/measurements', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...measPayload, orderForRelation: measurementRelationForLegacyDb(selectedRelation), orderForName: null }),
+          })
+        }
+        if (!measRes.ok) {
+          const errBody = await measRes.json()
+          throw new Error(errBody.error ?? 'Measurement save failed')
+        }
       }
 
       if (!measurementId) {
@@ -315,18 +331,20 @@ function NewOrderWizard({
         if (cloudinaryEnabled && typeof navigator !== "undefined" && navigator.onLine) {
           const uploaded = await uploadToCloudinary(data.fabricPhotoBase64, shopId, order.id, "fabric");
           if (uploaded) {
-            await supabase.from("order_photos").insert({
-              id: uuid(),
-              order_id: order.id,
-              shop_id: shopId,
-              type: "fabric",
-              cloud_url: uploaded.url,
-              public_id: uploaded.publicId,
-              cloud_size_kb: Math.round(uploaded.bytes / 1024),
-              size_kb: Math.ceil((data.fabricPhotoBase64.length * 3) / 4 / 1024),
-              taken_at: nowKarachiIso(),
-              deleted_at: null,
-            });
+            await fetch('/api/order-photos', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: uuid(),
+                orderId: order.id,
+                type: 'fabric',
+                cloudUrl: uploaded.url,
+                publicId: uploaded.publicId,
+                cloudSizeKb: Math.round(uploaded.bytes / 1024),
+                sizeKb: Math.ceil((data.fabricPhotoBase64.length * 3) / 4 / 1024),
+                takenAt: nowKarachiIso(),
+              }),
+            })
           } else {
             toast.warning("Order save ho gaya, photo upload nahi hui.");
           }
