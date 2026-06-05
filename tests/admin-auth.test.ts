@@ -62,9 +62,9 @@ test('session: generate and verify with valid token', () => {
 
 test('session: rejects expired token', () => {
   process.env.ADMIN_SECRET = 'test-secret-for-testing-purposes'
-  const token = generateSessionToken()
   const past = Date.now() - 20 * 60 * 1000
   const pastToken = Buffer.from(`${past}:dummy`).toString('base64url')
+  assert.equal(verifySessionToken(pastToken), false)
   assert.equal(verifySessionToken('invalid'), false)
   assert.equal(verifySessionToken(''), false)
 })
