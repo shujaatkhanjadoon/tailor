@@ -13,6 +13,7 @@ export type AuditAction =
   | 'reminder_sent'
   | 'subscription_cancelled'
   | 'admin_login'
+  | 'impersonated_login'
 
 export async function logAdminAction(
   action:      AuditAction,

@@ -18,6 +18,8 @@ import {
   ShieldX,
   ShieldAlert,
   Trash2,
+  LogIn,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -438,6 +440,7 @@ function ShopCard({
   onToggleActive,
   onVerifyAction,
   onDeleteShop,
+  onImpersonate,
 }: {
   shop: Shop;
   onPlanChange: (
@@ -451,6 +454,7 @@ function ShopCard({
     status: "approved" | "rejected",
   ) => Promise<void>;
   onDeleteShop: (shop: Shop) => Promise<void>;
+  onImpersonate?: (shopId: string) => void;
 }) {
   const sub = shop.subscriptions?.[0];
   const usage = shop.shop_usage?.[0];
@@ -864,6 +868,20 @@ function ShopCard({
               </button>
             )}
 
+            {/* Login as Shop */}
+            {isVerified && onImpersonate && (
+              <button
+                type="button"
+                onClick={() => onImpersonate(shop.id)}
+                className="flex items-center gap-1.5 border border-blue-800
+                           bg-blue-950/30 text-blue-400 hover:bg-blue-900/50
+                           text-xs font-semibold px-3 py-2 rounded-xl transition-colors"
+              >
+                <LogIn size={12} />
+                Login as Shop
+              </button>
+            )}
+
             {/* Shop ID */}
             <span
               className="flex items-center ml-auto text-[10px] text-slate-600
@@ -891,6 +909,12 @@ export default function AdminShopsPage() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // ── Impersonation state ──────────────────────────────────────
+  const [impersonateShopId, setImpersonateShopId] = useState<string | null>(null);
+  const [impersonateTotp, setImpersonateTotp] = useState("");
+  const [impersonateLoading, setImpersonateLoading] = useState(false);
+  const [impersonateError, setImpersonateError] = useState("");
 
   // ── Load data ─────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -1039,6 +1063,52 @@ export default function AdminShopsPage() {
       prev.filter((v) => v.shop_id !== shop.id),
     );
   }, []);
+
+  // ── Impersonation handlers ─────────────────────────────────────
+
+  const handleImpersonate = useCallback((shopId: string) => {
+    setImpersonateShopId(shopId);
+    setImpersonateTotp("");
+    setImpersonateError("");
+  }, []);
+
+  const handleImpersonateConfirm = useCallback(async () => {
+    if (!impersonateShopId || impersonateLoading) return;
+    setImpersonateLoading(true);
+    setImpersonateError("");
+
+    try {
+      const res = await fetch("/api/admin/impersonate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shopId: impersonateShopId,
+          totpCode: impersonateTotp,
+        }),
+      });
+      const data = await res.json();
+
+      if (res.status === 401 && data.requiresTOTP) {
+        setImpersonateError(data.error ?? "Google Authenticator code chahiye");
+        return;
+      }
+
+      if (!data.success) {
+        setImpersonateError(data.error ?? "Impersonation failed");
+        return;
+      }
+
+      setImpersonateShopId(null);
+      setImpersonateTotp("");
+
+      // Navigate to the shop's orders page
+      window.location.href = "/orders";
+    } catch {
+      setImpersonateError("Server error");
+    } finally {
+      setImpersonateLoading(false);
+    }
+  }, [impersonateShopId, impersonateTotp, impersonateLoading]);
 
   // ── Filter shops ──────────────────────────────────────────────
   const filtered = shops.filter((s) => {
@@ -1245,9 +1315,76 @@ export default function AdminShopsPage() {
                 onToggleActive={handleToggleActive}
                 onVerifyAction={handleVerifyAction}
                 onDeleteShop={handleDeleteShop}
+                onImpersonate={handleImpersonate}
               />
             ))
           )}
+        </div>
+      )}
+
+      {/* Impersonate TOTP modal */}
+      {impersonateShopId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-bold text-sm">Login as Shop</h3>
+              <button
+                onClick={() => { setImpersonateShopId(null); setImpersonateError(""); }}
+                className="text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <p className="text-slate-400 text-xs">
+              Is action ke liye Google Authenticator code daalein
+            </p>
+
+            {impersonateError && (
+              <div className="bg-red-900/30 border border-red-700 rounded-xl px-3 py-2">
+                <p className="text-red-300 text-xs">{impersonateError}</p>
+              </div>
+            )}
+
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              placeholder="000000"
+              value={impersonateTotp}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                setImpersonateTotp(val);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && impersonateTotp.length === 6) {
+                  handleImpersonateConfirm();
+                }
+              }}
+              disabled={impersonateLoading}
+              autoFocus
+              className="w-full text-center text-2xl tracking-[0.5em] font-mono bg-slate-800
+                         border border-slate-600 text-white rounded-xl px-4 py-3
+                         outline-none focus:border-blue-500 disabled:opacity-50
+                         placeholder:text-slate-700"
+            />
+
+            <button
+              onClick={handleImpersonateConfirm}
+              disabled={impersonateTotp.length !== 6 || impersonateLoading}
+              className="w-full flex items-center justify-center gap-2 bg-blue-600
+                         hover:bg-blue-700 text-white font-bold text-sm py-3 rounded-xl
+                         transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {impersonateLoading ? (
+                <RefreshCw size={15} className="animate-spin" />
+              ) : (
+                <LogIn size={15} />
+              )}
+              {impersonateLoading ? "Verifying..." : "Login as Shop"}
+            </button>
+          </div>
         </div>
       )}
     </div>
