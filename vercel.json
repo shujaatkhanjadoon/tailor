@@ -1,10 +1,5 @@
 {
   "regions": ["bom1"],
-  "functions": {
-    "api/cron/*": {
-      "maxDuration": 300
-    }
-  },
   "crons": [
     {
       "path": "/api/cron/expire-subscriptions",

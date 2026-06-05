@@ -5,6 +5,8 @@ import { sbGet, sbPatch } from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
 import { mapConcurrent } from '@/lib/concurrent'
 
+export const maxDuration = 300
+
 export async function GET(req: NextRequest) {
   return POST(req)
 }

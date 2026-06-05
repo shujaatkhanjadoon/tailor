@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sbPatch } from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
 
+export const maxDuration = 300
+
 export async function GET(req: NextRequest) {
   return POST(req)
 }

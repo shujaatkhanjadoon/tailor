@@ -34,6 +34,8 @@ async function destroyCloudinaryImage(publicId: string) {
   }
 }
 
+export const maxDuration = 300
+
 export async function GET(req: NextRequest) {
   return POST(req)
 }
