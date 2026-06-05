@@ -10,7 +10,7 @@ import { Step1Customer } from "@/components/orders/wizard/Step1Customer";
 import { Step2Garment, formatStyleSelections, type StyleSelections } from "@/components/orders/wizard/Step2Garment";
 import { Step3Confirm } from "@/components/orders/wizard/Step3Confirm";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { orderOps, paymentOps, teamOps, uuid } from "@/lib/db/operations";
+import { orderOps, paymentOps, teamOps, customerOps, uuid } from "@/lib/db/operations";
 import type { TeamMemberRecord } from "@/lib/db/schema";
 import { toast } from "sonner";
 import { usePlan } from "@/hooks/usePlan";
@@ -101,6 +101,18 @@ function NewOrderWizard({
   const router = useRouter();
   const plan = usePlan();
   const isSubmittingRef = useRef(false);
+
+  // ── Auto-select customer from URL param ──────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const preselectedId = params.get('customerId')
+    if (!preselectedId || !shopId) return
+    customerOps.get(preselectedId).then(customer => {
+      if (!customer) return
+      setData(prev => ({ ...prev, customerId: customer.id, customerName: customer.name, customerPhone: customer.phone, customerGender: customer.gender }))
+    }).catch(() => {})
+  }, [shopId])
 
   // ── Page-level state ─────────────────────────────────────────
   // 'wizard' = the 3-step form, 'success' = order saved confirmation
@@ -505,3 +517,4 @@ function NewOrderWizard({
     </div>
   );
 }
+
