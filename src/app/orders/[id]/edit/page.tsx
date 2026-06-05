@@ -2,15 +2,29 @@
 
 import { use, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Save } from 'lucide-react'
+import { ArrowLeft, Save, UsersRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { useOrder } from '@/hooks/useOrders'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { orderOps } from '@/lib/db/operations'
 import { AccessNotice } from '@/components/billing/AccessNotice'
-import { GARMENT_LABELS, GarmentType } from '@/types'
+import { GARMENT_LABELS, GarmentType, OrderRecipientRelation } from '@/types'
 import { cn } from '@/lib/utils'
+import { relationNeedsName } from '@/lib/order-recipient'
 import type { OrderRecord } from '@/lib/db/schema'
+
+const RECIPIENT_OPTIONS: { relation: OrderRecipientRelation; label: string; helper: string; gender: 'male' | 'female' | 'child' | 'same' | 'custom' }[] = [
+  { relation: 'self', label: 'Self', helper: 'Gahak ke liye', gender: 'same' },
+  { relation: 'wife', label: 'Wife', helper: 'Biwi ke liye', gender: 'female' },
+  { relation: 'husband', label: 'Husband', helper: 'Shohar ke liye', gender: 'male' },
+  { relation: 'son', label: 'Son', helper: 'Beta ke liye', gender: 'child' },
+  { relation: 'daughter', label: 'Daughter', helper: 'Beti ke liye', gender: 'child' },
+  { relation: 'brother', label: 'Brother', helper: 'Bhai ke liye', gender: 'male' },
+  { relation: 'sister', label: 'Sister', helper: 'Behen ke liye', gender: 'female' },
+  { relation: 'father', label: 'Father', helper: 'Abu ke liye', gender: 'male' },
+  { relation: 'mother', label: 'Mother', helper: 'Ammi ke liye', gender: 'female' },
+  { relation: 'other', label: 'Other', helper: 'Kisi aur ke liye', gender: 'custom' },
+]
 
 export default function EditOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -46,6 +60,9 @@ function EditOrderForm({ order }: { order: OrderRecord }) {
     totalPrice: String(order.totalPrice || ''),
     isUrgent: order.isUrgent === 1,
     specialInstructions: order.specialInstructions ?? '',
+    orderForRelation: (order.orderForRelation ?? 'self') as OrderRecipientRelation,
+    orderForName: order.orderForName ?? '',
+    recipientGender: (order.recipientGender ?? 'male') as 'male' | 'female' | 'child',
   })
 
   const handleSave = async () => {
@@ -63,6 +80,9 @@ function EditOrderForm({ order }: { order: OrderRecord }) {
         totalPrice,
         isUrgent: form.isUrgent ? 1 : 0,
         specialInstructions: form.specialInstructions.trim() || undefined,
+        orderForRelation: form.orderForRelation,
+        orderForName: form.orderForName?.trim() || undefined,
+        recipientGender: form.recipientGender,
       })
       toast.success('Order update ho gaya.')
       router.push(`/orders/${order.id}`)
@@ -129,6 +149,76 @@ function EditOrderForm({ order }: { order: OrderRecord }) {
               )
             })}
           </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-4">
+          <label className="mb-3 block text-xs font-bold uppercase tracking-wide text-slate-400">
+            Order For
+          </label>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {RECIPIENT_OPTIONS.map(option => {
+              const selected = form.orderForRelation === option.relation
+              return (
+                <button
+                  key={option.relation}
+                  type="button"
+                  onClick={() => {
+                    const gender = option.gender === 'same'
+                      ? (order.recipientGender ?? 'male')
+                      : option.gender === 'custom'
+                        ? form.recipientGender
+                        : option.gender
+                    setForm(f => ({
+                      ...f,
+                      orderForRelation: option.relation,
+                      recipientGender: gender as 'male' | 'female' | 'child',
+                      orderForName: option.relation === 'self' ? '' : f.orderForName,
+                    }))
+                  }}
+                  className={cn(
+                    'rounded-xl border px-3 py-2 text-left text-xs font-bold',
+                    selected
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 bg-white text-slate-600'
+                  )}
+                >
+                  <UsersRound size={14} className="mb-1 inline-block" />
+                  {' '}{option.label}
+                </button>
+              )
+            })}
+          </div>
+
+          {relationNeedsName(form.orderForRelation) && (
+            <div className="mt-3 space-y-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+                <input
+                  type="text"
+                  value={form.orderForName}
+                  onChange={e => setForm(f => ({ ...f, orderForName: e.target.value }))}
+                  placeholder={form.orderForRelation === 'other' ? 'Relation / Name' : 'Naam (optional)'}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-blue-500"
+                />
+                <div className="flex gap-2">
+                  {(['male', 'female', 'child'] as const).map(g => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, recipientGender: g }))}
+                      className={cn(
+                        'rounded-xl border px-3 py-2 text-xs font-bold capitalize',
+                        form.recipientGender === g
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-slate-200 bg-white text-slate-500'
+                      )}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2">

@@ -15,7 +15,7 @@ import { useOrder } from '@/hooks/useOrders'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { paymentOps } from '@/lib/db/operations'
 import { type CustomerRecord, type MeasurementRecord, type PhotoRecord, type ShopRecord } from '@/lib/db/schema'
-import { ORDER_STATUS_CONFIG, GARMENT_LABELS, OrderStatus } from '@/types'
+import { ORDER_STATUS_CONFIG, GARMENT_LABELS, GarmentType, OrderStatus } from '@/types'
 import { StatusUpdateSheet } from '@/components/orders/StatusUpdateSheet'
 import { AssignSheet } from '@/components/orders/AssignSheet'
 import { SpecialInstructionsSummary } from '@/components/orders/SpecialInstructionsSummary'
@@ -38,6 +38,140 @@ const PAYMENT_METHODS = [
   { key: 'jazzcash', label: 'JazzCash', emoji: '📲' },
   { key: 'bank', label: 'Bank', emoji: '🏦' },
 ] as const
+
+const MEASUREMENT_FIELDS: Record<GarmentType, { key: string; label: string; labelUrdu: string }[]> = {
+  shalwar_kameez: [
+    { key: 'length',         label: 'Length',        labelUrdu: 'لمبائی'    },
+    { key: 'chest',          label: 'Chest',         labelUrdu: 'سینہ'     },
+    { key: 'waist',          label: 'Waist',         labelUrdu: 'کمر'     },
+    { key: 'hip',            label: 'Hip',           labelUrdu: 'سرین'     },
+    { key: 'shoulder',       label: 'Shoulder',      labelUrdu: 'کندھا'    },
+    { key: 'sleeve',         label: 'Sleeve',        labelUrdu: 'بازو'     },
+    { key: 'armhole',        label: 'Armhole',       labelUrdu: 'بازو گولائی' },
+    { key: 'bicep',          label: 'Bicep',         labelUrdu: 'بازو'     },
+    { key: 'collar',         label: 'Collar',        labelUrdu: 'گریبان'   },
+    { key: 'front_neck',     label: 'Front Neck',    labelUrdu: 'اگلا گلا' },
+    { key: 'back_neck',      label: 'Back Neck',     labelUrdu: 'پچھلا گلا' },
+    { key: 'trouser_length', label: 'Shalwar Length', labelUrdu: 'شلوار'   },
+    { key: 'trouser_waist',  label: 'Shalwar Waist', labelUrdu: 'شلوار کمر' },
+    { key: 'thigh',          label: 'Thigh',         labelUrdu: 'ران'      },
+    { key: 'knee',           label: 'Knee',          labelUrdu: 'گھٹنا'    },
+    { key: 'bottom',         label: 'Bottom',        labelUrdu: 'پائنچہ'   },
+  ],
+  kurta: [
+    { key: 'length', label: 'Length', labelUrdu: 'لمبائی' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'سینہ' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'کمر' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'کندھا' },
+    { key: 'sleeve', label: 'Sleeve', labelUrdu: 'بازو' },
+    { key: 'collar', label: 'Collar', labelUrdu: 'گلا' },
+    { key: 'bottom', label: 'Daman Width', labelUrdu: 'دامن' },
+  ],
+  kurti: [
+    { key: 'length', label: 'Length', labelUrdu: 'لمبائی' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'سینہ' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'کمر' },
+    { key: 'hip', label: 'Hip', labelUrdu: 'سرین' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'کندھا' },
+    { key: 'sleeve', label: 'Sleeve', labelUrdu: 'بازو' },
+  ],
+  shirt: [
+    { key: 'length',   label: 'Length',   labelUrdu: 'لمبائی'  },
+    { key: 'chest',    label: 'Chest',    labelUrdu: 'سینہ'   },
+    { key: 'waist',    label: 'Waist',    labelUrdu: 'کمر'   },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'کندھا'  },
+    { key: 'sleeve',   label: 'Sleeve',   labelUrdu: 'بازو'   },
+    { key: 'collar',   label: 'Collar',   labelUrdu: 'گریبان' },
+    { key: 'cuff',     label: 'Cuff',     labelUrdu: 'کف'     },
+  ],
+  trouser: [
+    { key: 'trouser_length', label: 'Length',  labelUrdu: 'لمبائی'  },
+    { key: 'trouser_waist',  label: 'Waist',   labelUrdu: 'کمر'   },
+    { key: 'hip',            label: 'Hip',     labelUrdu: 'سرین'   },
+    { key: 'thigh',          label: 'Thigh',   labelUrdu: 'ران'    },
+    { key: 'knee',           label: 'Knee',    labelUrdu: 'گھٹنا'  },
+    { key: 'bottom',         label: 'Bottom',  labelUrdu: 'پائنچہ' },
+  ],
+  pajama: [
+    { key: 'trouser_length', label: 'Length', labelUrdu: 'لمبائی' },
+    { key: 'trouser_waist', label: 'Waist', labelUrdu: 'ناڑہ' },
+    { key: 'hip', label: 'Hip', labelUrdu: 'سرین' },
+    { key: 'thigh', label: 'Thigh', labelUrdu: 'ران' },
+    { key: 'bottom', label: 'Bottom', labelUrdu: 'پائنچہ' },
+  ],
+  sherwani: [
+    { key: 'length',   label: 'Length',   labelUrdu: 'لمبائی'  },
+    { key: 'chest',    label: 'Chest',    labelUrdu: 'سینہ'   },
+    { key: 'waist',    label: 'Waist',    labelUrdu: 'کمر'   },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'کندھا'  },
+    { key: 'sleeve',   label: 'Sleeve',   labelUrdu: 'بازو'   },
+    { key: 'hip',      label: 'Hip',      labelUrdu: 'سرین'   },
+  ],
+  waistcoat: [
+    { key: 'length', label: 'Length', labelUrdu: 'لمبائی' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'سینہ' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'کمر' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'کندھا' },
+  ],
+  prince_coat: [
+    { key: 'length', label: 'Length', labelUrdu: 'لمبائی' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'سینہ' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'کمر' },
+    { key: 'hip', label: 'Hip', labelUrdu: 'سرین' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'کندھا' },
+    { key: 'sleeve', label: 'Sleeve', labelUrdu: 'بازو' },
+  ],
+  pant_coat: [
+    { key: 'length', label: 'Coat Length', labelUrdu: 'کوٹ لمبائی' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'سینہ' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'کمر' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'کندھا' },
+    { key: 'sleeve', label: 'Sleeve', labelUrdu: 'بازو' },
+    { key: 'trouser_length', label: 'Pant Length', labelUrdu: 'پینٹ لمبائی' },
+    { key: 'trouser_waist', label: 'Pant Waist', labelUrdu: 'پینٹ کمر' },
+  ],
+  lehenga: [
+    { key: 'length', label: 'Lehenga Length', labelUrdu: 'لہنگا' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'کمر' },
+    { key: 'hip', label: 'Hip', labelUrdu: 'سرین' },
+    { key: 'chest', label: 'Blouse Chest', labelUrdu: 'بلاؤز سینہ' },
+    { key: 'shoulder', label: 'Blouse Shoulder', labelUrdu: 'کندھا' },
+    { key: 'sleeve', label: 'Blouse Sleeve', labelUrdu: 'بازو' },
+  ],
+  maxi: [
+    { key: 'length', label: 'Full Length', labelUrdu: 'لمبائی' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'سینہ' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'کمر' },
+    { key: 'hip', label: 'Hip', labelUrdu: 'سرین' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'کندھا' },
+    { key: 'sleeve', label: 'Sleeve', labelUrdu: 'بازو' },
+  ],
+  blazer: [
+    { key: 'length',   label: 'Length',   labelUrdu: 'لمبائی'  },
+    { key: 'chest',    label: 'Chest',    labelUrdu: 'سینہ'   },
+    { key: 'waist',    label: 'Waist',    labelUrdu: 'کمر'   },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'کندھا'  },
+    { key: 'sleeve',   label: 'Sleeve',   labelUrdu: 'بازو'   },
+  ],
+  jacket: [
+    { key: 'length', label: 'Length', labelUrdu: 'لمبائی' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'سینہ' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'کمر' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'کندھا' },
+    { key: 'sleeve', label: 'Sleeve', labelUrdu: 'بازو' },
+  ],
+  other: [
+    { key: 'length', label: 'Length', labelUrdu: 'لمبائی' },
+    { key: 'chest', label: 'Chest', labelUrdu: 'سینہ' },
+    { key: 'shoulder', label: 'Shoulder', labelUrdu: 'کندھا' },
+    { key: 'waist', label: 'Waist', labelUrdu: 'کمر' },
+  ],
+}
+
+const SHALWAR_KAMEEZ_KAMEEZ_KEYS = new Set([
+  'length', 'chest', 'waist', 'hip', 'shoulder', 'sleeve',
+  'armhole', 'bicep', 'collar', 'front_neck', 'back_neck',
+])
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -557,16 +691,55 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
           {measurement && Object.keys(measurement.values).length > 0 ? (
             <>
-              <div className="grid grid-cols-2 gap-2">
-                {Object.entries(measurement.values).map(([key, value]) => (
-                  <div key={key} className="bg-slate-50 rounded-xl px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wide text-slate-400">
-                      {key.replace(/_/g, ' ')}
-                    </p>
-                    <p className="text-sm font-bold text-slate-800">{value}</p>
+              {(() => {
+                const fields = MEASUREMENT_FIELDS[order.garmentType as GarmentType] ?? []
+                const fieldMap = new Map(fields.map(f => [f.key, f]))
+                const entries = Object.entries(measurement.values)
+
+                const renderItem = ([key, value]: [string, string]) => {
+                  const field = fieldMap.get(key)
+                  return (
+                    <div key={key} className="bg-slate-50 rounded-xl px-3 py-2">
+                      <p className="text-[10px] tracking-wide text-slate-400">
+                        {field ? `${field.label} / ${field.labelUrdu}` : key.replace(/_/g, ' ')}
+                      </p>
+                      <p className="text-sm font-bold text-slate-800">{value}</p>
+                    </div>
+                  )
+                }
+
+                if (order.garmentType !== 'shalwar_kameez') {
+                  return (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {entries.map(renderItem)}
+                    </div>
+                  )
+                }
+
+                const kameezEntries = entries.filter(([k]) => SHALWAR_KAMEEZ_KAMEEZ_KEYS.has(k))
+                const shalwarEntries = entries.filter(([k]) => !SHALWAR_KAMEEZ_KAMEEZ_KEYS.has(k))
+
+                return (
+                  <div className="space-y-4">
+                    {kameezEntries.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-semibold text-slate-500 mb-2">Kameez / قمیض</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {kameezEntries.map(renderItem)}
+                        </div>
+                      </div>
+                    )}
+                    {shalwarEntries.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-semibold text-slate-500 mb-2">Shalwar / شلوار</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {shalwarEntries.map(renderItem)}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                )
+              })()}
               {measurement.notes && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
                   <p className="text-xs font-semibold text-amber-700 mb-1">Measurement Notes</p>
