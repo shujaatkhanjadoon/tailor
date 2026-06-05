@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Bell, CalendarClock, Edit2, Loader2, MessageCircle, Save, Send, Trash2, Users, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatKarachiDateTime, formatKarachiDateTimeInput } from '@/lib/time'
@@ -68,15 +68,15 @@ export default function AdminNotificationsPage() {
     [customExpiry, durationHours]
   )
 
-  const load = async () => {
-    setLoading(true)
+  const load = useCallback(async () => {
     const res = await fetch('/api/admin/notifications', { cache: 'no-store' })
     const json = await res.json()
     if (res.ok) setRows(json.data ?? [])
     setLoading(false)
-  }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { load() }, [load])
 
   const sendNotification = async () => {
     setSaving(true)

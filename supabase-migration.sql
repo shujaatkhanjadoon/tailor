@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS shops (
   brand_color     TEXT,
   brand_logo_url  TEXT,
   plan            TEXT NOT NULL DEFAULT 'starter',
+  plan_expires_at TIMESTAMPTZ,
   is_active       BOOLEAN NOT NULL DEFAULT true,
   verification_status TEXT DEFAULT 'pending',
   encrypted_owner_pin TEXT,
@@ -228,6 +229,26 @@ CREATE TABLE IF NOT EXISTS admin_notifications (
   created_by    TEXT
 );
 
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  phone           TEXT NOT NULL,
+  ip_address      TEXT,
+  user_agent      TEXT,
+  success         BOOLEAN NOT NULL,
+  failure_reason  TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  action        TEXT NOT NULL,
+  target_type   TEXT NOT NULL,
+  target_id     TEXT NOT NULL,
+  shop_id       UUID REFERENCES shops(id),
+  details       JSONB DEFAULT '{}',
+  performed_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS shop_verification_requests (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id       UUID NOT NULL REFERENCES shops(id),
@@ -240,6 +261,9 @@ CREATE TABLE IF NOT EXISTS shop_verification_requests (
   notes         TEXT,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Add plan_expires_at to existing shops (safe to re-run)
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ;
 
 -- ============================================================
 -- 1. MISSING DATABASE INDEXES
@@ -291,6 +315,13 @@ CREATE INDEX IF NOT EXISTS idx_sub_payments_paid_at ON subscription_payments (pa
 
 -- shop_usage: foreign key
 CREATE INDEX IF NOT EXISTS idx_shop_usage_shop_id ON shop_usage (shop_id);
+
+-- login_attempts: lookup
+CREATE INDEX IF NOT EXISTS idx_login_attempts_phone ON login_attempts (phone);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_created_at ON login_attempts (created_at DESC);
+
+-- admin_audit_log: lookup
+CREATE INDEX IF NOT EXISTS idx_admin_audit_log_performed_at ON admin_audit_log (performed_at DESC);
 
 -- email_verifications: lookup
 CREATE INDEX IF NOT EXISTS idx_email_verifications_phone ON email_verifications (phone);

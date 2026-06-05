@@ -58,8 +58,8 @@ export async function POST(req: NextRequest) {
       if (photo.public_id) await destroyCloudinaryImage(photo.public_id)
       await sbDelete(`order_photos?id=eq.${photo.id}`)
     })
-    results.deleted = photos.length - deleteResults.filter(r => r !== undefined).length + deleteResults.length
-    results.errors.push(...deleteResults.filter((r): r is string => typeof r === 'string'))
+    results.deleted = photos.length - deleteResults.length
+    results.errors.push(...deleteResults)
   
 
     return NextResponse.json({ success: true, cutoff, ...results })

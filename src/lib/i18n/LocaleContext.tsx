@@ -2,7 +2,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
-import { initI18n, detectLocale, getLocaleDir, type SupportedLocale, isSupportedLocale } from './config'
+import { initI18n, detectLocale, getLocaleDir, type SupportedLocale } from './config'
 
 interface LocaleContextValue {
   locale: SupportedLocale
@@ -27,18 +27,16 @@ function setCookie(name: string, value: string, days = 365) {
 }
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<SupportedLocale>('ur')
-  const [dir, setDir] = useState<'ltr' | 'rtl'>('ltr')
+  const initialLocale: SupportedLocale = typeof window !== 'undefined' ? detectLocale() : 'ur'
+  const [locale, setLocaleState] = useState<SupportedLocale>(initialLocale)
+  const [dir, setDir] = useState<'ltr' | 'rtl'>(getLocaleDir(initialLocale))
   const [ready, setReady] = useState(false)
 
-  // Initialize on mount
+  // Initialize i18n on mount
   useEffect(() => {
-    const detected = detectLocale()
-    setLocaleState(detected)
-    setDir(getLocaleDir(detected))
-    initI18n(detected)
-    setReady(true)
-  }, [])
+    initI18n(locale)
+    Promise.resolve().then(() => setReady(true))
+  }, [locale])
 
   const setLocale = useCallback((newLocale: SupportedLocale) => {
     if (typeof window === 'undefined') return

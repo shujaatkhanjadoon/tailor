@@ -3,8 +3,7 @@
 
 import { logAdminAction } from '@/lib/admin/audit'
 import { buildActivationWhatsApp, buildRejectionWhatsApp } from './whatsapp-notify'
-import { sbGet, sbPatch, sbPost, sbUpsertById, sbUpsertByShopId, type Row } from '@/lib/supabase/service'
-import { sbFetch } from '@/lib/supabase/service'
+import { sbGet, sbPatch, sbUpsertByShopId, sbFetch, type Row } from '@/lib/supabase/service'
 import { PLANS } from './plans'
 import { subscriptionExpiresAt } from './cycles'
 
@@ -60,10 +59,15 @@ export interface PaginatedResult<T> {
 
 async function getTotalCount(table: string, filter = ''): Promise<number> {
   try {
-    const res = await sbGet(`${table}?select=id&${filter}&limit=1&count=exact&head=true`.replace(/&+/, '&'))
-    // PostgREST returns count in Content-Range header when using the JS client,
-    // but with raw fetch we need a different approach
-    return res.length > 0 ? -1 : 0
+    const path = `${table}?select=id&${filter}&limit=0&count=exact`.replace(/&+/, '&')
+    const res = await sbFetch(path)
+    if (!res.ok) return 0
+    const range = res.headers.get('content-range')
+    if (range) {
+      const match = range.match(/\/(\d+)$/)
+      if (match) return parseInt(match[1], 10)
+    }
+    return 0
   } catch {
     return -1
   }
