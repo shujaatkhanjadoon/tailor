@@ -1,6 +1,6 @@
 ﻿// src/lib/billing/raast.ts
 // Raast payment configuration for Meradarzi subscriptions
-// No API key needed â€” purely display-based manual flow
+// No API key needed -- purely display-based manual flow
 
 export interface RaastConfig {
   raastId:       string      // Your Raast ID (IBAN or alias)
@@ -9,18 +9,18 @@ export interface RaastConfig {
   instructions:  string[]    // Step-by-step for customer
 }
 
-// â”€â”€ YOUR RAAST DETAILS â€” set via NEXT_PUBLIC_RAAST_* env vars â”€â”€â”€â”€â”€â”€â”€â”€
+// Set NEXT_PUBLIC_RAAST_* env vars in .env.local
 export const RAAST_CONFIG: RaastConfig = {
-  raastId:      process.env.NEXT_PUBLIC_RAAST_ID ?? '03135931459',
-  accountTitle: process.env.NEXT_PUBLIC_RAAST_NAME ?? 'Shujaat Khan',
-  bankName:     process.env.NEXT_PUBLIC_RAAST_BANK ?? 'Bank Alfalah',
+  raastId:      process.env.NEXT_PUBLIC_RAAST_ID ?? '',
+  accountTitle: process.env.NEXT_PUBLIC_RAAST_NAME ?? '',
+  bankName:     process.env.NEXT_PUBLIC_RAAST_BANK ?? '',
   instructions: [
     'Apni bank app ya Easypaisa/JazzCash kholein',
     'Raast ya "Send Money" option chunein',
     'Raast ID daalein ya QR scan karein',
     'Exact amount daalein jo neeche likha hai',
     'Payment karein aur Transaction ID note karein',
-    'Neeche Transaction ID daalein — hum 24 ghante mein activate kar denge',
+    'Neeche Transaction ID daalein -- hum 24 ghante mein activate kar denge',
   ],
 }
 

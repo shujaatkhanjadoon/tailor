@@ -8,7 +8,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test --experimental-strip-types tests/**/*.test.ts"
+    "test": "node --import ./tests/register-path-aliases.js --test --experimental-strip-types tests/**/*.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",

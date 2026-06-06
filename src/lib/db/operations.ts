@@ -491,6 +491,22 @@ export const orderOps = {
       getShopName(shopId),
       customerOps.get(data.customerId).catch(() => undefined),
     ])
+    // Verify measurement exists before referencing it to avoid FK violation
+    if (data.measurementId) {
+      try {
+        const { data: measurement } = await supabase
+          .from('measurements')
+          .select('id')
+          .eq('id', data.measurementId)
+          .is('deleted_at', null)
+          .maybeSingle()
+        if (!measurement) {
+          data = { ...data, measurementId: undefined }
+        }
+      } catch {
+        data = { ...data, measurementId: undefined }
+      }
+    }
     const order: OrderRecord = {
       id: uuid(),
       shopId,

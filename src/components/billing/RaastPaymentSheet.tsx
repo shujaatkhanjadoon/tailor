@@ -10,12 +10,12 @@ import { PLANS, PlanId } from '@/lib/billing/plans'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 
-// Read Raast config from env 
-// Set NEXT_PUBLIC_RAAST_ID in .env.local
-const RAAST_ID = process.env.NEXT_PUBLIC_RAAST_ID ?? '03135931459'
-const RAAST_NAME = process.env.NEXT_PUBLIC_RAAST_NAME ?? 'Shujaat Khan'
-const RAAST_BANK = process.env.NEXT_PUBLIC_RAAST_BANK ?? 'Bank Alfalah'
-const ADMIN_WA = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? '03135634667'
+// Read Raast config from env
+// Set NEXT_PUBLIC_RAAST_* in .env.local
+const RAAST_ID = process.env.NEXT_PUBLIC_RAAST_ID ?? ''
+const RAAST_NAME = process.env.NEXT_PUBLIC_RAAST_NAME ?? ''
+const RAAST_BANK = process.env.NEXT_PUBLIC_RAAST_BANK ?? ''
+const ADMIN_WA = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ?? ''
 
 interface RaastPaymentSheetProps {
   planId: PlanId

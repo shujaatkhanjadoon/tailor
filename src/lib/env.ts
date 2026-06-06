@@ -102,6 +102,41 @@ const ENV_VARS: EnvVar[] = [
     description: 'Server timezone',
     default: 'Asia/Karachi',
   },
+  {
+    name: 'SENTRY_DSN',
+    required: false,
+    description: 'Sentry DSN for error tracking',
+  },
+  {
+    name: 'NEXT_PUBLIC_CLOUDINARY_API_KEY',
+    required: false,
+    description: 'Cloudinary API key',
+  },
+  {
+    name: 'ADMIN_NOTIFICATION_EMAIL',
+    required: false,
+    description: 'Email for admin notifications',
+  },
+  {
+    name: 'CALLMEBOT_API_KEY',
+    required: false,
+    description: 'API key for CallMeBot WhatsApp notifications',
+  },
+  {
+    name: 'NEXT_PUBLIC_RAAST_ID',
+    required: false,
+    description: 'Raast payment ID/alias',
+  },
+  {
+    name: 'NEXT_PUBLIC_RAAST_NAME',
+    required: false,
+    description: 'Raast account holder name',
+  },
+  {
+    name: 'NEXT_PUBLIC_RAAST_BANK',
+    required: false,
+    description: 'Raast bank name',
+  },
 ]
 
 const MISSING: string[] = []

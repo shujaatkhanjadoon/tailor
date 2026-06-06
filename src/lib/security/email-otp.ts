@@ -4,7 +4,15 @@ import { randomInt } from 'crypto'
 import bcrypt from 'bcryptjs'
 import { sbGet } from '@/lib/supabase/service'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+let _resend: Resend | null = null
+function getResend(): Resend {
+  if (!_resend) {
+    const key = process.env.RESEND_API_KEY
+    if (!key) throw new Error('RESEND_API_KEY is required')
+    _resend = new Resend(key)
+  }
+  return _resend
+}
 
 // ── Sender: display name shows "MeraDarzi" in inbox ──────────────
 const FROM_ADDR     = process.env.RESEND_FROM_EMAIL ?? 'no-reply@meradarzi.pk'
@@ -20,7 +28,7 @@ const SYSTEM_EMAIL_INTERVAL = 60_000
 
 // ── Rate-limited system mailer ────────────────────────────────────
 async function sendSystemEmail(
-  args: Parameters<typeof resend.emails.send>[0],
+  args: Parameters<Resend['emails']['send']>[0],
   key?: string
 ) {
   const recipients = Array.isArray(args.to) ? args.to.join(',') : String(args.to)
@@ -32,7 +40,7 @@ async function sendSystemEmail(
     return { data: null, error: null }
   }
   emailLastSentAt.set(rateKey, now)
-  return resend.emails.send(args)
+  return getResend().emails.send(args)
 }
 
 // ── HTML escape ───────────────────────────────────────────────────
@@ -692,7 +700,7 @@ export async function sendOTPEmail(
 </html>`
 
   try {
-    const { error } = await resend.emails.send({ from: FROM, to: email, subject, html })
+    const { error } = await getResend().emails.send({ from: FROM, to: email, subject, html })
     if (error) {
       console.error('[Email OTP] Send error:', error)
       return { success: false, error: error.message }

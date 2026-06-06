@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
 
     // ── 7. Admin notifications (non-blocking) ─────────────────────
     const appUrl   = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mydarzi.vercel.app'
-    const adminWA  = process.env.ADMIN_WHATSAPP
+    const adminWA  = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP
 
     // Email notification
     sendShopVerificationAlert({

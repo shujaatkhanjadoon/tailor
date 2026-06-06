@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       receipt_data: {
         payment_ref: paymentRef,
         payer_name: payerName,
-        raast_id: process.env.NEXT_PUBLIC_RAAST_ID ?? '03135931459',
+        raast_id: process.env.NEXT_PUBLIC_RAAST_ID ?? '',
         submitted_at: now,
       },
     }
