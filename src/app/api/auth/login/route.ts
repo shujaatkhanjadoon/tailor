@@ -48,7 +48,9 @@ export async function POST(req: NextRequest) {
     }
 
     const storedHash = String(member.pin_hash ?? '')
-    const isValid = storedHash.startsWith('$2') && await bcrypt.compare(rawPin, storedHash)
+    // Re-compute what the client-side hash would be, then compare against stored double-hash
+    const clientSideHash = bcrypt.hashSync(rawPin, 10)
+    const isValid = storedHash.startsWith('$2') && await bcrypt.compare(clientSideHash, storedHash)
 
     if (!isValid) {
       const newFailed = (member.failed_attempts ?? 0) + 1

@@ -103,7 +103,7 @@ export default function PaymentsPage() {
         <div className="flex gap-2 mb-3">
           <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="text" placeholder={t('payments.searchPlaceholder')} value={searchQuery}
+            <input type="search" aria-label={t('payments.searchPlaceholder')} placeholder={t('payments.searchPlaceholder')} value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-9 py-2.5 bg-slate-100 rounded-xl text-sm outline-none focus:bg-white border-2 border-transparent focus:border-blue-500 transition-all" />
             {searchQuery && (

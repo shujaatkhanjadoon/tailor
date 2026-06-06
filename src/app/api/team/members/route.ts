@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 import { sbFetch } from '@/lib/supabase/service'
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
         updated_at: now,
       }
       if (pin) {
-        updateData.pin_hash = pin
+        updateData.pin_hash = bcrypt.hashSync(pin, 12)
       }
 
       const res = await sbFetch(`team_members?id=eq.${id}&shop_id=eq.${encodeURIComponent(shopId)}`, {
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
       name,
       phone,
       role: 'karigar',
-      pin_hash: pin ?? '',
+      pin_hash: pin ? bcrypt.hashSync(pin, 12) : '',
       speciality: speciality ?? null,
       pay_rate_type: payRateType ?? null,
       pay_rate: payRate ?? 0,

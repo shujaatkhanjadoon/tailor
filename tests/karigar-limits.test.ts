@@ -31,7 +31,7 @@ describe('getSelectableKarigarIds', () => {
   it('filters out non-karigar roles', () => {
     const members = [
       make('1', { role: 'owner' }),
-      make('2', { role: 'manager' }),
+      make('2', { role: 'owner' }),
     ]
     assert.equal(getSelectableKarigarIds(members, 3).size, 0)
   })

@@ -19,10 +19,9 @@ function timingSafeEqual(a: string, b: string): boolean {
 // In-memory shop name cache — avoids redundant queries in orderOps.add()
 const shopNameCache = new Map<string, { name: string; ts: number }>()
 const SHOP_CACHE_TTL = 5 * 60 * 1000
-const SALT_ROUNDS = 10
 
 export async function hashPin(pin: string): Promise<string> {
-  return bcrypt.hashSync(pin, SALT_ROUNDS)
+  return bcrypt.hashSync(pin, 12)
 }
 
 async function getShopName(shopId: string): Promise<string> {
@@ -258,7 +257,7 @@ export const teamOps = {
       name: data.name,
       phone: data.phone,
       role: data.role,
-      pin_hash: data.pin.startsWith('$2') ? data.pin : hashPin(data.pin),
+      pin_hash: data.pin.startsWith('$2') ? bcrypt.hashSync(data.pin, 12) : hashPin(data.pin),
       speciality: data.speciality ?? null,
       pay_rate_type: data.payRateType ?? null,
       pay_rate: data.payRate ?? null,

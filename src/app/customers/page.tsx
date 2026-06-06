@@ -183,7 +183,7 @@ export default function CustomersPage() {
         </div>
         <div className="relative mb-3">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input type="text" placeholder={t('customers.searchPlaceholder')} value={search}
+          <input type="search" aria-label={t('customers.searchPlaceholder')} placeholder={t('customers.searchPlaceholder')} value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-9 py-2.5 bg-slate-100 rounded-xl text-sm outline-none focus:bg-white border-2 border-transparent focus:border-blue-500 transition-all placeholder:text-slate-400" />
           {search && (

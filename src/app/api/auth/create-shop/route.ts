@@ -1,5 +1,6 @@
 // src/app/api/auth/create-shop/route.ts
 import crypto from 'crypto'
+import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   sendAdminShopRegistrationEmail,
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest) {
       name:           ownerName ?? shopName + ' (Owner)',
       phone:          ownerPhone,
       role:           'owner',
-      pin_hash:       pinHash,
+      pin_hash:       bcrypt.hashSync(pinHash, 12),
       email:          normalizedEmail || null,
       email_verified: normalizedEmail ? true : false,
       is_active:      true,

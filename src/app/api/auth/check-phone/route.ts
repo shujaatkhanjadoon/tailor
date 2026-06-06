@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sbFetch } from '@/lib/supabase/service'
 import { badRequest, serverError } from '@/lib/api-response'
+import { getAPIRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
+  const limiter = getAPIRatelimiter()
+  const rl = await checkRateLimit(limiter, `check-phone:${getRateLimitId(req)}`, 'sensitive')
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Bahut zyada requests. Kuch der mein dobara try karein.' },
+      { status: 429 }
+    )
+  }
+
   try {
     const body = await req.json()
     const rawPhone = String(body?.phone ?? '')

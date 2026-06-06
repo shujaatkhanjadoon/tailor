@@ -1,7 +1,7 @@
 // src/lib/security/pin.ts
 import bcrypt from 'bcryptjs'
 
-const SALT_ROUNDS = 10
+const SALT_ROUNDS = 12
 export const SHOP_PIN_LENGTH = 6
 export const KARIGAR_PIN_LENGTH = 6
 

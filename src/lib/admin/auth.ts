@@ -65,16 +65,17 @@ export function getTOTPUri(): string {
   return authenticator.keyuri(account, issuer, secret)
 }
 
-// ── Session token (HMAC-signed, 15-min expiry) ─────────────────────────────────────────────────
+// ── Session token (HMAC-signed, 15-min expiry, nonce-based rotation) ──────────────────────────
 const SESSION_DURATION_MS = 15 * 60 * 1000
 
-export function generateSessionToken(): string {
+export function generateSessionToken(nonce?: string): string {
   const secret    = process.env.ADMIN_SECRET
   if (!secret) throw new Error('ADMIN_SECRET not set')
   const timestamp = Date.now()
-  const payload   = `admin:${timestamp}`
+  const n         = nonce ?? crypto.randomUUID()
+  const payload   = `admin:${timestamp}:${n}`
   const signature = createHmac('sha256', secret).update(payload).digest('hex')
-  const raw       = `${timestamp}:${signature}`
+  const raw       = `${timestamp}:${n}:${signature}`
   return Buffer.from(raw).toString('base64url')
 }
 
@@ -83,33 +84,60 @@ export function verifySessionToken(token: string): boolean {
     const secret = process.env.ADMIN_SECRET
     if (!secret || !token) return false
 
-    const raw   = Buffer.from(token, 'base64url').toString('utf-8')
-    const colon = raw.indexOf(':')
-    if (colon === -1) return false
+    const raw = Buffer.from(token, 'base64url').toString('utf-8')
+    const parts = raw.split(':')
 
-    const tsStr     = raw.slice(0, colon)
-    const signature = raw.slice(colon + 1)
-    const timestamp = parseInt(tsStr, 10)
+    // New format: timestamp:nonce:signature (3 parts)
+    if (parts.length === 3) {
+      const [tsStr, , signature] = parts
+      const timestamp = parseInt(tsStr, 10)
+      if (isNaN(timestamp)) return false
+      if (Date.now() - timestamp > SESSION_DURATION_MS) return false
 
-    if (isNaN(timestamp)) return false
-    if (Date.now() - timestamp > SESSION_DURATION_MS) return false
+      const expected = createHmac('sha256', secret)
+        .update(`admin:${timestamp}:${parts[1]}`)
+        .digest('hex')
 
-    const expected = createHmac('sha256', secret)
-      .update(`admin:${timestamp}`)
-      .digest('hex')
-
-    // Timing-safe comparison
-    try {
-      return timingSafeEqual(
-        Buffer.from(signature, 'hex'),
-        Buffer.from(expected,  'hex')
-      )
-    } catch {
-      return false
+      try {
+        return timingSafeEqual(
+          Buffer.from(signature, 'hex'),
+          Buffer.from(expected, 'hex')
+        )
+      } catch {
+        return false
+      }
     }
+
+    // Legacy format: timestamp:signature (2 parts)
+    if (parts.length === 2) {
+      const [tsStr, signature] = parts
+      const timestamp = parseInt(tsStr, 10)
+      if (isNaN(timestamp)) return false
+      if (Date.now() - timestamp > SESSION_DURATION_MS) return false
+
+      const expected = createHmac('sha256', secret)
+        .update(`admin:${timestamp}`)
+        .digest('hex')
+
+      try {
+        return timingSafeEqual(
+          Buffer.from(signature, 'hex'),
+          Buffer.from(expected, 'hex')
+        )
+      } catch {
+        return false
+      }
+    }
+
+    return false
   } catch {
     return false
   }
+}
+
+export function rotateSessionToken(token: string): string | null {
+  if (!verifySessionToken(token)) return null
+  return generateSessionToken()
 }
 
 export const ADMIN_SESSION_COOKIE = '__Secure-admin_session'

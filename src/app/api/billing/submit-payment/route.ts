@@ -32,15 +32,29 @@ export async function POST(req: NextRequest) {
 
     const now = new Date().toISOString()
 
+    // Dedup: reject duplicate transactionId
+    const dupCheck = await sbFetch(
+      `subscription_payments?gateway_tx_id=eq.${encodeURIComponent(transactionId)}&select=id&limit=1`
+    )
+    if (dupCheck.ok) {
+      const existing = await dupCheck.json()
+      if (existing?.length) {
+        return NextResponse.json({ error: 'Duplicate transaction ID. Payment already submitted.' }, { status: 409 })
+      }
+    }
+    const expiresAt = cycle === 'yearly'
+      ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
     // Upsert subscription row
     await sbUpsertByShopId('subscriptions', {
       shop_id: shopId,
-      plan: 'starter',
+      plan: planId,
       status: 'active',
       trial_ends_at: null,
-      expires_at: null,
-      billing_cycle: null,
-      amount_pkr: null,
+      expires_at: expiresAt,
+      billing_cycle: cycle,
+      amount_pkr: amountPkr,
     })
 
     // Get subscription id

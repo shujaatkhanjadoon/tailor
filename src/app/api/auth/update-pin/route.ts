@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 import { validate, schemas } from '@/lib/validation'
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     await sbPatch(
       `team_members?id=eq.${encodeURIComponent(memberId)}`,
-      { pin_hash: pinHash, updated_at: new Date().toISOString() }
+      { pin_hash: bcrypt.hashSync(pinHash, 12), updated_at: new Date().toISOString() }
     )
 
     return NextResponse.json({ success: true })

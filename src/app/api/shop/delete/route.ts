@@ -3,22 +3,21 @@ import crypto from 'crypto'
 import { validate, schemas } from '@/lib/validation'
 import { sbGet, sbDelete } from '@/lib/supabase/service'
 
-let deleteFailures = 0
-
-async function tryDelete(table: string, filter: string) {
+async function tryDelete(table: string, filter: string): Promise<boolean> {
   try {
     await sbDelete(`${table}?${filter}`)
+    return true
   } catch (error) {
-    deleteFailures++
     console.warn(`[shop-delete] ${table}:`, error instanceof Error ? error.message : String(error))
+    return false
   }
 }
 
-async function deleteCloudinaryAsset(publicId: string) {
+async function deleteCloudinaryAsset(publicId: string): Promise<boolean> {
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
   const apiKey = process.env.CLOUDINARY_API_KEY ?? process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY
   const apiSecret = process.env.CLOUDINARY_API_SECRET
-  if (!cloudName || !apiKey || !apiSecret) return
+  if (!cloudName || !apiKey || !apiSecret) return true
 
   try {
     const timestamp = Math.round(Date.now() / 1000)
@@ -36,10 +35,11 @@ async function deleteCloudinaryAsset(publicId: string) {
     )
     const data = await res.json().catch(() => ({}))
     if (!res.ok || !['ok', 'not found'].includes(data.result)) {
-      deleteFailures++
+      return false
     }
+    return true
   } catch {
-    deleteFailures++
+    return false
   }
 }
 
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Only the active shop owner can permanently delete this shop' }, { status: 403 })
     }
 
-    deleteFailures = 0
+    let failures = 0
     const [orders, photos] = await Promise.all([
       sbGet(`orders?shop_id=eq.${encodeURIComponent(shopId)}&select=id`).catch(() => []),
       sbGet(`order_photos?shop_id=eq.${encodeURIComponent(shopId)}&select=public_id`).catch(() => []),
@@ -72,31 +72,27 @@ export async function POST(req: NextRequest) {
     const orderIds = orders.map((o: any) => o.id).filter(Boolean)
     const publicIds = photos.map((p: any) => p.public_id).filter(Boolean)
 
-    await Promise.all(publicIds.map(async (publicId: string) => {
-      await deleteCloudinaryAsset(publicId)
+    const photoResults = await Promise.all(publicIds.map(async (publicId: string) => {
+      return deleteCloudinaryAsset(publicId)
     }))
+    failures += photoResults.filter(r => r === false).length
 
     for (let i = 0; i < orderIds.length; i += 100) {
-      await tryDelete('order_status_history', inFilter('order_id', orderIds.slice(i, i + 100)))
+      const ok = await tryDelete('order_status_history', inFilter('order_id', orderIds.slice(i, i + 100)))
+      if (!ok) failures++
     }
 
     const shopFilter = `shop_id=eq.${encodeURIComponent(shopId)}`
-    await tryDelete('order_photos', shopFilter)
-    await tryDelete('payments', shopFilter)
-    await tryDelete('measurements', shopFilter)
-    await tryDelete('orders', shopFilter)
-    await tryDelete('customers', shopFilter)
-    await tryDelete('team_members', shopFilter)
-    await tryDelete('subscription_payments', shopFilter)
-    await tryDelete('subscriptions', shopFilter)
-    await tryDelete('shop_usage', shopFilter)
-    await tryDelete('shop_verification_requests', shopFilter)
+    for (const table of ['order_photos', 'payments', 'measurements', 'orders', 'customers', 'team_members', 'subscription_payments', 'subscriptions', 'shop_usage', 'shop_verification_requests']) {
+      const ok = await tryDelete(table, shopFilter)
+      if (!ok) failures++
+    }
 
     await sbDelete(`shops?id=eq.${encodeURIComponent(shopId)}`)
 
     return NextResponse.json({
       success: true,
-      ...(deleteFailures > 0 && { warning: `${deleteFailures} cleanup task(s) failed` }),
+      ...(failures > 0 && { warning: `${failures} cleanup task(s) failed` }),
     })
   } catch (error) {
     console.error('[shop-delete] error:', error)

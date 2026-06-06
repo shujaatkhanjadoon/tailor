@@ -1,21 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { timingSafeEqual } from 'crypto'
+import bcrypt from 'bcryptjs'
 import { generateMemberSessionToken, verifyMemberSessionToken, rotateMemberSessionToken, MEMBER_SESSION_COOKIE, getSessionCookieOptions } from '@/lib/auth/session'
 import { sbFetch } from '@/lib/supabase/service'
 import { ok, badRequest, unauthorized, serverError } from '@/lib/api-response'
 import { validate, schemas } from '@/lib/validation'
 import { logger } from '@/lib/logger'
 import { getLoginRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
-
-function safeEqual(a: string, b: string): boolean {
-  try {
-    const left = Buffer.from(a)
-    const right = Buffer.from(b)
-    return left.length === right.length && timingSafeEqual(left, right)
-  } catch {
-    return false
-  }
-}
 
 async function verifyPinHashServerSide(memberId: string, shopId: string, pinHash: string): Promise<boolean> {
   try {
@@ -26,7 +16,8 @@ async function verifyPinHashServerSide(memberId: string, shopId: string, pinHash
     const members = await res.json()
     if (!members?.length) return false
     const storedHash = String(members[0].pin_hash ?? '')
-    return storedHash.startsWith('$2') && pinHash.startsWith('$2') && safeEqual(pinHash, storedHash)
+    // storedHash is server-side double-hash, pinHash is client-side single hash
+    return storedHash.startsWith('$2') && pinHash.startsWith('$2') && await bcrypt.compare(pinHash, storedHash)
   } catch {
     return false
   }
