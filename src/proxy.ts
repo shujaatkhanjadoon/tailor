@@ -72,6 +72,15 @@ export async function proxy(req: NextRequest) {
     res.headers.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=120')
   }
 
+  // ── Cron routes (skip CSRF — external schedulers have no origin) ──
+  if (pathname.startsWith('/api/cron')) {
+    const auth = req.headers.get('authorization')
+    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+      return respond({ error: 'Unauthorized' }, 401)
+    }
+    return res
+  }
+
   // ── CSRF origin/referer check for state-changing API requests ──
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && pathname.startsWith('/api/')) {
     const origin  = req.headers.get('origin')
@@ -147,15 +156,6 @@ export async function proxy(req: NextRequest) {
   if (pathname.startsWith('/api/admin')) {
     const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
     if (!token || !verifySessionToken(token)) {
-      return respond({ error: 'Unauthorized' }, 401)
-    }
-    return res
-  }
-
-  // ── Cron routes ────────────────────────────────────────────────
-  if (pathname.startsWith('/api/cron')) {
-    const auth = req.headers.get('authorization')
-    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
       return respond({ error: 'Unauthorized' }, 401)
     }
     return res
