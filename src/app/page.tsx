@@ -30,6 +30,7 @@ import { shopOps } from "@/lib/db/operations";
 import type { ShopRecord } from "@/lib/db/schema";
 import { karachiDateString } from "@/lib/time";
 import { AppFooter } from "@/components/layout/AppFooter";
+import { SubscriptionInfo } from "@/components/billing/SubscriptionInfo";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -163,6 +164,10 @@ export default function DashboardPage() {
               </button>
             )}
 
+            <div className="block xl:hidden">
+              <SubscriptionInfo />
+            </div>
+
             <DueOrdersAlert orders={overdueOrders} />
 
             {/* Quick actions — responsive wrap */}
@@ -221,6 +226,7 @@ export default function DashboardPage() {
 
           {/* Desktop sidebar */}
           <div className="hidden lg:block space-y-4">
+            <SubscriptionInfo />
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
               <h3 className="text-sm font-bold text-slate-700 mb-3">
                 Order Status

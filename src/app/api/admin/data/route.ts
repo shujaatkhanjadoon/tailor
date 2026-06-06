@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
       case 'shops': {
         const [shops, subs, usages, orders] = await Promise.all([
           sbGet(`shops?select=*&order=created_at.desc&limit=${limit}&offset=${offset}`) as Promise<ShopRow[]>,
-          sbGet('subscriptions?select=shop_id,plan,status,billing_cycle,amount_pkr') as Promise<SubscriptionRow[]>,
+          sbGet('subscriptions?select=shop_id,plan,status,billing_cycle,amount_pkr,expires_at,trial_ends_at') as Promise<SubscriptionRow[]>,
           sbGet('shop_usage?select=shop_id,orders_this_month,customers_total,karigar_count') as Promise<ShopUsageRow[]>,
           sbGet('orders?select=id,shop_id,status,total_price,amount_paid,created_at,deleted_at') as Promise<OrderRow[]>,
         ])

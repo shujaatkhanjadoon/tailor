@@ -465,7 +465,7 @@ function ShopCard({
   const isActive = shop.is_active !== false && isVerified;
   const billingCycle =
     sub?.billing_cycle ?? (plan === "starter" ? null : "monthly");
-  const [now] = useState(() => Date.now())
+  const [now] = useState(() => Date.now())  // guarded by hydrated check in parent
   const expiryDate = sub?.expires_at || sub?.trial_ends_at;
 
   const daysLeft = expiryDate
@@ -899,6 +899,11 @@ function ShopCard({
 // ── Main Page ─────────────────────────────────────────────────────
 
 export default function AdminShopsPage() {
+  // Guard: defer time-dependent rendering to after hydration to avoid
+  // PPR prerender warning ("cannot access Date.now() before uncached data")
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => { setHydrated(true); }, []);
+
   const [shops, setShops] = useState<Shop[]>([]);
   const [pendingVerifications, setPendingVerifications] = useState<
     VerificationRequest[]
@@ -1156,6 +1161,25 @@ export default function AdminShopsPage() {
     business_monthly: shops.filter(s => getShopPlanKey(s) === "business_monthly").length,
     business_yearly: shops.filter(s => getShopPlanKey(s) === "business_yearly").length,
   };
+
+  // During SSR/hydration wait, render a static shell without time-dependent values
+  if (!hydrated) {
+    return (
+      <div className="space-y-5">
+        <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
+          <div>
+            <h1 className="text-xl lg:text-2xl font-bold text-white">All Shops</h1>
+            <p className="text-slate-400 text-sm mt-0.5">Loading...</p>
+          </div>
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-slate-800 border border-slate-700 rounded-2xl h-20 p-4 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-5">

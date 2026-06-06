@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
-import { sbFetch, sbUpsertByShopId } from '@/lib/supabase/service'
+import { sbFetch } from '@/lib/supabase/service'
 import { validate } from '@/lib/validation'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
@@ -42,28 +42,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Duplicate transaction ID. Payment already submitted.' }, { status: 409 })
       }
     }
-    const expiresAt = cycle === 'yearly'
-      ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-
-    // Upsert subscription row
-    await sbUpsertByShopId('subscriptions', {
-      shop_id: shopId,
-      plan: planId,
-      status: 'active',
-      trial_ends_at: null,
-      expires_at: expiresAt,
-      billing_cycle: cycle,
-      amount_pkr: amountPkr,
-    })
-
-    // Get subscription id
+    // Fetch existing subscription ID (for payment FK) — do NOT change subscription status;
+    // admin must manually verify payment and activate via /api/admin/action
     const subRes = await sbFetch(`subscriptions?shop_id=eq.${encodeURIComponent(shopId)}&select=id&limit=1`)
     if (!subRes.ok) throw new Error('Failed to fetch subscription')
     const [subRow] = await subRes.json()
     const subscriptionId = subRow?.id ?? null
 
-    // Insert payment record
+    // Insert payment record (status: pending — admin verifies manually)
     const paymentPayload: Record<string, unknown> = {
       shop_id: shopId,
       plan: planId,
@@ -93,19 +79,6 @@ export async function POST(req: NextRequest) {
       const errText = await payRes.text()
       logger.error('submit-payment', 'Insert payment failed', errText)
       return NextResponse.json({ error: 'Payment record failed' }, { status: 500 })
-    }
-
-    // Mark subscription gateway info
-    if (subscriptionId) {
-      await sbFetch(`subscriptions?id=eq.${subscriptionId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-        body: JSON.stringify({
-          gateway: 'raast',
-          gateway_sub_id: paymentRef,
-          updated_at: now,
-        }),
-      })
     }
 
     return NextResponse.json({ success: true })

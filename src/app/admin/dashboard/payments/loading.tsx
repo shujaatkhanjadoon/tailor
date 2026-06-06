@@ -1,3 +1,5 @@
+'use client'
+
 import { PaymentCardSkeleton } from '@/components/ui/Skeleton'
 export default function Loading() {
   return (
