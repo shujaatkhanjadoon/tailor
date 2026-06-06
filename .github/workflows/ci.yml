@@ -63,12 +63,16 @@ jobs:
           SESSION_SIGNING_SECRET: ci-session-signing-secret
           OTP_PEPPER_SECRET: ci-otp-pepper
           ADMIN_TOTP_SECRET: JBSWY3DPEHPK3PXP
+          CRON_SECRET: ci-cron-secret
+          NEXT_PUBLIC_APP_URL: https://app.meradarzi.pk
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
 
   build:
     name: Build
     runs-on: ubuntu-latest
     needs: [test]
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
@@ -90,5 +94,6 @@ jobs:
           SESSION_SIGNING_SECRET: ci-session-signing-secret
           OTP_PEPPER_SECRET: ci-otp-pepper
           ADMIN_TOTP_SECRET: JBSWY3DPEHPK3PXP
+          CRON_SECRET: ci-cron-secret
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           SENTRY_ENVIRONMENT: ci

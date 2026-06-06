@@ -5,7 +5,7 @@ import { useState }   from 'react'
 import {
   CheckCircle2, XCircle, MessageCircle,
   Copy, Check, ChevronDown, ChevronUp,
-  Loader2, Clock, AlertCircle,
+  Loader2, Clock,
 } from 'lucide-react'
 import { activateSubscription, rejectPayment } from '@/lib/billing/admin'
 import { buildActivationWhatsApp, buildRejectionWhatsApp } from '@/lib/billing/whatsapp-notify'

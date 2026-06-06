@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   RefreshCw, CheckCircle2, XCircle,
   Clock, Copy, Check, MessageCircle,
-  ChevronDown, ChevronUp, Inbox,
+  ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'

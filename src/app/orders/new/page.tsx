@@ -48,9 +48,6 @@ interface WizardData {
 
 const STEPS = ["Gahak Chunein", "Kapra & Nap", "Qeemat & Tarikh"];
 
-const isRelationCheckError = (error: { message?: string } | null | undefined) =>
-  !!error?.message?.includes("violates check constraint");
-
 const measurementRelationForLegacyDb = (relation: OrderRecipientRelation) =>
   isParentRelation(relation) ? "other" : relation;
 
@@ -241,18 +238,6 @@ function NewOrderWizard({
         measurementId = uuid();
 
         const selectedRelation = data.orderForRelation ?? "self";
-        const measurementRow = {
-          id: measurementId,
-          customer_id: data.customerId!,
-          shop_id: shopId,
-          order_for_relation: selectedRelation,
-          order_for_name: data.orderForName?.trim() || null,
-          recipient_gender: data.recipientGender ?? data.customerGender,
-          garment_type: data.garmentType!,
-          values: filledMeasurements,
-          taken_at: nowKarachiIso(),
-        };
-
         const measPayload = {
           id: measurementId,
           customerId: data.customerId!,

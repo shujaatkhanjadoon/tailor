@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { validate, schemas } from '@/lib/validation'
-import { sbFetch, sbGet, sbDelete } from '@/lib/supabase/service'
+import { sbGet, sbDelete } from '@/lib/supabase/service'
 
 let deleteFailures = 0
 

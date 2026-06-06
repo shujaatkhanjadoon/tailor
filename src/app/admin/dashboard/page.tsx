@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter }           from 'next/navigation'
 import {
-  TrendingUp, Users, CreditCard, Clock,
+  TrendingUp, CreditCard,
   AlertCircle, Store, CheckCircle2,
   RefreshCw, ArrowRight,
 } from 'lucide-react'
@@ -120,7 +120,7 @@ export default function AdminDashboardPage() {
         setPendingVerifications(verifyData.data ?? [])
         setShops(shopData.data ?? [])
       }
-    } catch (e) {
+    } catch {
       if (!cancelledRef.current) setError('Data load nahi ho saka. Page refresh karein.')
     } finally {
       if (!cancelledRef.current) setLoading(false)

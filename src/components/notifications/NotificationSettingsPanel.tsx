@@ -3,7 +3,7 @@
 
 import {
   Bell, BellOff, AlertTriangle, Clock,
-  CalendarCheck, Play, CheckCircle2, Settings2,
+  CalendarCheck, Play, CheckCircle2,
 } from 'lucide-react'
 import { useNotifications } from '@/hooks/useNotifications'
 import { cn } from '@/lib/utils'
@@ -41,7 +41,7 @@ function ToggleRow({ icon, label, sublabel, value, onChange, disabled }: ToggleR
 
 export function NotificationSettingsPanel() {
   const {
-    permission, isGranted, isDenied, isSupported,
+    isGranted, isDenied, isSupported,
     settings, updateSetting,
     requestPermission, testNotification, testing,
   } = useNotifications()

@@ -3,7 +3,7 @@
 
 import { logAdminAction } from '@/lib/admin/audit'
 import { buildActivationWhatsApp, buildRejectionWhatsApp } from './whatsapp-notify'
-import { sbGet, sbPatch, sbUpsertByShopId, sbFetch, type Row } from '@/lib/supabase/service'
+import { sbGet, sbPatch, sbUpsertByShopId, type Row } from '@/lib/supabase/service'
 import { PLANS } from './plans'
 import { subscriptionExpiresAt } from './cycles'
 
@@ -55,22 +55,6 @@ export interface PaginatedResult<T> {
   page: number
   perPage: number
   totalPages: number
-}
-
-async function getTotalCount(table: string, filter = ''): Promise<number> {
-  try {
-    const path = `${table}?select=id&${filter}&limit=0&count=exact`.replace(/&+/, '&')
-    const res = await sbFetch(path)
-    if (!res.ok) return 0
-    const range = res.headers.get('content-range')
-    if (range) {
-      const match = range.match(/\/(\d+)$/)
-      if (match) return parseInt(match[1], 10)
-    }
-    return 0
-  } catch {
-    return -1
-  }
 }
 
 // ── Get all shops with subscriptions and usage ────────────────────

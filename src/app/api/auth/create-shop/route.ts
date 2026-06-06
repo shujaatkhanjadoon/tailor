@@ -8,7 +8,7 @@ import {
 } from '@/lib/security/email-otp'
 import { parseBody } from '@/lib/security/body'
 import { getSignupRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
-import { sbFetch, sbGet, sbPost, sbUpsertById, sbUpsertByShopId } from '@/lib/supabase/service'
+import { sbGet, sbPost, sbUpsertById, sbUpsertByShopId } from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
@@ -212,10 +212,6 @@ export async function POST(req: NextRequest) {
         `?phone=${adminWA}&text=${msg}&apikey=${callMeBotKey}`
       ).catch(err => logger.error('create-shop', 'WhatsApp notification failed', err))
     } else if (adminWA) {
-      // Log link for manual sending
-      const msg = encodeURIComponent(
-        `🆕 New Shop: ${shopName} | ${ownerPhone} | ${city ?? 'N/A'}`
-      )
     }
 
     return NextResponse.json({

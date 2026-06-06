@@ -1,7 +1,7 @@
 // src/app/orders/page.tsx
 'use client'
 
-import { useState, Suspense }         from 'react'
+import { useState, Suspense, useMemo } from 'react'
 import { useEffect }                  from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, Plus, X, Filter, Download }    from 'lucide-react'
@@ -28,13 +28,13 @@ function OrdersContent() {
   const plan = usePlan()
   const { t } = useTranslation()
 
-  const QUICK_FILTERS: { key: OrderFilter; label: string; emoji: string }[] = [
+  const QUICK_FILTERS = useMemo((): { key: OrderFilter; label: string; emoji: string }[] => [
     { key: 'all',        label: t('orders.quickFilters.sab'),         emoji: '📋' },
     { key: 'overdue',    label: t('orders.quickFilters.deri'),        emoji: '🔴' },
     { key: 'ready',      label: t('orders.quickFilters.tayyar'),      emoji: '✅' },
     { key: 'today',      label: t('orders.quickFilters.aaj'),         emoji: '📅' },
     { key: 'unassigned', label: t('orders.quickFilters.binaAssign'),  emoji: '👤' },
-  ]
+  ], [t])
 
   const STATUS_OPTIONS: { key: OrderStatus | 'all'; label: string }[] = [
     { key: 'all',       label: t('orders.filters.allStatus') },
@@ -93,7 +93,7 @@ function OrdersContent() {
     if (filter && QUICK_FILTERS.some(item => item.key === filter)) {
       setActiveFilter(filter)
     }
-  }, [searchParams, setActiveFilter])
+  }, [searchParams, setActiveFilter, QUICK_FILTERS])
 
   const hasActiveFilters = searchQuery || statusFilter !== 'all' || activeFilter !== 'all'
   const exportRows = orders.map(o => ({

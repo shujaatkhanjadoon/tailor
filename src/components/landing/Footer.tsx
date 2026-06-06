@@ -1,6 +1,6 @@
 // src/components/landing/Footer.tsx
 import Link       from 'next/link'
-import { Scissors } from 'lucide-react'
+
 import Image from 'next/image'
 
 const LINKS = {

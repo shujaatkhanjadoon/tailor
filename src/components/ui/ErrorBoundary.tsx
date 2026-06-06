@@ -2,6 +2,7 @@
 'use client'
 
 import { Component, ReactNode } from 'react'
+import Link from 'next/link'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 
 interface Props {
@@ -84,13 +85,13 @@ export function PageErrorBoundary({ children }: { children: ReactNode }) {
               >
                 Page Reload Karein
               </button>
-              <a
+              <Link
                 href="/"
                 className="block w-full bg-slate-100 text-slate-700 font-bold
                            py-3 rounded-xl text-sm text-center"
               >
                 Dashboard Par Jayein
-              </a>
+              </Link>
             </div>
           </div>
         </div>

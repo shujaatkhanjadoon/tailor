@@ -1,7 +1,7 @@
 // src/components/photos/PhotoCapture.tsx
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Image                   from 'next/image'
 import { useLiveQuery }       from 'dexie-react-hooks'
 import {
@@ -55,14 +55,15 @@ export function PhotoCapture({
   const [viewing, setViewing] = useState<string | null>(null)
   const [remotePhotos, setRemotePhotos] = useState<PhotoRecord[]>([])
 
-  const localPhotos = useLiveQuery(
+  const rawPhotos = useLiveQuery(
     async (): Promise<PhotoRecord[]> =>
       db.photos
         .where('orderId').equals(orderId)
         .filter(p => p.type === type && p._deleted !== 1)
         .sortBy('takenAt'),
     [orderId, type]
-  ) ?? []
+  )
+  const localPhotos = useMemo(() => rawPhotos ?? [], [rawPhotos])
 
   useEffect(() => {
     if (!orderId) return

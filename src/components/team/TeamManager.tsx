@@ -1,7 +1,7 @@
 // src/components/team/TeamManager.tsx
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   UserPlus, Trash2, Star, Scissors, Phone,
   Pencil, X, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2,
@@ -683,7 +683,7 @@ export function TeamManager() {
             <p className="text-sm font-medium">Abhi koi member nahi</p>
           </div>
         ) : (
-          members.map((member, idx) => (
+          members.map((member) => (
             <div
               key={member.id}
               className={cn(

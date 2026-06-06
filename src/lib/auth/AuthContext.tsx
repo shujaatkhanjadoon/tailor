@@ -84,18 +84,6 @@ async function deleteServerSession(): Promise<void> {
   }
 }
 
-function getCachedShopId(): string | null {
-  if (typeof localStorage === 'undefined') return null
-  try {
-    const raw = localStorage.getItem(SESSION_KEY)
-    if (!raw) return null
-    const s = JSON.parse(raw)
-    return s?.shopId ?? null
-  } catch {
-    return null
-  }
-}
-
 function setCachedShopId(shopId: string): void {
   if (typeof localStorage === 'undefined') return
   localStorage.setItem(SESSION_KEY, JSON.stringify({ shopId }))
@@ -247,7 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState(s => ({ ...s, ...partial, isLoading: false }))
 
     return shopId
-  }, [reinitialize])
+  }, [])
 
   // ── Clear All Data ───────────────────────────────────────────
   const clearAllData = useCallback(async () => {

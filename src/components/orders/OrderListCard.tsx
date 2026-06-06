@@ -214,6 +214,7 @@ export const OrderListCard = memo(function OrderListCard({
         </div>
         {photoCount > 0 && (
           <span className="flex items-center gap-0.5 text-[10px] text-slate-400">
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
             <Image size={10} />
             {t('orders.card.photoCount', { count: photoCount })}
           </span>

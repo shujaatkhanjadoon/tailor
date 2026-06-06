@@ -176,13 +176,13 @@ const SHALWAR_KAMEEZ_KAMEEZ_KEYS = new Set([
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const { isOwner, currentUser, shopId } = useAuth()
+  const { isOwner, currentUser } = useAuth()
   const plan = usePlan()
   const { order, payments, history, balance, patchOrder, addPayment, refresh } = useOrder(id)
   const [shop, setShop] = useState<ShopRecord | undefined>()
   const [customer, setCustomer] = useState<CustomerRecord | undefined>()
   const [measurement, setMeasurement] = useState<MeasurementRecord | undefined>()
-  const [remotePhotos, setRemotePhotos] = useState<PhotoRecord[]>([])
+  const [, setRemotePhotos] = useState<PhotoRecord[]>([])
 
   useEffect(() => {
     if (!order) return
@@ -757,7 +757,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <div className="bg-white border border-slate-200 rounded-2xl p-4">
             <h2 className="font-bold text-slate-800 text-sm mb-3">Status History</h2>
             <div className="space-y-2">
-              {history.map((h, i) => {
+              {history.map((h) => {
                 const oldCfg = ORDER_STATUS_CONFIG[h.oldStatus as OrderStatus]
                 const newCfg = ORDER_STATUS_CONFIG[h.newStatus as OrderStatus]
                 return (

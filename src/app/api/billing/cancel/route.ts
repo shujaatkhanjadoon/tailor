@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: 400 })
     }
 
-    const { reason, expiresAt } = parsed.data
+    const { expiresAt } = parsed.data
 
     const now = new Date().toISOString()
     const currentExpiry = expiresAt ? new Date(expiresAt).getTime() : Date.now()

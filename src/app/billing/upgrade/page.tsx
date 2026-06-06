@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { ArrowLeft }          from 'lucide-react'
 import { usePlan }            from '@/hooks/usePlan'
 import { PLANS, PlanId }      from '@/lib/billing/plans'
@@ -12,10 +12,8 @@ import { RaastPaymentSheet }  from '@/components/billing/RaastPaymentSheet'
 
 function UpgradeContent() {
   const router       = useRouter()
-  const searchParams = useSearchParams()
   const plan         = usePlan()
 
-  const defaultPlan  = (searchParams.get('plan') as PlanId) ?? 'professional'
   const [cycle, setCycle]       = useState<'monthly' | 'yearly'>('monthly')
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
 

@@ -2,7 +2,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, Wallet, CheckCircle2, Scissors } from 'lucide-react'
+import { Calendar, CheckCircle2, Scissors } from 'lucide-react'
 import { PaymentMethod, GARMENT_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
 import { formatAmount } from '@/lib/format/currency'
@@ -61,7 +61,7 @@ export function Step3Confirm({
   selectableKarigarIds = new Set(),
   saving,
 }: Step3Props) {
-  const [submitted, setSubmitted] = useState(false)
+  const [submitted] = useState(false)
 
   const totalPrice = data.totalPrice || 0
   const advancePaid = data.advancePaid || 0
@@ -71,11 +71,6 @@ export function Step3Confirm({
   const handlePriceInput = (field: 'totalPrice' | 'advancePaid', value: string) => {
     const num = parseInt(value.replace(/\D/g, '')) || 0
     onUpdate({ [field]: num })
-  }
-
-  const handleSubmit = () => {
-    setSubmitted(true)
-    setTimeout(() => onSubmit(), 1200)
   }
 
   const canSubmit = totalPrice > 0 && !!data.dueDate

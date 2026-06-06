@@ -1,7 +1,7 @@
 // src/components/ui/EmptyState.tsx
 import { LucideIcon } from 'lucide-react'
 import { cn }         from '@/lib/utils'
-import { useTranslation } from 'react-i18next'
+
 
 interface EmptyStateProps {
   icon?:       LucideIcon
@@ -29,7 +29,6 @@ export function EmptyState({
   secondaryAction,
   size = 'md',
 }: EmptyStateProps) {
-  const { t } = useTranslation()
   const sizes = {
     sm: { wrap: 'py-10', iconBox: 'w-12 h-12', iconSize: 20, emoji: 'text-3xl' },
     md: { wrap: 'py-16', iconBox: 'w-16 h-16', iconSize: 26, emoji: 'text-4xl' },

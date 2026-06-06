@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useTranslation } from 'react-i18next'
 
 export default function Error({
-  error,
   reset,
 }: {
   error: Error & { digest?: string }

@@ -1,9 +1,9 @@
 ﻿// src/components/billing/RaastPaymentSheet.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { X, Copy, Check, AlertCircle, CheckCircle2, Loader2, MessageCircle } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
+
 import { useAuth } from '@/lib/auth/AuthContext'
 import { generatePaymentRef } from '@/lib/billing/raast'
 import { PLANS, PlanId } from '@/lib/billing/plans'
@@ -40,17 +40,6 @@ export function RaastPaymentSheet({
 
   const [paymentRef] = useState(() => generatePaymentRef(shopId ?? 'SHOP'))
   const targetPlan = PLANS[planId]
-
-  // Banking apps reject custom deep links as invalid QR codes.
-  // This QR is intentionally a plain payment-details card for phone cameras.
-  const paymentDetailsQR = [
-    `Meradarzi subscription payment`,
-    `Raast ID: ${RAAST_ID}`,
-    `Account: ${RAAST_NAME}`,
-    `Bank: ${RAAST_BANK}`,
-    `Amount: PKR ${amountPkr}`,
-    `Reference: ${paymentRef}`,
-  ].join('\n')
 
   const adminWhatsAppLink = ADMIN_WA
     ? `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(
@@ -518,7 +507,7 @@ export function RaastPaymentSheet({
                   Maine Payment Kar Di ✓
                 </button>
                 <p className="text-xs text-slate-400 text-center">
-                  Payment ke baad "Maine Payment Kar Di" dabayein
+                  Payment ke baad &quot;Maine Payment Kar Di&quot; dabayein
                 </p>
               </>
             ) : (

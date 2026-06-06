@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     if (!res.ok) throw new Error(`POST notification: ${res.status} ${await res.text()}`)
     const [row] = await res.json()
     return NextResponse.json({ data: row })
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

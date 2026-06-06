@@ -362,7 +362,7 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
                           className="flex-1 w-full text-base font-bold text-slate-800
                                      bg-transparent outline-none placeholder:text-slate-300"
                         />
-                        <span className="text-[10px] text-slate-400 shrink-0">"</span>
+                        <span className="text-[10px] text-slate-400 shrink-0">&quot;</span>
                       </div>
                     </div>
                   )
@@ -528,7 +528,7 @@ export default function MeasurementsPage({ params }: { params: Promise<{ id: str
                             >
                               <p className="text-[10px] text-slate-400">{labelUrdu}</p>
                               <p className="text-base font-bold text-slate-800 mt-0.5">
-                                {val}<span className="text-[10px] text-slate-400">"</span>
+                                {val}<span className="text-[10px] text-slate-400">&quot;</span>
                               </p>
                             </div>
                           )

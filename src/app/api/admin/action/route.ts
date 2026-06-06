@@ -2,8 +2,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendAdminSubscriptionEventEmail, sendShopOwnerAdminActionEmail } from "@/lib/security/email-otp";
 import { ADMIN_SESSION_COOKIE, verifySessionToken, verifyTOTP } from "@/lib/admin/auth";
-import { logAdminAction } from "@/lib/admin/audit";
-import { parseBody } from "@/lib/security/body";
 import { validate, schemas } from "@/lib/validation";
 import { sbGet, sbPatch, sbPost, sbUpsertByShopId } from "@/lib/supabase/service";
 import { subscriptionExpiresAt } from "@/lib/billing/cycles";
@@ -50,12 +48,6 @@ function subscriptionEvent(previousPlan?: string | null, nextPlan?: string | nul
   if (previousPlan && previousPlan === nextPlan) return "renewed";
   return planRank(nextPlan) > planRank(previousPlan) ? "upgraded" : "downgraded";
 }
-
-type SubscriptionSnapshot = {
-  plan?: string | null;
-  status?: string | null;
-  expires_at?: string | null;
-};
 
 export async function POST(req: NextRequest) {
   const token = req.cookies.get(ADMIN_SESSION_COOKIE)?.value;

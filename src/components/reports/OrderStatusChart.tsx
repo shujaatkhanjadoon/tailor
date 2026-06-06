@@ -3,10 +3,10 @@
 
 import {
   PieChart, Pie, Cell, Tooltip,
-  ResponsiveContainer, Legend,
+  ResponsiveContainer,
 } from 'recharts'
 import { ORDER_STATUS_CONFIG } from '@/types'
-import { cn } from '@/lib/utils'
+
 
 const STATUS_COLORS: Record<string, string> = {
   received:  '#f59e0b',
@@ -75,7 +75,7 @@ export function OrderStatusChart({ data, total }: OrderStatusChartProps) {
                 paddingAngle={3}
                 strokeWidth={0}
               >
-                {data.map((entry, i) => (
+                {data.map((entry) => (
                   <Cell
                     key={entry.status}
                     fill={STATUS_COLORS[entry.status] ?? '#94a3b8'}

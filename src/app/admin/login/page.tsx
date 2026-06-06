@@ -4,9 +4,9 @@
 import { useState, useEffect, Suspense, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams }    from 'next/navigation'
 import {
-  Scissors, Shield, Eye, EyeOff,
-  Loader2, CheckCircle2, AlertCircle,
-  Smartphone, Key, RefreshCw,
+  Shield, Eye, EyeOff,
+  Loader2, AlertCircle,
+  Smartphone, Key,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
@@ -433,7 +433,7 @@ function LoginContent() {
 export default function AdminLoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800
+      <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800
                       to-blue-950 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">

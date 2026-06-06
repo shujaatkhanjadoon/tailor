@@ -205,7 +205,7 @@ export function Step1Customer({ data, onUpdate, onNext }: Step1Props) {
             <p className="text-2xl mb-3">👥</p>
             <p className="text-sm font-medium text-slate-500">Koi gahak nahi</p>
             <p className="text-xs text-slate-400 mt-1">
-              Upar "Naya Gahak Banayein" se add karein
+              Upar &quot;Naya Gahak Banayein&quot; se add karein
             </p>
           </div>
         )}

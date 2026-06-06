@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse }  from 'next/server'
 import { verifyOTP }                  from '@/lib/security/email-otp'
 import { getLoginRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
-import { parseBody }                  from '@/lib/security/body'
 import { validate, schemas }          from '@/lib/validation'
 import { sbFetch, sbPatch }           from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'

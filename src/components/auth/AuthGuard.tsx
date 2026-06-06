@@ -43,7 +43,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
         window.location.href = '/karigar'
       }
     }
-  }, [isLoading, currentUser, pathname])
+  }, [isLoading, currentUser, pathname, isPublic])
 
   if (isLoading || (!isPublic && (!currentUser || !karigarAllowed))) {
     return (

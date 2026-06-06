@@ -1,6 +1,6 @@
 import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
-import { sbFetch, sbUpsertById, sbUpsertByShopId, sbPost } from '@/lib/supabase/service'
+import { sbUpsertById, sbUpsertByShopId, sbPost } from '@/lib/supabase/service'
 
 const NOW = new Date()
 const KARACHI_OFFSET = '+05:00'

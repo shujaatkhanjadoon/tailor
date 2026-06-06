@@ -31,14 +31,6 @@ interface Props {
   showPayReports?: boolean
 }
 
-const METHOD_COLORS: Record<string, string> = {
-  cash:       '#22c55e',
-  easypaisa:  '#14b8a6',
-  jazzcash:   '#ef4444',
-  bank:       '#3b82f6',
-  other:      '#94a3b8',
-}
-
 export function GarmentBreakdown({ garments, karigars, totalOrders, showPayReports = false }: Props) {
   const maxCount = Math.max(...garments.map(g => g.count), 1)
 

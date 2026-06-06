@@ -5,7 +5,7 @@ import { ReactNode } from 'react'
 import { Lock }      from 'lucide-react'
 import { usePlan }   from '@/hooks/usePlan'
 import { FEATURE_DESCRIPTIONS, PlanId, PLANS } from '@/lib/billing/plans'
-import { cn }        from '@/lib/utils'
+
 
 interface FeatureGateProps {
   feature:   keyof typeof FEATURE_DESCRIPTIONS
@@ -24,7 +24,7 @@ export function FeatureGate({
 }: FeatureGateProps) {
   const plan           = usePlan()
   const featureDef     = FEATURE_DESCRIPTIONS[feature]
-  const requiredPlan   = PLANS[featureDef.requiredPlan]
+
 
   if (plan.isLoading) {
     return mode === 'hide' ? null : (
@@ -89,7 +89,7 @@ export function FeatureGate({
 // ── Sub-components ────────────────────────────────────────────────
 
 function UpgradeChip({
-  featureDef, plan, requiredPlan,
+  plan, requiredPlan,
 }: {
   featureDef: typeof FEATURE_DESCRIPTIONS[string]
   plan: ReturnType<typeof usePlan>

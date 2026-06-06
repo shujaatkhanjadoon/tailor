@@ -3,8 +3,8 @@
 
 import { X, Zap, Check } from 'lucide-react'
 import { usePlan }        from '@/hooks/usePlan'
-import { PLANS, PlanId, FEATURE_DESCRIPTIONS } from '@/lib/billing/plans'
-import { cn }             from '@/lib/utils'
+import { PLANS, FEATURE_DESCRIPTIONS } from '@/lib/billing/plans'
+
 
 interface UpgradePromptProps {
   feature:  keyof typeof FEATURE_DESCRIPTIONS

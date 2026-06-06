@@ -1,6 +1,7 @@
 // src/components/orders/wizard/Step2Garment.tsx
 'use client'
 
+import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { AlertCircle, CheckCircle2, Loader2, UsersRound } from 'lucide-react'
 import { GarmentType, GARMENT_LABELS, OrderRecipientRelation } from '@/types'
@@ -767,7 +768,7 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
 
     load().catch(console.error)
     return () => { cancelled = true }
-  }, [data.customerId, selectedRelation])
+  }, [data.customerId, selectedRelation, data.customerGender, data.orderForName, data.recipientGender, onUpdate])
 
   useEffect(() => {
     let cancelled = false
@@ -1295,9 +1296,11 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
         </label>
         {quickPhoto ? (
           <div className="relative">
-            <img
+            <Image
               src={quickPhoto}
               alt="Fabric"
+              width={400}
+              height={160}
               className="w-full h-40 object-cover rounded-2xl"
             />
             <button

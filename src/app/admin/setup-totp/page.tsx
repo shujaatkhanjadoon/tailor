@@ -171,9 +171,9 @@ export default function SetupTOTPPage() {
                     (iPhone)
                   </a>
                 </li>
-                <li>App mein "+" button → "Scan QR code"</li>
+                <li>App mein &quot;+&quot; button → &quot;Scan QR code&quot;</li>
                 <li>Upar wala QR scan karein</li>
-                <li>"MeraDarzi Admin" entry dikh jayegi</li>
+                <li>&quot;MeraDarzi Admin&quot; entry dikh jayegi</li>
                 <li>Ab har login mein 6-digit code use karein</li>
               </ol>
             </div>

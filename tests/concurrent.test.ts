@@ -39,7 +39,7 @@ test('mapConcurrent: respects concurrency limit', async () => {
   let maxInFlight = 0
   const errors = await mapConcurrent(
     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    async (n) => {
+    async () => {
       inFlight++
       maxInFlight = Math.max(maxInFlight, inFlight)
       await new Promise(resolve => setTimeout(resolve, 10))

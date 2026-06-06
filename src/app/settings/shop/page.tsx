@@ -14,7 +14,7 @@ import { AccessNotice } from '@/components/billing/AccessNotice'
 import { usePlan } from '@/hooks/usePlan'
 import { PAKISTAN_STATE_CITIES } from '@/lib/locations/pakistan'
 import type { ShopRecord } from '@/lib/db/schema'
-import { nowKarachiIso } from '@/lib/time'
+
 
 export default function ShopSettingsPage() {
   const router = useRouter()
@@ -407,7 +407,7 @@ export default function ShopSettingsPage() {
                         onClick={() => { setCity(cityQuery.trim()); setCityQuery(''); setCityDropdownOpen(false) }}
                         className="w-full px-4 py-3 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50"
                       >
-                        Add "{cityQuery.trim()}"
+                        Add &quot;{cityQuery.trim()}&quot;
                       </button>
                     )}
                     {filteredCities.length === 0 && !canAddTypedCity && (

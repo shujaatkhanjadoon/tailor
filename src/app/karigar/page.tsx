@@ -126,7 +126,7 @@ function ActiveOrderCard({ order, onStatusTap, onDetailTap }: {
             {order.specialInstructions && <SpecialInstructionsSummary value={order.specialInstructions} compact className="mt-1 w-full" />}
           </div>
           {order.fabricPhotoUrl && (
-            <img src={order.fabricPhotoUrl} alt="Fabric reference" className="mt-3 h-28 w-full rounded-xl object-cover" />
+            <Image src={order.fabricPhotoUrl} alt="Fabric reference" width={400} height={112} className="mt-3 h-28 w-full rounded-xl object-cover" />
           )}
         </div>
         <div className="flex gap-2">
@@ -146,7 +146,6 @@ function ActiveOrderCard({ order, onStatusTap, onDetailTap }: {
 
 function HistoryOrderCard({ order }: { order: OrderRecord }) {
   const router = useRouter()
-  const { t } = useTranslation()
   const sc = ORDER_STATUS_CONFIG[order.status as OrderStatus]
   const gc = GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS]
 
@@ -503,7 +502,7 @@ function ActiveTab({ orders, onStatusTap, onDetailTap }: {
   onDetailTap: (o: OrderRecord) => void
 }) {
   const { t } = useTranslation()
-  const ACTIVE_STATUSES: OrderStatus[] = ['received', 'cutting', 'stitching', 'finishing', 'ready']
+  const ACTIVE_STATUSES = useMemo(() => ['received', 'cutting', 'stitching', 'finishing', 'ready'] as OrderStatus[], [])
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all')
   const [search, setSearch] = useState('')
 
@@ -521,7 +520,7 @@ function ActiveTab({ orders, onStatusTap, onDetailTap }: {
       if (aLate !== bLate) return aLate - bLate
       return a.dueDate.localeCompare(b.dueDate)
     })
-  }, [orders, statusFilter, search])
+  }, [orders, statusFilter, search, ACTIVE_STATUSES])
 
   return (
     <div className="space-y-3 pb-4">
@@ -577,7 +576,7 @@ function ActiveTab({ orders, onStatusTap, onDetailTap }: {
 
 function HistoryTab({ orders }: { orders: OrderRecord[] }) {
   const { t } = useTranslation()
-  const DONE_STATUSES: OrderStatus[] = ['delivered', 'cancelled']
+  const DONE_STATUSES = useMemo(() => ['delivered', 'cancelled'] as OrderStatus[], [])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'delivered' | 'cancelled'>('all')
   const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month'>('all')
@@ -595,7 +594,7 @@ function HistoryTab({ orders }: { orders: OrderRecord[] }) {
       list = list.filter(o => o.customerName.toLowerCase().includes(q) || String(o.orderNumber).includes(q))
     }
     return list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-  }, [orders, filter, timeFilter, search])
+  }, [orders, filter, timeFilter, search, DONE_STATUSES])
 
   const grouped = useMemo(() => {
     const groups: Record<string, OrderRecord[]> = {}
@@ -606,7 +605,7 @@ function HistoryTab({ orders }: { orders: OrderRecord[] }) {
       groups[key].push(o)
     })
     return Object.entries(groups)
-  }, [done])
+  }, [done, t])
 
   const deliveredCount = orders.filter(o => o.status === 'delivered').length
   const cancelledCount = orders.filter(o => o.status === 'cancelled').length

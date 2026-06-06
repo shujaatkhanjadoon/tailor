@@ -218,7 +218,6 @@ function NotifRow({
   onClick: () => void
 }) {
   const sc     = ORDER_STATUS_CONFIG[order.status as keyof typeof ORDER_STATUS_CONFIG]
-  const today  = new Date().toISOString().split('T')[0]
 
   return (
     <button

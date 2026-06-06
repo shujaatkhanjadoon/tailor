@@ -2,7 +2,7 @@
 'use client'
 
 import { Check, Zap } from 'lucide-react'
-import { PlanDefinition, PlanId, yearlySaving, yearlySavingPercent, formatYearlySaving } from '@/lib/billing/plans'
+import { PlanDefinition, PlanId, yearlySaving, yearlySavingPercent } from '@/lib/billing/plans'
 import { cn } from '@/lib/utils'
 
 interface PricingCardProps {

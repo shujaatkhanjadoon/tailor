@@ -1,7 +1,7 @@
 // src/components/auth/PinPad.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Delete } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -53,7 +53,7 @@ export function PinPad({
     }
   }, [pin, length, onComplete])
 
-  const handleKey = (key: string) => {
+  const handleKey = useCallback((key: string) => {
     if (disabled) return
     if (key === '⌫') {
       setPin(p => p.slice(0, -1))
@@ -63,7 +63,7 @@ export function PinPad({
     } else if (pin.length < length) {
       setPin(p => p + key)
     }
-  }
+  }, [disabled, onClear, pin, length])
 
   // Keyboard support
   useEffect(() => {
@@ -74,7 +74,7 @@ export function PinPad({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [pin, disabled])
+  }, [pin, disabled, handleKey])
 
   return (
     <div className="flex flex-col items-center w-full">
