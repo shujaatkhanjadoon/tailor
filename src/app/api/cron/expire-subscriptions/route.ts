@@ -27,9 +27,24 @@ export async function POST(req: NextRequest) {
   let activeExpired = 0
   let graceLapsed = 0
   let trialLapsedCount = 0
+  let stalePaymentsRejected = 0
 
   try {
-    // 0. Keep denormalized shops.plan_expires_at in sync for admin views.
+    // 0. Auto-reject pending payments older than 48 hours (stuck payments)
+    const staleCutoff = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString()
+    const stalePayments = await sbGet(
+      `subscription_payments?status=eq.pending&paid_at=lt.${staleCutoff}&select=id,receipt_data&limit=500`
+    )
+    await mapConcurrent(stalePayments, async (p) => {
+      const receipt = p.receipt_data ?? {}
+      await sbPatch(`subscription_payments?id=eq.${p.id}`, {
+        status: 'failed',
+        receipt_data: { ...receipt, rejection_reason: 'Auto-rejected: pending > 48 hours', rejected_at: nowISO },
+      })
+      stalePaymentsRejected++
+    })
+
+    // 1. Keep denormalized shops.plan_expires_at in sync for admin views.
     const paidWithExpiry = await sbGet(
       `subscriptions?status=in.(active,cancelled)&plan=in.(professional,business)&expires_at=not.is.null&select=shop_id,expires_at&limit=1000`
     )
@@ -124,6 +139,7 @@ export async function POST(req: NextRequest) {
 
     logger.info('expire-subscriptions', 'completed', {
       expiryMirrored, cancelledToGrace, activeExpired, graceLapsed, trialLapsedCount,
+      stalePaymentsRejected,
       errorCount: allErrors.length,
     })
     for (const err of allErrors) {
@@ -133,6 +149,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true, timestamp: nowISO,
       expiryMirrored, cancelledToGrace, activeExpired, graceLapsed, trialLapsedCount,
+      stalePaymentsRejected,
     })
   } catch (e) {
     logger.error('expire-subscriptions', 'error', e)
