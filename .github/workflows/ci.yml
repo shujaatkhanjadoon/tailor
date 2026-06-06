@@ -86,14 +86,14 @@ jobs:
       - run: npm run build
         name: Next.js build
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
           NEXT_PUBLIC_APP_URL: https://app.meradarzi.pk
           ADMIN_SECRET: ci-admin-secret-for-tests
           SESSION_SIGNING_SECRET: ci-session-signing-secret
           OTP_PEPPER_SECRET: ci-otp-pepper
           ADMIN_TOTP_SECRET: JBSWY3DPEHPK3PXP
           CRON_SECRET: ci-cron-secret
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_DSN: https://placeholder@sentry.io/123
           SENTRY_ENVIRONMENT: ci

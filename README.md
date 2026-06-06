@@ -1,36 +1,132 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MeraDarzi — Tailor Management Software (Pakistan)
+
+Cloud-based tailor shop management for darzis and boutiques across Pakistan. Manage orders, customers, measurements, payments, stitching records, karigar tracking, and delivery — all in one PWA that works on any device.
+
+## Tech Stack
+
+- **Framework:** Next.js 16 (React 19)
+- **Database:** Supabase (PostgreSQL) + Dexie/IndexedDB (local cache)
+- **Styling:** Tailwind CSS 4
+- **Auth:** bcrypt PIN + session tokens (HMAC-SHA256)
+- **Admin 2FA:** TOTP (Google Authenticator)
+- **Payments:** Raast (Pakistan instant bank transfer)
+- **Notifications:** Web Push (VAPID), WhatsApp click-to-chat
+- **Images:** Cloudinary
+- **Email:** Resend
+- **Rate Limiting:** Upstash Redis (with in-memory fallback)
+- **Error Tracking:** Sentry
+- **Edge:** Mumbai (bom1) — Vercel
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 22+
+- A Supabase project (free tier works)
+- Cloudinary account
+- (Optional) Resend API key for email
+- (Optional) Upstash Redis for distributed rate limiting
+
+### Environment Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Fill in all required vars. At minimum you need:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+ADMIN_SECRET=<random 32-byte hex>
+SESSION_SIGNING_SECRET=<random 32-byte hex (different from ADMIN)>
+ADMIN_TOTP_SECRET=<base32 or hex secret for Google Authenticator>
+CRON_SECRET=<random secret>
+OTP_PEPPER_SECRET=<random secret>
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Run Locally
 
-## Learn More
+```bash
+npm install
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open [http://localhost:3000](http://localhost:3000).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Commands
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server (webpack) |
+| `npm run build` | Production build (webpack) |
+| `npm start` | Start production server |
+| `npm run lint` | Run ESLint |
+| `npm test` | Run tests (Node test runner) |
 
-## Deploy on Vercel
+## Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+src/
+├── app/                # Next.js App Router pages + API routes
+│   ├── api/            # All API routes (auth, billing, cron, admin)
+│   ├── auth/           # Login page
+│   ├── billing/        # Pricing, upgrade pages
+│   ├── customers/      # Customer management
+│   ├── orders/         # Order management
+│   ├── payments/       # Payment tracking
+│   ├── reports/        # Analytics dashboard
+│   └── admin/          # Admin panel (2FA protected)
+├── components/         # React components
+│   ├── ui/            # Base UI components
+│   ├── layout/        # AppShell, footer, navigation
+│   ├── dashboard/     # Dashboard widgets
+│   ├── billing/       # Plan badges, banners
+│   ├── orders/        # Order form wizard
+│   └── notifications/ # Notification components
+├── hooks/              # Custom React hooks
+├── lib/                # Core business logic
+│   ├── auth/           # Session management, AuthContext
+│   ├── billing/        # Pricing plans, cycles, Raast payment
+│   ├── db/             # Database schema + operations
+│   ├── security/       # Rate limiting, CSP
+│   ├── supabase/       # Supabase client, service, types
+│   ├── i18n/           # Urdu/English locale
+│   └── payments/       # Payment calculations
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
+
+### Vercel
+
+1. Push to GitHub
+2. Import to Vercel
+3. Set all env vars (see `.env.example`)
+4. Configure Vercel Cron Jobs matching `vercel.json`
+5. Set Sentry DSN and environment
+6. Deploy
+
+### Required GitHub Secrets (for CI)
+
+| Secret | Purpose |
+|--------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service key |
+| `SENTRY_DSN` | Sentry error tracking |
+
+### Database Migrations
+
+This project uses Supabase. To version-control your schema:
+
+```bash
+supabase login
+supabase link --project-ref <your-ref>
+supabase db pull
+```
+
+## License
+
+Private — all rights reserved.

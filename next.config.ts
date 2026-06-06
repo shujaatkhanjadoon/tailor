@@ -2,6 +2,7 @@
 import type { NextConfig } from 'next'
 import { validateEnv } from './src/lib/env'
 import { withSentryConfig } from '@sentry/nextjs'
+import { cspHeader } from './src/lib/csp'
 
 // Validate all required environment variables at startup
 if (process.env.NODE_ENV !== 'test') {
@@ -53,6 +54,9 @@ const nextConfig: NextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Content-Security-Policy', value: cspHeader() },
         ],
       },
     ]

@@ -99,7 +99,7 @@ export const metadata: Metadata = {
 
   icons: {
     icon: [
-      { url: "/icons/icon-32.png", sizes: "32x32" },
+      { url: "/icon-72.png", sizes: "72x72" },
       { url: "/icon-96.png", sizes: "96x96" },
       { url: "/icon-192.png", sizes: "192x192" },
     ],
