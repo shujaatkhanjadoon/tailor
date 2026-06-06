@@ -465,9 +465,9 @@ function ShopCard({
   const isActive = shop.is_active !== false && isVerified;
   const billingCycle =
     sub?.billing_cycle ?? (plan === "starter" ? null : "monthly");
+  const [now] = useState(() => Date.now())
   const expiryDate = sub?.expires_at || sub?.trial_ends_at;
 
-  const now = Date.now();
   const daysLeft = expiryDate
     ? Math.max(0, Math.ceil((new Date(expiryDate).getTime() - now) / 86400000))
     : null;

@@ -53,7 +53,7 @@ export function usePayments(shopId: string | null, options?: UsePaymentsOptions)
   const [totalPayments, setTotalPayments] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const ordersRef = useRef(options?.orders)
-  ordersRef.current = options?.orders
+  useEffect(() => { ordersRef.current = options?.orders }, [options?.orders])
 
   const fetchPayments = useCallback(async () => {
     if (!shopId) return { rows: [], total: 0 }

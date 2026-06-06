@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, ReactNode } from 'react'
 import { useRouter, usePathname }  from 'next/navigation'
 import {
-  Scissors, LayoutDashboard, CreditCard,
+  LayoutDashboard, CreditCard,
   Store, BarChart2, ScrollText, LogOut,
   Shield, Menu, X, ChevronRight, Bell,
 } from 'lucide-react'
@@ -21,34 +21,17 @@ const NAV_ITEMS = [
   { href: '/admin/dashboard/logs',      label: 'Audit Log',  icon: ScrollText      },
 ]
 
-export function AdminShell({ children }: { children: ReactNode }) {
-  const router        = useRouter()
-  const pathname      = usePathname()
-  const [sideOpen, setSideOpen] = useState(false)
-
-  const handleLogout = useCallback(async () => {
-    await fetch('/api/admin/logout', { method: 'POST' })
-    window.location.href = '/admin/login'
-  }, [])
-
-  // Close sidebar on route change (mobile)
-  useEffect(() => { setSideOpen(false) }, [pathname])
-
-  const NavContent = () => (
+function NavContent({ pathname, router, onLogout }: {
+  pathname: string
+  router: ReturnType<typeof useRouter>
+  onLogout: () => void
+}) {
+  return (
     <div className="flex flex-col h-full">
-      {/* Logo */}
       <div className="px-5 py-5 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 flex items-center
-                          justify-center shrink-0">
-<Image
-            src="/icon.svg"
-            alt="MeraDarzi"
-            width={32}
-            height={32}
-            className="lg:block hidden"
-            loading="eager"
-          />
+          <div className="w-8 h-8 flex items-center justify-center shrink-0">
+            <Image src="/icon.svg" alt="MeraDarzi" width={32} height={32} className="lg:block hidden" loading="eager" />
           </div>
           <div>
             <p className="font-bold text-white text-sm leading-tight">MeraDarzi</p>
@@ -60,8 +43,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <span className="text-[10px] text-green-500 font-semibold">Secure Session</span>
         </div>
       </div>
-
-      {/* Nav links */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {NAV_ITEMS.map(item => {
           const isActive = pathname === item.href ||
@@ -85,14 +66,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
           )
         })}
       </nav>
-
-      {/* Footer */}
       <div className="px-3 py-4 border-t border-slate-800 shrink-0">
         <button
-          onClick={handleLogout}
+          onClick={onLogout}
           className="w-full flex items-center gap-3 px-3 py-3 rounded-xl
-                     text-sm font-medium text-red-400 hover:bg-red-900/30
-                     transition-colors"
+                     text-sm font-medium text-red-400 hover:bg-red-900/30 transition-colors"
         >
           <LogOut size={16} />
           Logout
@@ -100,6 +78,20 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </div>
     </div>
   )
+}
+
+export function AdminShell({ children }: { children: ReactNode }) {
+  const router        = useRouter()
+  const pathname      = usePathname()
+  const [sideOpen, setSideOpen] = useState(false)
+
+  const handleLogout = useCallback(async () => {
+    await fetch('/api/admin/logout', { method: 'POST' })
+    window.location.href = '/admin/login'
+  }, [])
+
+  // Close sidebar on route change (mobile)
+  useEffect(() => { setSideOpen(false) }, [pathname])
 
   return (
     <div className="min-h-screen bg-slate-950 flex">
@@ -107,7 +99,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       {/* â”€â”€ Desktop sidebar â”€â”€ */}
       <aside className="hidden lg:flex flex-col w-60 shrink-0
                         bg-slate-900 border-e border-slate-800 fixed inset-y-0 start-0 z-30">
-        <NavContent />
+        <NavContent pathname={pathname} router={router} onLogout={handleLogout} />
       </aside>
 
       {/* â”€â”€ Mobile sidebar overlay â”€â”€ */}
@@ -134,7 +126,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         >
           <X size={16} />
         </button>
-        <NavContent />
+        <NavContent pathname={pathname} router={router} onLogout={handleLogout} />
       </aside>
 
       {/* â”€â”€ Main content area â”€â”€ */}

@@ -10,7 +10,7 @@ const WARN_MS    =  2 * 60 * 1000   //  2 minutes warning
 
 export function SessionTimer({ onExpired }: { onExpired: () => void }) {
   const [msLeft,   setMsLeft]   = useState(TIMEOUT_MS)
-  const [lastActivity, setLastActivity] = useState(Date.now())
+  const [lastActivity, setLastActivity] = useState<number>(() => Date.now())
 
   const resetTimer = useCallback(() => {
     setLastActivity(Date.now())

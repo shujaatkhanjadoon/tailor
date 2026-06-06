@@ -1,6 +1,6 @@
 // next.config.ts
 import type { NextConfig } from 'next'
-import { validateEnv } from '@/lib/env'
+import { validateEnv } from './src/lib/env'
 import { withSentryConfig } from '@sentry/nextjs'
 
 // Validate all required environment variables at startup

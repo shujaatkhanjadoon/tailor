@@ -194,7 +194,7 @@ export function usePhotoCapture({ orderId, type }: UsePhotoCaptureOptions) {
     } finally {
       setDeletingId(null)
     }
-  }, [shopId, currentUser?.id])
+  }, [shopId, currentUser])
 
   const retryUpload = useCallback(async (photo: PhotoRecord) => {
     if (!shopId || !canSyncImages || !cloudinaryEnabled || !navigator.onLine || !photo.base64) return

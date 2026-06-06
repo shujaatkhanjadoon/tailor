@@ -18,6 +18,22 @@ import dynamic from "next/dynamic";
 import { exportCSV, exportPrintablePDF } from "@/lib/export/download";
 import { useTranslation } from "react-i18next";
 
+const IncomeChart = dynamic(
+  () => import("@/components/reports/IncomeChart").then((m) => m.IncomeChart),
+  {
+    loading: () => <div className="border border-slate-200 rounded-2xl p-5 h-70 animate-pulse bg-slate-100" />,
+    ssr: false,
+  },
+);
+
+const OrderStatusChart = dynamic(
+  () => import("@/components/reports/OrderStatusChart").then((m) => m.OrderStatusChart),
+  {
+    loading: () => <div className="h-40 animate-pulse bg-slate-100 rounded-2xl" />,
+    ssr: false,
+  },
+);
+
 const PERIODS: { key: ReportPeriod; label: string }[] = [
   { key: "7d", label: "7d" },
   { key: "30d", label: "30d" },
@@ -71,22 +87,6 @@ function ReportsContent({
 }) {
   const [activeTab, setActiveTab] = useState<"overview" | "customers" | "team">("overview");
   const { t } = useTranslation();
-
-  const IncomeChart = dynamic(
-    () => import("@/components/reports/IncomeChart").then((m) => m.IncomeChart),
-    {
-      loading: () => <div className="border border-slate-200 rounded-2xl p-5 h-70 animate-pulse bg-slate-100" />,
-      ssr: false,
-    },
-  );
-
-  const OrderStatusChart = dynamic(
-    () => import("@/components/reports/OrderStatusChart").then((m) => m.OrderStatusChart),
-    {
-      loading: () => <div className="h-40 animate-pulse bg-slate-100 rounded-2xl" />,
-      ssr: false,
-    },
-  );
 
   const {
     period, setPeriod, summary, monthlyIncome, weeklyIncome, statusDistribution,

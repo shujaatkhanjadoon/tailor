@@ -329,7 +329,7 @@ function HomeTab({ currentUser, allOrders, onStatusTap, onDetailTap, onTabChange
   const { t } = useTranslation()
   const now = new Date()
   const today = now.toISOString().split('T')[0]
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+  const tomorrow = new Date(now.getTime() + 86400000).toISOString().split('T')[0]
   const ACTIVE_STATUSES: OrderStatus[] = ['received', 'cutting', 'stitching', 'finishing', 'ready']
 
   const active = allOrders.filter(o => ACTIVE_STATUSES.includes(o.status as OrderStatus))

@@ -1,11 +1,13 @@
 // src/components/billing/PlanBadge.tsx
 'use client'
 
+import { useState }  from 'react'
 import { usePlan }   from '@/hooks/usePlan'
 import { useRouter } from 'next/navigation'
 import { cn }        from '@/lib/utils'
 
 export function PlanBadge() {
+  const [now] = useState(() => Date.now())
   const plan   = usePlan()
   const router = useRouter()
 
@@ -34,7 +36,7 @@ export function PlanBadge() {
   // ── Grace period ──────────────────────────────────────────────────
   if (plan.inGrace) {
     const days = plan.gracEndsAt
-      ? Math.max(0, Math.ceil((plan.gracEndsAt.getTime() - Date.now()) / 86400000))
+      ? Math.max(0, Math.ceil((plan.gracEndsAt.getTime() - now) / 86400000))
       : 0
     return (
       <button

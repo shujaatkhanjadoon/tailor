@@ -673,12 +673,6 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
   const allowedRelations = RECIPIENTS_BY_CUSTOMER[data.customerGender ?? 'male']
   const visibleGarmentTypes = GARMENTS_BY_RECIPIENT[recipientGender]
 
-  useEffect(() => {
-    if (allowedRelations.includes(selectedRelation)) return
-    updateRecipient('self')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.customerGender, selectedRelation])
-
   // Add state inside Step2Garment:
   const [quickPhoto, setQuickPhoto] = useState<string | null>(data.fabricPhotoBase64 ?? null)
   const [takingPhoto, setTakingPhoto] = useState(false)
@@ -866,6 +860,12 @@ export function Step2Garment({ data, onUpdate, onNext }: Step2Props) {
       styleSelections: {},
     })
   }
+
+  useEffect(() => {
+    if (allowedRelations.includes(selectedRelation)) return
+    updateRecipient('self')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.customerGender, selectedRelation])
 
   const selectKnownRecipient = (recipient: KnownRecipient) => {
     setMeasurements({})

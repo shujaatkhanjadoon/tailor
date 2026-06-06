@@ -102,18 +102,6 @@ function NewOrderWizard({
   const plan = usePlan();
   const isSubmittingRef = useRef(false);
 
-  // ── Auto-select customer from URL param ──────────────────────
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const params = new URLSearchParams(window.location.search)
-    const preselectedId = params.get('customerId')
-    if (!preselectedId || !shopId) return
-    customerOps.get(preselectedId).then(customer => {
-      if (!customer) return
-      setData(prev => ({ ...prev, customerId: customer.id, customerName: customer.name, customerPhone: customer.phone, customerGender: customer.gender }))
-    }).catch(() => {})
-  }, [shopId])
-
   // ── Page-level state ─────────────────────────────────────────
   // 'wizard' = the 3-step form, 'success' = order saved confirmation
   const [pageStep, setPageStep] = useState<"wizard" | "success">("wizard");
@@ -135,6 +123,18 @@ function NewOrderWizard({
 
   const update = (updates: Partial<WizardData>) =>
     setData((prev) => ({ ...prev, ...updates }));
+
+  // ── Auto-select customer from URL param ──────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const preselectedId = params.get('customerId')
+    if (!preselectedId || !shopId) return
+    customerOps.get(preselectedId).then(customer => {
+      if (!customer) return
+      setData(prev => ({ ...prev, customerId: customer.id, customerName: customer.name, customerPhone: customer.phone, customerGender: customer.gender }))
+    }).catch(() => {})
+  }, [shopId])
 
   useEffect(() => {
     if (!shopId) return;

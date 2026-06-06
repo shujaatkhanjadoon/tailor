@@ -153,7 +153,7 @@ export function ReportSkeleton() {
             <Skeleton
               key={i}
               className="flex-1 rounded-t-lg"
-              style={{ height: `${20 + Math.random() * 80}%` }}
+              style={{ height: `${20 + ((i * 23 + 17) % 81)}%` }}
             />
           ))}
         </div>
