@@ -326,7 +326,8 @@ function AuthContent() {
         if (data.lockedUntil && new Date(data.lockedUntil) > new Date()) {
           const end = new Date(data.lockedUntil)
           setLockoutEnd(end)
-          setError(t('auth.lockoutMessage', { minutes: Math.ceil((end.getTime() - Date.now()) / 60000) }))
+          const diffSec = Math.ceil((end.getTime() - Date.now()) / 1000)
+          setError(t('auth.lockoutMessage', { minutes: Math.floor(diffSec / 60), seconds: diffSec % 60 }))
           setLoading(false)
           return
         }
@@ -561,7 +562,7 @@ function AuthContent() {
                 </div>
               )}
 
-              <button onClick={handlePhoneSubmit} disabled={loading || phone.replace(/\D/g, "").length < 11}
+              <button onClick={handlePhoneSubmit} disabled={loading || phone.replace(/\D/g, "").length < 11 || lockoutSeconds > 0}
                 className="w-full bg-blue-600 disabled:bg-slate-300 text-white font-bold py-4 rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2">
                 {loading ? <><Loader2 size={18} className="animate-spin" /> {t('auth.checking')}</> : t('auth.continue')}
               </button>
@@ -591,7 +592,7 @@ function AuthContent() {
                   <Lock size={24} className="text-red-500 mx-auto mb-2" />
                   <p className="font-bold text-red-700">{t('auth.accountLocked')}</p>
                   <p className="text-red-500 text-sm mt-1">
-                    {Math.floor(lockoutSeconds / 60)}m {lockoutSeconds % 60}s {t('auth.lockoutMinutes', { minutes: '' })}
+                    {t('auth.lockoutMessage', { minutes: Math.floor(lockoutSeconds / 60), seconds: lockoutSeconds % 60 })}
                   </p>
                 </div>
               ) : (
@@ -607,6 +608,13 @@ function AuthContent() {
                       <span className="text-sm">{t('auth.verifying')}</span>
                     </div>
                   )}
+
+                  <div className="mt-4 text-center">
+                    <a href="/admin/dashboard/shops"
+                      className="text-xs text-slate-400 hover:text-blue-500 underline transition-colors">
+                      PIN bhool gaye? Admin se reset karwaein
+                    </a>
+                  </div>
                 </div>
               )}
             </div>

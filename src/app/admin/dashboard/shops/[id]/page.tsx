@@ -7,7 +7,7 @@ import {
   Clock, MessageCircle, Power, ShieldCheck, ShieldX, ShieldAlert,
   Trash2, LogIn, CreditCard, Package, Users, FileText,
   Phone, Mail, MapPin, Hash, Calendar, DollarSign,
-  Activity, Clock3, ChevronRight, X, Save, Smartphone,
+  Activity, Clock3, ChevronRight, X, Save, Smartphone, Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -223,6 +223,13 @@ export default function ShopDetailPage() {
   const [adjustError, setAdjustError] = useState("");
   const [adjustSuccess, setAdjustSuccess] = useState("");
   const [adjustTotp, setAdjustTotp] = useState("");
+
+  // ── Reset PIN state ──────────────────────────────────────────────
+  const [showResetPinModal, setShowResetPinModal] = useState(false);
+  const [resetPinTotp, setResetPinTotp] = useState("");
+  const [resetPinLoading, setResetPinLoading] = useState(false);
+  const [resetPinError, setResetPinError] = useState("");
+  const [resetPinResult, setResetPinResult] = useState("");
 
   const load = useCallback(async () => {
     if (!shopId) return;
@@ -528,6 +535,10 @@ export default function ShopDetailPage() {
                 className="flex items-center gap-1.5 bg-red-900/40 border border-red-800 text-red-400 text-xs font-semibold px-3 py-2 rounded-xl hover:bg-red-900/60">
                 <Power size={12} /> {isActive ? "Deactivate" : "Activate"}
               </button>
+              <button onClick={() => { setShowResetPinModal(true); setResetPinTotp(""); setResetPinError(""); setResetPinResult(""); }}
+                className="flex items-center gap-1.5 border border-amber-800 bg-amber-950/30 text-amber-400 text-xs font-semibold px-3 py-2 rounded-xl hover:bg-amber-900/60">
+                <Lock size={12} /> Reset PIN
+              </button>
             </div>
           </Section>
         </div>
@@ -824,6 +835,95 @@ export default function ShopDetailPage() {
             </div>
           )}
         </Section>
+      )}
+
+      {/* Reset PIN TOTP modal */}
+      {showResetPinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-bold text-sm">Reset Shop Owner PIN</h3>
+              <button onClick={() => { setShowResetPinModal(false); setResetPinResult(""); }}
+                className="text-slate-500 hover:text-slate-300">
+                <X size={16} />
+              </button>
+            </div>
+
+            {resetPinResult ? (
+              <div className="space-y-4">
+                <div className="bg-green-900/30 border border-green-700 rounded-xl px-4 py-4">
+                  <p className="text-green-300 text-xs mb-2">Naya PIN generate ho gaya hai. Shop owner ko yeh PIN dein:</p>
+                  <p className="text-2xl font-bold text-green-400 text-center tracking-[0.3em] font-mono">{resetPinResult}</p>
+                </div>
+                <button onClick={() => { setShowResetPinModal(false); setResetPinResult(""); }}
+                  className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm py-3 rounded-xl transition-colors">
+                  Close
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-slate-400 text-xs">
+                  Is shop ke owner ka PIN reset ho jayega. TOTP code darj karein.
+                </p>
+                {resetPinError && (
+                  <div className="bg-red-900/30 border border-red-700 rounded-xl px-3 py-2">
+                    <p className="text-red-300 text-xs">{resetPinError}</p>
+                  </div>
+                )}
+                <input type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6}
+                  placeholder="000000" autoFocus
+                  value={resetPinTotp}
+                  onChange={(e) => setResetPinTotp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onKeyDown={async (e) => {
+                    if (e.key === "Enter" && resetPinTotp.length === 6 && !resetPinLoading) {
+                      setResetPinLoading(true); setResetPinError("");
+                      try {
+                        const res = await fetch("/api/admin/action", {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ action: "reset_owner_pin", shopId, totpCode: resetPinTotp }),
+                        });
+                        const data = await res.json();
+                        if (res.status === 401 && data.requiresTOTP) { setResetPinError(data.error ?? "TOTP code chahiye"); return; }
+                        if (!data.success) throw new Error(data.error ?? "Failed");
+                        setResetPinResult(data.newPin);
+                        await load();
+                      } catch (e) { setResetPinError(String(e)); }
+                      finally { setResetPinLoading(false); }
+                    }
+                  }}
+                  disabled={resetPinLoading}
+                  className="w-full text-center text-2xl tracking-[0.5em] font-mono bg-slate-800
+                             border border-slate-600 text-white rounded-xl px-4 py-3
+                             outline-none focus:border-blue-500 disabled:opacity-50"
+                />
+                <button onClick={async () => {
+                    if (resetPinTotp.length !== 6 || resetPinLoading) return;
+                    setResetPinLoading(true); setResetPinError("");
+                    try {
+                      const res = await fetch("/api/admin/action", {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "reset_owner_pin", shopId, totpCode: resetPinTotp }),
+                      });
+                      const data = await res.json();
+                      if (res.status === 401 && data.requiresTOTP) { setResetPinError(data.error ?? "TOTP code chahiye"); return; }
+                      if (!data.success) throw new Error(data.error ?? "Failed");
+                      setResetPinResult(data.newPin);
+                      await load();
+                    } catch (e) { setResetPinError(String(e)); }
+                    finally { setResetPinLoading(false); }
+                  }}
+                  disabled={resetPinTotp.length !== 6 || resetPinLoading}
+                  className="w-full flex items-center justify-center gap-2 bg-amber-600
+                             hover:bg-amber-700 text-white font-bold text-sm py-3 rounded-xl
+                             transition-colors disabled:opacity-50"
+                >
+                  {resetPinLoading ? <RefreshCw size={15} className="animate-spin" /> : <Lock size={15} />}
+                  {resetPinLoading ? "Resetting..." : "Reset PIN"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Impersonate TOTP modal */}

@@ -6,6 +6,8 @@ import { validate, schemas } from "@/lib/validation";
 import { sbGet, sbPatch, sbPost, sbUpsertByShopId } from "@/lib/supabase/service";
 import { subscriptionExpiresAt } from "@/lib/billing/cycles";
 import { logger } from '@/lib/logger';
+import bcrypt from 'bcryptjs'
+import { SALT_ROUNDS } from '@/lib/security/pin'
 
 async function logAction(
   action: string,
@@ -70,7 +72,7 @@ export async function POST(req: NextRequest) {
   const { action } = body;
 
   // ── TOTP 2FA for destructive actions ─────────────────────────
-  const DESTRUCTIVE_ACTIONS = ['delete_shop', 'deactivate_shop', 'activate_shop', 'set_plan', 'reject_payment', 'refund_payment', 'extend_expiry', 'set_custom_expiry', 'update_subscription_amount', 'bulk_set_plan', 'bulk_extend_expiry', 'block_ip', 'unblock_ip', 'reset_admin_totp', 'force_logout_sessions', 'create_admin', 'deactivate_admin', 'activate_admin']
+  const DESTRUCTIVE_ACTIONS = ['delete_shop', 'deactivate_shop', 'activate_shop', 'set_plan', 'reject_payment', 'refund_payment', 'extend_expiry', 'set_custom_expiry', 'update_subscription_amount', 'bulk_set_plan', 'bulk_extend_expiry', 'block_ip', 'unblock_ip', 'reset_admin_totp', 'force_logout_sessions', 'create_admin', 'deactivate_admin', 'activate_admin', 'reset_owner_pin']
   const totpSecret = process.env.ADMIN_TOTP_SECRET
   if (totpSecret && DESTRUCTIVE_ACTIONS.includes(action)) {
     if (!body.totpCode || !verifyTOTP(body.totpCode, totpSecret)) {
@@ -616,6 +618,41 @@ export async function POST(req: NextRequest) {
         // For now, we log the action and return success
         await logAction("force_logout_sessions", "admin", "admin", {});
         return NextResponse.json({ success: true, message: "All sessions invalidated. Use a new secret version to force re-login." });
+      }
+
+      // ── Shop Owner PIN Reset ────────────────────────────────
+
+      case "reset_owner_pin": {
+        const { shopId: pinShopId } = body as { shopId?: string };
+        if (!pinShopId) {
+          return NextResponse.json({ error: "shopId required" }, { status: 400 });
+        }
+
+        // Generate random 6-digit PIN
+        const newPin = String(Math.floor(100000 + Math.random() * 900000));
+
+        // Double-hash: client-side hash first, then stored hash
+        const clientHash = bcrypt.hashSync(newPin, SALT_ROUNDS)
+        const storedHash = bcrypt.hashSync(clientHash, SALT_ROUNDS)
+
+        const now = new Date().toISOString();
+
+        // Update the owner's pin_hash (owner is the first team_member, role=owner)
+        await sbPatch(`team_members?shop_id=eq.${pinShopId}&role=eq.owner`, {
+          pin_hash: storedHash,
+          failed_attempts: 0,
+          locked_until: null,
+          updated_at: now,
+        });
+
+        // Audit log
+        await logAction("reset_owner_pin", pinShopId, pinShopId, {
+          pin_reset: true,
+        });
+
+        notifyOwner(pinShopId, "reset_owner_pin", "Shop PIN Reset", "Admin ne aapka shop PIN reset kar diya hai. Naya PIN admin se hasil karein.");
+
+        return NextResponse.json({ success: true, newPin, message: "Naya 6-digit PIN generate ho gaya hai. Admin is PIN ko shop owner ko de sakta hai." });
       }
 
       // ── Admin Account Management ─────────────────────────────

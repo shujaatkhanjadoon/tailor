@@ -5,6 +5,7 @@ import { sbFetch } from '@/lib/supabase/service'
 import { validate } from '@/lib/validation'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
+import { SALT_ROUNDS } from '@/lib/security/pin'
 
 const upsertMemberSchema = z.object({
   id: z.string().uuid().optional(),
@@ -46,7 +47,8 @@ export async function POST(req: NextRequest) {
         updated_at: now,
       }
       if (pin) {
-        updateData.pin_hash = bcrypt.hashSync(pin, 12)
+        const clientHash = bcrypt.hashSync(pin, SALT_ROUNDS)
+        updateData.pin_hash = bcrypt.hashSync(clientHash, SALT_ROUNDS)
       }
 
       const res = await sbFetch(`team_members?id=eq.${id}&shop_id=eq.${encodeURIComponent(shopId)}`, {
@@ -72,7 +74,7 @@ export async function POST(req: NextRequest) {
       name,
       phone,
       role: 'karigar',
-      pin_hash: pin ? bcrypt.hashSync(pin, 12) : '',
+      pin_hash: pin ? bcrypt.hashSync(bcrypt.hashSync(pin, SALT_ROUNDS), SALT_ROUNDS) : '',
       speciality: speciality ?? null,
       pay_rate_type: payRateType ?? null,
       pay_rate: payRate ?? 0,

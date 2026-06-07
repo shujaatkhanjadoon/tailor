@@ -62,7 +62,7 @@ export const schemas = {
   }),
 
   adminAction: z.object({
-    action: z.enum(['delete_shop', 'deactivate_shop', 'activate_shop', 'set_plan', 'reject_payment', 'send_notification', 'activate_payment', 'verify_shop', 'refund_payment', 'extend_expiry', 'set_custom_expiry', 'update_subscription_amount', 'bulk_set_plan', 'bulk_extend_expiry', 'bulk_send_notification', 'block_ip', 'unblock_ip', 'reset_admin_totp', 'force_logout_sessions', 'create_admin', 'deactivate_admin', 'activate_admin']),
+    action: z.enum(['delete_shop', 'deactivate_shop', 'activate_shop', 'set_plan', 'reject_payment', 'send_notification', 'activate_payment', 'verify_shop', 'refund_payment', 'extend_expiry', 'set_custom_expiry', 'update_subscription_amount', 'bulk_set_plan', 'bulk_extend_expiry', 'bulk_send_notification', 'block_ip', 'unblock_ip', 'reset_admin_totp', 'force_logout_sessions', 'create_admin', 'deactivate_admin', 'activate_admin', 'reset_owner_pin']),
     targetId: z.string().optional(),
     shopId: z.string().optional(),
     planId: z.string().optional(),

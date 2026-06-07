@@ -1,7 +1,7 @@
 // src/lib/security/pin.ts
 import bcrypt from 'bcryptjs'
 
-const SALT_ROUNDS = 12
+export const SALT_ROUNDS = 12
 export const SHOP_PIN_LENGTH = 6
 export const KARIGAR_PIN_LENGTH = 6
 
@@ -77,7 +77,9 @@ export async function verifyPIN(pin: string, hash: string): Promise<boolean> {
   if (!hash.startsWith('$2')) {
     return false
   }
-  return bcrypt.compare(pin, hash)
+  // Recompute the client-side hash first, then compare against stored double-hash
+  const clientSideHash = await bcrypt.hash(pin, SALT_ROUNDS)
+  return bcrypt.compare(clientSideHash, hash)
 }
 
 export function getPINStrength(pin: string): {

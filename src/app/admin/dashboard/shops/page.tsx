@@ -19,6 +19,7 @@ import {
   ShieldAlert,
   Trash2,
   LogIn,
+  Lock,
   X,
   ExternalLink,
 } from "lucide-react";
@@ -444,6 +445,7 @@ function ShopCard({
   onDeleteShop,
   onImpersonate,
   onShowConfirm,
+  onResetPin,
 }: {
   shop: Shop;
   onPlanChange: (
@@ -459,6 +461,7 @@ function ShopCard({
   onDeleteShop: (shop: Shop) => Promise<void>;
   onImpersonate?: (shopId: string) => void;
   onShowConfirm?: (title: string, message: string, onConfirm: () => void, variant?: "danger" | "warning" | "info") => void;
+  onResetPin?: (shopId: string) => void;
 }) {
   const sub = shop.subscriptions?.[0];
   const usage = shop.shop_usage?.[0];
@@ -902,6 +905,20 @@ function ShopCard({
               </button>
             )}
 
+            {/* Reset PIN */}
+            {onResetPin && (
+              <button
+                type="button"
+                onClick={() => onResetPin(shop.id)}
+                className="flex items-center gap-1.5 border border-amber-800
+                           bg-amber-950/30 text-amber-400 hover:bg-amber-900/50
+                           text-xs font-semibold px-3 py-2 rounded-xl transition-colors"
+              >
+                <Lock size={12} />
+                Reset PIN
+              </button>
+            )}
+
             {/* Shop ID */}
             <span
               className="flex items-center ml-auto text-[10px] text-slate-600
@@ -942,6 +959,13 @@ export default function AdminShopsPage() {
   const [impersonateTotp, setImpersonateTotp] = useState("");
   const [impersonateLoading, setImpersonateLoading] = useState(false);
   const [impersonateError, setImpersonateError] = useState("");
+
+  // ── Reset PIN state ──────────────────────────────────────────
+  const [resetPinShopId, setResetPinShopId] = useState<string | null>(null);
+  const [resetPinTotp, setResetPinTotp] = useState("");
+  const [resetPinLoading, setResetPinLoading] = useState(false);
+  const [resetPinError, setResetPinError] = useState("");
+  const [resetPinResult, setResetPinResult] = useState("");
 
   // ── Confirmation modal state ─────────────────────────────────
   const [confirmState, setConfirmState] = useState<{
@@ -1135,6 +1159,27 @@ export default function AdminShopsPage() {
       "danger",
     );
   }, [showConfirm]);
+
+  // ── Reset PIN handler ───────────────────────────────────────────
+
+  const handleResetPin = useCallback(async () => {
+    if (!resetPinShopId || resetPinLoading) return;
+    setResetPinLoading(true);
+    setResetPinError("");
+    setResetPinResult("");
+    try {
+      const res = await fetch("/api/admin/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset_owner_pin", shopId: resetPinShopId, totpCode: resetPinTotp }),
+      });
+      const data = await res.json();
+      if (res.status === 401 && data.requiresTOTP) { setResetPinError(data.error ?? "TOTP code chahiye"); return; }
+      if (!data.success) throw new Error(data.error ?? "Failed");
+      setResetPinResult(data.newPin);
+    } catch (e) { setResetPinError(String(e)); }
+    finally { setResetPinLoading(false); }
+  }, [resetPinShopId, resetPinTotp, resetPinLoading]);
 
   // ── Impersonation handlers ─────────────────────────────────────
 
@@ -1408,6 +1453,7 @@ export default function AdminShopsPage() {
                 onDeleteShop={handleDeleteShop}
                 onImpersonate={handleImpersonate}
                 onShowConfirm={showConfirm}
+                onResetPin={(sid) => { setResetPinShopId(sid); setResetPinTotp(""); setResetPinError(""); setResetPinResult(""); }}
               />
             ))
           )}
@@ -1447,6 +1493,65 @@ export default function AdminShopsPage() {
       />
 
       {/* Impersonate TOTP modal */}
+      {/* Reset PIN TOTP modal */}
+      {resetPinShopId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-bold text-sm">Reset Shop Owner PIN</h3>
+              <button onClick={() => { setResetPinShopId(null); setResetPinResult(""); }}
+                className="text-slate-500 hover:text-slate-300 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            {resetPinResult ? (
+              <div className="space-y-4">
+                <div className="bg-green-900/30 border border-green-700 rounded-xl px-4 py-4">
+                  <p className="text-green-300 text-xs mb-2">Naya PIN generate ho gaya hai. Shop owner ko yeh PIN dein:</p>
+                  <p className="text-2xl font-bold text-green-400 text-center tracking-[0.3em] font-mono">{resetPinResult}</p>
+                </div>
+                <button onClick={() => { setResetPinShopId(null); setResetPinResult(""); }}
+                  className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm py-3 rounded-xl transition-colors">
+                  Close
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-slate-400 text-xs">
+                  Is shop ke owner ka PIN reset ho jayega. TOTP code darj karein.
+                </p>
+                {resetPinError && (
+                  <div className="bg-red-900/30 border border-red-700 rounded-xl px-3 py-2">
+                    <p className="text-red-300 text-xs">{resetPinError}</p>
+                  </div>
+                )}
+                <input type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6}
+                  placeholder="000000" autoFocus
+                  value={resetPinTotp}
+                  onChange={(e) => setResetPinTotp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onKeyDown={(e) => { if (e.key === "Enter" && resetPinTotp.length === 6) handleResetPin(); }}
+                  disabled={resetPinLoading}
+                  className="w-full text-center text-2xl tracking-[0.5em] font-mono bg-slate-800
+                             border border-slate-600 text-white rounded-xl px-4 py-3
+                             outline-none focus:border-blue-500 disabled:opacity-50
+                             placeholder:text-slate-700"
+                />
+                <button onClick={handleResetPin}
+                  disabled={resetPinTotp.length !== 6 || resetPinLoading}
+                  className="w-full flex items-center justify-center gap-2 bg-amber-600
+                             hover:bg-amber-700 text-white font-bold text-sm py-3 rounded-xl
+                             transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resetPinLoading ? <RefreshCw size={15} className="animate-spin" /> : <Lock size={15} />}
+                  {resetPinLoading ? "Resetting..." : "Reset PIN"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {impersonateShopId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
           <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-6 space-y-4">
