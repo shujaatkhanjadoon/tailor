@@ -86,7 +86,7 @@ export function generateSessionToken(nonce?: string, rememberMe?: boolean, role?
 function getTokenDuration(token: string): number {
   const raw = Buffer.from(token, 'base64url').toString('utf-8')
   const parts = raw.split(':')
-  if (parts.length === 4 && parts[2] === '1') return REMEMBER_DURATION_MS
+  if (parts.length >= 4 && parts[2] === '1') return REMEMBER_DURATION_MS
   return SESSION_DURATION_MS
 }
 
@@ -98,7 +98,29 @@ export function verifySessionToken(token: string): boolean {
     const raw = Buffer.from(token, 'base64url').toString('utf-8')
     const parts = raw.split(':')
 
-    // New format with mode: timestamp:nonce:mode:signature (4 parts)
+    // 6-part: timestamp:nonce:mode:role:username:signature
+    if (parts.length === 6) {
+      const [tsStr, , mode, role, username, signature] = parts
+      const timestamp = parseInt(tsStr, 10)
+      if (isNaN(timestamp)) return false
+      const duration = mode === '1' ? REMEMBER_DURATION_MS : SESSION_DURATION_MS
+      if (Date.now() - timestamp > duration) return false
+
+      const expected = createHmac('sha256', secret)
+        .update(`admin:${timestamp}:${parts[1]}:${mode}:${role}:${username}`)
+        .digest('hex')
+
+      try {
+        return timingSafeEqual(
+          Buffer.from(signature, 'hex'),
+          Buffer.from(expected, 'hex')
+        )
+      } catch {
+        return false
+      }
+    }
+
+    // 4-part: timestamp:nonce:mode:signature
     if (parts.length === 4) {
       const [tsStr, , mode, signature] = parts
       const timestamp = parseInt(tsStr, 10)
@@ -171,7 +193,10 @@ export function verifySessionToken(token: string): boolean {
 export function rotateSessionToken(token: string): string | null {
   if (!verifySessionToken(token)) return null
   const rememberMe = getTokenDuration(token) === REMEMBER_DURATION_MS
-  return generateSessionToken(undefined, rememberMe)
+  const session = getAdminSession(token)
+  const role = session?.role
+  const username = session?.username
+  return generateSessionToken(undefined, rememberMe, role, username)
 }
 
 export interface AdminSession {
