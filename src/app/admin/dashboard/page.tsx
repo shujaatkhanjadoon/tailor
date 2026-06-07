@@ -84,6 +84,8 @@ function StatCard({
 
 export default function AdminDashboardPage() {
   const router  = useRouter()
+  const [hydrated, setHydrated] = useState(false)
+  useEffect(() => { setHydrated(true) }, [])
   const [summary,  setSummary]  = useState<Summary | null>(null)
   const [pending,  setPending]  = useState<PendingPayment[]>([])
   const [pendingVerifications, setPendingVerifications] = useState<PendingVerification[]>([])
@@ -131,6 +133,10 @@ export default function AdminDashboardPage() {
     load()
     return () => { cancelledRef.current = true }
   }, [load])
+
+  if (!hydrated) {
+    return <DashboardSkeleton />
+  }
 
   if (loading) {
     return <DashboardSkeleton />

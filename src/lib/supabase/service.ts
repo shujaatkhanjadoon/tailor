@@ -35,7 +35,7 @@ export async function sbFetch(path: string, init: RequestInit = {}): Promise<Res
       const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
         ...init,
         headers: { ...headers, ...(init.headers || {}) },
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(60000),
       })
 
       if (res.status >= 500 && attempt < 3) {

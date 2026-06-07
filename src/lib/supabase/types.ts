@@ -20,6 +20,12 @@ export interface Database {
       shop_verification_requests: { Row: ShopVerificationRequestRow;  Insert: Partial<ShopVerificationRequestRow>;  Update: Partial<ShopVerificationRequestRow>; Relationships: [] }
       email_verifications:       { Row: EmailVerificationRow;        Insert: Partial<EmailVerificationRow>;    Update: Partial<EmailVerificationRow>; Relationships: [] }
       push_subscriptions:        { Row: PushSubscriptionRow;         Insert: Partial<PushSubscriptionRow>;    Update: Partial<PushSubscriptionRow>; Relationships: [] }
+      message_templates:         { Row: MessageTemplateRow;          Insert: Partial<MessageTemplateRow>;     Update: Partial<MessageTemplateRow>; Relationships: [] }
+      coupons:                   { Row: CouponRow;                   Insert: Partial<CouponRow>;              Update: Partial<CouponRow>; Relationships: [] }
+      coupon_redemptions:        { Row: CouponRedemptionRow;         Insert: Partial<CouponRedemptionRow>;    Update: Partial<CouponRedemptionRow>; Relationships: [] }
+      admin_accounts:            { Row: AdminAccountRow;             Insert: Partial<AdminAccountRow>;        Update: Partial<AdminAccountRow>; Relationships: [] }
+      ip_blocklist:              { Row: IpBlocklistRow;              Insert: Partial<IpBlocklistRow>;          Update: Partial<IpBlocklistRow>; Relationships: [] }
+      cron_log:                  { Row: CronLogRow;                  Insert: Partial<CronLogRow>;              Update: Partial<CronLogRow>; Relationships: [] }
     }
     Views: Record<string, unknown>
     Functions: Record<string, unknown>
@@ -247,6 +253,30 @@ export interface ShopVerificationRequestRow {
   requested_at:   string
 }
 
+export interface MessageTemplateRow {
+  id:          string
+  key:         string
+  label:       string
+  subject:     string
+  body:        string
+  variables:   string[]
+  channel:     'email' | 'whatsapp' | 'push'
+  updated_at:  string
+}
+
+export interface NotificationLogRow {
+  id:               string
+  notification_id?: string
+  shop_id:          string
+  channel:          'push' | 'email' | 'whatsapp'
+  title:            string
+  message:          string
+  status:           'sent' | 'delivered' | 'failed' | 'clicked'
+  error?:           string
+  clicked_at?:      string
+  sent_at:          string
+}
+
 // ── Auth / misc tables ────────────────────────────────────────────
 
 export interface EmailVerificationRow {
@@ -270,4 +300,61 @@ export interface PushSubscriptionRow {
   user_agent?:  string
   last_seen_at?: string
   created_at?:  string
+}
+
+export interface CouponRow {
+  id:            string
+  code:          string
+  discount_pct:  number
+  max_uses:      number
+  used_count:    number
+  max_uses_per_shop: number
+  min_amount_pkr?: number
+  applies_to_plan?: string
+  expires_at:    string
+  is_active:     boolean
+  created_at:    string
+}
+
+export interface CouponRedemptionRow {
+  id:          string
+  coupon_id:   string
+  shop_id:     string
+  subscription_payment_id?: string
+  discount_pct: number
+  original_amount: number
+  discounted_amount: number
+  redeemed_at: string
+}
+
+export interface AdminAccountRow {
+  id:           string
+  username:     string
+  secret_hash:  string
+  totp_secret?: string
+  role:         'super_admin' | 'finance' | 'support'
+  is_active:    boolean
+  last_login?:  string
+  created_at:   string
+  created_by?:  string
+}
+
+export interface IpBlocklistRow {
+  id:         string
+  ip:         string
+  reason?:    string
+  blocked_by?: string
+  blocked_at: string
+  expires_at?: string
+  is_active:  boolean
+}
+
+export interface CronLogRow {
+  id:          string
+  name:        string
+  status:      'running' | 'success' | 'failed'
+  started_at:  string
+  finished_at?: string
+  error?:      string
+  duration_ms?: number
 }

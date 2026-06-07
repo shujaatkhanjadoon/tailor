@@ -6,6 +6,7 @@ import { sbGet } from '@/lib/supabase/service'
 import type {
   SubscriptionPaymentRow, SubscriptionRow, ShopRow, ShopUsageRow,
   OrderRow, AdminAuditLogRow, ShopVerificationRequestRow,
+  TeamMemberRow, PaymentRow, StatusHistoryRow, AdminNotificationRow,
 } from '@/lib/supabase/types'
 import { logger } from '@/lib/logger'
 
@@ -54,6 +55,17 @@ export async function GET(req: NextRequest) {
         const shopMap = new Map(shops.map(s => [s.id, s]))
         return NextResponse.json({
           data: payments.map(p => ({ ...p, shops: shopMap.get(p.shop_id) ?? null }))
+        })
+      }
+
+      case 'disputes': {
+        const [refundedPayments, shops] = await Promise.all([
+          sbGet(`subscription_payments?status=eq.refunded&order=paid_at.desc&limit=${limit}&select=*`) as Promise<SubscriptionPaymentRow[]>,
+          sbGet('shops?select=id,shop_name,owner_phone,city') as Promise<ShopRow[]>,
+        ])
+        const shopMap = new Map(shops.map(s => [s.id, s]))
+        return NextResponse.json({
+          data: refundedPayments.map(p => ({ ...p, shops: shopMap.get(p.shop_id) ?? null }))
         })
       }
 
@@ -154,6 +166,56 @@ export async function GET(req: NextRequest) {
         const activeShopIds = new Set(shops.map(s => s.id))
         return NextResponse.json({
           data: verifications.filter(v => activeShopIds.has(v.shop_id))
+        })
+      }
+
+      case 'notification_history': {
+        const logs: AdminNotificationRow[] = await sbGet(`admin_notifications?order=created_at.desc&limit=${limit}&select=*`)
+        return NextResponse.json({ data: logs })
+      }
+
+      case 'shop_detail': {
+        const shopId = req.nextUrl.searchParams.get('id')
+        if (!shopId) return NextResponse.json({ error: 'id required' }, { status: 400 })
+
+        const [shopRows, subs, subPayments, orders, shopPayments, team, statusHistory, usage, auditLogs] = await Promise.all([
+          sbGet(`shops?id=eq.${shopId}&limit=1`) as Promise<ShopRow[]>,
+          sbGet(`subscriptions?shop_id=eq.${shopId}&order=created_at.desc`) as Promise<SubscriptionRow[]>,
+          sbGet(`subscription_payments?shop_id=eq.${shopId}&order=paid_at.desc&limit=50`) as Promise<SubscriptionPaymentRow[]>,
+          sbGet(`orders?shop_id=eq.${shopId}&order=created_at.desc&limit=100`) as Promise<OrderRow[]>,
+          sbGet(`payments?shop_id=eq.${shopId}&order=paid_at.desc&limit=50`) as Promise<PaymentRow[]>,
+          sbGet(`team_members?shop_id=eq.${shopId}&select=*`) as Promise<TeamMemberRow[]>,
+          sbGet(`order_status_history?shop_id=eq.${shopId}&order=changed_at.desc&limit=200`) as Promise<StatusHistoryRow[]>,
+          sbGet(`shop_usage?shop_id=eq.${shopId}`) as Promise<ShopUsageRow[]>,
+          sbGet(`admin_audit_log?shop_id=eq.${shopId}&order=performed_at.desc&limit=50`) as Promise<AdminAuditLogRow[]>,
+        ])
+
+        const shop = shopRows[0] ?? null
+        if (!shop) return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
+
+        return NextResponse.json({
+          data: {
+            ...shop,
+            owner_pin_available: !!shop.encrypted_owner_pin,
+            subscriptions: subs,
+            subscription_payments: subPayments,
+            orders,
+            payments: shopPayments,
+            team_members: team,
+            order_status_history: statusHistory,
+            shop_usage: usage,
+            audit_logs: auditLogs,
+            order_stats: (() => {
+              const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status) && !o.deleted_at)
+              return {
+                total: orders.filter(o => !o.deleted_at).length,
+                active: activeOrders.length,
+                delivered: orders.filter(o => o.status === 'delivered').length,
+                total_value: orders.reduce((s, o) => s + Number(o.total_price ?? 0), 0),
+                received: orders.reduce((s, o) => s + Number(o.amount_paid ?? 0), 0),
+              }
+            })(),
+          }
         })
       }
 

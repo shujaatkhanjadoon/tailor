@@ -20,8 +20,10 @@ import {
   Trash2,
   LogIn,
   X,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ConfirmModal } from "@/components/admin/ConfirmModal";
 
 // ── Config ────────────────────────────────────────────────────────
 
@@ -441,6 +443,7 @@ function ShopCard({
   onVerifyAction,
   onDeleteShop,
   onImpersonate,
+  onShowConfirm,
 }: {
   shop: Shop;
   onPlanChange: (
@@ -455,6 +458,7 @@ function ShopCard({
   ) => Promise<void>;
   onDeleteShop: (shop: Shop) => Promise<void>;
   onImpersonate?: (shopId: string) => void;
+  onShowConfirm?: (title: string, message: string, onConfirm: () => void, variant?: "danger" | "warning" | "info") => void;
 }) {
   const sub = shop.subscriptions?.[0];
   const usage = shop.shop_usage?.[0];
@@ -500,24 +504,29 @@ function ShopCard({
   const handlePlanSelect = async (value: string) => {
     if (!value) return;
     const [planId, cycle] = value.split("|");
-    const confirmed = confirm(
-      `Change ${shop.shop_name}\nFrom: ${plan}\nTo: ${planId} (${cycle})\n\nContinue?`,
-    );
-    if (!confirmed) return;
 
-    setChanging(true);
-    setError("");
-    setSuccess(false);
-    try {
-      await onPlanChange(shop.id, planId, cycle);
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
-    } catch (e) {
-      setError(String(e));
-      setTimeout(() => setError(""), 5000);
-    } finally {
-      setChanging(false);
-    }
+    const doChange = async () => {
+      setChanging(true);
+      setError("");
+      setSuccess(false);
+      try {
+        await onPlanChange(shop.id, planId, cycle);
+        setSuccess(true);
+        setTimeout(() => setSuccess(false), 3000);
+      } catch (e) {
+        setError(String(e));
+        setTimeout(() => setError(""), 5000);
+      } finally {
+        setChanging(false);
+      }
+    };
+
+    onShowConfirm?.(
+      "Change Plan",
+      `Shop: ${shop.shop_name}\nFrom: ${plan}\nTo: ${planId} (${cycle})\n\nContinue?`,
+      doChange,
+      "warning",
+    );
   };
 
   return (
@@ -832,6 +841,17 @@ function ShopCard({
 
           {/* Quick action buttons */}
           <div className="flex flex-wrap gap-2">
+            {/* View Details */}
+            <a
+              href={`/admin/dashboard/shops/${shop.id}`}
+              className="flex items-center gap-1.5 border border-slate-600
+                         bg-slate-700/30 text-slate-300 hover:bg-slate-700/60
+                         text-xs font-semibold px-3 py-2 rounded-xl transition-colors"
+            >
+              <ExternalLink size={12} />
+              Details
+            </a>
+
             {/* WhatsApp */}
             <a
               href={waLink}
@@ -909,11 +929,13 @@ export default function AdminShopsPage() {
     VerificationRequest[]
   >([]);
   const [query, setQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<ShopTab>(
-    "all",
-  );
+  const [activeTab, setActiveTab] = useState<ShopTab>("all");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const PAGE_SIZE = 50;
 
   // ── Impersonation state ──────────────────────────────────────
   const [impersonateShopId, setImpersonateShopId] = useState<string | null>(null);
@@ -921,13 +943,24 @@ export default function AdminShopsPage() {
   const [impersonateLoading, setImpersonateLoading] = useState(false);
   const [impersonateError, setImpersonateError] = useState("");
 
+  // ── Confirmation modal state ─────────────────────────────────
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    variant?: "danger" | "warning" | "info";
+    onConfirm: () => void;
+  }>({ open: false, title: "", message: "", onConfirm: () => {} });
+
   // ── Load data ─────────────────────────────────────────────────
-  const load = useCallback(async () => {
+  const loadInitial = useCallback(async () => {
     setLoading(true);
     setError("");
+    setOffset(0);
+    setHasMore(true);
     try {
       const [shopsRes, verifyRes] = await Promise.all([
-        fetch("/api/admin/data?type=shops&limit=200"),
+        fetch(`/api/admin/data?type=shops&limit=${PAGE_SIZE}&offset=0`),
         fetch("/api/admin/data?type=pending_verifications"),
       ]);
 
@@ -943,7 +976,10 @@ export default function AdminShopsPage() {
 
       if (shopsData.error) throw new Error(shopsData.error);
 
-      setShops(shopsData.data ?? []);
+      const shopsBatch = shopsData.data ?? [];
+      setShops(shopsBatch);
+      setHasMore(shopsBatch.length >= PAGE_SIZE);
+      setOffset(PAGE_SIZE);
       setPendingVerifications(verifyData.data ?? []);
     } catch (e) {
       setError(String(e));
@@ -952,9 +988,40 @@ export default function AdminShopsPage() {
     }
   }, []);
 
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/data?type=shops&limit=${PAGE_SIZE}&offset=${offset}`);
+      if (res.status === 401) { window.location.href = "/admin/login"; return; }
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      const batch = data.data ?? [];
+      if (batch.length > 0) {
+        setShops(prev => [...prev, ...batch]);
+      }
+      setHasMore(batch.length >= PAGE_SIZE);
+      setOffset(prev => prev + batch.length);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, offset]);
+
   useEffect(() => {
-    load();
-  }, [load]);
+    loadInitial();
+  }, [loadInitial]);
+
+  // ── Confirmation handler ───────────────────────────────────────
+  const showConfirm = useCallback(
+    (title: string, message: string, onConfirm: () => void, variant?: "danger" | "warning" | "info") => {
+      setConfirmState({ open: true, title, message, variant, onConfirm });
+    },
+    [],
+  );
 
   // ── Actions ───────────────────────────────────────────────────
 
@@ -993,32 +1060,30 @@ export default function AdminShopsPage() {
 
   const handleToggleActive = useCallback(async (shop: Shop) => {
     const active = shop.is_active !== false;
-    const action = active ? "deactivate_shop" : "activate_shop";
 
-    const confirmed = confirm(
+    showConfirm(
+      active ? "Deactivate Shop" : "Activate Shop",
       `${active ? "Deactivate" : "Activate"}: ${shop.shop_name}?\n\n` +
         (active
           ? "Owner login nahi kar payega. Data safe rahega."
           : "Owner dobara login kar sakta hai."),
+      async () => {
+        const action = active ? "deactivate_shop" : "activate_shop";
+        const res = await fetch("/api/admin/action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, shopId: shop.id, reason: "Manual admin toggle" }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error ?? "Toggle failed");
+        setShops((prev) =>
+          prev.map((s) => (s.id !== shop.id ? s : { ...s, is_active: !active })),
+        );
+        setConfirmState(prev => ({ ...prev, open: false }));
+      },
+      active ? "danger" : "info",
     );
-    if (!confirmed) return;
-
-    const res = await fetch("/api/admin/action", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action,
-        shopId: shop.id,
-        reason: "Manual admin toggle",
-      }),
-    });
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error ?? "Toggle failed");
-
-    setShops((prev) =>
-      prev.map((s) => (s.id !== shop.id ? s : { ...s, is_active: !active })),
-    );
-  }, []);
+  }, [showConfirm]);
 
   const handleVerifyAction = useCallback(
     async (shopId: string, status: "approved" | "rejected", note = "") => {
@@ -1045,29 +1110,31 @@ export default function AdminShopsPage() {
   );
 
   const handleDeleteShop = useCallback(async (shop: Shop) => {
-    const confirmed = confirm(
+    showConfirm(
+      "Delete Shop",
       `Delete rejected account: ${shop.shop_name}?\n\n` +
         "Owner login band ho jayega aur shop admin list se hide ho jayegi. Audit log safe rahega.",
+      async () => {
+        const res = await fetch("/api/admin/action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "delete_shop",
+            shopId: shop.id,
+            reason: "Rejected account deleted by admin",
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error ?? "Delete failed");
+        setShops((prev) => prev.filter((s) => s.id !== shop.id));
+        setPendingVerifications((prev) =>
+          prev.filter((v) => v.shop_id !== shop.id),
+        );
+        setConfirmState(prev => ({ ...prev, open: false }));
+      },
+      "danger",
     );
-    if (!confirmed) return;
-
-    const res = await fetch("/api/admin/action", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "delete_shop",
-        shopId: shop.id,
-        reason: "Rejected account deleted by admin",
-      }),
-    });
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error ?? "Delete failed");
-
-    setShops((prev) => prev.filter((s) => s.id !== shop.id));
-    setPendingVerifications((prev) =>
-      prev.filter((v) => v.shop_id !== shop.id),
-    );
-  }, []);
+  }, [showConfirm]);
 
   // ── Impersonation handlers ─────────────────────────────────────
 
@@ -1194,7 +1261,7 @@ export default function AdminShopsPage() {
           </p>
         </div>
         <button
-          onClick={load}
+          onClick={loadInitial}
           disabled={loading}
           className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700
                      text-slate-300 font-semibold px-3 py-2 rounded-xl text-sm
@@ -1293,7 +1360,7 @@ export default function AdminShopsPage() {
         <div className="bg-red-900/30 border border-red-700 rounded-2xl p-4">
           <p className="text-red-300 text-sm">{error}</p>
           <button
-            onClick={load}
+            onClick={loadInitial}
             className="mt-2 text-red-400 text-xs underline"
           >
             Retry
@@ -1340,11 +1407,44 @@ export default function AdminShopsPage() {
                 onVerifyAction={handleVerifyAction}
                 onDeleteShop={handleDeleteShop}
                 onImpersonate={handleImpersonate}
+                onShowConfirm={showConfirm}
               />
             ))
           )}
         </div>
       )}
+
+      {/* Load More */}
+      {!loading && hasMore && filtered.length > 0 && (
+        <div className="flex justify-center pt-4">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50"
+          >
+            {loadingMore ? (
+              <RefreshCw size={14} className="animate-spin" />
+            ) : (
+              <ChevronDown size={14} />
+            )}
+            {loadingMore ? "Loading..." : "Load More Shops"}
+          </button>
+        </div>
+      )}
+
+      {/* Confirmation modal */}
+      <ConfirmModal
+        open={confirmState.open}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant={confirmState.variant}
+        confirmLabel={confirmState.variant === "danger" ? "Delete" : "Confirm"}
+        onConfirm={() => {
+          setConfirmState(prev => ({ ...prev, open: false }));
+          confirmState.onConfirm();
+        }}
+        onCancel={() => setConfirmState(prev => ({ ...prev, open: false }))}
+      />
 
       {/* Impersonate TOTP modal */}
       {impersonateShopId && (

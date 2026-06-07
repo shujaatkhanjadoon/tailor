@@ -1,14 +1,15 @@
 ﻿// src/app/admin/dashboard/payments/page.tsx
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   RefreshCw, CheckCircle2, XCircle,
   Clock, Copy, Check, MessageCircle,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, Smartphone,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
+import { ConfirmModal } from '@/components/admin/ConfirmModal'
 
 interface Payment {
   id:            string
@@ -31,15 +32,18 @@ function PaymentCard({
 }: {
   payment:    Payment
   onActivate: (p: Payment) => Promise<void>
-  onReject:   (p: Payment, reason: string) => Promise<void>
+  onReject:   (p: Payment, reason: string, totp?: string) => Promise<void>
 }) {
   const [expanded,       setExpanded]       = useState(false)
   const [activating,     setActivating]     = useState(false)
   const [showReject,     setShowReject]      = useState(false)
   const [rejectReason,   setRejectReason]   = useState('')
   const [rejecting,      setRejecting]      = useState(false)
+  const [rejectTotp,     setRejectTotp]     = useState('')
   const [copied,         setCopied]         = useState<'tx' | 'ref' | null>(null)
   const [done,           setDone]           = useState<'activated' | 'rejected' | null>(null)
+  const [confirmActivate, setConfirmActivate] = useState(false)
+  const [cardError,      setCardError]      = useState('')
 
   const shop = payment.shops
   const paymentRef = payment.receipt_data?.payment_ref ?? ''
@@ -52,26 +56,28 @@ function PaymentCard({
   }
 
   const handleActivate = async () => {
-    if (!confirm(`Activate: ${shop?.shop_name}?`)) return
     setActivating(true)
+    setCardError('')
     try {
       await onActivate(payment)
       setDone('activated')
     } catch (e) {
-      alert(`Error: ${e}`)
+      setCardError(String(e))
     } finally {
       setActivating(false)
+      setConfirmActivate(false)
     }
   }
 
   const handleReject = async () => {
     if (!rejectReason.trim()) return
     setRejecting(true)
+    setCardError('')
     try {
-      await onReject(payment, rejectReason.trim())
+      await onReject(payment, rejectReason.trim(), rejectTotp || undefined)
       setDone('rejected')
     } catch (e) {
-      alert(`Error: ${e}`)
+      setCardError(String(e))
     } finally {
       setRejecting(false)
     }
@@ -235,6 +241,16 @@ function PaymentCard({
                            rounded-xl px-3 py-2.5 text-sm outline-none
                            placeholder:text-red-800"
               />
+              <div className="flex items-center gap-2">
+                <Smartphone size={13} className="text-slate-500" />
+                <input type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6}
+                  placeholder="TOTP code" value={rejectTotp}
+                  onChange={(e) => setRejectTotp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  className="flex-1 bg-red-950/30 border border-red-800 text-red-200
+                             rounded-xl px-3 py-2 text-sm font-mono outline-none
+                             placeholder:text-red-800"
+                />
+              </div>
               <div className="flex flex-col gap-2 min-[420px]:flex-row">
                 <button
                   onClick={handleReject}
@@ -247,10 +263,10 @@ function PaymentCard({
                     ? <RefreshCw size={14} className="animate-spin" />
                     : <XCircle  size={14} />
                   }
-                  Reject
+                  Reject (TOTP req.)
                 </button>
                 <button
-                  onClick={() => { setShowReject(false); setRejectReason('') }}
+                  onClick={() => { setShowReject(false); setRejectReason(''); setRejectTotp('') }}
                   className="px-4 py-2.5 bg-slate-700 text-slate-300 font-semibold
                              rounded-xl text-sm"
                 >
@@ -260,11 +276,30 @@ function PaymentCard({
             </div>
           )}
 
+          {/* Card-level error */}
+          {cardError && (
+            <div className="bg-red-900/30 border border-red-700 rounded-xl px-3 py-2 mt-2">
+              <p className="text-red-300 text-xs">{cardError}</p>
+            </div>
+          )}
+
+          {/* Confirm activation modal */}
+          <ConfirmModal
+            open={confirmActivate}
+            title="Activate Payment"
+            message={`Is payment ko activate karein for ${shop?.shop_name}?`}
+            confirmLabel="Activate"
+            variant="info"
+            onConfirm={handleActivate}
+            onCancel={() => setConfirmActivate(false)}
+            loading={activating}
+          />
+
           {/* Action buttons */}
           {!showReject && (
             <div className="flex flex-col gap-2 min-[420px]:flex-row">
               <button
-                onClick={handleActivate}
+                onClick={() => setConfirmActivate(true)}
                 disabled={activating}
                 className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-slate-700
                            text-white font-bold py-3 rounded-xl text-sm transition-colors
@@ -296,21 +331,31 @@ function PaymentCard({
 export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [loading,  setLoading]  = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error,    setError]    = useState('')
+  const offsetRef  = useRef(0)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (append = false) => {
+    if (append) setLoadingMore(true); else setLoading(true)
     setError('')
     try {
-      const res  = await fetch('/api/admin/data?type=pending')
+      const offset = append ? offsetRef.current : 0
+      const res  = await fetch(`/api/admin/data?type=pending&limit=25&offset=${offset}`)
       if (res.status === 401) { window.location.href = '/admin/login'; return }
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      setPayments(data.data ?? [])
+      const batch = data.data ?? []
+      if (append) {
+        setPayments(prev => [...prev, ...batch])
+        offsetRef.current += batch.length
+      } else {
+        setPayments(batch)
+        offsetRef.current = batch.length
+      }
     } catch (e) {
       setError(String(e))
     } finally {
-      setLoading(false)
+      setLoading(false); setLoadingMore(false)
     }
   }, [])
 
@@ -333,7 +378,7 @@ export default function AdminPaymentsPage() {
     if (!data.success) throw new Error(data.error ?? 'Activation failed')
   }
 
-  const handleReject = async (p: Payment, reason: string) => {
+  const handleReject = async (p: Payment, reason: string, totp?: string) => {
     const res  = await fetch('/api/admin/action', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -342,6 +387,7 @@ export default function AdminPaymentsPage() {
         paymentId: p.id,
         shopId:    p.shop_id,
         reason,
+        totpCode: totp || undefined,
       }),
     })
     const data = await res.json()
@@ -360,7 +406,7 @@ export default function AdminPaymentsPage() {
           </p>
         </div>
         <button
-          onClick={load}
+          onClick={() => load()}
           disabled={loading}
           className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700
                      text-slate-300 font-semibold px-3 py-2 rounded-xl text-sm"
@@ -406,6 +452,22 @@ export default function AdminPaymentsPage() {
               onReject={handleReject}
             />
           ))}
+          <div className="flex justify-center pt-2">
+            <button
+              onClick={() => load(true)}
+              disabled={loadingMore}
+              className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600
+                         text-slate-300 text-xs font-semibold px-4 py-2.5 rounded-xl
+                         disabled:opacity-50 transition-colors"
+            >
+              {loadingMore ? (
+                <RefreshCw size={12} className="animate-spin" />
+              ) : (
+                <ChevronDown size={12} />
+              )}
+              {loadingMore ? "Loading..." : "Load More"}
+            </button>
+          </div>
         </div>
       )}
     </div>

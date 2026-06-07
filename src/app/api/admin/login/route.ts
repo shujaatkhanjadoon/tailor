@@ -1,9 +1,10 @@
 // src/app/api/admin/login/route.ts
-import { timingSafeEqual } from 'crypto'
+import { timingSafeEqual, createHash } from 'crypto'
 import { NextRequest, NextResponse }                          from 'next/server'
 import { verifyTOTP, generateSessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 import { logAdminAction }                                     from '@/lib/admin/audit'
 import { validate, schemas }                                  from '@/lib/validation'
+import { sbGet }                                              from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
 import { getLoginRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status })
   }
 
-  const { secret, totpCode } = parsed.data
+  const { secret, totpCode, rememberMe, username } = parsed.data
 
   // ── 0. Rate limit admin login attempts ──────────────────────────
   const limiter = getLoginRatelimiter()
@@ -23,7 +24,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Bahut zyada attempts. 15 minute mein dobara try karein.' }, { status: 429 })
   }
 
-  // ── 1. Verify admin secret ────────────────────────────────────────
+  // ── 1. Authenticate: ADMIN_SECRET env var OR admin_accounts table ──
+  let adminRole = 'super_admin'
+
+  // Try master ADMIN_SECRET first
   const adminSecret = process.env.ADMIN_SECRET
   if (!adminSecret) {
     logger.error('admin', 'ADMIN_SECRET not configured')
@@ -32,9 +36,22 @@ export async function POST(req: NextRequest) {
 
   const secretBuf = Buffer.from(secret?.trim() ?? '', 'utf-8')
   const adminBuf  = Buffer.from(adminSecret, 'utf-8')
-  const secretMatch = secretBuf.length === adminBuf.length && timingSafeEqual(secretBuf, adminBuf)
+  let secretMatch = secretBuf.length === adminBuf.length && timingSafeEqual(secretBuf, adminBuf)
+
+  // If master secret doesn't match, try sub-admin login
+  if (!secretMatch && username) {
+    const passwordHash = createHash('sha256').update(secret.trim()).digest('hex')
+    const accounts: { id: string; secret_hash: string; role: string }[] = await sbGet(`admin_accounts?username=eq.${username}&is_active=eq.true&select=id,secret_hash,role`)
+    const account = accounts?.[0]
+    if (account) {
+      const pwBuf = Buffer.from(passwordHash, 'utf-8')
+      const hashBuf = Buffer.from(account.secret_hash, 'utf-8')
+      secretMatch = pwBuf.length === hashBuf.length && timingSafeEqual(pwBuf, hashBuf)
+      if (secretMatch) adminRole = account.role
+    }
+  }
+
   if (!secret || !secretMatch) {
-    // Delay response to slow brute force
     await new Promise(r => setTimeout(r, 500))
     logAdminAction('admin_login', 'admin_session', 'failed', undefined, { reason: 'invalid_secret' })
     return NextResponse.json({ error: 'Secret galat hai' }, { status: 401 })
@@ -64,15 +81,15 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 3. Generate session ───────────────────────────────────────────
-  const token = generateSessionToken()
+  const token = generateSessionToken(undefined, rememberMe)
 
-  const res = NextResponse.json({ success: true })
+  const res = NextResponse.json({ success: true, role: adminRole })
   const tokenHash = token.slice(0, 12)
   res.cookies.set(ADMIN_SESSION_COOKIE, token, {
     httpOnly: true,
     secure:   true,
     sameSite: 'strict',
-    maxAge:   15 * 60,
+    maxAge:   rememberMe ? 7 * 24 * 60 * 60 : 15 * 60,
     path:     '/',
   })
 

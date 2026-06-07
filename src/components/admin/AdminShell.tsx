@@ -6,19 +6,32 @@ import { useRouter, usePathname }  from 'next/navigation'
 import {
   LayoutDashboard, CreditCard,
   Store, BarChart2, ScrollText, LogOut,
-  Shield, Menu, X, ChevronRight, Bell,
+  Shield, Menu, X, ChevronRight, Bell, Settings, Percent,
+  TriangleAlert, Activity, TrendingUp, Users,
+  Ban, KeyRound, Layers, UserCog,
 } from 'lucide-react'
 import { SessionTimer } from './SessionTimer'
 import { cn }           from '@/lib/utils'
 import Image from 'next/image'
 
 const NAV_ITEMS = [
-  { href: '/admin/dashboard',           label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/admin/dashboard/payments',  label: 'Payments',   icon: CreditCard      },
-  { href: '/admin/dashboard/shops',     label: 'All Shops',  icon: Store           },
-  { href: '/admin/dashboard/notifications', label: 'Notify', icon: Bell            },
-  { href: '/admin/dashboard/analytics', label: 'Analytics',  icon: BarChart2       },
-  { href: '/admin/dashboard/logs',      label: 'Audit Log',  icon: ScrollText      },
+  { href: '/admin/dashboard',                  label: 'Dashboard',    icon: LayoutDashboard },
+  { href: '/admin/dashboard/payments',         label: 'Payments',     icon: CreditCard      },
+  { href: '/admin/dashboard/shops',            label: 'All Shops',    icon: Store           },
+  { href: '/admin/dashboard/shops/bulk',       label: 'Bulk Ops',     icon: Layers          },
+  { href: '/admin/dashboard/notifications',    label: 'Notify',       icon: Bell            },
+  { href: '/admin/dashboard/analytics',        label: 'Analytics',    icon: BarChart2       },
+  { href: '/admin/dashboard/reports/revenue',  label: 'Revenue',      icon: TrendingUp      },
+  { href: '/admin/dashboard/reports/subscriptions', label: 'Subs',    icon: Users           },
+  { href: '/admin/dashboard/reports/shops',    label: 'Shops Rpt',    icon: Store           },
+  { href: '/admin/dashboard/health',           label: 'Health',       icon: Activity        },
+  { href: '/admin/dashboard/disputes',         label: 'Disputes',     icon: TriangleAlert   },
+  { href: '/admin/dashboard/coupons',          label: 'Coupons',      icon: Percent         },
+  { href: '/admin/dashboard/admins',           label: 'Admins',       icon: UserCog         },
+  { href: '/admin/dashboard/settings/messages', label: 'Messages',    icon: Settings        },
+  { href: '/admin/dashboard/security/blocklist', label: 'Blocklist',  icon: Ban             },
+  { href: '/admin/dashboard/security/2fa',      label: '2FA',        icon: KeyRound         },
+  { href: '/admin/dashboard/logs',             label: 'Audit Log',    icon: ScrollText      },
 ]
 
 function NavContent({ pathname, router, onLogout }: {
@@ -165,7 +178,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </div>
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900 border-t border-slate-800 lg:hidden">
-        <div className="grid grid-cols-6 h-16">
+        <div className="flex h-16 overflow-x-auto [scrollbar-width:none]">
           {NAV_ITEMS.map(item => {
             const isActive = pathname === item.href ||
               (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
@@ -174,7 +187,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 key={item.href}
                 onClick={() => router.push(item.href)}
                 className={cn(
-                  'flex flex-col items-center justify-center gap-1 text-[10px] font-medium',
+                  'flex flex-col items-center justify-center gap-1 text-[10px] font-medium min-w-[60px] flex-1',
                   isActive ? 'text-blue-400' : 'text-slate-500'
                 )}
               >

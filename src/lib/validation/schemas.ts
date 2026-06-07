@@ -17,11 +17,13 @@ export const schemas = {
   }),
 
   login: z.object({
-    secret: z.string().min(1, 'Secret required'),
+    secret: z.string().min(1, 'Secret or password required'),
     totpCode: z.preprocess(
       v => (v === '' || v === undefined || v === null) ? undefined : v,
       z.string().regex(/^\d{6}$/).optional()
     ),
+    rememberMe: z.boolean().optional().default(false),
+    username: z.string().optional(),
   }),
 
   sendOtp: z.object({
@@ -60,7 +62,7 @@ export const schemas = {
   }),
 
   adminAction: z.object({
-    action: z.enum(['delete_shop', 'deactivate_shop', 'activate_shop', 'set_plan', 'reject_payment', 'send_notification', 'activate_payment', 'verify_shop']),
+    action: z.enum(['delete_shop', 'deactivate_shop', 'activate_shop', 'set_plan', 'reject_payment', 'send_notification', 'activate_payment', 'verify_shop', 'refund_payment', 'extend_expiry', 'set_custom_expiry', 'update_subscription_amount', 'bulk_set_plan', 'bulk_extend_expiry', 'bulk_send_notification', 'block_ip', 'unblock_ip', 'reset_admin_totp', 'force_logout_sessions', 'create_admin', 'deactivate_admin', 'activate_admin']),
     targetId: z.string().optional(),
     shopId: z.string().optional(),
     planId: z.string().optional(),
@@ -72,6 +74,12 @@ export const schemas = {
     amountPkr: z.number().optional(),
     plan: z.string().optional(),
     totpCode: z.string().regex(/^\d{6}$/).optional(),
+    shopIds: z.array(z.string()).optional(),
+    ip: z.string().optional(),
+    username: z.string().optional(),
+    role: z.enum(['super_admin', 'finance', 'support']).optional(),
+    password: z.string().optional(),
+    days: z.number().optional(),
   }),
 
   adminNotificationPost: z.object({

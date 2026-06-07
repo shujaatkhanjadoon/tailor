@@ -65,18 +65,27 @@ export function getTOTPUri(): string {
   return authenticator.keyuri(account, issuer, secret)
 }
 
-// ── Session token (HMAC-signed, 15-min expiry, nonce-based rotation) ──────────────────────────
-const SESSION_DURATION_MS = 15 * 60 * 1000
+// ── Session token (HMAC-signed, nonce-based rotation) ─────────────────────────────────
+const SESSION_DURATION_MS    = 15 * 60 * 1000
+const REMEMBER_DURATION_MS = 7 * 24 * 60 * 60 * 1000
 
-export function generateSessionToken(nonce?: string): string {
+export function generateSessionToken(nonce?: string, rememberMe?: boolean): string {
   const secret    = process.env.ADMIN_SECRET
   if (!secret) throw new Error('ADMIN_SECRET not set')
   const timestamp = Date.now()
   const n         = nonce ?? crypto.randomUUID()
-  const payload   = `admin:${timestamp}:${n}`
+  const mode      = rememberMe ? '1' : '0'
+  const payload   = `admin:${timestamp}:${n}:${mode}`
   const signature = createHmac('sha256', secret).update(payload).digest('hex')
-  const raw       = `${timestamp}:${n}:${signature}`
+  const raw       = `${timestamp}:${n}:${mode}:${signature}`
   return Buffer.from(raw).toString('base64url')
+}
+
+function getTokenDuration(token: string): number {
+  const raw = Buffer.from(token, 'base64url').toString('utf-8')
+  const parts = raw.split(':')
+  if (parts.length === 4 && parts[2] === '1') return REMEMBER_DURATION_MS
+  return SESSION_DURATION_MS
 }
 
 export function verifySessionToken(token: string): boolean {
@@ -87,7 +96,29 @@ export function verifySessionToken(token: string): boolean {
     const raw = Buffer.from(token, 'base64url').toString('utf-8')
     const parts = raw.split(':')
 
-    // New format: timestamp:nonce:signature (3 parts)
+    // New format with mode: timestamp:nonce:mode:signature (4 parts)
+    if (parts.length === 4) {
+      const [tsStr, , mode, signature] = parts
+      const timestamp = parseInt(tsStr, 10)
+      if (isNaN(timestamp)) return false
+      const duration = mode === '1' ? REMEMBER_DURATION_MS : SESSION_DURATION_MS
+      if (Date.now() - timestamp > duration) return false
+
+      const expected = createHmac('sha256', secret)
+        .update(`admin:${timestamp}:${parts[1]}:${mode}`)
+        .digest('hex')
+
+      try {
+        return timingSafeEqual(
+          Buffer.from(signature, 'hex'),
+          Buffer.from(expected, 'hex')
+        )
+      } catch {
+        return false
+      }
+    }
+
+    // New format: timestamp:nonce:signature (3 parts) - legacy
     if (parts.length === 3) {
       const [tsStr, , signature] = parts
       const timestamp = parseInt(tsStr, 10)
@@ -137,7 +168,13 @@ export function verifySessionToken(token: string): boolean {
 
 export function rotateSessionToken(token: string): string | null {
   if (!verifySessionToken(token)) return null
-  return generateSessionToken()
+  const rememberMe = getTokenDuration(token) === REMEMBER_DURATION_MS
+  return generateSessionToken(undefined, rememberMe)
+}
+
+export function getSessionMaxAge(token: string): number {
+  const duration = getTokenDuration(token)
+  return Math.floor(duration / 1000)
 }
 
 export const ADMIN_SESSION_COOKIE = '__Secure-admin_session'

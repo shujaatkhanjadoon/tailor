@@ -150,6 +150,9 @@ function LoginContent() {
   const [secret,      setSecret]      = useState('')
   const [showSecret,  setShowSecret]  = useState(false)
   const [totpCode,    setTotpCode]    = useState('')
+  const [rememberMe,  setRememberMe]  = useState(false)
+  const [username,    setUsername]    = useState('')
+  const [loginMode,   setLoginMode]   = useState<'master' | 'sub'>('master')
   const [loading,     setLoading]     = useState(false)
   const [error,       setError]       = useState('')
   const [requiresTOTP, setRequiresTOTP] = useState(false)
@@ -172,7 +175,10 @@ function LoginContent() {
       const res  = await fetch('/api/admin/login', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ secret: secret.trim() }),
+        body:    JSON.stringify({
+          secret: secret.trim(), rememberMe,
+          ...(loginMode === 'sub' && username ? { username } : {}),
+        }),
       })
       const data = await res.json()
 
@@ -202,7 +208,10 @@ function LoginContent() {
       const res  = await fetch('/api/admin/login', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ secret: secret.trim(), totpCode }),
+        body:    JSON.stringify({
+          secret: secret.trim(), totpCode, rememberMe,
+          ...(loginMode === 'sub' && username ? { username } : {}),
+        }),
       })
       const data = await res.json()
 
@@ -293,52 +302,82 @@ function LoginContent() {
           {/* â”€â”€ STEP 1: Secret â”€â”€ */}
           {step === 'secret' && (
             <div>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-blue-100 rounded-2xl flex items-center
-                                justify-center shrink-0">
-                  <Key size={18} className="text-blue-600" />
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-blue-100 rounded-2xl flex items-center
+                                  justify-center shrink-0">
+                    <Key size={18} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-slate-800">Admin Login</h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {loginMode === 'master' ? 'Admin secret key daalein' : 'Sub-admin credentials daalein'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="font-bold text-slate-800">Admin Secret</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Admin secret key daalein
-                  </p>
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500
-                                   uppercase tracking-wide mb-2">
-                  Secret Key
-                </label>
-                <div className={cn(
-                  'flex items-center gap-2 border-2 rounded-2xl px-4 py-3.5 mb-4',
-                  'transition-all',
-                  error
-                    ? 'border-red-400 bg-red-50'
-                    : 'border-slate-200 bg-slate-50 focus-within:border-blue-500 focus-within:bg-white'
-                )}>
-                  <Shield size={16} className="text-slate-400 shrink-0" />
-                  <input
-                    type={showSecret ? 'text' : 'password'}
-                    placeholder="Admin secret key..."
-                    value={secret}
-                    onChange={e => { setSecret(e.target.value); setError('') }}
-                    onKeyDown={e => e.key === 'Enter' && handleSecretSubmit()}
-                    autoFocus
-                    className="flex-1 text-sm font-mono bg-transparent outline-none
-                               text-slate-800 placeholder:text-slate-400 placeholder:font-sans"
-                  />
-                  <button
-                    onClick={() => setShowSecret(v => !v)}
-                    className="text-slate-400 hover:text-slate-600"
-                  >
-                    {showSecret
-                      ? <EyeOff size={16} />
-                      : <Eye size={16} />
-                    }
+                {/* Login mode toggle */}
+                <div className="flex bg-slate-100 rounded-xl p-0.5 mb-4">
+                  <button onClick={() => setLoginMode('master')}
+                    className={`flex-1 text-xs font-semibold py-2 rounded-lg transition-all ${loginMode === 'master' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>
+                    Master Admin
+                  </button>
+                  <button onClick={() => setLoginMode('sub')}
+                    className={`flex-1 text-xs font-semibold py-2 rounded-lg transition-all ${loginMode === 'sub' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>
+                    Sub Admin
                   </button>
                 </div>
+
+                <div>
+                  {loginMode === 'sub' && (
+                    <div className="mb-3">
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
+                        Username
+                      </label>
+                      <div className="flex items-center gap-2 border-2 rounded-2xl px-4 py-3.5 transition-all border-slate-200 bg-slate-50 focus-within:border-blue-500 focus-within:bg-white">
+                        <Shield size={16} className="text-slate-400 shrink-0" />
+                        <input
+                          type="text"
+                          placeholder="Username..."
+                          value={username}
+                          onChange={e => { setUsername(e.target.value); setError('') }}
+                          className="flex-1 text-sm bg-transparent outline-none text-slate-800 placeholder:text-slate-400"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <label className="block text-xs font-bold text-slate-500
+                                   uppercase tracking-wide mb-2">
+                    {loginMode === 'master' ? 'Secret Key' : 'Password'}
+                  </label>
+                  <div className={cn(
+                    'flex items-center gap-2 border-2 rounded-2xl px-4 py-3.5 mb-4',
+                    'transition-all',
+                    error
+                      ? 'border-red-400 bg-red-50'
+                      : 'border-slate-200 bg-slate-50 focus-within:border-blue-500 focus-within:bg-white'
+                  )}>
+                    <Shield size={16} className="text-slate-400 shrink-0" />
+                    <input
+                      type={showSecret ? 'text' : 'password'}
+                      placeholder={loginMode === 'master' ? 'Admin secret key...' : 'Password...'}
+                      value={secret}
+                      onChange={e => { setSecret(e.target.value); setError('') }}
+                      onKeyDown={e => e.key === 'Enter' && handleSecretSubmit()}
+                      autoFocus
+                      className="flex-1 text-sm font-mono bg-transparent outline-none
+                               text-slate-800 placeholder:text-slate-400 placeholder:font-sans"
+                    />
+                    <button
+                      onClick={() => setShowSecret(v => !v)}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      {showSecret
+                        ? <EyeOff size={16} />
+                        : <Eye size={16} />
+                      }
+                    </button>
+                  </div>
 
                 {error && (
                   <div className="flex items-center gap-2 bg-red-50 border border-red-200
@@ -347,6 +386,21 @@ function LoginContent() {
                     <p className="text-red-600 text-xs">{error}</p>
                   </div>
                 )}
+
+                <label
+                  className="flex items-center gap-2.5 cursor-pointer select-none mb-4"
+                >
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={e => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600
+                               focus:ring-blue-500 cursor-pointer"
+                  />
+                  <span className="text-xs text-slate-500 font-medium">
+                    7 din tak yaad rakhein (Remember Me)
+                  </span>
+                </label>
 
                 <button
                   onClick={handleSecretSubmit}

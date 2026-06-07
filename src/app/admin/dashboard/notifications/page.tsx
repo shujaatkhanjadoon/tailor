@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Bell, CalendarClock, Edit2, Loader2, MessageCircle, Save, Send, Trash2, Users, X } from 'lucide-react'
+import { Bell, CalendarClock, Edit2, Loader2, MessageCircle, Save, Send, Trash2, Users, X, Clock, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatKarachiDateTime, formatKarachiDateTimeInput } from '@/lib/time'
+import { ConfirmModal } from '@/components/admin/ConfirmModal'
 
 type TargetPlan = 'all' | 'starter' | 'professional' | 'business'
 type NotificationType = 'info' | 'success' | 'warning' | 'urgent'
@@ -45,34 +46,53 @@ const typeBadge: Record<NotificationType, string> = {
   urgent: 'bg-red-500/10 text-red-300',
 }
 
-function expiryFromHours(hours: number) {
-  return formatKarachiDateTimeInput(new Date(Date.now() + hours * 60 * 60 * 1000))
+function expiryFromHours(hours: number, now?: Date) {
+  const base = now ?? new Date()
+  return formatKarachiDateTimeInput(new Date(base.getTime() + hours * 60 * 60 * 1000))
 }
 
 export default function AdminNotificationsPage() {
+  const [hydrated, setHydrated] = useState(false)
+  useEffect(() => { setHydrated(true) }, [])
+
   const [targetPlan, setTargetPlan] = useState<TargetPlan>('all')
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
   const [type, setType] = useState<NotificationType>('info')
   const [durationHours, setDurationHours] = useState(24)
-  const [customExpiry, setCustomExpiry] = useState(expiryFromHours(24))
+  const [customExpiry, setCustomExpiry] = useState('')
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [rows, setRows] = useState<NotificationRow[]>([])
   const [waLinks, setWaLinks] = useState<{ shopName: string; phone: string; url: string }[]>([])
   const [editing, setEditing] = useState<NotificationRow | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+
+  // Defer Date-based default until hydration
+  useEffect(() => {
+    if (!customExpiry) setCustomExpiry(expiryFromHours(durationHours))
+  }, [hydrated, customExpiry, durationHours])
 
   const expiresAt = useMemo(
-    () => durationHours > 0 ? expiryFromHours(durationHours) : customExpiry,
-    [customExpiry, durationHours]
+    () => durationHours > 0 && hydrated ? expiryFromHours(durationHours) : customExpiry,
+    [customExpiry, durationHours, hydrated]
   )
 
   const load = useCallback(async () => {
-    const res = await fetch('/api/admin/notifications', { cache: 'no-store' })
-    const json = await res.json()
-    if (res.ok) setRows(json.data ?? [])
-    setLoading(false)
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/admin/notifications', { cache: 'no-store' })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to load')
+      const json = await res.json()
+      setRows(json.data ?? [])
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -145,7 +165,6 @@ export default function AdminNotificationsPage() {
   }
 
   const deleteNotification = async (id: string) => {
-    if (!confirm('Delete this notification?')) return
     setDeletingId(id)
     try {
       const res = await fetch(`/api/admin/notifications?id=${encodeURIComponent(id)}`, {
@@ -156,6 +175,7 @@ export default function AdminNotificationsPage() {
       await load()
     } finally {
       setDeletingId(null)
+      setConfirmDelete(null)
     }
   }
 
@@ -169,12 +189,30 @@ export default function AdminNotificationsPage() {
     if (res.ok) setWaLinks(json.data ?? [])
   }
 
+  if (!hydrated) {
+    return <div className="space-y-5"><div className="animate-pulse h-8 w-48 bg-slate-800 rounded-xl" /></div>
+  }
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Notifications</h1>
-        <p className="mt-1 text-sm text-slate-400">Send dashboard announcements and prepare WhatsApp bulk messages.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Notifications</h1>
+          <p className="mt-1 text-sm text-slate-400">Send dashboard announcements and prepare WhatsApp bulk messages.</p>
+        </div>
+        <a href="/admin/dashboard/notifications/history"
+          className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold px-3 py-2 rounded-xl transition-colors"
+        >
+          <Clock size={12} /> History
+        </a>
       </div>
+
+      {error && (
+        <div className="flex items-center gap-2 bg-red-900/30 border border-red-700 rounded-xl px-3 py-2.5">
+          <AlertCircle size={14} className="text-red-400 shrink-0" />
+          <p className="text-red-300 text-xs">{error}</p>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
@@ -340,7 +378,7 @@ export default function AdminNotificationsPage() {
                         Edit
                       </button>
                       <button
-                        onClick={() => deleteNotification(row.id)}
+                        onClick={() => setConfirmDelete(row.id)}
                         disabled={deletingId === row.id}
                         className="flex items-center gap-1 rounded-lg border border-red-900/80 px-2.5 py-1.5 text-xs font-bold text-red-300 hover:border-red-500 disabled:opacity-60"
                       >
@@ -355,6 +393,16 @@ export default function AdminNotificationsPage() {
           )}
         </section>
       </div>
+
+      <ConfirmModal
+        open={confirmDelete !== null}
+        title="Delete Notification"
+        message="Are you sure you want to delete this notification? This action cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={() => confirmDelete && deleteNotification(confirmDelete)}
+        onCancel={() => setConfirmDelete(null)}
+        loading={deletingId !== null}
+      />
 
       {waLinks.length > 0 && (
         <section className="rounded-2xl border border-green-900 bg-green-950/40 p-4 sm:p-5">
