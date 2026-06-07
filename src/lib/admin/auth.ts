@@ -69,15 +69,17 @@ export function getTOTPUri(): string {
 const SESSION_DURATION_MS    = 15 * 60 * 1000
 const REMEMBER_DURATION_MS = 7 * 24 * 60 * 60 * 1000
 
-export function generateSessionToken(nonce?: string, rememberMe?: boolean): string {
+export function generateSessionToken(nonce?: string, rememberMe?: boolean, role?: string, username?: string): string {
   const secret    = process.env.ADMIN_SECRET
   if (!secret) throw new Error('ADMIN_SECRET not set')
   const timestamp = Date.now()
   const n         = nonce ?? crypto.randomUUID()
   const mode      = rememberMe ? '1' : '0'
-  const payload   = `admin:${timestamp}:${n}:${mode}`
+  const r         = role ?? 'super_admin'
+  const u         = username ?? 'master'
+  const payload   = `admin:${timestamp}:${n}:${mode}:${r}:${u}`
   const signature = createHmac('sha256', secret).update(payload).digest('hex')
-  const raw       = `${timestamp}:${n}:${mode}:${signature}`
+  const raw       = `${timestamp}:${n}:${mode}:${r}:${u}:${signature}`
   return Buffer.from(raw).toString('base64url')
 }
 
@@ -170,6 +172,49 @@ export function rotateSessionToken(token: string): string | null {
   if (!verifySessionToken(token)) return null
   const rememberMe = getTokenDuration(token) === REMEMBER_DURATION_MS
   return generateSessionToken(undefined, rememberMe)
+}
+
+export interface AdminSession {
+  role: string
+  username: string
+}
+
+export function getAdminSession(token: string): AdminSession | null {
+  try {
+    const secret = process.env.ADMIN_SECRET
+    if (!secret || !token) return null
+
+    const raw = Buffer.from(token, 'base64url').toString('utf-8')
+    const parts = raw.split(':')
+
+    // New format: timestamp:nonce:mode:role:username:signature (6 parts)
+    if (parts.length === 6) {
+      const [tsStr, , mode, role, username, signature] = parts
+      const timestamp = parseInt(tsStr, 10)
+      if (isNaN(timestamp)) return null
+      const duration = mode === '1' ? REMEMBER_DURATION_MS : SESSION_DURATION_MS
+      if (Date.now() - timestamp > duration) return null
+
+      const expected = createHmac('sha256', secret)
+        .update(`admin:${timestamp}:${parts[1]}:${mode}:${role}:${username}`)
+        .digest('hex')
+
+      try {
+        if (!timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'))) return null
+      } catch { return null }
+
+      return { role, username }
+    }
+
+    // Legacy 4-part tokens: assume super_admin
+    if (verifySessionToken(token)) {
+      return { role: 'super_admin', username: 'master' }
+    }
+
+    return null
+  } catch {
+    return null
+  }
 }
 
 export function getSessionMaxAge(token: string): number {

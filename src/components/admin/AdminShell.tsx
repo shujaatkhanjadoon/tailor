@@ -34,10 +34,23 @@ const NAV_ITEMS = [
   { href: '/admin/dashboard/logs',             label: 'Audit Log',    icon: ScrollText      },
 ]
 
-function NavContent({ pathname, router, onLogout }: {
+const ROLE_LABELS: Record<string, string> = {
+  super_admin: 'Super Admin',
+  finance: 'Finance',
+  support: 'Support',
+}
+
+// Nav items visible to each role (super_admin sees all)
+const ROLE_NAV: Record<string, string[]> = {
+  finance: ['/admin/dashboard', '/admin/dashboard/payments', '/admin/dashboard/shops', '/admin/dashboard/disputes', '/admin/dashboard/reports/revenue', '/admin/dashboard/reports/subscriptions', '/admin/dashboard/reports/shops', '/admin/dashboard/security/blocklist', '/admin/dashboard/analytics', '/admin/dashboard/logs'],
+  support: ['/admin/dashboard', '/admin/dashboard/shops', '/admin/dashboard/payments', '/admin/dashboard/notifications', '/admin/dashboard/disputes', '/admin/dashboard/analytics', '/admin/dashboard/logs'],
+}
+
+function NavContent({ pathname, router, onLogout, role }: {
   pathname: string
   router: ReturnType<typeof useRouter>
   onLogout: () => void
+  role: string
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -48,7 +61,7 @@ function NavContent({ pathname, router, onLogout }: {
           </div>
           <div>
             <p className="font-bold text-white text-sm leading-tight">MeraDarzi</p>
-            <p className="text-slate-500 text-[10px]">Super Admin</p>
+            <p className="text-slate-500 text-[10px]">{ROLE_LABELS[role] ?? role}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 mt-3">
@@ -57,7 +70,7 @@ function NavContent({ pathname, router, onLogout }: {
         </div>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.map(item => {
+        {NAV_ITEMS.filter(item => role === 'super_admin' || ROLE_NAV[role]?.includes(item.href)).map(item => {
           const isActive = pathname != null && (pathname === item.href ||
             (item.href !== '/admin/dashboard' && pathname.startsWith(item.href)))
           return (
@@ -97,6 +110,15 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const router        = useRouter()
   const pathname      = usePathname()
   const [sideOpen, setSideOpen] = useState(false)
+  const [role, setRole] = useState<string>('super_admin')
+
+  // Fetch admin role from session
+  useEffect(() => {
+    fetch('/api/admin/verify')
+      .then(r => r.json())
+      .then(d => { if (d.valid && d.role) setRole(d.role) })
+      .catch(() => {})
+  }, [])
 
   const handleLogout = useCallback(async () => {
     await fetch('/api/admin/logout', { method: 'POST' })
@@ -112,7 +134,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       {/* â”€â”€ Desktop sidebar â”€â”€ */}
       <aside className="hidden lg:flex flex-col w-60 shrink-0
                         bg-slate-900 border-e border-slate-800 fixed inset-y-0 start-0 z-30">
-        <NavContent pathname={pathname} router={router} onLogout={handleLogout} />
+        <NavContent pathname={pathname} router={router} onLogout={handleLogout} role={role} />
       </aside>
 
       {/* â”€â”€ Mobile sidebar overlay â”€â”€ */}
@@ -139,7 +161,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         >
           <X size={16} />
         </button>
-        <NavContent pathname={pathname} router={router} onLogout={handleLogout} />
+        <NavContent pathname={pathname} router={router} onLogout={handleLogout} role={role} />
       </aside>
 
       {/* â”€â”€ Main content area â”€â”€ */}
@@ -179,7 +201,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900 border-t border-slate-800 lg:hidden">
         <div className="flex h-16 overflow-x-auto [scrollbar-width:none]">
-          {NAV_ITEMS.map(item => {
+          {NAV_ITEMS.filter(item => role === 'super_admin' || ROLE_NAV[role]?.includes(item.href)).map(item => {
             const isActive = pathname != null && (pathname === item.href ||
               (item.href !== '/admin/dashboard' && pathname.startsWith(item.href)))
             return (

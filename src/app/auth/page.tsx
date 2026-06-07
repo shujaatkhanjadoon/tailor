@@ -610,10 +610,15 @@ function AuthContent() {
                   )}
 
                   <div className="mt-4 text-center">
-                    <a href="/admin/dashboard/shops"
-                      className="text-xs text-slate-400 hover:text-blue-500 underline transition-colors">
-                      PIN bhool gaye? Admin se reset karwaein
-                    </a>
+                    {ADMIN_WA ? (
+                      <a href={`https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(`Assalam o Alaikum! Mera MeraDarzi account ka PIN bhool gaye hoon. ${phone ? `Phone: ${phone}` : ''}. Please mera PIN reset kar dein.`)}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-slate-400 hover:text-green-500 underline transition-colors">
+                        PIN bhool gaye? Admin se WhatsApp karein
+                      </a>
+                    ) : (
+                      <span className="text-xs text-slate-500">PIN bhool gaye? Admin se contact karein.</span>
+                    )}
                   </div>
                 </div>
               )}

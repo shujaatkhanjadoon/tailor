@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
   if (!secret || !secretMatch) {
     await new Promise(r => setTimeout(r, 500))
-    logAdminAction('admin_login', 'admin_session', 'failed', undefined, { reason: 'invalid_secret' })
+    logAdminAction('admin_login', 'system', 'failed', undefined, { reason: 'invalid_secret' })
     return NextResponse.json({ error: 'Secret galat hai' }, { status: 401 })
   }
 
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   const isValid = verifyTOTP(String(totpCode).trim(), totpSecret)
   if (!isValid) {
     await new Promise(r => setTimeout(r, 300))
-    logAdminAction('admin_login', 'admin_session', 'failed', undefined, { reason: 'invalid_totp' })
+    logAdminAction('admin_login', 'system', 'failed', undefined, { reason: 'invalid_totp' })
     return NextResponse.json(
       { error: 'Code galat hai ya expire ho gaya. Naya code try karein.' },
       { status: 401 }
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 3. Generate session ───────────────────────────────────────────
-  const token = generateSessionToken(undefined, rememberMe)
+  const token = generateSessionToken(undefined, rememberMe, adminRole, username ?? 'master')
 
   const res = NextResponse.json({ success: true, role: adminRole })
   const tokenHash = token.slice(0, 12)
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     path:     '/',
   })
 
-  logAdminAction('admin_login', 'admin_session', tokenHash)
+  logAdminAction('admin_login', 'system', tokenHash)
 
   return res
 }
