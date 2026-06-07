@@ -21,7 +21,7 @@ interface Payment {
   gateway_tx_id: string
   status:        string
   paid_at:       string
-  receipt_data?: Record<string, string>
+  receipt_data?: Record<string, unknown>
   shops?:        { shop_name: string; owner_phone: string; city?: string }
 }
 
@@ -46,8 +46,9 @@ function PaymentCard({
   const [cardError,      setCardError]      = useState('')
 
   const shop = payment.shops
-  const paymentRef = payment.receipt_data?.payment_ref ?? ''
-  const submittedAt = payment.receipt_data?.submitted_at ?? payment.paid_at
+  const rd = payment.receipt_data as Record<string, string> | undefined
+  const paymentRef = rd?.payment_ref ?? ''
+  const submittedAt = rd?.submitted_at ?? payment.paid_at
 
   const copyText = (text: string, key: 'tx' | 'ref') => {
     navigator.clipboard.writeText(text)
@@ -207,7 +208,7 @@ function PaymentCard({
             {[
               { label: 'Shop',        value: shop?.shop_name ?? '—' },
               { label: 'Phone',       value: shop?.owner_phone ?? '—' },
-              { label: 'Payer',       value: payment.receipt_data?.payer_name  ?? '—' },
+              { label: 'Payer',       value: rd?.payer_name ?? '—' },
               { label: 'Submitted',   value: submittedAt ? format(new Date(submittedAt), 'd MMM, h:mm a') : '—' },
               { label: 'Method',      value: payment.method ?? 'raast' },
             ].map(({ label, value }) => (
@@ -217,6 +218,22 @@ function PaymentCard({
               </div>
             ))}
           </div>
+
+          {/* Coupon info */}
+          {rd?.coupon_code && (
+            <div className="bg-green-950/30 border border-green-800 rounded-xl px-3 py-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-green-400 mb-1">
+                Coupon Applied
+              </p>
+              <p className="text-xs text-green-300">
+                Code: <span className="font-mono font-bold">{rd.coupon_code}</span>
+                {' · '}{rd.discount_pct}% off
+                {rd.discounted_amount && (
+                  <> · Paid: Rs.{Number(rd.discounted_amount).toLocaleString()}</>
+                )}
+              </p>
+            </div>
+          )}
 
           <div className="bg-amber-950/30 border border-amber-800 rounded-xl px-3 py-2.5">
             <p className="text-[10px] font-bold uppercase tracking-wide text-amber-400 mb-1">

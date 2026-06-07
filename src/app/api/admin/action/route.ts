@@ -154,6 +154,18 @@ export async function POST(req: NextRequest) {
 
         const expiresAt = subscriptionExpiresAt(cycle);
 
+        // Fetch payment receipt_data for coupon info
+        let couponCode: string | undefined;
+        let discountPct: number | undefined;
+        try {
+          const payRows = await sbGet(`subscription_payments?id=eq.${paymentId}&select=receipt_data&limit=1`) as { receipt_data?: Record<string, unknown> }[];
+          const rd = payRows?.[0]?.receipt_data;
+          if (rd?.coupon_code) {
+            couponCode = rd.coupon_code as string;
+            discountPct = rd.discount_pct as number;
+          }
+        } catch { /* ignore lookup failure */ }
+
         // Activate subscription
         await sbUpsertByShopId("subscriptions", {
           shop_id: shopId,
@@ -186,12 +198,14 @@ export async function POST(req: NextRequest) {
           plan: planId,
           cycle,
           amount: amountPkr,
+          coupon_code: couponCode,
         });
         notifyOwner(shopId, "activate_subscription", "Subscription Payment Approved", `Your ${planId} subscription payment has been approved.`, [
           ["Plan", planId],
           ["Cycle", cycle],
           ["Amount", amountPkr ? `Rs. ${amountPkr}` : "N/A"],
           ["Expires At", expiresAt],
+          ...(couponCode ? [["Coupon", `${couponCode} (${discountPct}% off)`] as [string, unknown]] : []),
         ]);
         await sendAdminSubscriptionEventEmail({
           shopId,
@@ -201,6 +215,8 @@ export async function POST(req: NextRequest) {
           cycle,
           amountPkr,
           expiresAt,
+          couponCode,
+          discountPct,
         }).catch((e) => logger.error('admin', 'Admin subscription email failed (non-fatal)', e));
 
         return NextResponse.json({ success: true, expiresAt });

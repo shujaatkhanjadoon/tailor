@@ -58,8 +58,8 @@ function NavContent({ pathname, router, onLogout }: {
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {NAV_ITEMS.map(item => {
-          const isActive = pathname === item.href ||
-            (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
+          const isActive = pathname != null && (pathname === item.href ||
+            (item.href !== '/admin/dashboard' && pathname.startsWith(item.href)))
           return (
             <button
               key={item.href}
@@ -163,7 +163,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <span>Admin</span>
               <ChevronRight size={12} />
               <span className="text-slate-300 font-medium capitalize">
-                {pathname.split('/').pop() ?? 'Dashboard'}
+                {pathname?.split('/').pop() ?? 'Dashboard'}
               </span>
             </div>
           </div>
@@ -180,8 +180,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900 border-t border-slate-800 lg:hidden">
         <div className="flex h-16 overflow-x-auto [scrollbar-width:none]">
           {NAV_ITEMS.map(item => {
-            const isActive = pathname === item.href ||
-              (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
+            const isActive = pathname != null && (pathname === item.href ||
+              (item.href !== '/admin/dashboard' && pathname.startsWith(item.href)))
             return (
               <button
                 key={item.href}

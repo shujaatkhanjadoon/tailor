@@ -3,12 +3,12 @@
 
 import { useState, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft }          from 'lucide-react'
+import { ArrowLeft, Tag, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { usePlan }            from '@/hooks/usePlan'
 import { PLANS, PlanId }      from '@/lib/billing/plans'
 import { PricingCard }        from '@/components/billing/PricingCard'
 import { BillingCycleToggle } from '@/components/billing/BillingCycleToggle'
-import { RaastPaymentSheet }  from '@/components/billing/RaastPaymentSheet'
+import { RaastPaymentSheet } from '@/components/billing/RaastPaymentSheet'
 
 function UpgradeContent() {
   const router       = useRouter()
@@ -16,6 +16,33 @@ function UpgradeContent() {
 
   const [cycle, setCycle]       = useState<'monthly' | 'yearly'>('monthly')
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
+
+  const [couponCode, setCouponCode] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState<{ id: string; discountPct: number; minAmountPkr?: number | null; appliesToPlan?: string | null } | null>(null)
+  const [couponError, setCouponError] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
+
+  const applyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase()
+    if (!code) return
+    setCouponLoading(true)
+    setCouponError('')
+    setAppliedCoupon(null)
+    try {
+      const res = await fetch(`/api/coupons/validate?code=${encodeURIComponent(code)}`)
+      const d = await res.json()
+      if (!d.valid) { setCouponError(d.error); return }
+      setAppliedCoupon(d.coupon)
+      setCouponCode(code)
+    } catch { setCouponError('Failed to validate coupon') }
+    finally { setCouponLoading(false) }
+  }
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponCode('')
+    setCouponError('')
+  }
 
   const handleSelectPlan = (planId: PlanId) => {
     if (planId === 'starter') {
@@ -63,6 +90,47 @@ function UpgradeContent() {
 
         {/* Billing cycle toggle */}
         <BillingCycleToggle value={cycle} onChange={setCycle} />
+
+        {/* Coupon code */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4">
+          <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <Tag size={12} /> Coupon Code
+          </label>
+          {appliedCoupon ? (
+            <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={14} className="text-green-600" />
+                <span className="text-sm font-bold text-green-700">{couponCode}</span>
+                <span className="text-xs text-green-600">({appliedCoupon.discountPct}% off)</span>
+              </div>
+              <button onClick={removeCoupon} className="text-xs text-red-500 font-semibold hover:text-red-700">Remove</button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="SUMMER25"
+                value={couponCode}
+                onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponError('') }}
+                onKeyDown={e => e.key === 'Enter' && applyCoupon()}
+                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-mono font-bold text-slate-800 outline-none focus:border-blue-500 placeholder:font-sans placeholder:font-normal"
+              />
+              <button
+                onClick={applyCoupon}
+                disabled={couponLoading || !couponCode.trim()}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors flex items-center gap-1"
+              >
+                {couponLoading ? <Loader2 size={12} className="animate-spin" /> : <Tag size={12} />}
+                Apply
+              </button>
+            </div>
+          )}
+          {couponError && (
+            <p className="flex items-center gap-1 text-xs text-red-500 mt-1.5">
+              <AlertCircle size={10} /> {couponError}
+            </p>
+          )}
+        </div>
 
         {/* Plan cards */}
         <div className="grid lg:grid-cols-3 gap-4">
@@ -138,6 +206,8 @@ function UpgradeContent() {
           planId={selectedPlan}
           cycle={cycle}
           amountPkr={getAmount(selectedPlan)}
+          couponId={appliedCoupon?.id}
+          discountPct={appliedCoupon?.discountPct}
           onClose={() => setSelectedPlan(null)}
           onSubmitted={() => {
             setSelectedPlan(null)

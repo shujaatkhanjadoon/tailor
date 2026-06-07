@@ -930,6 +930,8 @@ export async function sendAdminSubscriptionEventEmail(opts: {
   transactionId?:  string
   payerName?:      string
   expiresAt?:      string | null
+  couponCode?:     string
+  discountPct?:    number
 }): Promise<void> {
   type ShopRow = { shop_name?: string; owner_phone?: string; city?: string; plan?: string }
 
@@ -989,6 +991,8 @@ export async function sendAdminSubscriptionEventEmail(opts: {
           ['Plan',           opts.plan ?? shop?.plan ?? 'N/A'],
           ['Cycle',          opts.cycle ?? 'N/A'],
           ['Amount',         opts.amountPkr ? `Rs. ${opts.amountPkr.toLocaleString()}` : 'N/A'],
+          ['Coupon Code',    opts.couponCode ?? 'N/A'],
+          ['Coupon Discount', opts.discountPct ? `${opts.discountPct}%` : 'N/A'],
           ['Payment Ref',    opts.paymentRef ?? 'N/A'],
           ['Transaction ID', opts.transactionId ?? 'N/A'],
           ['Payer',          opts.payerName ?? 'N/A'],

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: 400 })
     }
 
-    const { shopId, event, plan, previousPlan, cycle, amountPkr, reason, paymentRef, transactionId, payerName, expiresAt } = parsed.data
+    const { shopId, event, plan, previousPlan, cycle, amountPkr, reason, paymentRef, transactionId, payerName, expiresAt, couponCode, discountPct } = parsed.data
 
     await sendAdminSubscriptionEventEmail({
       shopId,
@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
       transactionId,
       payerName,
       expiresAt,
+      couponCode,
+      discountPct,
     })
 
     return NextResponse.json({ success: true })

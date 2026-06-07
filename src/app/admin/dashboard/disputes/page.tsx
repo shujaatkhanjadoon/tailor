@@ -127,6 +127,14 @@ export default function AdminDisputesPage() {
                     <span>{p.method}</span>
                     <span>Paid: {formatDate(p.paid_at)}</span>
                   </div>
+                  {(p.receipt_data?.coupon_code as string) && (
+                    <div className="mt-2 bg-green-950/30 border border-green-800/50 rounded-lg px-3 py-1.5">
+                      <p className="text-[10px] text-green-300">
+                        <span className="font-semibold">Coupon:</span> {p.receipt_data?.coupon_code as string}
+                        {' · '}{p.receipt_data?.discount_pct as string}% off
+                      </p>
+                    </div>
+                  )}
                   {(p.receipt_data?.refund_reason as string) && (
                     <div className="mt-2 bg-red-900/20 border border-red-800/50 rounded-lg px-3 py-1.5">
                       <p className="text-[10px] text-red-300">

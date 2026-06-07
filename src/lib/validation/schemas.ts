@@ -126,6 +126,8 @@ export const schemas = {
     transactionId: z.string().optional(),
     payerName: z.string().optional(),
     expiresAt: z.string().optional(),
+    couponCode: z.string().optional(),
+    discountPct: z.number().optional(),
   }),
 
   pushSubscribe: z.object({

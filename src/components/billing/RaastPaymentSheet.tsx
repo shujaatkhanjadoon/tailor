@@ -21,6 +21,8 @@ interface RaastPaymentSheetProps {
   planId: PlanId
   cycle: 'monthly' | 'yearly'
   amountPkr: number
+  couponId?: string
+  discountPct?: number
   onClose: () => void
   onSubmitted: () => void
 }
@@ -28,8 +30,9 @@ interface RaastPaymentSheetProps {
 type SheetStep = 'payment' | 'confirm' | 'submitted'
 
 export function RaastPaymentSheet({
-  planId, cycle, amountPkr, onClose, onSubmitted,
+  planId, cycle, amountPkr, couponId, discountPct, onClose, onSubmitted,
 }: RaastPaymentSheetProps) {
+  const finalAmount = discountPct ? Math.round(amountPkr * (1 - discountPct / 100)) : amountPkr
   const { shopId } = useAuth()
   const [step, setStep] = useState<SheetStep>('payment')
   const [txId, setTxId] = useState('')
@@ -43,7 +46,7 @@ export function RaastPaymentSheet({
 
   const adminWhatsAppLink = ADMIN_WA
     ? `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(
-      `Assalam o Alaikum, subscription ${planId} ${cycle} request verify kar dein.\n\nShop ID: ${shopId ?? 'N/A'}\nAmount: Rs. ${amountPkr}\nPayment Ref: ${paymentRef}\nTransaction ID: ${txId.trim() || 'Submitted in app'}\nPayer: ${payerName.trim() || 'N/A'}`,
+      `Assalam o Alaikum, subscription ${planId} ${cycle} request verify kar dein.\n\nShop ID: ${shopId ?? 'N/A'}\nAmount: Rs. ${finalAmount}\nPayment Ref: ${paymentRef}\nTransaction ID: ${txId.trim() || 'Submitted in app'}\nPayer: ${payerName.trim() || 'N/A'}`,
     )}`
     : null
 
@@ -88,10 +91,11 @@ export function RaastPaymentSheet({
         body: JSON.stringify({
           planId,
           cycle,
-          amountPkr,
+          amountPkr: finalAmount,
           paymentRef,
           transactionId: txId.trim(),
           payerName: payerName.trim(),
+          couponId: couponId || undefined,
         }),
       })
 
@@ -158,7 +162,7 @@ export function RaastPaymentSheet({
           <div>
             <h3 className="font-bold text-slate-800">Raast Se Payment</h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              {targetPlan.emoji} {targetPlan.name} · Rs. {amountPkr.toLocaleString()} · {cycle}
+              {targetPlan.emoji} {targetPlan.name} · {discountPct ? <><span className="line-through text-slate-300 me-1">Rs. {amountPkr.toLocaleString()}</span><span className="text-green-600">Rs. {finalAmount.toLocaleString()}</span></> : `Rs. ${amountPkr.toLocaleString()}`} · {cycle}
             </p>
           </div>
           <button
@@ -355,9 +359,16 @@ export function RaastPaymentSheet({
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-slate-400 font-medium">Amount</p>
-                    <p className="text-3xl font-bold text-slate-800">
-                      Rs. {amountPkr.toLocaleString()}
-                    </p>
+                    <div>
+                      <p className="text-3xl font-bold text-slate-800">
+                        Rs. {finalAmount.toLocaleString()}
+                      </p>
+                      {discountPct && (
+                        <p className="text-xs text-green-600 mt-0.5">
+                          {discountPct}% off · Original: Rs. {amountPkr.toLocaleString()}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <button
                     onClick={() => copy(String(amountPkr), 'amount')}
@@ -386,7 +397,7 @@ export function RaastPaymentSheet({
                   'Apni bank app ya Easypaisa/JazzCash kholein',
                   'Raast → Send Money option chunein',
                   'Raast ID daalein',
-                  `Exact amount: Rs. ${amountPkr.toLocaleString()} daalein`,
+                  `Exact amount: Rs. ${finalAmount.toLocaleString()} daalein`,
                   `Payment reference daalein: ${paymentRef}`,
                   'Payment karein aur Transaction ID note karein',
                 ].map((step, i) => (
