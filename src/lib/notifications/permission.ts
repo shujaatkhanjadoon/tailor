@@ -32,8 +32,8 @@ export const notifPermission = {
     if (Notification.permission !== 'granted') return false
     const options: NotificationOptions = {
       body,
-      icon:  '/icons/icon-192.png',
-      badge: '/icons/icon-96.png',
+      icon:  '/icon-192.png',
+      badge: '/icon-96.png',
       tag:   tag ?? 'darzi-general',
       silent: false,
     }
