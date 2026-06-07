@@ -203,17 +203,17 @@ function getShopPlanKey(shop: Shop): ShopTab {
   return "starter";
 }
 
-function getExpiryDays(shop: Shop): number | null {
+function getExpiryDays(shop: Shop, now?: number): number | null {
   const sub = getSubscription(shop);
   const expiryDate = sub?.expires_at || sub?.trial_ends_at;
-  if (!expiryDate) return null;
-  return Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
+  if (!expiryDate || !now) return null;
+  return Math.ceil((new Date(expiryDate).getTime() - now) / 86400000);
 }
 
-function isRenewalSoon(shop: Shop): boolean {
+function isRenewalSoon(shop: Shop, now?: number): boolean {
   const sub = getSubscription(shop);
   const plan = sub?.plan ?? shop.plan ?? "starter";
-  const days = getExpiryDays(shop);
+  const days = getExpiryDays(shop, now);
   return plan !== "starter" && sub?.status === "active" && days !== null && days <= 7;
 }
 
@@ -472,10 +472,11 @@ function ShopCard({
   const isActive = shop.is_active !== false && isVerified;
   const billingCycle =
     sub?.billing_cycle ?? (plan === "starter" ? null : "monthly");
-  const [now] = useState(() => Date.now())  // guarded by hydrated check in parent
+  const [now, setNow] = useState<number | null>(null)
+  useEffect(() => { setNow(Date.now()) }, [])
   const expiryDate = sub?.expires_at || sub?.trial_ends_at;
 
-  const daysLeft = expiryDate
+  const daysLeft = expiryDate && now
     ? Math.max(0, Math.ceil((new Date(expiryDate).getTime() - now) / 86400000))
     : null;
 
@@ -939,7 +940,8 @@ export default function AdminShopsPage() {
   // Guard: defer time-dependent rendering to after hydration to avoid
   // PPR prerender warning ("cannot access Date.now() before uncached data")
   const [hydrated, setHydrated] = useState(false);
-  useEffect(() => { setHydrated(true); }, []);
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => { setHydrated(true); setNow(Date.now()); }, []);
 
   const [shops, setShops] = useState<Shop[]>([]);
   const [pendingVerifications, setPendingVerifications] = useState<
@@ -1239,7 +1241,7 @@ export default function AdminShopsPage() {
       activeTab === "all"
         ? true
         : activeTab === "renewals"
-          ? isRenewalSoon(s)
+          ? isRenewalSoon(s, now ?? undefined)
         : activeTab === "pending"
           ? (s.verification_status ?? "pending") === "pending"
         : activeTab === "inactive"
@@ -1248,11 +1250,11 @@ export default function AdminShopsPage() {
 
     return matchQuery && matchTab;
   }).sort((a, b) => {
-    const renewalA = isRenewalSoon(a) ? 0 : 1;
-    const renewalB = isRenewalSoon(b) ? 0 : 1;
+    const renewalA = isRenewalSoon(a, now ?? undefined) ? 0 : 1;
+    const renewalB = isRenewalSoon(b, now ?? undefined) ? 0 : 1;
     if (renewalA !== renewalB) return renewalA - renewalB;
-    const daysA = getExpiryDays(a) ?? Number.MAX_SAFE_INTEGER;
-    const daysB = getExpiryDays(b) ?? Number.MAX_SAFE_INTEGER;
+    const daysA = getExpiryDays(a, now ?? undefined) ?? Number.MAX_SAFE_INTEGER;
+    const daysB = getExpiryDays(b, now ?? undefined) ?? Number.MAX_SAFE_INTEGER;
     if (daysA !== daysB) return daysA - daysB;
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
@@ -1264,7 +1266,7 @@ export default function AdminShopsPage() {
   const inactiveCount = shops.filter((s) => s.is_active === false).length;
   const tabCounts: Record<ShopTab, number> = {
     all: shops.length,
-    renewals: shops.filter(isRenewalSoon).length,
+    renewals: shops.filter(s => isRenewalSoon(s, now ?? undefined)).length,
     pending: pendingCount,
     inactive: inactiveCount,
     starter: shops.filter(s => getShopPlanKey(s) === "starter").length,

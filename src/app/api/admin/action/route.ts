@@ -14,7 +14,6 @@ async function logAction(
   targetId: string,
   shopId: string,
   details: object,
-  performedBy?: string,
 ) {
   try {
     await sbPost("admin_audit_log", {
@@ -23,7 +22,6 @@ async function logAction(
       target_id: targetId,
       shop_id: shopId,
       details,
-      performed_by: performedBy ?? null,
       performed_at: new Date().toISOString(),
     });
   } catch (e) {
@@ -144,7 +142,8 @@ export async function POST(req: NextRequest) {
           plan: planId,
           cycle,
           expires_at: expiresAt,
-        }, adminName);
+          performed_by: adminName,
+        });
         notifyOwner(shopId, "manual_plan_change", "Subscription Plan Updated", `Admin updated your subscription to ${planId}.`, [
           ["Plan", planId],
           ["Cycle", cycle ?? "monthly"],
@@ -221,7 +220,8 @@ export async function POST(req: NextRequest) {
           cycle,
           amount: amountPkr,
           coupon_code: couponCode,
-        }, adminName);
+          performed_by: adminName,
+        });
         notifyOwner(shopId, "activate_subscription", "Subscription Payment Approved", `Your ${planId} subscription payment has been approved.`, [
           ["Plan", planId],
           ["Cycle", cycle],
@@ -270,7 +270,8 @@ export async function POST(req: NextRequest) {
 
         await logAction("reject_payment", paymentId, shopId ?? paymentId, {
           reason,
-        }, adminName);
+          performed_by: adminName,
+        });
         if (shopId) notifyOwner(shopId, "reject_payment", "Subscription Payment Needs Review", "Your submitted subscription payment was not approved.", [
           ["Reason", reason ?? "Admin rejected"],
         ]);
@@ -291,7 +292,7 @@ export async function POST(req: NextRequest) {
           updated_at: new Date().toISOString(),
         });
 
-        await logAction("shop_deactivated", shopId, shopId, { reason }, adminName);
+        await logAction("shop_deactivated", shopId, shopId, { reason });
         notifyOwner(shopId, "shop_deactivated", "Shop Account Deactivated", "Admin deactivated your shop account.", [
           ["Reason", reason ?? "N/A"],
         ]);
@@ -313,7 +314,7 @@ export async function POST(req: NextRequest) {
           updated_at: now,
         });
 
-        await logAction("shop_activated", shopId, shopId, { reason }, adminName);
+        await logAction("shop_activated", shopId, shopId, { reason });
         notifyOwner(shopId, "shop_activated", "Shop Account Activated", "Admin activated your shop account.", [
           ["Reason", reason ?? "N/A"],
         ]);
@@ -348,7 +349,6 @@ export async function POST(req: NextRequest) {
           "shop",
           shopId,
           { note },
-          adminName,
         );
         notifyOwner(shopId, status === "approved" ? "shop_approved" : "shop_rejected", status === "approved" ? "Shop Verification Approved" : "Shop Verification Rejected", status === "approved" ? "Your shop verification has been approved." : "Your shop verification was rejected.", [
           ["Note", note ?? "N/A"],
@@ -394,7 +394,7 @@ export async function POST(req: NextRequest) {
           updated_at: now,
         });
 
-        await logAction("shop_deleted", shopId, shopId, { reason }, adminName);
+        await logAction("shop_deleted", shopId, shopId, { reason });
         notifyOwner(shopId, "shop_deleted", "Shop Account Deleted", "Admin deleted/deactivated your shop account.", [
           ["Reason", reason ?? "N/A"],
         ]);
@@ -428,7 +428,7 @@ export async function POST(req: NextRequest) {
 
         await logAction("extend_expiry", extShopId, extShopId, {
           days: extDays,
-        }, adminName);
+        });
         notifyOwner(extShopId, "extend_expiry", "Subscription Extended", `Your subscription has been extended by ${extDays} days.`, [
           ["Days Added", String(extDays)],
         ]);
@@ -463,7 +463,7 @@ export async function POST(req: NextRequest) {
 
         await logAction("set_custom_expiry", customBody.shopId, customBody.shopId, {
           new_expiry: expiryStr,
-        }, adminName);
+        });
         notifyOwner(customBody.shopId, "set_custom_expiry", "Subscription Expiry Updated", "Admin updated your subscription expiry date.", [
           ["New Expiry", expiryStr],
         ]);
@@ -485,7 +485,7 @@ export async function POST(req: NextRequest) {
 
         await logAction("update_subscription_amount", amtShopId, amtShopId, {
           amount_pkr: amountPkr,
-        }, adminName);
+        });
 
         return NextResponse.json({ success: true });
       }
@@ -521,7 +521,7 @@ export async function POST(req: NextRequest) {
 
         await logAction("refund_payment", paymentId, shopId ?? paymentId, {
           reason,
-        }, adminName);
+        });
         if (shopId) notifyOwner(shopId, "refund_payment", "Payment Refunded", "Your subscription payment has been refunded.", [
           ["Reason", reason ?? "N/A"],
         ]);
@@ -551,7 +551,7 @@ export async function POST(req: NextRequest) {
             count++;
           } catch (e) { logger.warn('admin', `bulk_set_plan failed for ${sid}`, e); }
         }
-        await logAction("bulk_set_plan", `count=${count}`, bspShopIds[0], { plan: bspPlan, count }, adminName);
+        await logAction("bulk_set_plan", `count=${count}`, bspShopIds[0], { plan: bspPlan, count });
         return NextResponse.json({ success: true, count });
       }
 
@@ -577,7 +577,7 @@ export async function POST(req: NextRequest) {
             count++;
           } catch (e) { logger.warn('admin', `bulk_extend_expiry failed for ${sid}`, e); }
         }
-        await logAction("bulk_extend_expiry", `count=${count}`, beeShopIds[0], { days: extDaysVal, count }, adminName);
+        await logAction("bulk_extend_expiry", `count=${count}`, beeShopIds[0], { days: extDaysVal, count });
         return NextResponse.json({ success: true, count });
       }
 
@@ -593,7 +593,7 @@ export async function POST(req: NextRequest) {
             count++;
           } catch (e) { logger.warn('admin', `bulk_notification failed for ${sid}`, e); }
         }
-        await logAction("bulk_send_notification", `count=${count}`, bsnShopIds[0], { count }, adminName);
+        await logAction("bulk_send_notification", `count=${count}`, bsnShopIds[0], { count });
         return NextResponse.json({ success: true, count });
       }
 
@@ -609,7 +609,7 @@ export async function POST(req: NextRequest) {
           blocked_at: now, is_active: true,
         });
 
-        await logAction("block_ip", blockIp, "admin", {}, adminName);
+        await logAction("block_ip", blockIp, "admin", {});
         return NextResponse.json({ success: true });
       }
 
@@ -618,7 +618,7 @@ export async function POST(req: NextRequest) {
         if (!unblockIp) return NextResponse.json({ error: "ip required" }, { status: 400 });
 
         await sbPatch(`ip_blocklist?ip=eq.${unblockIp}`, { is_active: false });
-        await logAction("unblock_ip", unblockIp, "admin", {}, adminName);
+        await logAction("unblock_ip", unblockIp, "admin", {});
         return NextResponse.json({ success: true });
       }
 
@@ -669,7 +669,7 @@ export async function POST(req: NextRequest) {
         // Audit log
         await logAction("reset_owner_pin", pinShopId, pinShopId, {
           pin_reset: true,
-        }, adminName);
+        });
 
         notifyOwner(pinShopId, "reset_owner_pin", "Shop PIN Reset", "Admin ne aapka shop PIN reset kar diya hai. Naya PIN admin se hasil karein.");
 
@@ -699,7 +699,7 @@ export async function POST(req: NextRequest) {
           created_at: new Date().toISOString(),
         });
 
-        await logAction("create_admin", caUsername, "admin", { role: caRole }, adminName);
+        await logAction("create_admin", caUsername, "admin", { role: caRole });
         return NextResponse.json({ success: true });
       }
 
@@ -707,7 +707,7 @@ export async function POST(req: NextRequest) {
         const deactivateId = (body as { targetId?: string }).targetId;
         if (!deactivateId) return NextResponse.json({ error: "targetId required" }, { status: 400 });
         await sbPatch(`admin_accounts?id=eq.${deactivateId}`, { is_active: false });
-        await logAction("deactivate_admin", deactivateId, "admin", {}, adminName);
+        await logAction("deactivate_admin", deactivateId, "admin", {});
         return NextResponse.json({ success: true });
       }
 
@@ -715,7 +715,7 @@ export async function POST(req: NextRequest) {
         const activateId = (body as { targetId?: string }).targetId;
         if (!activateId) return NextResponse.json({ error: "targetId required" }, { status: 400 });
         await sbPatch(`admin_accounts?id=eq.${activateId}`, { is_active: true });
-        await logAction("activate_admin", activateId, "admin", {}, adminName);
+        await logAction("activate_admin", activateId, "admin", {});
         return NextResponse.json({ success: true });
       }
 

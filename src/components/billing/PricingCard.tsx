@@ -12,10 +12,11 @@ interface PricingCardProps {
   currentCycle:  'monthly' | 'yearly' | 'lifetime'
   onSelect:      (planId: PlanId) => void
   isLoading?:    boolean
+  discountPct?:  number
 }
 
 export function PricingCard({
-  plan, cycle, currentPlanId, currentCycle, onSelect, isLoading,
+  plan, cycle, currentPlanId, currentCycle, onSelect, isLoading, discountPct,
 }: PricingCardProps) {
   const isSamePlan         = plan.id === currentPlanId
   const isLifetime         = currentCycle === 'lifetime'
@@ -129,13 +130,44 @@ export function PricingCard({
               )}>
                 Rs.
               </span>
-              <span className={cn(
-                'text-4xl font-bold leading-none',
-                isCurrent ? 'text-green-800' : isFeatured || isPremium ? 'text-white' : 'text-slate-800'
-              )}>
-                {price.toLocaleString()}
-              </span>
+              {discountPct ? (
+                <>
+                  <span className={cn(
+                    'text-xl font-bold leading-none line-through',
+                    isCurrent ? 'text-green-400' : isFeatured || isPremium ? 'text-blue-300' : 'text-slate-400'
+                  )}>
+                    {price.toLocaleString()}
+                  </span>
+                  <span className={cn(
+                    'text-4xl font-bold leading-none ml-1',
+                    isCurrent ? 'text-green-800' : isFeatured || isPremium ? 'text-white' : 'text-slate-800'
+                  )}>
+                    {Math.round(price * (1 - discountPct / 100)).toLocaleString()}
+                  </span>
+                </>
+              ) : (
+                <span className={cn(
+                  'text-4xl font-bold leading-none',
+                  isCurrent ? 'text-green-800' : isFeatured || isPremium ? 'text-white' : 'text-slate-800'
+                )}>
+                  {price.toLocaleString()}
+                </span>
+              )}
             </div>
+
+            {discountPct && (
+              <div className={cn(
+                'inline-flex items-center gap-1 mt-1.5 text-[11px] font-bold px-2 py-1 rounded-lg',
+                isCurrent
+                  ? 'bg-green-100 text-green-700'
+                  : isFeatured || isPremium
+                  ? 'bg-white/20 text-white'
+                  : 'bg-green-100 text-green-700'
+              )}>
+                {discountPct}% off coupon applied
+              </div>
+            )}
+
             <p className={cn(
               'text-sm mt-1',
               isCurrent ? 'text-green-600' : isFeatured || isPremium ? 'text-blue-200' : 'text-slate-400'

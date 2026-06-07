@@ -15,19 +15,19 @@ function uniqueChannelName(name: string) {
   return `${name}-${chanId++}`
 }
 
-function periodStart(period: ReportPeriod): string | null {
+function periodStart(now: Date, period: ReportPeriod): string | null {
   if (period === 'all') return null
   const days = { '7d': 7, '30d': 30, '90d': 90, '365d': 365 }[period]
-  const d = new Date()
+  const d = new Date(now)
   d.setDate(d.getDate() - days)
   d.setHours(0, 0, 0, 0)
   return d.toISOString()
 }
 
-function lastNMonths(n: number): { key: string; label: string }[] {
+function lastNMonths(now: Date, n: number): { key: string; label: string }[] {
   const result = []
   for (let i = n - 1; i >= 0; i--) {
-    const d = new Date()
+    const d = new Date(now)
     d.setDate(1)
     d.setMonth(d.getMonth() - i)
     result.push({
@@ -38,11 +38,11 @@ function lastNMonths(n: number): { key: string; label: string }[] {
   return result
 }
 
-function prevPeriodStart(period: ReportPeriod): string | null {
+function prevPeriodStart(now: Date, period: ReportPeriod): string | null {
   if (period === 'all') return null
   const days = { '7d':7,'30d':30,'90d':90,'365d':365 }[period]
-  const d = new Date(periodStart(period)!)
-  d.setDate(d.getDate() - days)
+  const d = new Date(now)
+  d.setDate(d.getDate() - days * 2)
   return d.toISOString()
 }
 
@@ -52,6 +52,8 @@ export function useReports(shopId: string | null) {
   const [allPayments, setAllPayments] = useState<PaymentRecord[]>([])
   const [teamMembers, setTeamMembers] = useState<TeamMemberRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [now, setNow] = useState<Date | null>(null)
+  useEffect(() => { setNow(new Date()) }, [])
 
   const [statusDistribution, setStatusDistribution] = useState<{status: string; count: number}[]>([])
   const [garmentBreakdown, setGarmentBreakdown] = useState<{type: string; count: number; revenue: number}[]>([])
@@ -73,7 +75,8 @@ export function useReports(shopId: string | null) {
     const fetchAndSet = async (showLoading: boolean) => {
       if (showLoading) setIsLoading(true)
       try {
-        const rangeStart = period === 'all' ? periodStart('365d') : periodStart(period)
+        if (!now) return
+        const rangeStart = period === 'all' ? periodStart(now, '365d') : periodStart(now, period)
 
         const ordersPromise = (() => {
           let q = supabase
@@ -219,18 +222,18 @@ export function useReports(shopId: string | null) {
   }, [shopId, period])
 
   const filteredOrders = useMemo(() => {
-    const start = periodStart(period)
+    const start = now ? periodStart(now, period) : null
     if (!start) return allOrders
     return allOrders.filter(o => o.createdAt >= start)
-  }, [allOrders, period])
+  }, [allOrders, period, now])
 
   const filteredPayments = useMemo(() => {
-    const start = periodStart(period)
+    const start = now ? periodStart(now, period) : null
     const validOrderIds = new Set(allOrders.filter(o => o.status !== 'cancelled').map(o => o.id))
     const scoped = allPayments.filter(p => validOrderIds.has(p.orderId))
     if (!start) return scoped
     return scoped.filter(p => p.paidAt >= start)
-  }, [allPayments, allOrders, period])
+  }, [allPayments, allOrders, period, now])
 
   const reportPayments = useMemo(() => {
     const validOrderIds = new Set(allOrders.filter(o => o.status !== 'cancelled').map(o => o.id))
@@ -260,11 +263,11 @@ export function useReports(shopId: string | null) {
 
     const urgentOrders = orders.filter(o => o.isUrgent === 1).length
 
-    const pStart = prevPeriodStart(period)
+    const pStart = now ? prevPeriodStart(now, period) : null
     const validOrderIds = new Set(allOrders.filter(o => o.status !== 'cancelled').map(o => o.id))
     const prevPayments = allPayments.filter(p =>
       validOrderIds.has(p.orderId) &&
-      pStart && p.paidAt >= pStart && p.paidAt < (periodStart(period) ?? '')
+      pStart && p.paidAt >= pStart && p.paidAt < (now ? periodStart(now, period) ?? '' : '')
     )
     const prevRevenue = sumPayments(prevPayments).received
     const revenueGrowth = prevRevenue > 0
@@ -285,10 +288,11 @@ export function useReports(shopId: string | null) {
       overpayments: paymentTotals.overpayments,
       totalCustomers,
     }
-  }, [filteredOrders, filteredPayments, allOrders, allPayments, totalCustomers, period])
+  }, [filteredOrders, filteredPayments, allOrders, allPayments, totalCustomers, period, now])
 
   const monthlyIncome = useMemo(() => {
-    const months   = lastNMonths(12)
+    if (!now) return []
+    const months   = lastNMonths(now, 12)
     const payments = reportPayments
     return months.map(({ key, label }) => {
       const monthPayments = payments.filter(p => p.paidAt.startsWith(key))
@@ -297,13 +301,14 @@ export function useReports(shopId: string | null) {
       const digital       = income - cash
       return { key, label, income, cash, digital }
     })
-  }, [reportPayments])
+  }, [reportPayments, now])
 
   const weeklyIncome = useMemo(() => {
+    if (!now) return []
     const payments = reportPayments
     const result   = []
     for (let i = 7; i >= 0; i--) {
-      const weekStart = new Date()
+      const weekStart = new Date(now)
       weekStart.setDate(weekStart.getDate() - (weekStart.getDay() + 7 * i))
       weekStart.setHours(0, 0, 0, 0)
       const weekEnd = new Date(weekStart)
@@ -317,7 +322,7 @@ export function useReports(shopId: string | null) {
       result.push({ label, income })
     }
     return result
-  }, [reportPayments])
+  }, [reportPayments, now])
 
   const karigarStats = useMemo(() => {
     const orders  = filteredOrders.filter(o => o.status !== 'cancelled')
@@ -350,11 +355,12 @@ export function useReports(shopId: string | null) {
   const paymentSummary = useMemo(() => sumPayments(filteredPayments), [filteredPayments])
 
   const dailyActivity = useMemo(() => {
+    if (!now) return []
     const orders   = allOrders
     const payments = reportPayments
     const result   = []
     for (let i = 29; i >= 0; i--) {
-      const d = new Date()
+      const d = new Date(now)
       d.setDate(d.getDate() - i)
       const key      = d.toISOString().split('T')[0]
       const dayOrders  = orders.filter(o => o.createdAt.startsWith(key)).length
@@ -369,7 +375,7 @@ export function useReports(shopId: string | null) {
       })
     }
     return result
-  }, [allOrders, reportPayments])
+  }, [allOrders, reportPayments, now])
 
   return {
     period, setPeriod,

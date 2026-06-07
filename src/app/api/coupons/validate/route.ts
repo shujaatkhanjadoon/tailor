@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
       valid: true,
       coupon: {
         id: coupon.id,
+        code: coupon.code,
         discountPct: coupon.discount_pct,
         maxUsesPerShop: coupon.max_uses_per_shop,
         minAmountPkr: coupon.min_amount_pkr,

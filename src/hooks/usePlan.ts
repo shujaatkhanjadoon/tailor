@@ -73,6 +73,8 @@ export function usePlan(): PlanState {
   const [isLoading, setIsLoading] = useState(true)
   const [subData,   setSubData]   = useState<Record<string, unknown> | null>(null)
   const [usageData, setUsageData] = useState<Record<string, unknown> | null>(null)
+  const [now, setNow] = useState<Date | null>(null)
+  useEffect(() => { setNow(new Date()) }, [])
 
   // Track if component is still mounted
   const mountedRef = useRef(true)
@@ -141,14 +143,12 @@ export function usePlan(): PlanState {
     : null
   const isPaidPlanExpired = rawPlanId !== 'starter' &&
     rawExpiresAt !== null &&
-    rawExpiresAt < new Date() &&
+    now !== null && rawExpiresAt < now &&
     rawStatus !== 'trialing'
   const planId: PlanId    = isPaidPlanExpired ? 'starter' : rawPlanId
   const status: SubStatus = isPaidPlanExpired ? 'active' : rawStatus
   const planDef           = PLANS[planId]
   const limits            = planDef.limits
-
-  const now = new Date()
 
   const trialEndsAt = subData?.trial_ends_at
     ? new Date(subData.trial_ends_at as string)
@@ -161,15 +161,15 @@ export function usePlan(): PlanState {
     : null
 
   // Computed booleans
-  const isTrialing = status === 'trialing' && trialEndsAt !== null && trialEndsAt > now
-  const inGrace    = status === 'grace'    && graceEndsAt !== null && graceEndsAt > now
+  const isTrialing = status === 'trialing' && trialEndsAt !== null && now !== null && trialEndsAt > now
+  const inGrace    = status === 'grace'    && graceEndsAt !== null && now !== null && graceEndsAt > now
   const isActive   = status === 'active'   || isTrialing
   const isExpired  = status === 'expired'  ||
-    (status === 'cancelled' && expiresAt !== null && expiresAt < now)
+    (status === 'cancelled' && expiresAt !== null && now !== null && expiresAt < now)
 
   // Days left until trial/expiry
   const relevantDate = isTrialing ? trialEndsAt : expiresAt
-  const daysLeft     = relevantDate
+  const daysLeft     = relevantDate && now
     ? Math.max(0, Math.ceil((relevantDate.getTime() - now.getTime()) / 86400000))
     : null
 

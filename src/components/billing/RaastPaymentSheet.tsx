@@ -22,6 +22,7 @@ interface RaastPaymentSheetProps {
   cycle: 'monthly' | 'yearly'
   amountPkr: number
   couponId?: string
+  couponCode?: string
   discountPct?: number
   onClose: () => void
   onSubmitted: () => void
@@ -30,7 +31,7 @@ interface RaastPaymentSheetProps {
 type SheetStep = 'payment' | 'confirm' | 'submitted'
 
 export function RaastPaymentSheet({
-  planId, cycle, amountPkr, couponId, discountPct, onClose, onSubmitted,
+  planId, cycle, amountPkr, couponId, couponCode, discountPct, onClose, onSubmitted,
 }: RaastPaymentSheetProps) {
   const finalAmount = discountPct ? Math.round(amountPkr * (1 - discountPct / 100)) : amountPkr
   const { shopId } = useAuth()
@@ -114,10 +115,12 @@ export function RaastPaymentSheet({
           event: 'payment_submitted',
           plan: planId,
           cycle,
-          amountPkr,
+          amountPkr: finalAmount,
           paymentRef,
           transactionId: txId.trim(),
           payerName: payerName.trim(),
+          couponCode: couponCode || couponId || undefined,
+          discountPct: discountPct || undefined,
         }),
       }).catch((e) => console.error('[Payment] Admin email event failed:', e))
 

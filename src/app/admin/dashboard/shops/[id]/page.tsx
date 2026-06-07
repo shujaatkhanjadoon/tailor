@@ -251,6 +251,46 @@ export default function ShopDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // ── Safe defaults for derived state ─────────────────────────────
+  const isActive = shop?.is_active !== false;
+  const isVerified = shop?.verification_status === "approved";
+
+  // ── Handlers ────────────────────────────────────────────────────
+  const handleImpersonateConfirm = useCallback(async () => {
+    if (!shopId || impersonateLoading || impersonateTotp.length !== 6) return;
+    setImpersonateLoading(true);
+    setImpersonateError("");
+    try {
+      const res = await fetch("/api/admin/impersonate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shopId, totpCode: impersonateTotp }),
+      });
+      const data = await res.json();
+      if (res.status === 401 && data.requiresTOTP) { setImpersonateError(data.error ?? "TOTP required"); return; }
+      if (!data.success) { setImpersonateError(data.error ?? "Failed"); return; }
+      window.location.href = "/orders";
+    } catch { setImpersonateError("Server error"); }
+    finally { setImpersonateLoading(false); }
+  }, [shopId, impersonateTotp, impersonateLoading]);
+
+  const handleToggleActive = useCallback(async () => {
+    if (!shopId) return;
+    setAdjustError("");
+    const action = shop?.is_active !== false ? "deactivate_shop" : "activate_shop";
+    try {
+      const res = await fetch("/api/admin/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, shopId, reason: "Quick action from shop detail" }),
+      });
+      const data = await res.json();
+      if (res.status === 401 && data.requiresTOTP) { setAdjustError("TOTP code required"); return; }
+      if (!data.success) throw new Error(data.error ?? "Failed");
+      await load();
+    } catch (e) { setAdjustError(String(e)); }
+  }, [shopId, load]);
+
   if (loading) {
     return (
       <div className="space-y-5">
@@ -291,8 +331,6 @@ export default function ShopDetailPage() {
   const sub = shop.subscriptions?.[0];
   const usage = shop.shop_usage?.[0];
   const orderStats = shop.order_stats;
-  const isActive = shop.is_active !== false;
-  const isVerified = shop.verification_status === "approved";
 
   const tabs = [
     { key: "info", label: "Info", icon: Store },
@@ -302,24 +340,6 @@ export default function ShopDetailPage() {
     { key: "team", label: "Team", icon: Users },
     { key: "logs", label: "Activity Log", icon: FileText },
   ];
-
-  const handleImpersonateConfirm = useCallback(async () => {
-    if (!shopId || impersonateLoading || impersonateTotp.length !== 6) return;
-    setImpersonateLoading(true);
-    setImpersonateError("");
-    try {
-      const res = await fetch("/api/admin/impersonate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shopId, totpCode: impersonateTotp }),
-      });
-      const data = await res.json();
-      if (res.status === 401 && data.requiresTOTP) { setImpersonateError(data.error ?? "TOTP required"); return; }
-      if (!data.success) { setImpersonateError(data.error ?? "Failed"); return; }
-      window.location.href = "/orders";
-    } catch { setImpersonateError("Server error"); }
-    finally { setImpersonateLoading(false); }
-  }, [shopId, impersonateTotp, impersonateLoading]);
 
   const handleExtendExpiry = async () => {
     if (!shopId || !adjustDays) return;
@@ -374,23 +394,6 @@ export default function ShopDetailPage() {
       await load();
     } catch (e) { setAdjustError(String(e)); }
   };
-
-  const handleToggleActive = useCallback(async () => {
-    if (!shopId) return;
-    setAdjustError("");
-    const action = isActive ? "deactivate_shop" : "activate_shop";
-    try {
-      const res = await fetch("/api/admin/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, shopId, reason: "Quick action from shop detail" }),
-      });
-      const data = await res.json();
-      if (res.status === 401 && data.requiresTOTP) { setAdjustError("TOTP code required"); return; }
-      if (!data.success) throw new Error(data.error ?? "Failed");
-      await load();
-    } catch (e) { setAdjustError(String(e)); }
-  }, [shopId, isActive, load]);
 
   return (
     <div className="space-y-5">

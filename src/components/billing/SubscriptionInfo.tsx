@@ -8,12 +8,12 @@ export function SubscriptionInfo() {
 
   if (plan.isLoading || plan.plan === 'starter') return null
 
-  const now = new Date()
+  if (!plan.isTrialing && !plan.isActive) return null
+
   const relevantDate = plan.isTrial ? plan.trialEndsAt : plan.expiresAt
+  if (!relevantDate) return null
 
-  if (!relevantDate || relevantDate <= now) return null
-
-  const daysLeft = Math.ceil((relevantDate.getTime() - now.getTime()) / 86400000)
+  const daysLeft = plan.daysLeft ?? 0
   const monthsLeft = daysLeft / 30.44
 
   return (

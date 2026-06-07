@@ -991,8 +991,10 @@ export async function sendAdminSubscriptionEventEmail(opts: {
           ['Plan',           opts.plan ?? shop?.plan ?? 'N/A'],
           ['Cycle',          opts.cycle ?? 'N/A'],
           ['Amount',         opts.amountPkr ? `Rs. ${opts.amountPkr.toLocaleString()}` : 'N/A'],
-          ['Coupon Code',    opts.couponCode ?? 'N/A'],
-          ['Coupon Discount', opts.discountPct ? `${opts.discountPct}%` : 'N/A'],
+          ...(opts.couponCode ? [
+            ['Coupon Code',    opts.couponCode] as [string, unknown],
+            ['Coupon Discount', `${opts.discountPct}%`] as [string, unknown],
+          ] : []),
           ['Payment Ref',    opts.paymentRef ?? 'N/A'],
           ['Transaction ID', opts.transactionId ?? 'N/A'],
           ['Payer',          opts.payerName ?? 'N/A'],

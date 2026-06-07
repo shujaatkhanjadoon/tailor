@@ -18,7 +18,7 @@ function UpgradeContent() {
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
 
   const [couponCode, setCouponCode] = useState('')
-  const [appliedCoupon, setAppliedCoupon] = useState<{ id: string; discountPct: number; minAmountPkr?: number | null; appliesToPlan?: string | null } | null>(null)
+  const [appliedCoupon, setAppliedCoupon] = useState<{ id: string; code: string; discountPct: number; minAmountPkr?: number | null; appliesToPlan?: string | null } | null>(null)
   const [couponError, setCouponError] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
 
@@ -142,6 +142,7 @@ function UpgradeContent() {
               currentPlanId={plan.plan}
               currentCycle={plan.billingCycle}
               onSelect={handleSelectPlan}
+              discountPct={appliedCoupon?.discountPct}
             />
           ))}
         </div>
@@ -207,6 +208,7 @@ function UpgradeContent() {
           cycle={cycle}
           amountPkr={getAmount(selectedPlan)}
           couponId={appliedCoupon?.id}
+          couponCode={appliedCoupon?.code}
           discountPct={appliedCoupon?.discountPct}
           onClose={() => setSelectedPlan(null)}
           onSubmitted={() => {
