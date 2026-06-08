@@ -1,9 +1,9 @@
 // src/app/billing/page.tsx
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Calendar, MessageCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Calendar, MessageCircle, RefreshCw } from "lucide-react";
 import { usePlan } from "@/hooks/usePlan";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { PLANS } from "@/lib/billing/plans";
@@ -22,6 +22,35 @@ function BillingContent() {
   const planDef = PLANS[plan.plan];
   const searchParams = useSearchParams();
   const paymentSubmitted = searchParams.get("payment") === "submitted";
+  const [paymentVerified, setPaymentVerified] = useState(false);
+  const [pollingActive, setPollingActive] = useState(false);
+
+  const checkPaymentStatus = useCallback(async () => {
+    if (!shopId) return
+    try {
+      const res = await fetch(`/api/billing/subscription-status?shopId=${shopId}`)
+      const data = await res.json()
+      if (data.status === 'active' && data.plan !== 'starter') {
+        setPaymentVerified(true)
+        setPollingActive(false)
+        return true
+      }
+    } catch { /* ignore */ }
+    return false
+  }, [shopId])
+
+  useEffect(() => {
+    if (paymentSubmitted && shopId) {
+      setPollingActive(true)
+      checkPaymentStatus()
+      const interval = setInterval(async () => {
+        const done = await checkPaymentStatus()
+        if (done) clearInterval(interval)
+      }, 10000)
+      return () => clearInterval(interval)
+    }
+  }, [paymentSubmitted, shopId, checkPaymentStatus])
+
   const adminWhatsAppLink = `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(
     `Assalam o Alaikum, meri subscription payment request submit ho gayi hai. Please verify kar dein.\n\nPlan: ${plan.plan}\nShop ID: ${shopId ?? "N/A"}`,
   )}`;
@@ -44,7 +73,7 @@ function BillingContent() {
         </div>
       </header>
 
-      {paymentSubmitted && (
+      {paymentSubmitted && !paymentVerified && (
         <div className="mx-4 mt-4 bg-green-50 border border-green-200 rounded-2xl px-4 py-4">
           <p className="font-bold text-green-800 text-sm mb-1">
             ✓ Payment Request Submit Ho Gayi!
@@ -53,6 +82,12 @@ function BillingContent() {
             Hum aapki payment 24 ghante mein verify kar ke plan activate kar
             denge. Koi masla ho to WhatsApp karein.
           </p>
+          {pollingActive && (
+            <div className="mt-3 flex items-center gap-2 text-xs text-amber-600">
+              <RefreshCw size={12} className="animate-spin" />
+              Payment verification check ho raha hai...
+            </div>
+          )}
           <a
             href={adminWhatsAppLink}
             target="_blank"
@@ -63,6 +98,18 @@ function BillingContent() {
             <MessageCircle size={13} />
             Admin Ko WhatsApp Karein
           </a>
+        </div>
+      )}
+
+      {paymentVerified && (
+        <div className="mx-4 mt-4 bg-green-50 border border-green-200 rounded-2xl px-4 py-4">
+          <p className="font-bold text-green-800 text-sm mb-1">
+            ✓ Payment Verified! Plan Active Hai
+          </p>
+          <p className="text-green-600 text-xs leading-relaxed">
+            Aapka payment verify ho gaya hai aur plan activate hai.
+            Mubarak ho! 🎉
+          </p>
         </div>
       )}
 

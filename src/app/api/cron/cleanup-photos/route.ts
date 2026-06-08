@@ -1,8 +1,11 @@
+// src/app/api/cron/cleanup-photos/route.ts — incremental, max 50 per run
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { sbGet, sbDelete } from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
 import { mapConcurrent } from '@/lib/concurrent'
+
+const BATCH_SIZE = 50
 
 async function destroyCloudinaryImage(publicId: string) {
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const photos = await sbGet(
-      `order_photos?taken_at=lt.${cutoff}&select=id,public_id&limit=500`
+      `order_photos?taken_at=lt.${cutoff}&select=id,public_id&limit=${BATCH_SIZE}&order=taken_at.asc`
     )
     results.scanned = photos.length
 
@@ -60,9 +63,11 @@ export async function POST(req: NextRequest) {
     })
     results.deleted = photos.length - deleteResults.length
     results.errors.push(...deleteResults)
-  
 
-    return NextResponse.json({ success: true, cutoff, ...results })
+    return NextResponse.json({
+      success: true, cutoff, ...results,
+      hasMore: photos.length >= BATCH_SIZE,
+    })
   } catch (e) {
     logger.error('cleanup-photos', 'error', e)
     return NextResponse.json({ success: false, error: 'Cron job failed' }, { status: 500 })

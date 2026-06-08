@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
         const now = new Date().toISOString();
         const previousSub = (await sbGet(`subscriptions?shop_id=eq.${shopId}&select=plan,status,expires_at&limit=1`))[0];
 
-        const expiresAt = subscriptionExpiresAt(cycle);
+        const expiresAt = subscriptionExpiresAt(cycle, previousSub?.expires_at ? new Date(previousSub.expires_at) : undefined);
 
         // Fetch payment receipt_data for coupon info
         let couponCode: string | undefined;
@@ -629,7 +629,7 @@ export async function POST(req: NextRequest) {
         const { generateTOTPSecret } = await import("@/lib/admin/auth");
         const newSecret = generateTOTPSecret();
         // For now, we log the new secret (admin will see it in logs or env update)
-        await logAction("reset_admin_totp", "admin", "admin", { newSecret, performed_by: adminName });
+        await logAction("reset_admin_totp", "admin", "admin", { newSecret: newSecret ? `${newSecret.slice(0, 4)}****` : null, performed_by: adminName });
         // In a real system this would update ADMIN_TOTP_SECRET in env/vault
         return NextResponse.json({ success: true, newSecret, message: "Set ADMIN_TOTP_SECRET to this new value" });
       }
@@ -684,8 +684,7 @@ export async function POST(req: NextRequest) {
         if (caRole && !['super_admin', 'finance', 'support'].includes(caRole))
           return NextResponse.json({ error: "Invalid role" }, { status: 400 });
 
-        const { createHash } = await import("crypto");
-        const secretHash = createHash("sha256").update(caPassword).digest("hex");
+        const secretHash = bcrypt.hashSync(caPassword, SALT_ROUNDS);
 
         // Check if username already exists
         const existing: { id: string }[] = await sbGet(`admin_accounts?username=eq.${caUsername}&select=id`);

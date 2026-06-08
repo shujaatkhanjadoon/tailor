@@ -1,11 +1,35 @@
 // src/app/api/cron/expire-subscriptions/route.ts
+// Incremental — processes up to 50 records per phase per run
 import { NextRequest, NextResponse } from 'next/server'
 import { sendAdminSubscriptionEventEmail } from '@/lib/security/email-otp'
-import { sbGet, sbPatch } from '@/lib/supabase/service'
+import { sbGet, sbPatch, sbFetch } from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
 import { mapConcurrent } from '@/lib/concurrent'
 
 export const maxDuration = 300
+
+const BATCH_SIZE = 50
+
+async function getCursor(jobName: string): Promise<string | null> {
+  try {
+    const rows = await sbGet(`cron_cursors?job_name=eq.${encodeURIComponent(jobName)}&select=cursor_value&limit=1`)
+    return rows?.[0]?.cursor_value ?? null
+  } catch { return null }
+}
+
+async function setCursor(jobName: string, cursor: string): Promise<void> {
+  try {
+    await sbFetch('cron_cursors?on_conflict=job_name', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        job_name: jobName,
+        cursor_value: cursor,
+        updated_at: new Date().toISOString(),
+      }),
+    })
+  } catch { /* non-fatal */ }
+}
 
 export async function GET(req: NextRequest) {
   return POST(req)
@@ -33,7 +57,7 @@ export async function POST(req: NextRequest) {
     // 0. Auto-reject pending payments older than 48 hours (stuck payments)
     const staleCutoff = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString()
     const stalePayments = await sbGet(
-      `subscription_payments?status=eq.pending&paid_at=lt.${staleCutoff}&select=id,receipt_data&limit=500`
+      `subscription_payments?status=eq.pending&paid_at=lt.${staleCutoff}&select=id,receipt_data&limit=${BATCH_SIZE}`
     )
     await mapConcurrent(stalePayments, async (p) => {
       const receipt = p.receipt_data ?? {}
@@ -46,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     // 1. Keep denormalized shops.plan_expires_at in sync for admin views.
     const paidWithExpiry = await sbGet(
-      `subscriptions?status=in.(active,cancelled)&plan=in.(professional,business)&expires_at=not.is.null&select=shop_id,expires_at&limit=1000`
+      `subscriptions?status=in.(active,cancelled)&plan=in.(professional,business)&expires_at=not.is.null&select=shop_id,expires_at&limit=${BATCH_SIZE}`
     )
     const syncErrors0 = await mapConcurrent(paidWithExpiry, async (sub) => {
       await sbPatch(`shops?id=eq.${sub.shop_id}`, {
@@ -56,9 +80,9 @@ export async function POST(req: NextRequest) {
       expiryMirrored++
     })
 
-    // 1. Cancelled subscriptions past their expires_at → enter 7‑day grace period
+    // 2. Cancelled subscriptions past their expires_at → enter 7‑day grace period
     const toGracePeriod = await sbGet(
-      `subscriptions?status=eq.cancelled&expires_at=lt.${nowISO}&expires_at=not.is.null&select=id,shop_id,plan,billing_cycle,expires_at&limit=1000`
+      `subscriptions?status=eq.cancelled&expires_at=lt.${nowISO}&expires_at=not.is.null&select=id,shop_id,plan,billing_cycle,expires_at&limit=${BATCH_SIZE}`
     )
     const syncErrors1 = await mapConcurrent(toGracePeriod, async (sub) => {
       await sbPatch(`subscriptions?id=eq.${sub.id}`, {
@@ -77,9 +101,9 @@ export async function POST(req: NextRequest) {
       cancelledToGrace++
     })
 
-    // 2. Active subscriptions past expiry → grace period (consistent with cancelled)
+    // 3. Active subscriptions past expiry → grace period (consistent with cancelled)
     const expiredPaid = await sbGet(
-      `subscriptions?status=eq.active&expires_at=lt.${nowISO}&expires_at=not.is.null&select=id,shop_id,plan,billing_cycle,expires_at&limit=1000`
+      `subscriptions?status=eq.active&expires_at=lt.${nowISO}&expires_at=not.is.null&select=id,shop_id,plan,billing_cycle,expires_at&limit=${BATCH_SIZE}`
     )
     const syncErrors2 = await mapConcurrent(expiredPaid, async (sub) => {
       await sbPatch(`subscriptions?id=eq.${sub.id}`, {
@@ -95,9 +119,9 @@ export async function POST(req: NextRequest) {
       activeExpired++
     })
 
-    // 3. Grace lapsed
+    // 4. Grace lapsed
     const toLapse = await sbGet(
-      `subscriptions?status=eq.grace&grace_ends_at=lt.${nowISO}&grace_ends_at=not.is.null&select=id,shop_id,plan,billing_cycle,grace_ends_at&limit=1000`
+      `subscriptions?status=eq.grace&grace_ends_at=lt.${nowISO}&grace_ends_at=not.is.null&select=id,shop_id,plan,billing_cycle,grace_ends_at&limit=${BATCH_SIZE}`
     )
     const syncErrors3 = await mapConcurrent(toLapse, async (sub) => {
       await sbPatch(`subscriptions?id=eq.${sub.id}`, {
@@ -115,9 +139,9 @@ export async function POST(req: NextRequest) {
       graceLapsed++
     })
 
-    // 4. Trials past end
+    // 5. Trials past end
     const trialLapsed = await sbGet(
-      `subscriptions?status=eq.trialing&trial_ends_at=lt.${nowISO}&select=id,shop_id,plan,trial_ends_at&limit=1000`
+      `subscriptions?status=eq.trialing&trial_ends_at=lt.${nowISO}&select=id,shop_id,plan,trial_ends_at&limit=${BATCH_SIZE}`
     )
     const syncErrors4 = await mapConcurrent(trialLapsed, async (sub) => {
       await sbPatch(`subscriptions?id=eq.${sub.id}`, {
@@ -150,6 +174,7 @@ export async function POST(req: NextRequest) {
       success: true, timestamp: nowISO,
       expiryMirrored, cancelledToGrace, activeExpired, graceLapsed, trialLapsedCount,
       stalePaymentsRejected,
+      hasMore: (stalePayments.length + paidWithExpiry.length + toGracePeriod.length + expiredPaid.length + toLapse.length + trialLapsed.length) >= BATCH_SIZE,
     })
   } catch (e) {
     logger.error('expire-subscriptions', 'error', e)

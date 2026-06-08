@@ -1865,16 +1865,6 @@ using (false);
 
 
 
-  create policy "allow_all"
-  on "public"."admin_audit_log"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
   create policy "admin_notifications_anon_block_delete"
   on "public"."admin_notifications"
   as permissive
@@ -1911,52 +1901,12 @@ using (true);
 
 
 
-  create policy "allow_all"
-  on "public"."customers"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
-  create policy "anon_customers_all"
-  on "public"."customers"
-  as permissive
-  for all
-  to anon
-using (true)
-with check (true);
-
-
-
   create policy "customers_select"
   on "public"."customers"
   as permissive
   for select
   to public
 using (((shop_id = public.current_shop_id()) AND (deleted_at IS NULL)));
-
-
-
-  create policy "allow_all"
-  on "public"."email_verifications"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
-  create policy "anon_email_verifications_all"
-  on "public"."email_verifications"
-  as permissive
-  for all
-  to anon
-using (true)
-with check (true);
 
 
 
@@ -2007,36 +1957,6 @@ using ((phone IN ( SELECT team_members.phone
 
 
 
-  create policy "allow_all"
-  on "public"."login_attempts"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
-  create policy "allow_all"
-  on "public"."measurements"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
-  create policy "anon_measurements_all"
-  on "public"."measurements"
-  as permissive
-  for all
-  to anon
-using (true)
-with check (true);
-
-
-
   create policy "measurements_select"
   on "public"."measurements"
   as permissive
@@ -2045,16 +1965,6 @@ with check (true);
 using ((customer_id IN ( SELECT customers.id
    FROM public.customers
   WHERE ((customers.shop_id = public.current_shop_id()) AND (customers.deleted_at IS NULL)))));
-
-
-
-  create policy "anon_order_photos_all"
-  on "public"."order_photos"
-  as permissive
-  for all
-  to anon
-using (true)
-with check (true);
 
 
 
@@ -2116,52 +2026,12 @@ with check ((EXISTS ( SELECT 1
 
 
 
-  create policy "allow_all"
-  on "public"."order_status_history"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
-  create policy "anon_order_status_history_all"
-  on "public"."order_status_history"
-  as permissive
-  for all
-  to anon
-using (true)
-with check (true);
-
-
-
   create policy "order_status_history_select"
   on "public"."order_status_history"
   as permissive
   for select
   to public
 using ((shop_id = public.current_shop_id()));
-
-
-
-  create policy "allow_all"
-  on "public"."orders"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
-  create policy "anon_orders_all"
-  on "public"."orders"
-  as permissive
-  for all
-  to anon
-using (true)
-with check (true);
 
 
 
@@ -2183,52 +2053,12 @@ using (((tracking_code IS NOT NULL) AND (deleted_at IS NULL)));
 
 
 
-  create policy "allow_all"
-  on "public"."payments"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
-  create policy "anon_payments_all"
-  on "public"."payments"
-  as permissive
-  for all
-  to anon
-using (true)
-with check (true);
-
-
-
   create policy "payments_select"
   on "public"."payments"
   as permissive
   for select
   to public
 using (((shop_id = public.current_shop_id()) AND (deleted_at IS NULL)));
-
-
-
-  create policy "allow_all"
-  on "public"."plan_limits"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
-  create policy "anon_push_subscriptions_all"
-  on "public"."push_subscriptions"
-  as permissive
-  for all
-  to anon
-using (true)
-with check (true);
 
 
 
@@ -2277,26 +2107,6 @@ using ((shop_id = public.current_shop_id()));
 
 
 
-  create policy "allow_all"
-  on "public"."shop_usage"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
-  create policy "anon_shop_usage_all"
-  on "public"."shop_usage"
-  as permissive
-  for all
-  to anon
-using (true)
-with check (true);
-
-
-
   create policy "shop_usage_anon_block_delete"
   on "public"."shop_usage"
   as permissive
@@ -2342,16 +2152,6 @@ using ((shop_id = public.current_shop_id()));
 
 
 
-  create policy "allow_all"
-  on "public"."shop_verification_requests"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
   create policy "shop_verification_requests_anon_block_all"
   on "public"."shop_verification_requests"
   as permissive
@@ -2361,52 +2161,12 @@ using (false);
 
 
 
-  create policy "allow_all"
-  on "public"."shops"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
-  create policy "anon_shops_all"
-  on "public"."shops"
-  as permissive
-  for all
-  to anon
-using (true)
-with check (true);
-
-
-
   create policy "shops_select"
   on "public"."shops"
   as permissive
   for select
   to public
 using ((id = public.current_shop_id()));
-
-
-
-  create policy "allow_all"
-  on "public"."subscription_payments"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
-  create policy "anon_subscription_payments_all"
-  on "public"."subscription_payments"
-  as permissive
-  for all
-  to anon
-using (true)
-with check (true);
 
 
 
@@ -2455,26 +2215,6 @@ using ((shop_id = public.current_shop_id()));
 
 
 
-  create policy "allow_all"
-  on "public"."subscriptions"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
-  create policy "anon_subscriptions_all"
-  on "public"."subscriptions"
-  as permissive
-  for all
-  to anon
-using (true)
-with check (true);
-
-
-
   create policy "subscriptions_anon_block_delete"
   on "public"."subscriptions"
   as permissive
@@ -2517,26 +2257,6 @@ using (true);
   for select
   to public
 using ((shop_id = public.current_shop_id()));
-
-
-
-  create policy "allow_all"
-  on "public"."team_members"
-  as permissive
-  for all
-  to public
-using (true)
-with check (true);
-
-
-
-  create policy "anon_team_members_all"
-  on "public"."team_members"
-  as permissive
-  for all
-  to anon
-using (true)
-with check (true);
 
 
 

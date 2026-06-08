@@ -44,6 +44,17 @@ export function RaastPaymentSheet({
 
   const [paymentRef] = useState(() => generatePaymentRef(shopId ?? 'SHOP'))
   const targetPlan = PLANS[planId]
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [receiptBase64, setReceiptBase64] = useState<string | null>(null)
+
+  const handleReceiptFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setReceiptFile(file)
+    const reader = new FileReader()
+    reader.onload = () => setReceiptBase64(reader.result as string)
+    reader.readAsDataURL(file)
+  }
 
   const adminWhatsAppLink = ADMIN_WA
     ? `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(
@@ -97,6 +108,7 @@ export function RaastPaymentSheet({
           transactionId: txId.trim(),
           payerName: payerName.trim(),
           couponId: couponId || undefined,
+          receiptBase64: receiptBase64 || undefined,
         }),
       })
 
@@ -492,6 +504,43 @@ export function RaastPaymentSheet({
                 <p className="text-xs text-amber-700">
                   📋 Payment reference:{' '}
                   <strong className="font-mono">{paymentRef}</strong>
+                </p>
+              </div>
+
+              {/* Receipt image upload */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Payment Receipt (optional)
+                </label>
+                <div className="flex items-center gap-3">
+                  <label className="flex-1 flex items-center justify-center gap-2 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl px-4 py-6 cursor-pointer hover:border-blue-400 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleReceiptFile}
+                      className="hidden"
+                    />
+                    {receiptFile ? (
+                      <span className="text-sm font-medium text-green-600">✓ {receiptFile.name}</span>
+                    ) : (
+                      <>
+                        <span className="text-2xl">📷</span>
+                        <span className="text-sm text-slate-500">Receipt photo lein</span>
+                      </>
+                    )}
+                  </label>
+                  {receiptFile && (
+                    <button
+                      onClick={() => { setReceiptFile(null); setReceiptBase64(null) }}
+                      className="text-xs text-red-500 font-semibold"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 mt-1.5 ml-1">
+                  Bank app ka screenshot ya photo lein (optional lekin recommended)
                 </p>
               </div>
 

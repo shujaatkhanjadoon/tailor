@@ -1,3 +1,22 @@
+const SENSITIVE_KEYS = ['phone', 'email', 'pin', 'token', 'secret', 'password', 'otp', 'hash', 'pin_hash', 'secret_hash', 'totp_secret', 'newSecret', 'authorization', 'cookie']
+
+function redact(obj: unknown, depth = 0): unknown {
+  if (depth > 5) return '[max-depth]'
+  if (typeof obj !== 'object' || obj === null) return obj
+  if (Array.isArray(obj)) return obj.map(item => redact(item, depth + 1))
+  const result: Record<string, unknown> = {}
+  for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
+    if (SENSITIVE_KEYS.some(k => key.toLowerCase().includes(k))) {
+      result[key] = '[REDACTED]'
+    } else if (typeof val === 'object' && val !== null) {
+      result[key] = redact(val, depth + 1)
+    } else {
+      result[key] = val
+    }
+  }
+  return result
+}
+
 const PREFIX = {
   info:    '[INFO]',
   warn:    '[WARN]',
@@ -14,7 +33,8 @@ type Level = keyof typeof PREFIX
 function formatMessage(level: Level, module: string, message: string, data?: unknown): string {
   const timestamp = new Date().toISOString()
   const prefix = PREFIX[level]
-  const dataStr = data !== undefined ? ` ${JSON.stringify(data)}` : ''
+  const safeData = data !== undefined ? redact(data) : data
+  const dataStr = safeData !== undefined ? ` ${JSON.stringify(safeData)}` : ''
   return `${timestamp} ${prefix} [${module}] ${message}${dataStr}`
 }
 

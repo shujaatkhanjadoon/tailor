@@ -1,7 +1,5 @@
 ﻿// src/app/api/cron/send-reminders/route.ts
-// Sends WhatsApp reminders for expiring subscriptions
-// Uses click-to-chat links stored in a reminders queue
-// (Full WhatsApp Business API can be added later)
+// Sends WhatsApp reminders for expiring subscriptions — incremental, max 50 per run
 
 import { NextRequest, NextResponse } from 'next/server'
 import { sbGet, sbPost, type Row } from '@/lib/supabase/service'
@@ -9,6 +7,8 @@ import { mapConcurrent } from '@/lib/concurrent'
 import { logger } from '@/lib/logger'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mydarzi.vercel.app'
+
+const BATCH_SIZE = 50
 
 function buildReminderMessage(
   shopName:  string,
@@ -63,7 +63,6 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Collect ALL expiring subscriptions across reminder windows
     const reminderDays = [5, 3, 1]
     const allTasks: Array<{
       sub: Row & { isTrial: boolean }
@@ -87,14 +86,16 @@ export async function POST(req: NextRequest) {
           `subscriptions?select=id,shop_id,plan,status,trial_ends_at` +
           `&status=eq.trialing` +
           `&trial_ends_at=gte.${encodeURIComponent(targetStart.toISOString())}` +
-          `&trial_ends_at=lte.${encodeURIComponent(targetEnd.toISOString())}`
+          `&trial_ends_at=lte.${encodeURIComponent(targetEnd.toISOString())}` +
+          `&limit=${BATCH_SIZE}`
         ),
         sbGet(
           `subscriptions?select=id,shop_id,plan,status,expires_at` +
           `&status=in.(active)` +
           `&expires_at=not.is.null` +
           `&expires_at=gte.${encodeURIComponent(targetStart.toISOString())}` +
-          `&expires_at=lte.${encodeURIComponent(targetEnd.toISOString())}`
+          `&expires_at=lte.${encodeURIComponent(targetEnd.toISOString())}` +
+          `&limit=${BATCH_SIZE}`
         ),
       ])
 
@@ -106,7 +107,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Process all reminders concurrently
     const errors = await mapConcurrent(allTasks, async (task) => {
       const { sub, days, reminderKey } = task
 

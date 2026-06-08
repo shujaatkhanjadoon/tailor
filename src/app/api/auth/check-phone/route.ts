@@ -43,29 +43,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ found: false })
     }
 
-    let shopName = ''
-    if (member.shop_id) {
-      try {
-        const shopRes = await sbFetch(
-          `shops?id=eq.${encodeURIComponent(member.shop_id)}&select=shop_name&limit=1`
-        )
-        if (shopRes.ok) {
-          const shops = await shopRes.json()
-          shopName = shops?.[0]?.shop_name ?? ''
-        }
-      } catch {
-        // non-fatal
-      }
-    }
-
-    return NextResponse.json({
-      found: true,
-      role: member.role,
-      lockedUntil: member.locked_until ?? null,
-      shopName,
-      memberId: member.id,
-      shopId: member.shop_id,
-    })
+    return NextResponse.json({ found: true })
   } catch (e) {
     logger.error('check-phone', 'POST error', e)
     return serverError('Phone lookup failed')

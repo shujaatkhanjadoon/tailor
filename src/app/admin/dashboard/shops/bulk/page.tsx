@@ -57,7 +57,7 @@ export default function BulkOperationsPage() {
     setBusy(true); setError(''); setResult('')
     try {
       let actionType = ''
-      let body: any = { shopIds: Array.from(selected) }
+      const body: Record<string, unknown> = { shopIds: Array.from(selected) }
 
       if (action === 'plan') { actionType = 'bulk_set_plan'; body.plan = plan; body.cycle = cycle }
       else if (action === 'expiry') { actionType = 'bulk_extend_expiry'; body.days = days }

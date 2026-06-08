@@ -13,6 +13,7 @@ const submitPaymentSchema = z.object({
   transactionId: z.string().min(4),
   payerName: z.string().min(2),
   couponId: z.string().optional(),
+  receiptBase64: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: 400 })
     }
 
-    const { planId, cycle, amountPkr, paymentRef, transactionId, payerName, couponId } = parsed.data
+    const { planId, cycle, amountPkr, paymentRef, transactionId, payerName, couponId, receiptBase64 } = parsed.data
 
     const now = new Date().toISOString()
 
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
         payer_name: payerName,
         raast_id: process.env.NEXT_PUBLIC_RAAST_ID ?? '',
         submitted_at: now,
+        ...(receiptBase64 ? { receipt_image: receiptBase64 } : {}),
       },
     }
     if (subscriptionId) {
@@ -84,48 +86,69 @@ export async function POST(req: NextRequest) {
     const [paymentRow] = await payRes.json()
     const paymentId = paymentRow?.id
 
-    // Apply coupon redemption if coupon was used
+    // Apply coupon redemption if coupon was used — with full server-side validation
     if (couponId && paymentId) {
-      const couponRows = await sbGet(`coupons?id=eq.${encodeURIComponent(couponId)}&select=used_count,discount_pct,code&limit=1`)
+      const couponRows = await sbGet(`coupons?id=eq.${encodeURIComponent(couponId)}&select=id,code,discount_pct,max_uses,used_count,max_uses_per_shop,min_amount_pkr,applies_to_plan,expires_at,is_active&limit=1`)
       const coupon = couponRows?.[0]
       if (coupon) {
-        await sbFetch(`coupons?id=eq.${encodeURIComponent(couponId)}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-          body: JSON.stringify({ used_count: (coupon.used_count ?? 0) + 1 }),
-        })
-        const pct = coupon.discount_pct ?? 0
-        const originalAmount = amountPkr
-        const discountedAmount = Math.round(originalAmount * (1 - pct / 100))
-        await sbFetch('coupon_redemptions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-          body: JSON.stringify({
-            coupon_id: couponId,
-            shop_id: shopId,
-            subscription_payment_id: paymentId,
-            discount_pct: pct,
-            original_amount: originalAmount,
-            discounted_amount: discountedAmount,
-            redeemed_at: new Date().toISOString(),
-          }),
-        })
-        // Embed coupon info in receipt_data for display in payment records
-        const existingReceipt = typeof paymentPayload.receipt_data === 'object' && paymentPayload.receipt_data ? paymentPayload.receipt_data as Record<string, unknown> : {}
-        await sbFetch(`subscription_payments?id=eq.${encodeURIComponent(paymentId)}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-          body: JSON.stringify({
-            receipt_data: {
-              ...existingReceipt,
-              coupon_code: coupon.code,
-              coupon_id: couponId,
-              discount_pct: pct,
-              original_amount: originalAmount,
-              discounted_amount: discountedAmount,
-            },
-          }),
-        })
+        const now = new Date()
+        const errors: string[] = []
+        if (!coupon.is_active) errors.push('Coupon is inactive')
+        if (new Date(coupon.expires_at) < now) errors.push('Coupon has expired')
+        if (coupon.max_uses != null && (coupon.used_count ?? 0) >= coupon.max_uses) errors.push('Coupon usage limit reached')
+        if (coupon.max_uses_per_shop != null && coupon.max_uses_per_shop > 0) {
+          const shopRedemptions = await sbGet(`coupon_redemptions?coupon_id=eq.${encodeURIComponent(couponId)}&shop_id=eq.${encodeURIComponent(shopId)}&select=id`)
+          if ((shopRedemptions?.length ?? 0) >= coupon.max_uses_per_shop) errors.push('Coupon already used for this shop')
+        }
+        if (coupon.applies_to_plan && coupon.applies_to_plan !== planId) errors.push(`Coupon only applies to ${coupon.applies_to_plan} plan`)
+        if (coupon.min_amount_pkr != null && amountPkr < coupon.min_amount_pkr) errors.push(`Minimum amount PKR ${coupon.min_amount_pkr} required for this coupon`)
+
+        if (errors.length > 0) {
+          logger.warn('submit-payment', 'Coupon validation failed', { couponId, errors })
+        } else {
+          // Atomic increment via RPC
+          const rpcRes = await sbFetch('/rpc/increment_coupon_used_count', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+            body: JSON.stringify({ p_coupon_id: couponId }),
+          })
+          const incremented = rpcRes.ok ? await rpcRes.json() : false
+          if (incremented) {
+            const pct = coupon.discount_pct ?? 0
+            const originalAmount = amountPkr
+            const discountedAmount = Math.round(originalAmount * (1 - pct / 100))
+            await sbFetch('coupon_redemptions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+              body: JSON.stringify({
+                coupon_id: couponId,
+                shop_id: shopId,
+                subscription_payment_id: paymentId,
+                discount_pct: pct,
+                original_amount: originalAmount,
+                discounted_amount: discountedAmount,
+                redeemed_at: new Date().toISOString(),
+              }),
+            })
+            const existingReceipt = typeof paymentPayload.receipt_data === 'object' && paymentPayload.receipt_data ? paymentPayload.receipt_data as Record<string, unknown> : {}
+            await sbFetch(`subscription_payments?id=eq.${encodeURIComponent(paymentId)}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+              body: JSON.stringify({
+                receipt_data: {
+                  ...existingReceipt,
+                  coupon_code: coupon.code,
+                  coupon_id: couponId,
+                  discount_pct: pct,
+                  original_amount: originalAmount,
+                  discounted_amount: discountedAmount,
+                },
+              }),
+            })
+          } else {
+            logger.warn('submit-payment', 'Atomic increment failed (race condition hit)', { couponId })
+          }
+        }
       }
     }
 

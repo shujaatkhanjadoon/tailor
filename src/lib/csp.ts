@@ -14,6 +14,7 @@ const CSP_DIRECTIVES = {
   'frame-ancestors': ["'none'"],
   'base-uri': ["'self'"],
   'form-action': ["'self'"],
+  'report-uri': ['/api/csp-violation'],
 }
 
 export function cspHeader(): string {
@@ -21,3 +22,5 @@ export function cspHeader(): string {
     .map(([key, values]) => `${key} ${values.join(' ')}`)
     .join('; ')
 }
+
+export { CSP_DIRECTIVES }

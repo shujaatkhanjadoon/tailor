@@ -1,5 +1,7 @@
 'use client'
 
+import * as Sentry from '@sentry/nextjs'
+
 export default function ErrorPage({
   error,
   reset,
@@ -7,6 +9,8 @@ export default function ErrorPage({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  Sentry.captureException(error)
+
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 text-center">
       <div className="text-6xl mb-4">⚠️</div>

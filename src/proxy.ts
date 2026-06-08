@@ -49,6 +49,27 @@ export async function proxy(req: NextRequest) {
   addSecurityHeaders(res)
   res.headers.set('Content-Security-Policy', buildCspHeader())
 
+  // ── Global IP blocklist check ──────────────────────────────────
+  if (pathname.startsWith('/api/')) {
+    try {
+      const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+        ?? req.headers.get('x-real-ip')
+        ?? 'unknown'
+      const blockRes = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/ip_blocklist?ip=eq.${encodeURIComponent(ip)}&is_active=eq.true&select=id&limit=1`,
+        { headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '', Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''}` } }
+      )
+      if (blockRes.ok) {
+        const blocked = await blockRes.json()
+        if (blocked?.length > 0) {
+          return respond({ error: 'Access denied' }, 403)
+        }
+      }
+    } catch {
+      // non-fatal: allow request through if blocklist check fails
+    }
+  }
+
   // ── Public / internal endpoints (skip auth + rate limiting) ──
   const PUBLIC_API = ['/api/health']
   if (PUBLIC_API.some(p => pathname === p)) {

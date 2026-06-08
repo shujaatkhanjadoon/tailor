@@ -102,12 +102,12 @@ export function publicIdFromCloudinaryUrl(url?: string | null): string | null {
 // so calling this function multiple times is safe.
 export function getOptimisedUrl(
   cloudUrl: string,
-  opts: { width?: number; quality?: string } = {}
+  opts: { width?: number } = {}
 ): string {
   if (!cloudUrl || !cloudUrl.includes('cloudinary.com')) return cloudUrl
 
-  const { width = 800, quality = 'auto:good' } = opts
-  const newPart = `w_${width},q_${quality},f_auto`
+  const { width = 800 } = opts
+  const newPart = `w_${width}`
 
   const uploadIdx = cloudUrl.indexOf('/upload/')
   if (uploadIdx === -1) return cloudUrl
@@ -117,8 +117,6 @@ export function getOptimisedUrl(
   const nextSlash = rest.indexOf('/')
   const segment   = nextSlash === -1 ? rest : rest.slice(0, nextSlash)
 
-  // If the segment after /upload/ is not a plain version (v12345),
-  // it already has transformations — replace the whole segment.
   if (!/^v\d+$/.test(segment)) {
     return cloudUrl.slice(0, after) + newPart + rest.slice(segment.length)
   }

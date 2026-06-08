@@ -1,11 +1,12 @@
 // src/app/api/admin/login/route.ts
-import { timingSafeEqual, createHash } from 'crypto'
+import { timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse }                          from 'next/server'
 import { verifyTOTP, generateSessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 import { logAdminAction }                                     from '@/lib/admin/audit'
 import { validate, schemas }                                  from '@/lib/validation'
 import { sbGet }                                              from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
+import bcrypt from 'bcryptjs'
 import { getLoginRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 
 export async function POST(req: NextRequest) {
@@ -40,13 +41,10 @@ export async function POST(req: NextRequest) {
 
   // If master secret doesn't match, try sub-admin login
   if (!secretMatch && username) {
-    const passwordHash = createHash('sha256').update(secret.trim()).digest('hex')
     const accounts: { id: string; secret_hash: string; role: string }[] = await sbGet(`admin_accounts?username=eq.${username}&is_active=eq.true&select=id,secret_hash,role`)
     const account = accounts?.[0]
     if (account) {
-      const pwBuf = Buffer.from(passwordHash, 'utf-8')
-      const hashBuf = Buffer.from(account.secret_hash, 'utf-8')
-      secretMatch = pwBuf.length === hashBuf.length && timingSafeEqual(pwBuf, hashBuf)
+      secretMatch = bcrypt.compareSync(secret.trim(), account.secret_hash)
       if (secretMatch) adminRole = account.role
     }
   }

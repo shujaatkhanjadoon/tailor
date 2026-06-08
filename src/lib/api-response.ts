@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import * as Sentry from '@sentry/nextjs'
 
 export interface ApiSuccess<T = unknown> {
   success: true
@@ -41,7 +42,17 @@ export function tooMany(error = 'Too many requests') {
   return NextResponse.json({ success: false, error } satisfies ApiError, { status: 429 })
 }
 
-export function serverError(error = 'Internal server error') {
+export function serverError(error: unknown = 'Internal server error') {
+  if (error instanceof Error) {
+    Sentry.captureException(error)
+    console.error('[API Error]', error)
+    return NextResponse.json({ success: false, error: error.message } satisfies ApiError, { status: 500 })
+  }
+  if (typeof error === 'string') {
+    Sentry.captureMessage(error)
+    console.error('[API Error]', error)
+    return NextResponse.json({ success: false, error } satisfies ApiError, { status: 500 })
+  }
   console.error('[API Error]', error)
-  return NextResponse.json({ success: false, error } satisfies ApiError, { status: 500 })
+  return NextResponse.json({ success: false, error: 'Internal server error' } satisfies ApiError, { status: 500 })
 }

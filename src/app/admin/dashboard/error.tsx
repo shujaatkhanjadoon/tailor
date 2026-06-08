@@ -1,13 +1,16 @@
 'use client'
 
 import Link from 'next/link'
+import * as Sentry from '@sentry/nextjs'
 
 export default function AdminError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  Sentry.captureException(error)
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
       <div className="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center mb-4">
