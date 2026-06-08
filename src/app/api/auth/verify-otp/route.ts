@@ -1,6 +1,5 @@
 // src/app/api/auth/verify-otp/route.ts
 import { NextRequest, NextResponse }  from 'next/server'
-import { verifyOTP }                  from '@/lib/security/email-otp'
 import { getLoginRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { validate, schemas }          from '@/lib/validation'
 import { sbFetch, sbPatch }           from '@/lib/supabase/service'
@@ -66,6 +65,7 @@ export async function POST(req: NextRequest) {
   )
 
   // ── Verify OTP hash ───────────────────────────────────────────
+  const { verifyOTP } = await import('@/lib/security/email-otp')
   if (!verifyOTP(String(otp), record.otp_hash)) {
     const remaining = 4 - record.attempts
     return NextResponse.json(

@@ -1,18 +1,15 @@
 // src/app/api/auth/create-shop/route.ts
 import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  sendAdminShopRegistrationEmail,
-  sendShopOwnerAccountCreated,
-  sendShopVerificationAlert,
-} from '@/lib/security/email-otp'
 import { getSignupRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { sbGet, sbPost, sbUpsertById, sbUpsertByShopId } from '@/lib/supabase/service'
 import { validate, schemas } from '@/lib/validation'
 import { badRequest, tooMany, serverError, ok } from '@/lib/api-response'
+import { withIdempotency } from '@/lib/idempotency'
 import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
+  return withIdempotency(req, async () => {
   const limiter = getSignupRatelimiter()
   const rl      = await checkRateLimit(limiter, `signup:${getRateLimitId(req)}`, 'sensitive')
   if (!rl.allowed) {
@@ -152,17 +149,18 @@ export async function POST(req: NextRequest) {
     const appUrl   = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mydarzi.vercel.app'
     const adminWA  = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP
 
-    // Email notification
-    sendShopVerificationAlert({
+    // Email notification (lazy-loaded to reduce cold-start bundle)
+    const emailMod = import('@/lib/security/email-otp').then(m => m).catch(() => null)
+    emailMod.then(m => m?.sendShopVerificationAlert({
       shopName,
       ownerName:  ownerName ?? shopName,
       ownerPhone,
       ownerEmail: normalizedEmail || 'N/A',
       city,
       shopId,
-    }).catch(err => logger.error('create-shop', 'Shop verification alert failed', err))
+    }).catch(err => logger.error('create-shop', 'Shop verification alert failed', err)))
 
-    sendAdminShopRegistrationEmail({
+    emailMod.then(m => m?.sendAdminShopRegistrationEmail({
       shopName,
       ownerName: ownerName ?? shopName,
       ownerPhone,
@@ -171,15 +169,15 @@ export async function POST(req: NextRequest) {
       registrationDate: new Date().toISOString(),
       city,
       shopId,
-    }).catch(err => logger.error('create-shop', 'Admin registration email failed', err))
+    }).catch(err => logger.error('create-shop', 'Admin registration email failed', err)))
 
-    sendShopOwnerAccountCreated({
+    emailMod.then(m => m?.sendShopOwnerAccountCreated({
       shopName,
       ownerName:  ownerName ?? shopName,
       ownerPhone,
       ownerEmail: normalizedEmail || undefined,
       city,
-    }).catch(err => logger.error('create-shop', 'Owner account email failed', err))
+    }).catch(err => logger.error('create-shop', 'Owner account email failed', err)))
 
     // WhatsApp via CallMeBot (if configured)
     // NOTE: CallMeBot API requires the key as a query param (API design constraint).
@@ -206,4 +204,5 @@ export async function POST(req: NextRequest) {
     logger.error('create-shop', 'Account creation failed', e)
     return serverError('Account creation failed. Dobara try karein.')
   }
+  })
 }

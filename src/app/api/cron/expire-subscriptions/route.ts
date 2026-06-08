@@ -1,7 +1,6 @@
 // src/app/api/cron/expire-subscriptions/route.ts
 // Incremental — processes up to 50 records per phase per run
 import { NextRequest, NextResponse } from 'next/server'
-import { sendAdminSubscriptionEventEmail } from '@/lib/security/email-otp'
 import { sbGet, sbPatch, sbFetch } from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
 import { mapConcurrent } from '@/lib/concurrent'
@@ -54,6 +53,7 @@ export async function POST(req: NextRequest) {
   let stalePaymentsRejected = 0
 
   try {
+    const { sendAdminSubscriptionEventEmail } = await import('@/lib/security/email-otp')
     // 0. Auto-reject pending payments older than 48 hours (stuck payments)
     const staleCutoff = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString()
     const stalePayments = await sbGet(

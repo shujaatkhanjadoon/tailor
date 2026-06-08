@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sendAdminSubscriptionEventEmail } from '@/lib/security/email-otp'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 import { validate, schemas } from '@/lib/validation'
 import { logger } from '@/lib/logger'
@@ -18,6 +17,7 @@ export async function POST(req: NextRequest) {
 
     const { shopId, event, plan, previousPlan, cycle, amountPkr, reason, paymentRef, transactionId, payerName, expiresAt, couponCode, discountPct } = parsed.data
 
+    const { sendAdminSubscriptionEventEmail } = await import('@/lib/security/email-otp')
     await sendAdminSubscriptionEventEmail({
       shopId,
       event,

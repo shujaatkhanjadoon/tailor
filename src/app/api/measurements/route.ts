@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 import { sbFetch } from '@/lib/supabase/service'
 import { validate } from '@/lib/validation'
+import { withIdempotency } from '@/lib/idempotency'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
 
@@ -18,6 +19,7 @@ const upsertMeasurementSchema = z.object({
 })
 
 export async function POST(req: NextRequest) {
+  return withIdempotency(req, async () => {
   try {
     const token = req.cookies.get(MEMBER_SESSION_COOKIE)?.value
     const session = token ? verifyMemberSessionToken(token) : null
@@ -87,4 +89,5 @@ export async function POST(req: NextRequest) {
     logger.error('measurements', 'Unexpected error', e)
     return NextResponse.json({ error: 'Measurement operation failed' }, { status: 500 })
   }
+  })
 }

@@ -1,6 +1,5 @@
 // src/app/api/auth/shop-verify-request/route.ts
 import { NextRequest, NextResponse }           from 'next/server'
-import { sendShopVerificationAlert }           from '@/lib/security/email-otp'
 import { getSignupRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { validate, schemas }                  from '@/lib/validation/schemas'
 import { sbFetch, sbPatch }                   from '@/lib/supabase/service'
@@ -44,12 +43,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 
-  // Send admin notification (non-blocking)
-  sendShopVerificationAlert({
+  // Send admin notification (non-blocking, lazy-loaded)
+  import('@/lib/security/email-otp').then(m => m.sendShopVerificationAlert({
     shopName, ownerName, ownerPhone,
     ownerEmail: ownerEmail || 'N/A',
     city, shopId,
-  }).catch(err => logger.error('shop-verify', 'Verification alert notification failed', err))
+  })).catch(err => logger.error('shop-verify', 'Verification alert notification failed', err))
 
   // Also update shop verification_status
   await sbPatch(

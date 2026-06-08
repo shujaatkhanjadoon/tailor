@@ -9,7 +9,7 @@ import { resolve as resolvePath, dirname } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { statSync } from 'node:fs'
 
-export function resolve(specifier, context, nextResolve) {
+export async function resolve(specifier, context, nextResolve) {
   if (specifier.startsWith('@/')) {
     const base = process.cwd()
     const relative = specifier.slice(2)
@@ -32,7 +32,20 @@ export function resolve(specifier, context, nextResolve) {
     }
     return nextResolve(pathToFileURL(resolved).href)
   }
-  return nextResolve(specifier, context)
+  // Node ESM requires explicit extensions; relative (./ ../) often omit .ts/.js
+  // NOTE: double-backslash \\ because this code is inside a template literal
+  if ((specifier.startsWith('./') || specifier.startsWith('../')) && !/\\.\\w+$/.test(specifier)) {
+    try {
+      return await nextResolve(specifier + '.ts', context)
+    } catch {
+      try { return await nextResolve(specifier + '.js', context) } catch { /* fall through */ }
+    }
+  }
+  // next/* packages need explicit .js in ESM (no exports field in this version)
+  if (specifier.startsWith('next/') && !specifier.endsWith('.js')) {
+    try { return await nextResolve(specifier + '.js', context) } catch { /* fall through */ }
+  }
+  return await nextResolve(specifier, context)
 }
   `)}`,
   { parentURL: pathToFileURL(process.cwd() + '/').href },

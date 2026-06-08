@@ -1,6 +1,5 @@
 // src/app/api/auth/send-otp/route.ts
 import { NextRequest }     from 'next/server'
-import { generateOTP, hashOTP, sendOTPEmail } from '@/lib/security/email-otp'
 import { getOTPRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { validatePakistaniPhone }        from '@/lib/security/phone'
 import { validate, schemas }             from '@/lib/validation'
@@ -50,8 +49,9 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Generate OTP ──────────────────────────────────────────────
-  const otp       = generateOTP()
-  const otpHash   = hashOTP(otp)
+  const emailMod = await import('@/lib/security/email-otp')
+  const otp       = emailMod.generateOTP()
+  const otpHash   = emailMod.hashOTP(otp)
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()  // 10 min
 
   // ── Invalidate previous OTPs for this phone ───────────────────
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Send OTP email ────────────────────────────────────────────
-  const emailResult = await sendOTPEmail(normalizedEmail, otp, purpose)
+  const emailResult = await emailMod.sendOTPEmail(normalizedEmail, otp, purpose)
   if (!emailResult.success) {
     logger.error('send-otp', 'Resend error', emailResult.error)
     return serverError('Email nahi aayi. Email address check karein.')

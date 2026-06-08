@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 import { sbFetch, sbGet } from '@/lib/supabase/service'
 import { validate } from '@/lib/validation'
+import { withIdempotency } from '@/lib/idempotency'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
 
@@ -17,6 +18,7 @@ const submitPaymentSchema = z.object({
 })
 
 export async function POST(req: NextRequest) {
+  return withIdempotency(req, async () => {
   try {
     const token = req.cookies.get(MEMBER_SESSION_COOKIE)?.value
     const session = token ? verifyMemberSessionToken(token) : null
@@ -157,4 +159,5 @@ export async function POST(req: NextRequest) {
     logger.error('submit-payment', 'Unexpected error', e)
     return NextResponse.json({ error: 'Payment submission failed' }, { status: 500 })
   }
+  })
 }

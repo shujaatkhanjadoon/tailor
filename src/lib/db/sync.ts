@@ -276,7 +276,7 @@ class SyncEngine {
         const pending: AnyRecord[] = await table
           .where('_synced')
           .equals(0)
-          .and(r => (r as any).updatedAt > since || (r as any).createdAt > since)
+          .and((r: any) => r.updatedAt > since || r.createdAt > since)
           .toArray()
         if (pending.length === 0) continue
         await this.pushTable(t)

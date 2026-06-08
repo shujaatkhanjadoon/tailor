@@ -1,6 +1,6 @@
 // Supabase-backed operations with offline fallback.
 import { timingSafeEqual as _timingSafeEqual } from 'crypto'
-import type { CustomerRecord, OrderRecord, PaymentRecord, TeamMemberRecord } from './schema'
+import type { CustomerRecord, MeasurementRecord, OrderRecord, PaymentRecord, TeamMemberRecord } from './schema'
 import { db } from './schema'
 import bcrypt from 'bcryptjs'
 import { supabase } from '@/lib/supabase/client'
@@ -485,12 +485,29 @@ export const customerOps = {
 
   async softDelete(id: string): Promise<void> {
     const ts = nowKarachiIso()
-    const dexieWrite = async () => {
+
+    const cascadeLocal = async () => {
+      const orders = await db.orders.where('customerId').equals(id).toArray()
+      for (const order of orders) {
+        const payments = await db.payments.where('orderId').equals(order.id).toArray()
+        for (const p of payments) {
+          await db.payments.put({ ...p, _deleted: 1, _synced: 0 } as PaymentRecord)
+        }
+        await db.orders.put({ ...order, _deleted: 1, _synced: 0 } as OrderRecord)
+      }
+      const measurements = await db.measurements.where('customerId').equals(id).toArray()
+      for (const m of measurements) {
+        await db.measurements.put({ ...m, _deleted: 1, _synced: 0 } as MeasurementRecord)
+      }
+    }
+
+    const markCustomer = async () => {
       const existing = await db.customers.get(id)
       if (existing) {
         await db.customers.put({ ...existing, _deleted: 1, _synced: 0 } as CustomerRecord)
       }
     }
+
     if (isOnline()) {
       try {
         const orderRows = await requireOk(supabase.from('orders').select('id').eq('customer_id', id))
@@ -499,13 +516,14 @@ export const customerOps = {
           requireOk(supabase.from('measurements').update({ deleted_at: ts }).eq('customer_id', id)),
           requireOk(supabase.from('customers').update({ deleted_at: ts }).eq('id', id)),
         ])
-        await dexieWrite()
       } catch (err) {
         console.warn('[Offline] customerOps.softDelete failed, queuing locally:', err)
-        await dexieWrite()
       }
+      await markCustomer()
+      await cascadeLocal()
     } else {
-      await dexieWrite()
+      await markCustomer()
+      await cascadeLocal()
     }
   },
 }
@@ -693,7 +711,18 @@ export const orderOps = {
   },
 
   async softDelete(orderId: string): Promise<void> {
-    await deleteOrdersByIds([orderId])
+    if (isOnline()) {
+      await deleteOrdersByIds([orderId])
+    } else {
+      const existing = await db.orders.get(orderId)
+      if (existing) {
+        await db.orders.put({ ...existing, _deleted: 1, _synced: 0 } as OrderRecord)
+        const payments = await db.payments.where('orderId').equals(orderId).toArray()
+        for (const p of payments) {
+          await db.payments.put({ ...p, _deleted: 1, _synced: 0 } as PaymentRecord)
+        }
+      }
+    }
   },
 }
 
