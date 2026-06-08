@@ -5,7 +5,6 @@ import { generateMemberSessionToken, MEMBER_SESSION_COOKIE, getSessionCookieOpti
 import { getLoginRatelimiter, checkRateLimit, getRateLimitId, getClientIP } from '@/lib/security/rate-limit'
 import { badRequest, serverError, tooMany } from '@/lib/api-response'
 import { logger } from '@/lib/logger'
-import { SALT_ROUNDS } from '@/lib/security/pin'
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,9 +48,7 @@ export async function POST(req: NextRequest) {
     }
 
     const storedHash = String(member.pin_hash ?? '')
-    // Re-compute what the client-side hash would be, then compare against stored double-hash
-    const clientSideHash = bcrypt.hashSync(rawPin, SALT_ROUNDS)
-    const isValid = storedHash.startsWith('$2') && await bcrypt.compare(clientSideHash, storedHash)
+    const isValid = storedHash.startsWith('$2') && await bcrypt.compare(rawPin, storedHash)
 
     if (!isValid) {
       const newFailed = (member.failed_attempts ?? 0) + 1

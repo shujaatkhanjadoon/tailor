@@ -111,7 +111,7 @@ export const schemas = {
   sessionCreate: z.object({
     memberId: uuid,
     shopId: uuid,
-    pinHash: z.string().min(1, 'pinHash required'),
+    pin: z.string().min(1, 'PIN required'),
   }),
 
   subscriptionEvent: z.object({

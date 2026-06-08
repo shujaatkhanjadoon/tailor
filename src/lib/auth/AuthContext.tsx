@@ -59,13 +59,13 @@ async function readServerSession(): Promise<{
   }
 }
 
-async function createServerSession(memberId: string, shopId: string, pinHash?: string): Promise<boolean> {
+async function createServerSession(memberId: string, shopId: string, pin?: string): Promise<boolean> {
   try {
     const res = await fetch('/api/auth/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ memberId, shopId, pinHash }),
+      body: JSON.stringify({ memberId, shopId, pin }),
     })
     return res.ok
   } catch {
@@ -228,7 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(apiData.error ?? 'Account creation failed on server')
     }
 
-    await createServerSession(apiData.memberId, shopId, pinHash)
+    await createServerSession(apiData.memberId, shopId, pin)
     setCachedShopId(shopId)
 
     const partial = await readStateFromDB()

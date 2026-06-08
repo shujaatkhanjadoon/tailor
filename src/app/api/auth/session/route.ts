@@ -7,7 +7,7 @@ import { validate, schemas } from '@/lib/validation'
 import { logger } from '@/lib/logger'
 import { getLoginRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 
-async function verifyPinHashServerSide(memberId: string, shopId: string, pinHash: string): Promise<boolean> {
+async function verifyPinHashServerSide(memberId: string, shopId: string, pin: string): Promise<boolean> {
   try {
     const res = await sbFetch(
       `team_members?id=eq.${encodeURIComponent(memberId)}&shop_id=eq.${encodeURIComponent(shopId)}&is_active=eq.true&deleted_at=is.null&select=pin_hash&limit=1`
@@ -16,8 +16,7 @@ async function verifyPinHashServerSide(memberId: string, shopId: string, pinHash
     const members = await res.json()
     if (!members?.length) return false
     const storedHash = String(members[0].pin_hash ?? '')
-    // storedHash is server-side double-hash, pinHash is client-side single hash
-    return storedHash.startsWith('$2') && pinHash.startsWith('$2') && await bcrypt.compare(pinHash, storedHash)
+    return storedHash.startsWith('$2') && await bcrypt.compare(pin, storedHash)
   } catch {
     return false
   }
@@ -29,7 +28,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.ok) {
       return badRequest(parsed.error)
     }
-    const { memberId, shopId, pinHash } = parsed.data
+    const { memberId, shopId, pin: pinToVerify } = parsed.data
 
     const limiter = getLoginRatelimiter()
     const rl = await checkRateLimit(limiter, `session:${memberId}:${getRateLimitId(req)}`, 'sensitive')
@@ -37,7 +36,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: rl.error }, { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.reset?.getTime() ?? Date.now() + 900000 - Date.now()) / 1000)) } })
     }
 
-    const pinValid = await verifyPinHashServerSide(memberId, shopId, pinHash)
+    const pinValid = await verifyPinHashServerSide(memberId, shopId, pinToVerify)
     if (!pinValid) {
       return unauthorized('Invalid credentials')
     }

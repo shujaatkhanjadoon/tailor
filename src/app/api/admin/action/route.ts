@@ -652,9 +652,8 @@ export async function POST(req: NextRequest) {
         // Generate random 6-digit PIN
         const newPin = String(Math.floor(100000 + Math.random() * 900000));
 
-        // Double-hash: client-side hash first, then stored hash
-        const clientHash = bcrypt.hashSync(newPin, SALT_ROUNDS)
-        const storedHash = bcrypt.hashSync(clientHash, SALT_ROUNDS)
+        // Store as single bcrypt hash
+        const storedHash = bcrypt.hashSync(newPin, SALT_ROUNDS)
 
         const now = new Date().toISOString();
 

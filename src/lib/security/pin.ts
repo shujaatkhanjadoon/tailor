@@ -77,9 +77,7 @@ export async function verifyPIN(pin: string, hash: string): Promise<boolean> {
   if (!hash.startsWith('$2')) {
     return false
   }
-  // Recompute the client-side hash first, then compare against stored double-hash
-  const clientSideHash = await bcrypt.hash(pin, SALT_ROUNDS)
-  return bcrypt.compare(clientSideHash, hash)
+  return bcrypt.compare(pin, hash)
 }
 
 export function getPINStrength(pin: string): {

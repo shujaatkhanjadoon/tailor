@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
       name:           ownerName ?? shopName + ' (Owner)',
       phone:          ownerPhone,
       role:           'owner',
-      pin_hash:       bcrypt.hashSync(pinHash, 12),
+      pin_hash:       pinHash,
       email:          normalizedEmail || null,
       email_verified: normalizedEmail ? true : false,
       is_active:      true,

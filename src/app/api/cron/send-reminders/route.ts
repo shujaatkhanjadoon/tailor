@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { sbGet, sbPost, type Row } from '@/lib/supabase/service'
+import { mapConcurrent } from '@/lib/concurrent'
 import { logger } from '@/lib/logger'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mydarzi.vercel.app'
@@ -62,8 +63,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Find subscriptions expiring in 5, 3, or 1 days
+    // Collect ALL expiring subscriptions across reminder windows
     const reminderDays = [5, 3, 1]
+    const allTasks: Array<{
+      sub: Row & { isTrial: boolean }
+      days: number
+      reminderKey: string
+      today: string
+    }> = []
+
+    const today = now.toISOString().split('T')[0]
 
     for (const days of reminderDays) {
       const targetDate  = new Date(now)
@@ -73,83 +82,81 @@ export async function POST(req: NextRequest) {
       const targetEnd   = new Date(targetDate)
       targetEnd.setHours(23, 59, 59, 999)
 
-      // Check both trial and paid expirations
-      const trialExpiring = await sbGet(
-        `subscriptions?select=id,shop_id,plan,status,trial_ends_at` +
-        `&status=eq.trialing` +
-        `&trial_ends_at=gte.${encodeURIComponent(targetStart.toISOString())}` +
-        `&trial_ends_at=lte.${encodeURIComponent(targetEnd.toISOString())}`
-      )
-      const paidExpiring = await sbGet(
-        `subscriptions?select=id,shop_id,plan,status,expires_at` +
-        `&status=in.(active)` +
-        `&expires_at=not.is.null` +
-        `&expires_at=gte.${encodeURIComponent(targetStart.toISOString())}` +
-        `&expires_at=lte.${encodeURIComponent(targetEnd.toISOString())}`
-      )
+      const [trialExpiring, paidExpiring] = await Promise.all([
+        sbGet(
+          `subscriptions?select=id,shop_id,plan,status,trial_ends_at` +
+          `&status=eq.trialing` +
+          `&trial_ends_at=gte.${encodeURIComponent(targetStart.toISOString())}` +
+          `&trial_ends_at=lte.${encodeURIComponent(targetEnd.toISOString())}`
+        ),
+        sbGet(
+          `subscriptions?select=id,shop_id,plan,status,expires_at` +
+          `&status=in.(active)` +
+          `&expires_at=not.is.null` +
+          `&expires_at=gte.${encodeURIComponent(targetStart.toISOString())}` +
+          `&expires_at=lte.${encodeURIComponent(targetEnd.toISOString())}`
+        ),
+      ])
 
-      const allExpiring: Array<Row & { isTrial: boolean }> = [
-        ...(trialExpiring ?? []).map(s => ({ ...s, isTrial: true })),
-        ...(paidExpiring  ?? []).map(s => ({ ...s, isTrial: false })),
-      ]
-
-      for (const sub of allExpiring) {
-        // Get shop details
-        const shops = await sbGet(
-          `shops?select=shop_name,owner_phone&id=eq.${sub.shop_id}&limit=1`
-        )
-        const shop = shops?.[0]
-
-        if (!shop?.owner_phone) { results.skipped++; continue }
-
-        // Check if reminder already sent today for this shop + days combo
-        const reminderKey = `reminder_${days}d_${new Date().toISOString().split('T')[0]}`
-        const existingReminders = await sbGet(
-          `subscription_payments?select=id` +
-          `&shop_id=eq.${sub.shop_id}` +
-          `&gateway_tx_id=eq.${encodeURIComponent(reminderKey)}` +
-          `&status=eq.pending&limit=1`
-        )
-
-        if (existingReminders.length > 0) { results.skipped++; continue }
-
-        // Build WhatsApp message
-        const planName  = sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1)
-        const message   = buildReminderMessage(shop.shop_name, planName, days, sub.isTrial)
-        const cleanPhone = `92${shop.owner_phone.replace(/^0/, '').replace(/\D/g, '')}`
-        const waLink    = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
-
-        // Store reminder in DB as a log record
-        // In production: call WhatsApp Business API here
-        try {
-          await sbPost('subscription_payments', {
-            shop_id:       sub.shop_id,
-            plan:          sub.plan,
-            billing_cycle: 'monthly',
-            amount_pkr:    0,
-            method:        'reminder',
-            gateway_tx_id: reminderKey,
-            status:        'pending',
-            receipt_data:  {
-              type:       'reminder',
-              days_left:  days,
-              wa_link:    waLink,
-              message:    message,
-              sent_at:    now.toISOString(),
-            },
-          })
-        } catch (insertErr: unknown) {
-          const errMsg = insertErr instanceof Error ? insertErr.message : String(insertErr)
-          if (errMsg.includes('409') || errMsg.includes('23505')) {
-            results.skipped++
-            continue
-          }
-          throw new Error(`Insert failed: ${errMsg}`)
-        }
-
-        results.remindersQueued++
+      for (const s of (trialExpiring ?? [])) {
+        allTasks.push({ sub: { ...s, isTrial: true }, days, reminderKey: `reminder_${days}d_${today}`, today })
+      }
+      for (const s of (paidExpiring ?? [])) {
+        allTasks.push({ sub: { ...s, isTrial: false }, days, reminderKey: `reminder_${days}d_${today}`, today })
       }
     }
+
+    // Process all reminders concurrently
+    const errors = await mapConcurrent(allTasks, async (task) => {
+      const { sub, days, reminderKey } = task
+
+      const shops = await sbGet(
+        `shops?select=shop_name,owner_phone&id=eq.${sub.shop_id}&limit=1`
+      )
+      const shop = shops?.[0]
+      if (!shop?.owner_phone) { results.skipped++; return }
+
+      const existingReminders = await sbGet(
+        `subscription_payments?select=id` +
+        `&shop_id=eq.${sub.shop_id}` +
+        `&gateway_tx_id=eq.${encodeURIComponent(reminderKey)}` +
+        `&status=eq.pending&limit=1`
+      )
+      if (existingReminders.length > 0) { results.skipped++; return }
+
+      const planName  = sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1)
+      const message   = buildReminderMessage(shop.shop_name, planName, days, sub.isTrial)
+      const cleanPhone = `92${shop.owner_phone.replace(/^0/, '').replace(/\D/g, '')}`
+      const waLink    = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
+
+      await sbPost('subscription_payments', {
+        shop_id:       sub.shop_id,
+        plan:          sub.plan,
+        billing_cycle: 'monthly',
+        amount_pkr:    0,
+        method:        'reminder',
+        gateway_tx_id: reminderKey,
+        status:        'pending',
+        receipt_data:  {
+          type:       'reminder',
+          days_left:  days,
+          wa_link:    waLink,
+          message:    message,
+          sent_at:    now.toISOString(),
+        },
+      }).catch((insertErr: unknown) => {
+        const errMsg = insertErr instanceof Error ? insertErr.message : String(insertErr)
+        if (errMsg.includes('409') || errMsg.includes('23505')) {
+          results.skipped++
+          return
+        }
+        throw new Error(`Insert failed: ${errMsg}`)
+      })
+
+      results.remindersQueued++
+    })
+
+    results.errors = errors
 
     return NextResponse.json({ success: true, ...results })
 
