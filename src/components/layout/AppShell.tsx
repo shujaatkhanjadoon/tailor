@@ -10,9 +10,22 @@ import { PWAInstallPrompt } from './PWAInstallPrompt';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { VerificationBanner } from './VerificationBanner';
 import { MobileAccountBar } from './MobileAccountBar';
+import { OnlineStatus } from '@/components/ui/OnlineStatus';
+import { useEffect } from 'react';
+import { syncEngine } from '@/lib/db/sync';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, isLoading } = useAuth();
+
+  useEffect(() => {
+    syncEngine.start()
+  }, [])
+
+  useEffect(() => {
+    if (currentUser?.shopId) {
+      syncEngine.pull(currentUser.shopId)
+    }
+  }, [currentUser?.shopId])
   const pathname = usePathname();
   const isKarigar = currentUser?.role === 'karigar';
 
@@ -62,6 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       <PWAInstallPrompt />
+      <OnlineStatus />
     </AuthGuard>
   );
 }

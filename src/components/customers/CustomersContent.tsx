@@ -96,7 +96,7 @@ function CustomerCardView({
             )}
             {lastOrderText && (
               <span className="text-[10px] text-slate-400">
-                {t('customers.lastOrder')}: {lastOrderText}
+                {t('customers.lastOrder', { date: lastOrderText })}
               </span>
             )}
           </div>

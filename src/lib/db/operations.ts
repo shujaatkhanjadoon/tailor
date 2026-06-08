@@ -1,12 +1,14 @@
-// Supabase-backed operations. Local DB is intentionally not used for app data.
+// Supabase-backed operations with offline fallback.
 import { timingSafeEqual as _timingSafeEqual } from 'crypto'
 import type { CustomerRecord, OrderRecord, PaymentRecord, TeamMemberRecord } from './schema'
+import { db } from './schema'
 import bcrypt from 'bcryptjs'
 import { supabase } from '@/lib/supabase/client'
 import { mapCustomer, mapOrder, mapPayment, mapShop, mapTeamMember } from '@/lib/supabase/records'
 import { generateTrackingCode } from '../tracking'
 import { paymentAppliedAmount } from '@/lib/payments/calculations'
 import { karachiDateString, nowKarachiIso } from '@/lib/time'
+import { offlineRead, offlineReadOne, offlineWrite, isOnline } from '@/lib/db/offline'
 
 function timingSafeEqual(a: string, b: string): boolean {
   try {
@@ -331,32 +333,62 @@ export const teamOps = {
 
 export const customerOps = {
   async getAll(shopId: string, limit = 100, offset = 0): Promise<CustomerRecord[]> {
-    const rows = await requireOk(
-      supabase
-        .from('customers')
-        .select(CUSTOMER_COLUMNS)
-        .eq('shop_id', shopId)
-        .is('deleted_at', null)
-        .order('last_order_at', { ascending: false, nullsFirst: false })
-        .range(offset, offset + limit - 1)
+    return offlineRead(
+      'customerOps.getAll',
+      async () => {
+        const rows = await requireOk(
+          supabase
+            .from('customers')
+            .select(CUSTOMER_COLUMNS)
+            .eq('shop_id', shopId)
+            .is('deleted_at', null)
+            .order('last_order_at', { ascending: false, nullsFirst: false })
+            .range(offset, offset + limit - 1)
+        )
+        return asRows(rows).map(mapCustomer)
+      },
+      async () => {
+        const rows = await db.customers
+          .where('shopId').equals(shopId)
+          .filter(c => c._deleted !== 1)
+          .sortBy('lastOrderAt')
+        return rows.reverse().slice(offset, offset + limit)
+      },
+      async (records) => {
+        await db.customers.bulkPut(records.map(c => ({ ...c, _synced: 1 })))
+      },
     )
-    return asRows(rows).map(mapCustomer)
   },
 
   async search(shopId: string, query: string, limit = 100, offset = 0): Promise<CustomerRecord[]> {
     const q = query.trim()
     if (!q) return customerOps.getAll(shopId)
     const escaped = q.replace(/[%_\\]/g, '\\$&')
-    const rows = await requireOk(
-      supabase
-        .from('customers')
-        .select(CUSTOMER_COLUMNS)
-        .eq('shop_id', shopId)
-        .is('deleted_at', null)
-        .or(`name.ilike.%${escaped}%,phone.ilike.%${escaped}%`)
-        .range(offset, offset + limit - 1)
+    return offlineRead(
+      'customerOps.search',
+      async () => {
+        const rows = await requireOk(
+          supabase
+            .from('customers')
+            .select(CUSTOMER_COLUMNS)
+            .eq('shop_id', shopId)
+            .is('deleted_at', null)
+            .or(`name.ilike.%${escaped}%,phone.ilike.%${escaped}%`)
+            .range(offset, offset + limit - 1)
+        )
+        return asRows(rows).map(mapCustomer)
+      },
+      async () => {
+        const rows = await db.customers
+          .where('shopId').equals(shopId)
+          .filter(c => (c._deleted !== 1) && (c.name.toLowerCase().includes(q.toLowerCase()) || c.phone.includes(q)))
+          .toArray()
+        return rows.slice(offset, offset + limit)
+      },
+      async (records) => {
+        await db.customers.bulkPut(records.map(c => ({ ...c, _synced: 1 })))
+      },
     )
-    return asRows(rows).map(mapCustomer)
   },
 
   async add(
@@ -370,26 +402,48 @@ export const customerOps = {
       totalOrders: 0,
       createdAt: ts,
       updatedAt: ts,
-      _synced: 1,
+      _synced: 0,
       _deleted: 0,
       ...data,
     }
-    const saved = await requireOk(
-      supabase.from('customers').insert(customerToRow(customer)).select(CUSTOMER_COLUMNS).single()
+    return offlineWrite(
+      'customerOps.add',
+      async () => {
+        const saved = await requireOk(
+          supabase.from('customers').insert(customerToRow(customer)).select(CUSTOMER_COLUMNS).single()
+        )
+        return mapCustomer(saved)
+      },
+      async (record) => {
+        await db.customers.put(record)
+      },
+      customer,
     )
-    return mapCustomer(saved)
   },
 
   async get(id: string): Promise<CustomerRecord | undefined> {
-    const row = await requireOk(
-      supabase.from('customers').select(CUSTOMER_COLUMNS).eq('id', id).is('deleted_at', null).maybeSingle()
+    return offlineReadOne(
+      'customerOps.get',
+      async () => {
+        const row = await requireOk(
+          supabase.from('customers').select(CUSTOMER_COLUMNS).eq('id', id).is('deleted_at', null).maybeSingle()
+        )
+        return row ? mapCustomer(row) : undefined
+      },
+      async () => {
+        return db.customers.where('id').equals(id).filter(c => c._deleted !== 1).first()
+      },
+      async (record) => {
+        await db.customers.put({ ...record, _synced: 1 })
+      },
     )
-    return row ? mapCustomer(row) : undefined
   },
 
   async update(id: string, data: Partial<CustomerRecord>): Promise<void> {
     const ts = nowKarachiIso()
-    const customerPatch = clean({
+    const patch = { ...data, updatedAt: ts }
+    const supabaseWrite = async () => {
+      const customerPatch = clean({
         name: data.name,
         phone: data.phone,
         whatsapp: data.whatsapp ?? null,
@@ -398,53 +452,91 @@ export const customerOps = {
         photo_url: data.photoUrl ?? null,
         updated_at: ts,
       })
-
-    await requireOk(
-      supabase.from('customers').update(customerPatch).eq('id', id)
-    )
-
-    const orderPatch = clean({
-      customer_name: data.name,
-      customer_phone: data.phone,
-      updated_at: data.name !== undefined || data.phone !== undefined ? ts : undefined,
-    })
-
-    if (Object.keys(orderPatch).length > 0) {
-      await requireOk(
-        supabase
-          .from('orders')
-          .update(orderPatch)
-          .eq('customer_id', id)
-          .is('deleted_at', null)
-      )
+      await requireOk(supabase.from('customers').update(customerPatch).eq('id', id))
+      const orderPatch = clean({
+        customer_name: data.name,
+        customer_phone: data.phone,
+        updated_at: data.name !== undefined || data.phone !== undefined ? ts : undefined,
+      })
+      if (Object.keys(orderPatch).length > 0) {
+        await requireOk(
+          supabase.from('orders').update(orderPatch).eq('customer_id', id).is('deleted_at', null)
+        )
+      }
+    }
+    const dexieWrite = async (synced: 0 | 1) => {
+      const existing = await db.customers.get(id)
+      if (existing) {
+        await db.customers.put({ ...existing, ...patch, _synced: synced })
+      }
+    }
+    if (isOnline()) {
+      try {
+        await supabaseWrite()
+        await dexieWrite(1)
+      } catch (err) {
+        console.warn('[Offline] customerOps.update failed, queuing locally:', err)
+        await dexieWrite(0)
+      }
+    } else {
+      await dexieWrite(0)
     }
   },
 
   async softDelete(id: string): Promise<void> {
-    const orderRows = await requireOk(
-      supabase.from('orders').select('id').eq('customer_id', id)
-    )
-    await deleteOrdersByIds(asRows(orderRows).map((row: any) => row.id).filter(Boolean))
     const ts = nowKarachiIso()
-    await Promise.all([
-      requireOk(supabase.from('measurements').update({ deleted_at: ts }).eq('customer_id', id)),
-      requireOk(supabase.from('customers').update({ deleted_at: ts }).eq('id', id)),
-    ])
+    const dexieWrite = async () => {
+      const existing = await db.customers.get(id)
+      if (existing) {
+        await db.customers.put({ ...existing, _deleted: 1, _synced: 0 } as CustomerRecord)
+      }
+    }
+    if (isOnline()) {
+      try {
+        const orderRows = await requireOk(supabase.from('orders').select('id').eq('customer_id', id))
+        await deleteOrdersByIds(asRows(orderRows).map((row: any) => row.id).filter(Boolean))
+        await Promise.all([
+          requireOk(supabase.from('measurements').update({ deleted_at: ts }).eq('customer_id', id)),
+          requireOk(supabase.from('customers').update({ deleted_at: ts }).eq('id', id)),
+        ])
+        await dexieWrite()
+      } catch (err) {
+        console.warn('[Offline] customerOps.softDelete failed, queuing locally:', err)
+        await dexieWrite()
+      }
+    } else {
+      await dexieWrite()
+    }
   },
 }
 
 export const orderOps = {
   async getAll(shopId: string, limit = 100, offset = 0): Promise<OrderRecord[]> {
-    const rows = await requireOk(
-      supabase
-        .from('orders')
-        .select(ORDER_COLUMNS)
-        .eq('shop_id', shopId)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1)
+    return offlineRead(
+      'orderOps.getAll',
+      async () => {
+        const rows = await requireOk(
+          supabase
+            .from('orders')
+            .select(ORDER_COLUMNS)
+            .eq('shop_id', shopId)
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1)
+        )
+        return asRows(rows).map(mapOrder)
+      },
+      async () => {
+        const rows = await db.orders
+          .where('shopId').equals(shopId)
+          .filter(o => o._deleted !== 1)
+          .sortBy('createdAt')
+        return rows.reverse().slice(offset, offset + limit)
+      },
+      async (records) => {
+        await db.orders.bulkPut(records.map(o => ({ ...o, _synced: 1 })))
+      },
     )
-    return asRows(rows).map(mapOrder)
   },
 
   async getAssignedTo(memberId: string): Promise<OrderRecord[]> {
@@ -514,26 +606,32 @@ export const orderOps = {
       amountPaid: 0,
       createdAt: ts,
       updatedAt: ts,
-      _synced: 1,
+      _synced: 0,
       _deleted: 0,
       ...data,
     }
-    const saved = await requireOk(
-      supabase.from('orders').insert(orderToRow(order)).select(ORDER_COLUMNS).single()
+    return offlineWrite(
+      'orderOps.add',
+      async () => {
+        const saved = await requireOk(
+          supabase.from('orders').insert(orderToRow(order)).select(ORDER_COLUMNS).single()
+        )
+        if (customer) {
+          await requireOk(
+            supabase.from('customers').update({
+              last_order_at: ts,
+              total_orders: (customer.totalOrders ?? 0) + 1,
+              updated_at: ts,
+            }).eq('id', customer.id)
+          )
+        }
+        return mapOrder(saved)
+      },
+      async (record) => {
+        await db.orders.put(record)
+      },
+      order,
     )
-    if (customer) {
-      await requireOk(
-        supabase
-          .from('customers')
-          .update({
-            last_order_at: ts,
-            total_orders: (customer.totalOrders ?? 0) + 1,
-            updated_at: ts,
-          })
-          .eq('id', customer.id)
-      )
-    }
-    return mapOrder(saved)
   },
 
   async updateStatus(orderId: string, newStatus: OrderRecord['status'], changedBy: string): Promise<void> {

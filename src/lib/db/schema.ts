@@ -144,11 +144,25 @@ export interface PhotoRecord {
 
 export class TailorDB extends Dexie {
   photos!: Table<PhotoRecord>
+  shops!: Table<ShopRecord>
+  teamMembers!: Table<TeamMemberRecord>
+  customers!: Table<CustomerRecord>
+  measurements!: Table<MeasurementRecord>
+  orders!: Table<OrderRecord>
+  payments!: Table<PaymentRecord>
+  orderStatusHistory!: Table<OrderStatusHistoryRecord>
 
   constructor() {
     super('DarziManagerDB')
-    this.version(8).stores({
-      photos: 'id, orderId, shopId, type, _synced, _deleted',
+    this.version(9).stores({
+      'photos':             'id, orderId, shopId, type, _synced, _deleted',
+      'shops':              'id, _synced, _deleted',
+      'teamMembers':        'id, shopId, role, _synced, _deleted',
+      'customers':          'id, shopId, name, phone, _synced, _deleted',
+      'measurements':       'id, customerId, shopId, garmentType, _synced, _deleted',
+      'orders':             'id, shopId, customerId, orderNumber, status, assignedTo, dueDate, _synced, _deleted',
+      'payments':           'id, orderId, shopId, method, paidAt, _synced, _deleted',
+      'orderStatusHistory': 'id, orderId, shopId, changedAt',
     })
   }
 }
