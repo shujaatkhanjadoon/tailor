@@ -317,7 +317,7 @@ Only **2 of 44** API route files use the `api-response.ts` helpers (`ok`, `badRe
 
 All logs go to `console.*` only. On Vercel, console logs are visible in function logs but are not queryable, alertable, or persisted beyond a rolling window.
 
-**Fix:** Add a log drain service (Axiom, Logtail, Datadog) or at minimum write structured NDJSON to stdout for Vercel log drains.
+**Fix:** Add a log drain service (Axiom, Logtail, Datadog) or at minimum write structured NDJSON to stdout for Vercel log drains. [FIXED] — NDJSON-formatted log lines written alongside human-readable output in `src/lib/logger.ts`.
 
 ### 4.5 🟡 HIGH: No PII Redaction in Logger
 
@@ -372,7 +372,7 @@ Every page inherits the root layout's default title `" | Mera Darzi"` and OG ima
 - No `sitemap.xml`
 - No `robots.txt` configuration
 
-**Fix:** Export `metadata` in every `page.tsx`. At minimum: orders list, customer detail, order detail, and pricing pages.
+**Fix:** Export `metadata` in every `page.tsx`. At minimum: orders list, customer detail, order detail, and pricing pages. [FIXED] — Metadata exported on pricing, billing, orders list, customers list, customer detail, and order detail pages via Server Component wrappers and layout-level `generateMetadata`.
 
 ### 5.3 🟡 HIGH: App is Fully Client-Rendered
 
@@ -383,7 +383,7 @@ This hurts:
 - **SEO** — search engines may not execute JavaScript thoroughly
 - **Bundle size** — i18next (~30KB gzipped), @base-ui/react, supabase-js, lucide-react all loaded eagerly
 
-**Fix:** Incrementally convert pages to React Server Components, starting with read-only pages (billing, pricing, order history).
+**Fix:** Incrementally convert pages to React Server Components, starting with read-only pages (billing, pricing, order history). [FIXED] — Pricing, billing, orders list, and customers list converted to Server Component wrappers with `'use client'` content extracted to component files.
 
 ### 5.4 🟡 MEDIUM: Auth Page is Monolithic
 
@@ -391,21 +391,21 @@ This hurts:
 
 The entire auth flow (phone entry → PIN login → signup → shop setup → PIN creation → verification request) is a single `AuthContent` component with 10+ conditional steps via `useState<Step>`. This is difficult to maintain, test, and reason about.
 
-**Fix:** Split into separate components per step, or extract the wizard logic into a reusable hook.
+**Fix:** Split into separate components per step, or extract the wizard logic into a reusable hook. [FIXED] — Wizard logic extracted to `src/lib/auth/useAuthWizard.ts` hook; each step rendered by its own component in `src/components/auth/AuthSteps.tsx`; `PINInput` and `OTPInput` extracted to separate component files.
 
 ### 5.5 🟡 MEDIUM: Photo EXIF Orientation Not Handled
 
-**File:** `src/lib/security/compress.ts`
+**File:** `src/lib/photos/compress.ts`
 
 The client-side compression draws to a canvas but does not check EXIF orientation flags. Photos taken on mobile may appear rotated after upload.
 
-**Fix:** Use `blueimp-load-image` or similar to read EXIF orientation and rotate the canvas accordingly before compression.
+**Fix:** Use `blueimp-load-image` or similar to read EXIF orientation and rotate the canvas accordingly before compression. [FIXED] — `compressBlob` now loads images via `blueimp-load-image` with `orientation: true` to auto-rotate based on EXIF metadata before compression.
 
 ### 5.6 🟡 MEDIUM: No Virtual Scrolling for Lists
 
 Order and customer lists render all loaded items in the DOM. With pagination loading 50 items at a time, a shop with 1000+ orders will suffer performance degradation.
 
-**Fix:** Implement virtual scrolling (e.g., `@tanstack/react-virtual`) for long lists.
+**Fix:** Implement virtual scrolling (e.g., `@tanstack/react-virtual`) for long lists. [FIXED] — Reusable `VirtualList` component added at `src/components/ui/VirtualList.tsx` using `@tanstack/react-virtual`; integrated into orders list and customers list pages.
 
 ### 5.7 🟡 MEDIUM: Toast Messages Are Not Internationalized
 
@@ -436,13 +436,13 @@ Toast messages are hardcoded in Urdu/English mixed, while the rest of the UI use
 - 3 overlapping customer indexes: `idx_customers_last_order`, `idx_customers_last_order_at`, `idx_customers_shop_last_order`
 - 3 overlapping order indexes on `created_at`
 
-**Fix:** Audit and deduplicate indexes using `pg_stat_user_indexes` to find unused or duplicate indexes.
+**Fix:** Audit and deduplicate indexes using `pg_stat_user_indexes` to find unused or duplicate indexes. [FIXED] — Migration `20260608130000_deduplicate_indexes.sql` drops ~50 redundant/overlapping indexes across all tables.
 
 ### 6.4 🟢 LOW: No CHECK Constraints
 
 `subscriptions.status`, `subscriptions.billing_cycle`, and `subscription_payments.status` accept any string value. Invalid data can be inserted at the database level.
 
-**Fix:** Add CHECK constraints.
+**Fix:** Add CHECK constraints. [FIXED] — Constraints already existed in remote schema (`subscriptions_status_check`, `subscriptions_billing_cycle_check`, `subscription_payments_status_check`). Verified present and valid.
 
 ---
 
@@ -481,9 +481,9 @@ Toast messages are hardcoded in Urdu/English mixed, while the rest of the UI use
 | 17 | Integrate payment gateway (Stripe / Razorpay / Sadapay) | 1-2 weeks | variable | Longer-term |
 | 18 | Add server-side locale detection + SSR i18n | 3 days | $0 | Longer-term |
 | 19 | Implement offline sync engine for core data | 2-3 weeks | $0 | Longer-term |
-| 20 | Add virtual scrolling to order/customer lists | 2 days | $0 | Longer-term |
-| 21 | Split monolithic auth page into components | 2 days | $0 | Longer-term |
-| 22 | Add page-level SEO metadata | 2 days | $0 | Longer-term |
+| 20 | Add virtual scrolling to order/customer lists | 2 days | $0 | ✅ Fixed |
+| 21 | Split monolithic auth page into components | 2 days | $0 | ✅ Fixed |
+| 22 | Add page-level SEO metadata | 2 days | $0 | ✅ Fixed |
 | 23 | Add database CHECK constraints + FKs | 1 day | $0 | ✅ Fixed |
 | 24 | Consolidate CSP into single source | 1 day | $0 | ✅ Fixed (report-uri + central config) |
 | 25 | Add CSRF tokens to state-changing routes | 2 days | $0 | ✅ Fixed (origin/referer check in proxy.ts) |
@@ -492,11 +492,11 @@ Toast messages are hardcoded in Urdu/English mixed, while the rest of the UI use
 
 | # | Item | Effort | Status |
 |---|---|---|---|---|
-| 26 | Convert key pages to React Server Components | 1-2 weeks | Longer-term |
-| 27 | Add log aggregation service | 1 day | Longer-term |
+| 26 | Convert key pages to React Server Components | 1-2 weeks | ✅ Fixed (pricing, billing, orders, customers) |
+| 27 | Add log aggregation service | 1 day | ✅ Fixed (NDJSON output for log drains) |
 | 28 | Add `not-found.tsx` to dynamic route groups | 1 day | Longer-term |
 | 29 | Standardize all API routes on `api-response.ts` helpers | 3 days | Longer-term |
-| 30 | Deduplicate database indexes | 1 day | Longer-term |
+| 30 | Deduplicate database indexes | 1 day | ✅ Fixed |
 | 31 | Add end-to-end tests for payment flow | 3 days | Longer-term |
 | 32 | Add CI/CD pipeline | 1 day | Longer-term |
 | 33 | Generate sitemap + robots.txt | 1 day | Longer-term |

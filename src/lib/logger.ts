@@ -38,20 +38,38 @@ function formatMessage(level: Level, module: string, message: string, data?: unk
   return `${timestamp} ${prefix} [${module}] ${message}${dataStr}`
 }
 
+function ndjson(level: Level, module: string, message: string, data?: unknown, error?: unknown): string {
+  const entry: Record<string, unknown> = {
+    timestamp: new Date().toISOString(),
+    level,
+    module,
+    message,
+  }
+  if (data !== undefined) entry.data = redact(data)
+  if (error !== undefined) {
+    entry.error = error instanceof Error ? { message: error.message, stack: error.stack } : String(error)
+  }
+  return JSON.stringify(entry)
+}
+
 export const logger = {
   info(module: string, message: string, data?: unknown) {
     console.info(formatMessage('info', module, message, data))
+    console.info(ndjson('info', module, message, data))
   },
   warn(module: string, message: string, data?: unknown) {
     console.warn(formatMessage('warn', module, message, data))
+    console.warn(ndjson('warn', module, message, data))
   },
   error(module: string, message: string, error?: unknown) {
     const errStr = error instanceof Error ? error.stack ?? error.message : String(error ?? '')
     console.error(formatMessage('error', module, message), errStr)
+    console.error(ndjson('error', module, message, undefined, error))
   },
   debug(module: string, message: string, data?: unknown) {
     if (process.env.NODE_ENV === 'development') {
       console.debug(formatMessage('debug', module, message, data))
+      console.debug(ndjson('debug', module, message, data))
     }
   },
 }
