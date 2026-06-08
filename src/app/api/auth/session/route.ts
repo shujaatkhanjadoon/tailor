@@ -41,7 +41,21 @@ export async function POST(req: NextRequest) {
       return unauthorized('Invalid credentials')
     }
 
-    const token = generateMemberSessionToken(memberId, shopId)
+    // Fetch current token_version to embed in session token
+    let tokenVersion = 1
+    try {
+      const tvRes = await sbFetch(
+        `team_members?id=eq.${encodeURIComponent(memberId)}&shop_id=eq.${encodeURIComponent(shopId)}&select=token_version&limit=1`
+      )
+      if (tvRes.ok) {
+        const tvArr = await tvRes.json()
+        if (tvArr?.length && typeof tvArr[0].token_version === 'number') {
+          tokenVersion = tvArr[0].token_version
+        }
+      }
+    } catch { /* fall through to default */ }
+
+    const token = generateMemberSessionToken(memberId, shopId, undefined, tokenVersion)
     const res = ok({ authenticated: true })
     res.cookies.set(MEMBER_SESSION_COOKIE, token, getSessionCookieOptions())
 
@@ -71,7 +85,7 @@ export async function GET(req: NextRequest) {
 
     // Fetch full member info (return raw snake_case for mapTeamMember)
     const memberRes = await sbFetch(
-      `team_members?id=eq.${session.memberId}&is_active=eq.true&deleted_at=is.null&select=id,shop_id,name,phone,role,pin_hash,speciality,pay_rate_type,pay_rate,email,email_verified,is_active,joined_at,created_at,deleted_at,updated_at&limit=1`
+      `team_members?id=eq.${session.memberId}&is_active=eq.true&deleted_at=is.null&select=id,shop_id,name,phone,role,pin_hash,speciality,pay_rate_type,pay_rate,email,email_verified,is_active,joined_at,created_at,deleted_at,updated_at,token_version&limit=1`
     )
 
     if (!memberRes.ok) {
@@ -86,6 +100,20 @@ export async function GET(req: NextRequest) {
     }
 
     const member = members[0]
+
+    // Re-verify the member still belongs to the session's shop
+    if (member.shop_id !== session.shopId) {
+      const res = unauthorized('Session shop mismatch')
+      res.cookies.set(MEMBER_SESSION_COOKIE, '', { ...getSessionCookieOptions(0), maxAge: 0 })
+      return res
+    }
+
+    // Check token_version for session revocation
+    if (session.tokenVersion !== undefined && typeof member.token_version === 'number' && session.tokenVersion < member.token_version) {
+      const res = unauthorized('Session revoked')
+      res.cookies.set(MEMBER_SESSION_COOKIE, '', { ...getSessionCookieOptions(0), maxAge: 0 })
+      return res
+    }
 
     // Check if the shop is still active
     let shopActive = true

@@ -66,7 +66,7 @@ export async function proxy(req: NextRequest) {
         }
       }
     } catch {
-      // non-fatal: allow request through if blocklist check fails
+      return respond({ error: 'Access denied' }, 403)
     }
   }
 

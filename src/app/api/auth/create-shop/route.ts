@@ -6,6 +6,7 @@ import { sbGet, sbPost, sbUpsertById, sbUpsertByShopId } from '@/lib/supabase/se
 import { validate, schemas } from '@/lib/validation'
 import { badRequest, tooMany, serverError, ok } from '@/lib/api-response'
 import { withIdempotency } from '@/lib/idempotency'
+import { validateShopPIN } from '@/lib/security/pin'
 import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
@@ -24,6 +25,11 @@ export async function POST(req: NextRequest) {
     shopId, shopName, phone: ownerPhone, pin: pinHash, ownerName,
     email, city, stateProvince, addressLine, postalCode,
   } = parsed.data
+
+  const pinCheck = validateShopPIN(pinHash)
+  if (!pinCheck.valid) {
+    return badRequest(pinCheck.error ?? 'Kamzor PIN. Mazboot PIN chunein.')
+  }
 
   try {
     // ── 1. Check for duplicate phone ─────────────────────────────

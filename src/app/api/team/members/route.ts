@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
@@ -47,8 +48,7 @@ export async function POST(req: NextRequest) {
         updated_at: now,
       }
       if (pin) {
-        const clientHash = bcrypt.hashSync(pin, SALT_ROUNDS)
-        updateData.pin_hash = bcrypt.hashSync(clientHash, SALT_ROUNDS)
+        updateData.pin_hash = bcrypt.hashSync(pin, SALT_ROUNDS)
       }
 
       const res = await sbFetch(`team_members?id=eq.${id}&shop_id=eq.${encodeURIComponent(shopId)}`, {
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       name,
       phone,
       role: 'karigar',
-      pin_hash: pin ? bcrypt.hashSync(bcrypt.hashSync(pin, SALT_ROUNDS), SALT_ROUNDS) : '',
+      pin_hash: pin ? bcrypt.hashSync(pin, SALT_ROUNDS) : '',
       speciality: speciality ?? null,
       pay_rate_type: payRateType ?? null,
       pay_rate: payRate ?? 0,

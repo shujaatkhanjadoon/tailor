@@ -1,5 +1,5 @@
 // Supabase-backed operations with offline fallback.
-import { timingSafeEqual as _timingSafeEqual } from 'crypto'
+import crypto, { timingSafeEqual as _timingSafeEqual } from 'crypto'
 import type { CustomerRecord, MeasurementRecord, OrderRecord, PaymentRecord, TeamMemberRecord } from './schema'
 import { db } from './schema'
 import bcrypt from 'bcryptjs'
@@ -46,14 +46,7 @@ const ORDER_COLUMNS = 'id,shop_id,order_number,tracking_code,customer_id,custome
 const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,applied_to_balance,kind,method,recorded_by,paid_at,notes,deleted_at'
 const TEAM_MEMBER_COLUMNS = 'id,shop_id,name,phone,role,pin_hash,speciality,pay_rate_type,pay_rate,is_active,joined_at,created_at,deleted_at'
 
-export const uuid = (): string =>
-  typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID()
-    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = (Math.random() * 16) | 0
-        const v = c === 'x' ? r : (r & 0x3) | 0x8
-        return v.toString(16)
-      })
+export const uuid = (): string => crypto.randomUUID()
 
 function clean<T extends Record<string, unknown>>(row: T): T {
   Object.keys(row).forEach(key => {
@@ -762,20 +755,6 @@ export const paymentOps = {
     const kind = data.kind ?? 'order_payment'
     const requestedApplied = data.appliedToBalance ?? (kind === 'order_payment' ? amount : 0)
     const appliedToBalance = Math.max(0, Math.min(amount, remainingBalance, requestedApplied))
-    const payment: PaymentRecord = {
-      ...data,
-      id: uuid(),
-      shopId,
-      amount,
-      paidAt: nowKarachiIso(),
-      _synced: 1,
-      _deleted: 0,
-      kind,
-      appliedToBalance,
-    }
-    const saved = await requireOk(
-      supabase.from('payments').insert(paymentToRow(payment)).select(PAYMENT_COLUMNS).single()
-    )
     const nextPaid = Math.min(order.totalPrice, paidTowardBalance + appliedToBalance)
     const ts = nowKarachiIso()
     const { error: updateError } = await supabase
@@ -786,6 +765,21 @@ export const paymentOps = {
     if (updateError) {
       throw new Error('Concurrent payment detected. Please refresh and try again.')
     }
+
+    const payment: PaymentRecord = {
+      ...data,
+      id: uuid(),
+      shopId,
+      amount,
+      paidAt: ts,
+      _synced: 1,
+      _deleted: 0,
+      kind,
+      appliedToBalance,
+    }
+    const saved = await requireOk(
+      supabase.from('payments').insert(paymentToRow(payment)).select(PAYMENT_COLUMNS).single()
+    )
     return mapPayment(saved)
   },
 }

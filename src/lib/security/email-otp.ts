@@ -1,6 +1,7 @@
 import { Resend } from 'resend'
 import { randomInt } from 'crypto'
 import bcrypt from 'bcryptjs'
+import { Redis } from '@upstash/redis'
 import { sbGet } from '@/lib/supabase/service'
 import { T, esc, APP_URL, WA_LINK } from '@/lib/email-templates/tokens'
 import { detailTable } from '@/lib/email-templates/helpers'
@@ -17,10 +18,23 @@ function getResend(): Resend {
   return _resend
 }
 
+let _redis: Redis | null = null
+function getRedis(): Redis | null {
+  if (!_redis) {
+    const url = process.env.UPSTASH_REDIS_REST_URL
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN
+    if (url && token) {
+      _redis = new Redis({ url, token })
+    }
+  }
+  return _redis
+}
+
 const FROM_ADDR     = process.env.RESEND_FROM_EMAIL ?? 'no-reply@meradarzi.pk'
 const FROM          = `MeraDarzi <${FROM_ADDR}>`
 
-const emailLastSentAt       = new Map<string, number>()
+// In-memory fallback for email rate limiting (used when Redis is unavailable)
+const emailLastSentAt = new Map<string, number>()
 const SYSTEM_EMAIL_INTERVAL = 60_000
 
 async function sendSystemEmail(
@@ -30,12 +44,37 @@ async function sendSystemEmail(
   const recipients = Array.isArray(args.to) ? args.to.join(',') : String(args.to)
   const rateKey    = key ?? recipients.toLowerCase()
   const now        = Date.now()
-  const last       = emailLastSentAt.get(rateKey) ?? 0
-  if (now - last < SYSTEM_EMAIL_INTERVAL) {
-    console.warn(`[Email] Rate-limited: ${rateKey}`)
-    return { data: null, error: null }
+
+  // Try Upstash Redis first
+  const redis = getRedis()
+  if (redis) {
+    try {
+      const lastStr = await redis.get<string>(`email:rl:${rateKey}`)
+      const last = lastStr ? parseInt(lastStr, 10) : 0
+      if (now - last < SYSTEM_EMAIL_INTERVAL) {
+        console.warn(`[Email] Rate-limited (Redis): ${rateKey}`)
+        return { data: null, error: null }
+      }
+      await redis.set(`email:rl:${rateKey}`, String(now), { ex: 120 })
+    } catch {
+      // Fall through to in-memory fallback
+      const lastMem = emailLastSentAt.get(rateKey) ?? 0
+      if (now - lastMem < SYSTEM_EMAIL_INTERVAL) {
+        console.warn(`[Email] Rate-limited (mem-fallback): ${rateKey}`)
+        return { data: null, error: null }
+      }
+      emailLastSentAt.set(rateKey, now)
+    }
+  } else {
+    // In-memory fallback when Redis not configured
+    const last = emailLastSentAt.get(rateKey) ?? 0
+    if (now - last < SYSTEM_EMAIL_INTERVAL) {
+      console.warn(`[Email] Rate-limited (mem): ${rateKey}`)
+      return { data: null, error: null }
+    }
+    emailLastSentAt.set(rateKey, now)
   }
-  emailLastSentAt.set(rateKey, now)
+
   return getResend().emails.send(args)
 }
 

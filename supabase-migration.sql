@@ -338,6 +338,13 @@ ALTER TABLE customers ADD CONSTRAINT customers_shop_id_phone_key UNIQUE (shop_id
 ALTER TABLE team_members DROP CONSTRAINT IF EXISTS team_members_shop_id_phone_key;
 ALTER TABLE team_members ADD CONSTRAINT team_members_shop_id_phone_key UNIQUE (shop_id, phone);
 
+-- Add token_version for session revocation support
+ALTER TABLE team_members ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 1;
+
+-- Prevent duplicate order numbers within a shop (race condition fix)
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_shop_id_order_number_key;
+ALTER TABLE orders ADD CONSTRAINT orders_shop_id_order_number_key UNIQUE (shop_id, order_number);
+
 -- ============================================================
 -- 3. CHECK CONSTRAINTS
 -- ============================================================

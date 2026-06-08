@@ -9,23 +9,43 @@ function getSecret(): string {
   return secret
 }
 
-export function generateMemberSessionToken(memberId: string, shopId: string, nonce?: string): string {
+export function generateMemberSessionToken(memberId: string, shopId: string, nonce?: string, tokenVersion?: number): string {
   const secret = getSecret()
   const timestamp = Date.now()
   const n = nonce ?? crypto.randomUUID()
-  const payload = `${memberId}:${shopId}:${timestamp}:${n}`
+  const tv = tokenVersion ?? 1
+  const payload = `${memberId}:${shopId}:${timestamp}:${n}:${tv}`
   const signature = createHmac('sha256', secret).update(payload).digest('hex')
   const raw = `${payload}:${signature}`
   return Buffer.from(raw).toString('base64url')
 }
 
-function parseToken(token: string): { memberId: string; shopId: string; timestamp: number; nonce?: string; signature: string } | null {
+function parseToken(token: string): { memberId: string; shopId: string; timestamp: number; nonce?: string; tokenVersion?: number; signature: string } | null {
   try {
     const secret = getSecret()
     const raw = Buffer.from(token, 'base64url').toString('utf-8')
     const parts = raw.split(':')
 
-    // New format: memberId:shopId:timestamp:nonce:signature (5 parts)
+    // New format: memberId:shopId:timestamp:nonce:tokenVersion:signature (6 parts)
+    if (parts.length === 6) {
+      const [memberId, shopId, tsStr, nonce, tvStr, signature] = parts
+      const timestamp = parseInt(tsStr, 10)
+      const tokenVersion = parseInt(tvStr, 10)
+      if (isNaN(timestamp) || isNaN(tokenVersion)) return null
+
+      const payload = `${memberId}:${shopId}:${timestamp}:${nonce}:${tokenVersion}`
+      const expected = createHmac('sha256', secret).update(payload).digest('hex')
+
+      let sigValid = false
+      try {
+        sigValid = timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'))
+      } catch { /* fall through */ }
+      if (!sigValid) return null
+
+      return { memberId, shopId, timestamp, nonce, tokenVersion, signature }
+    }
+
+    // Legacy format: memberId:shopId:timestamp:nonce:signature (5 parts)
     if (parts.length === 5) {
       const [memberId, shopId, tsStr, nonce, signature] = parts
       const timestamp = parseInt(tsStr, 10)
@@ -40,7 +60,7 @@ function parseToken(token: string): { memberId: string; shopId: string; timestam
       } catch { /* fall through */ }
       if (!sigValid) return null
 
-      return { memberId, shopId, timestamp, nonce, signature }
+      return { memberId, shopId, timestamp, nonce, tokenVersion: 1, signature }
     }
 
     // Legacy format: memberId:shopId:timestamp:signature (4 parts, no nonce)
@@ -58,7 +78,7 @@ function parseToken(token: string): { memberId: string; shopId: string; timestam
       } catch { /* fall through */ }
       if (!sigValid) return null
 
-      return { memberId, shopId, timestamp, signature }
+      return { memberId, shopId, timestamp, tokenVersion: 1, signature }
     }
 
     return null
@@ -67,25 +87,28 @@ function parseToken(token: string): { memberId: string; shopId: string; timestam
   }
 }
 
-export function verifyMemberSessionToken(token: string): { memberId: string; shopId: string } | null {
-  const parsed = parseToken(token)
-  if (!parsed) return null
-  if (Date.now() - parsed.timestamp > SESSION_DURATION_MS) return null
-
-  return { memberId: parsed.memberId, shopId: parsed.shopId }
+export interface SessionInfo {
+  memberId: string
+  shopId: string
+  tokenVersion?: number
 }
 
-export function rotateMemberSessionToken(token: string): { session: { memberId: string; shopId: string }; newToken: string } | null {
+export function verifyMemberSessionToken(token: string): SessionInfo | null {
   const parsed = parseToken(token)
   if (!parsed) return null
   if (Date.now() - parsed.timestamp > SESSION_DURATION_MS) return null
 
-  // Issue a fresh token with a new nonce on every request (rotation).
-  // HMAC + expiry are the real security boundary; the nonce provides
-  // additional entropy per issuance.
-  const newToken = generateMemberSessionToken(parsed.memberId, parsed.shopId)
+  return { memberId: parsed.memberId, shopId: parsed.shopId, tokenVersion: parsed.tokenVersion }
+}
 
-  return { session: { memberId: parsed.memberId, shopId: parsed.shopId }, newToken }
+export function rotateMemberSessionToken(token: string): { session: SessionInfo; newToken: string } | null {
+  const parsed = parseToken(token)
+  if (!parsed) return null
+  if (Date.now() - parsed.timestamp > SESSION_DURATION_MS) return null
+
+  const newToken = generateMemberSessionToken(parsed.memberId, parsed.shopId, undefined, parsed.tokenVersion)
+
+  return { session: { memberId: parsed.memberId, shopId: parsed.shopId, tokenVersion: parsed.tokenVersion }, newToken }
 }
 
 export function getSessionCookieOptions(maxAge?: number) {

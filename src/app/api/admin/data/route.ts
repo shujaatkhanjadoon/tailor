@@ -30,17 +30,17 @@ export async function GET(req: NextRequest) {
     switch (type) {
 
       case 'summary': {
-        const [payments, subs] = await Promise.all([
-          sbGet('subscription_payments?status=eq.completed&select=amount_pkr,paid_at') as Promise<SubscriptionPaymentRow[]>,
+        const thisMonth = new Date().toISOString().slice(0, 7)
+        const thisMonthStart = `${thisMonth}-01T00:00:00Z`
+        const [payments, monthPayments, subs] = await Promise.all([
+          sbGet('subscription_payments?status=eq.completed&select=amount_pkr') as Promise<SubscriptionPaymentRow[]>,
+          sbGet(`subscription_payments?status=eq.completed&paid_at=gte.${thisMonthStart}&select=amount_pkr,paid_at`) as Promise<SubscriptionPaymentRow[]>,
           sbGet('subscriptions?select=status,plan') as Promise<SubscriptionRow[]>,
         ])
-        const thisMonth = new Date().toISOString().slice(0, 7)
         return NextResponse.json({
           data: {
             total:               payments.reduce((s, p) => s + Number(p.amount_pkr), 0),
-            thisMonthRevenue:    payments
-              .filter(p => p.paid_at?.startsWith(thisMonth))
-              .reduce((s, p) => s + Number(p.amount_pkr), 0),
+            thisMonthRevenue:    monthPayments.reduce((s, p) => s + Number(p.amount_pkr), 0),
             activeSubscriptions: subs.filter(s => s.status === 'active').length,
             trialing:            subs.filter(s => s.status === 'trialing').length,
           }
@@ -110,9 +110,10 @@ export async function GET(req: NextRequest) {
       }
 
       case 'analytics': {
+        const twoYearsAgo = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString()
         const [payments, shops, subs] = await Promise.all([
-          sbGet('subscription_payments?status=eq.completed&select=amount_pkr,paid_at,plan,billing_cycle') as Promise<SubscriptionPaymentRow[]>,
-          sbGet('shops?select=id,created_at') as Promise<ShopRow[]>,
+          sbGet(`subscription_payments?status=eq.completed&paid_at=gte.${twoYearsAgo}&select=amount_pkr,paid_at,plan,billing_cycle`) as Promise<SubscriptionPaymentRow[]>,
+          sbGet(`shops?select=id,created_at&created_at=gte.${twoYearsAgo}`) as Promise<ShopRow[]>,
           sbGet('subscriptions?select=plan,status,billing_cycle') as Promise<SubscriptionRow[]>,
         ])
 

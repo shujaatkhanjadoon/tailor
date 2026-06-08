@@ -1,13 +1,28 @@
 // src/app/api/admin/action/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import crypto from 'crypto'
 import { sendAdminSubscriptionEventEmail, sendShopOwnerAdminActionEmail } from "@/lib/security/email-otp";
 import { ADMIN_SESSION_COOKIE, verifySessionToken, verifyTOTP, getAdminSession } from "@/lib/admin/auth";
 import { validate, schemas } from "@/lib/validation";
 import { sbGet, sbPatch, sbPost, sbUpsertByShopId } from "@/lib/supabase/service";
 import { subscriptionExpiresAt } from "@/lib/billing/cycles";
+import { mapConcurrent } from '@/lib/concurrent'
 import { logger } from '@/lib/logger';
 import bcrypt from 'bcryptjs'
 import { SALT_ROUNDS } from '@/lib/security/pin'
+
+const ACTION_TYPES: Record<string, string> = {
+  set_plan: 'subscription', activate_payment: 'subscription',
+  reject_payment: 'subscription', refund_payment: 'subscription',
+  verify_shop: 'shop', deactivate_shop: 'shop', activate_shop: 'shop',
+  delete_shop: 'shop', set_custom_expiry: 'subscription', extend_expiry: 'subscription',
+  update_subscription_amount: 'subscription', bulk_set_plan: 'subscription',
+  bulk_extend_expiry: 'subscription', block_ip: 'security', unblock_ip: 'security',
+  create_admin: 'admin', deactivate_admin: 'admin', activate_admin: 'admin',
+  reset_admin_totp: 'admin', force_logout_sessions: 'admin',
+  reset_owner_pin: 'shop', send_notification: 'notification',
+  bulk_send_notification: 'notification', activate_shop_owner: 'shop',
+}
 
 async function logAction(
   action: string,
@@ -18,7 +33,7 @@ async function logAction(
   try {
     await sbPost("admin_audit_log", {
       action,
-      target_type: action.includes("shop_") ? "shop" : "subscription",
+      target_type: ACTION_TYPES[action] ?? 'subscription',
       target_id: targetId,
       shop_id: shopId,
       details,
@@ -92,7 +107,13 @@ export async function POST(req: NextRequest) {
   // ── TOTP 2FA for destructive actions ─────────────────────────
   const DESTRUCTIVE_ACTIONS = ['delete_shop', 'deactivate_shop', 'activate_shop', 'set_plan', 'reject_payment', 'refund_payment', 'extend_expiry', 'set_custom_expiry', 'update_subscription_amount', 'bulk_set_plan', 'bulk_extend_expiry', 'block_ip', 'unblock_ip', 'reset_admin_totp', 'force_logout_sessions', 'create_admin', 'deactivate_admin', 'activate_admin', 'reset_owner_pin']
   const totpSecret = process.env.ADMIN_TOTP_SECRET
-  if (totpSecret && DESTRUCTIVE_ACTIONS.includes(action)) {
+  if (DESTRUCTIVE_ACTIONS.includes(action)) {
+    if (!totpSecret) {
+      return NextResponse.json(
+        { error: 'ADMIN_TOTP_SECRET not configured. Is action ke liye TOTP setup zaroori hai.' },
+        { status: 500 },
+      )
+    }
     if (!body.totpCode || !verifyTOTP(body.totpCode, totpSecret)) {
       return NextResponse.json(
         { error: 'Is action ke liye Google Authenticator code chahiye', requiresTOTP: true },
@@ -539,18 +560,17 @@ export async function POST(req: NextRequest) {
         const now = new Date().toISOString();
         const expiresAt = nextExpiry(bspCycle, bspPlan);
         let count = 0;
-        for (const sid of bspShopIds) {
-          try {
-            await sbUpsertByShopId("subscriptions", {
-              shop_id: sid, plan: bspPlan,
-              billing_cycle: bspPlan === "starter" ? null : (bspCycle ?? "monthly"),
-              status: "active", expires_at: expiresAt, grace_ends_at: null,
-              cancelled_at: null, trial_ends_at: null, updated_at: now,
-            });
-            await sbPatch(`shops?id=eq.${sid}`, { plan: bspPlan, plan_expires_at: expiresAt, updated_at: now });
-            count++;
-          } catch (e) { logger.warn('admin', `bulk_set_plan failed for ${sid}`, e); }
-        }
+        const errors = await mapConcurrent(bspShopIds, async (sid) => {
+          await sbUpsertByShopId("subscriptions", {
+            shop_id: sid, plan: bspPlan,
+            billing_cycle: bspPlan === "starter" ? null : (bspCycle ?? "monthly"),
+            status: "active", expires_at: expiresAt, grace_ends_at: null,
+            cancelled_at: null, trial_ends_at: null, updated_at: now,
+          });
+          await sbPatch(`shops?id=eq.${sid}`, { plan: bspPlan, plan_expires_at: expiresAt, updated_at: now });
+          count++;
+        }, 10);
+        if (errors.length > 0) logger.warn('admin', `bulk_set_plan had ${errors.length} failures`, errors);
         await logAction("bulk_set_plan", `count=${count}`, bspShopIds[0], { plan: bspPlan, count });
         return NextResponse.json({ success: true, count });
       }
@@ -563,20 +583,19 @@ export async function POST(req: NextRequest) {
 
         let count = 0;
         const now = new Date();
-        for (const sid of beeShopIds) {
-          try {
-            const existingSub: { expires_at?: string; status?: string }[] = await sbGet(`subscriptions?shop_id=eq.${sid}&select=expires_at,status&limit=1`);
-            const currentExpiry = existingSub?.[0]?.expires_at ? new Date(existingSub[0].expires_at) : new Date();
-            const newExpiry = new Date(Math.max(currentExpiry.getTime(), now.getTime()) + extDaysVal * 86400000);
-            await sbUpsertByShopId("subscriptions", {
-              shop_id: sid, expires_at: newExpiry.toISOString(),
-              status: existingSub?.[0]?.status === "expired" ? "active" : undefined,
-              updated_at: now.toISOString(),
-            });
-            await sbPatch(`shops?id=eq.${sid}`, { plan_expires_at: newExpiry.toISOString(), updated_at: now.toISOString() });
-            count++;
-          } catch (e) { logger.warn('admin', `bulk_extend_expiry failed for ${sid}`, e); }
-        }
+        const errors = await mapConcurrent(beeShopIds, async (sid) => {
+          const existingSub: { expires_at?: string; status?: string }[] = await sbGet(`subscriptions?shop_id=eq.${sid}&select=expires_at,status&limit=1`);
+          const currentExpiry = existingSub?.[0]?.expires_at ? new Date(existingSub[0].expires_at) : new Date();
+          const newExpiry = new Date(Math.max(currentExpiry.getTime(), now.getTime()) + extDaysVal * 86400000);
+          await sbUpsertByShopId("subscriptions", {
+            shop_id: sid, expires_at: newExpiry.toISOString(),
+            status: existingSub?.[0]?.status === "expired" ? "active" : undefined,
+            updated_at: now.toISOString(),
+          });
+          await sbPatch(`shops?id=eq.${sid}`, { plan_expires_at: newExpiry.toISOString(), updated_at: now.toISOString() });
+          count++;
+        }, 10);
+        if (errors.length > 0) logger.warn('admin', `bulk_extend_expiry had ${errors.length} failures`, errors);
         await logAction("bulk_extend_expiry", `count=${count}`, beeShopIds[0], { days: extDaysVal, count });
         return NextResponse.json({ success: true, count });
       }
@@ -625,20 +644,21 @@ export async function POST(req: NextRequest) {
       // ── 2FA & Sessions ───────────────────────────────────────
 
       case "reset_admin_totp": {
-        // Generate a new TOTP secret
         const { generateTOTPSecret } = await import("@/lib/admin/auth");
         const newSecret = generateTOTPSecret();
-        // For now, we log the new secret (admin will see it in logs or env update)
-        await logAction("reset_admin_totp", "admin", "admin", { newSecret: newSecret ? `${newSecret.slice(0, 4)}****` : null, performed_by: adminName });
-        // In a real system this would update ADMIN_TOTP_SECRET in env/vault
-        return NextResponse.json({ success: true, newSecret, message: "Set ADMIN_TOTP_SECRET to this new value" });
+        await logAction("reset_admin_totp", "admin", "admin", { newSecret_prefix: newSecret ? `${newSecret.slice(0, 4)}****` : null, performed_by: adminName });
+        return NextResponse.json({ success: true, message: "Naya TOTP secret generate ho gaya hai. ADMIN_TOTP_SECRET ko update karein." });
       }
 
       case "force_logout_sessions": {
-        // Increment session version to invalidate all tokens
-        // For now, we log the action and return success
+        const adminSecret = process.env.ADMIN_SECRET
+        const newSecret = adminSecret + ':rotated_' + crypto.randomUUID().slice(0, 8)
         await logAction("force_logout_sessions", "admin", "admin", { performed_by: adminName });
-        return NextResponse.json({ success: true, message: "All sessions invalidated. Use a new secret version to force re-login." });
+        return NextResponse.json({
+          success: true,
+          message: "Setting ADMIN_SECRET to a new value invalidates all sessions. Update the environment variable and restart.",
+          rotationHint: `ADMIN_SECRET=${newSecret} (set this and restart to force logout)`
+        });
       }
 
       // ── Shop Owner PIN Reset ────────────────────────────────
@@ -649,8 +669,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: "shopId required" }, { status: 400 });
         }
 
-        // Generate random 6-digit PIN
-        const newPin = String(Math.floor(100000 + Math.random() * 900000));
+        const newPin = String(crypto.randomInt(100000, 999999));
 
         // Store as single bcrypt hash
         const storedHash = bcrypt.hashSync(newPin, SALT_ROUNDS)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { validate, schemas } from '@/lib/validation'
 import { sbGet, sbDelete } from '@/lib/supabase/service'
+import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 
 async function tryDelete(table: string, filter: string): Promise<boolean> {
   try {
@@ -48,11 +49,21 @@ function inFilter(column: string, ids: string[]) {
 }
 
 export async function POST(req: NextRequest) {
+  const token = req.cookies.get(MEMBER_SESSION_COOKIE)?.value
+  const session = token ? verifyMemberSessionToken(token) : null
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const parsed = await validate(schemas.deleteShop, req)
   if (!parsed.ok) {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status })
   }
   const { shopId, memberId } = parsed.data
+
+  if (session.memberId !== memberId || session.shopId !== shopId) {
+    return NextResponse.json({ error: 'Session does not match request' }, { status: 403 })
+  }
 
   try {
     const owner = await sbGet(

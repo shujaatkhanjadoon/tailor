@@ -44,12 +44,12 @@ export function tooMany(error = 'Too many requests') {
 
 export function serverError(error: unknown = 'Internal server error') {
   if (error instanceof Error) {
-    Sentry.captureException(error)
+    try { Sentry.captureException(error) } catch { /* best-effort */ }
     console.error('[API Error]', error)
     return NextResponse.json({ success: false, error: error.message } satisfies ApiError, { status: 500 })
   }
   if (typeof error === 'string') {
-    Sentry.captureMessage(error)
+    try { Sentry.captureMessage(error) } catch { /* best-effort */ }
     console.error('[API Error]', error)
     return NextResponse.json({ success: false, error } satisfies ApiError, { status: 500 })
   }

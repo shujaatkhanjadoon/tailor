@@ -137,11 +137,7 @@ export async function checkRateLimit(
     }
   } catch (e) {
     console.error('[RateLimit] Redis error — rate limiting unavailable:', String(e))
-    // Fail closed for sensitive endpoints, fail open for normal
-    if (sensitivity === 'sensitive') {
-      return { allowed: false, remaining: 0, error: 'Service temporarily unavailable. Please try again later.' }
-    }
-    return { allowed: true, remaining: 999, error: undefined }
+    return { allowed: false, remaining: 0, error: 'Service temporarily unavailable. Please try again later.' }
   }
 }
 
