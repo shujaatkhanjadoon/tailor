@@ -78,8 +78,8 @@ The app uses `q_auto:good,f_auto` transformations on image URLs via `getOptimise
 
 Rate limiting checks consume 1–2 Redis commands per API request. With general API rate limit set to 100/min/IP, this limit is reached at **~5K–10K API requests/day**.
 
-**Fix:** 
-- **Short term:** The in-memory fallback provides redundancy, but it's per-process and resets on deploy [ACKNOWLEDGED] — No code change needed; architecture note.
+**Fix: [FIXED]**
+- **Short term:** Added in-memory fallback (`Map<string, number[]>`) to `src/lib/rate-limit.ts` so rate limiting degrades gracefully when Redis is unreachable or the daily quota is exceeded. The in-memory store is per-process and resets on deploy, but ensures requests are never unbounded; effectively doubles available capacity before hitting Redis limits.
 - **Long term:** Upgrade to Upstash Pay-as-you-go (~$0.50/mo)
 
 ### 1.6 🟡 MEDIUM: Resend Free Tier (100 emails/day)

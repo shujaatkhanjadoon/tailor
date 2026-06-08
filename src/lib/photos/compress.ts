@@ -151,9 +151,26 @@ async function compressSrc(src: string, cfg: CompressOptions): Promise<CompressR
   })
 }
 
+async function blobToCanvas(blob: Blob): Promise<HTMLCanvasElement> {
+  const bitmap = await createImageBitmap(blob)
+  const canvas = document.createElement('canvas')
+  canvas.width = bitmap.width
+  canvas.height = bitmap.height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas 2D not supported')
+  ctx.drawImage(bitmap, 0, 0)
+  bitmap.close()
+  return canvas
+}
+
 async function compressBlob(blob: Blob, cfg: CompressOptions): Promise<CompressResult> {
-  const oriented = await loadImageOriented(blob)
-  return compressCanvas(oriented, cfg)
+  try {
+    const oriented = await loadImageOriented(blob)
+    return compressCanvas(oriented, cfg)
+  } catch {
+    const canvas = await blobToCanvas(blob)
+    return compressCanvas(canvas, cfg)
+  }
 }
 
 async function compressCanvas(source: HTMLCanvasElement, cfg: CompressOptions): Promise<CompressResult> {

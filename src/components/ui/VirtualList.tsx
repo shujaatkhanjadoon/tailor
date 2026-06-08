@@ -29,6 +29,7 @@ export function VirtualList<T>({
     getScrollElement: () => parentRef.current,
     estimateSize: () => estimateSize,
     overscan,
+    measureElement: (el) => el.getBoundingClientRect().height,
   });
 
   const lastItemIndex = items.length - 1;
@@ -42,8 +43,7 @@ export function VirtualList<T>({
   return (
     <div
       ref={parentRef}
-      className={`overflow-auto ${className}`}
-      style={{ contain: "strict" }}
+      className={`overflow-auto h-full ${className}`}
     >
       <div
         style={{
@@ -55,12 +55,13 @@ export function VirtualList<T>({
         {virtualizer.getVirtualItems().map((virtualItem) => (
           <div
             key={virtualItem.key}
+            data-index={virtualItem.index}
+            ref={virtualizer.measureElement}
             style={{
               position: "absolute",
               top: 0,
               left: 0,
               width: "100%",
-              height: `${virtualItem.size}px`,
               transform: `translateY(${virtualItem.start}px)`,
             }}
           >

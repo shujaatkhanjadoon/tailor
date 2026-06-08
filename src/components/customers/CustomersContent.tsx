@@ -209,7 +209,7 @@ export function CustomersContent() {
           ))}
         </div>
       </header>
-      <main className="flex-1 px-4 pt-4 pb-4 overflow-auto">
+      <main className="flex flex-col flex-1 min-h-0 px-4 pt-4 pb-4">
         {isLoading && (
           <div className="space-y-3">{Array.from({ length: 6 }).map((_, i) => <CustomerCardSkeleton key={i} />)}</div>
         )}
@@ -236,9 +236,9 @@ export function CustomersContent() {
           </div>
         )}
         {!isLoading && filtered.length > 0 && (
-          <div className="space-y-3">
+          <div className="flex flex-col flex-1 min-h-0">
             {!hasFilters && allCustomers.length > 0 && (
-              <div className="mb-2 grid grid-cols-3 gap-3 min-[380px]:grid-cols-3">
+              <div className="mb-2 grid grid-cols-3 gap-3 min-[380px]:grid-cols-3 shrink-0">
                 {[
                   { label: t('customers.totalLabel'), value: allCustomers.length, color: 'text-blue-700', bg: 'bg-blue-50' },
                   { label: t('customers.activeLabel'), value: allCustomers.filter(c => (c.totalOrders ?? 0) > 0).length, color: 'text-green-700', bg: 'bg-green-50' },
@@ -251,23 +251,25 @@ export function CustomersContent() {
                 ))}
               </div>
             )}
-            <VirtualList
-              items={filtered}
-              estimateSize={90}
-              className="min-h-0"
-              onEndReached={hasMore ? loadMore : undefined}
-              renderItem={(customer: CustomerRecord) => (
-                <div className="px-0 py-1.5">
-                  <CustomerCardView customer={customer} onClick={() => router.push(`/customers/${customer.id}`)} />
-                </div>
-              )}
-            />
+            <div className="flex-1 min-h-0">
+              <VirtualList
+                items={filtered}
+                estimateSize={90}
+                className="min-h-0"
+                onEndReached={hasMore ? loadMore : undefined}
+                renderItem={(customer: CustomerRecord) => (
+                  <div className="px-0 py-1.5">
+                    <CustomerCardView customer={customer} onClick={() => router.push(`/customers/${customer.id}`)} />
+                  </div>
+                )}
+              />
+            </div>
             {hasMore && (
               <button onClick={loadMore}
-                className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 mt-3">{t('customers.loadMore')}</button>
+                className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 mt-3 shrink-0">{t('customers.loadMore')}</button>
             )}
             {!hasMore && filtered.length >= 10 && (
-              <p className="text-center text-xs text-slate-400 py-3">{t('customers.countShowing', { count: filtered.length })}</p>
+              <p className="text-center text-xs text-slate-400 py-3 shrink-0">{t('customers.countShowing', { count: filtered.length })}</p>
             )}
           </div>
         )}

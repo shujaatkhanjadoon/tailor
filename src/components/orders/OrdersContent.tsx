@@ -285,7 +285,7 @@ export function OrdersContent() {
       </header>
 
       {/* ── MAIN CONTENT ── */}
-      <main ref={mainRef} className="flex-1 px-4 pt-4 pb-4 overflow-auto">
+      <main ref={mainRef} className="flex flex-col flex-1 min-h-0 px-4 pt-4 pb-4">
 
         {isLoading && (
           <div className="space-y-3">
@@ -342,9 +342,9 @@ export function OrdersContent() {
         )}
 
         {!isLoading && orders.length > 0 && (
-          <>
+          <div className="flex flex-col flex-1 min-h-0">
             {isOwner && !plan.isLoading && !plan.canAddKarigar && (
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 mb-3">
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 mb-3 shrink-0">
                 <p className="text-sm font-semibold text-blue-800">
                   {t('orders.upgradePlan')}
                 </p>
@@ -356,37 +356,39 @@ export function OrdersContent() {
                 </button>
               </div>
             )}
-            <VirtualList
-              items={orders}
-              estimateSize={100}
-              className="min-h-0"
-              onEndReached={hasMore ? loadMore : undefined}
-              renderItem={(order: OrderRecord) => (
-                <div className="px-0 py-1.5">
-                  <OrderListCard
-                    order={order}
-                    isOwner={isOwner}
-                    photoCount={photoCounts[order.id]}
-                    onStatusTap={o => setStatusSheet(o)}
-                    onAssignTap={isOwner ? o => setAssignSheet(o) : undefined}
-                  />
-                </div>
-              )}
-            />
+            <div className="flex-1 min-h-0">
+              <VirtualList
+                items={orders}
+                estimateSize={100}
+                className="min-h-0"
+                onEndReached={hasMore ? loadMore : undefined}
+                renderItem={(order: OrderRecord) => (
+                  <div className="px-0 py-1.5">
+                    <OrderListCard
+                      order={order}
+                      isOwner={isOwner}
+                      photoCount={photoCounts[order.id]}
+                      onStatusTap={o => setStatusSheet(o)}
+                      onAssignTap={isOwner ? o => setAssignSheet(o) : undefined}
+                    />
+                  </div>
+                )}
+              />
+            </div>
             {hasMore && (
               <button
                 onClick={loadMore}
-                className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 mt-3"
+                className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 mt-3 shrink-0"
               >
                 {t('orders.loadMore')}
               </button>
             )}
             {orders.length >= 20 && !hasMore && (
-              <p className="text-center text-xs text-slate-400 py-4">
+              <p className="text-center text-xs text-slate-400 py-4 shrink-0">
                 {t('orders.endOfList', { count: orders.length })}
               </p>
             )}
-          </>
+          </div>
         )}
         {!isLoading && <AppFooter className="mt-4" />}
       </main>
