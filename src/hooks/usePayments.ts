@@ -54,6 +54,7 @@ export function usePayments(shopId: string | null, options?: UsePaymentsOptions)
   const [isLoading, setIsLoading] = useState(true)
   const ordersRef = useRef(options?.orders)
   useEffect(() => { ordersRef.current = options?.orders }, [options?.orders])
+  const loadRef = useRef<() => void>(undefined as unknown as () => void)
 
   const fetchPayments = useCallback(async () => {
     if (!shopId) return { rows: [], total: 0 }
@@ -115,6 +116,16 @@ export function usePayments(shopId: string | null, options?: UsePaymentsOptions)
   }, [filter, methodFilter, searchQuery])
 
   useEffect(() => {
+    if (!shopId) return
+    const channel = supabase
+      .channel(uniqueChannelName(`payments-${shopId}`))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `shop_id=eq.${shopId}` }, () => loadRef.current?.())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, () => loadRef.current?.())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [shopId])
+
+  useEffect(() => {
     if (!shopId) {
       setEnriched([])
       setTotalPayments(0)
@@ -133,17 +144,13 @@ export function usePayments(shopId: string | null, options?: UsePaymentsOptions)
       }
     }
 
+    loadRef.current = load
+
     load()
-    const channel = supabase
-      .channel(uniqueChannelName(`payments-${shopId}`))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `shop_id=eq.${shopId}` }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe()
     const interval = setInterval(load, 60_000)
     return () => {
       cancelled = true
       clearInterval(interval)
-      supabase.removeChannel(channel)
     }
   }, [shopId, page, fetchPayments])
 

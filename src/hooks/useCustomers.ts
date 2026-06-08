@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CustomerRecord, MeasurementRecord, OrderRecord, PaymentRecord } from '@/lib/db/schema'
 import { customerFinancialSummary } from '@/lib/payments/calculations'
 import { supabase } from '@/lib/supabase/client'
@@ -23,10 +23,20 @@ export function useCustomers(shopId: string | null) {
   const [page, setPage] = useState(0)
   const [totalCustomers, setTotalCustomers] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const loadRef = useRef<() => void>(undefined as unknown as () => void)
 
   useEffect(() => {
     setPage(0)
   }, [query, genderFilter])
+
+  useEffect(() => {
+    if (!shopId) return
+    const channel = supabase
+      .channel(uniqueChannelName(`customers-${shopId}`))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `shop_id=eq.${shopId}` }, () => loadRef.current?.())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [shopId])
 
   useEffect(() => {
     if (!shopId) {
@@ -74,16 +84,13 @@ export function useCustomers(shopId: string | null) {
     const load = () => fetchAndSet(true)
     const refresh = () => fetchAndSet(false)
 
+    loadRef.current = load
+
     load()
-    const channel = supabase
-      .channel(uniqueChannelName(`customers-${shopId}`))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe()
     const interval = setInterval(refresh, 60_000)
     return () => {
       cancelled = true
       clearInterval(interval)
-      supabase.removeChannel(channel)
     }
   }, [shopId, page, query])
 
@@ -163,7 +170,6 @@ export function useCustomer(id: string) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `id=eq.${id}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `customer_id=eq.${id}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'measurements', filter: `customer_id=eq.${id}` }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, load)
       .subscribe()
     const interval = setInterval(refresh, 60_000)
     return () => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { OrderRecord, OrderStatusHistoryRecord, PaymentRecord } from '@/lib/db/schema'
 import { orderBalance } from '@/lib/payments/calculations'
 import { supabase } from '@/lib/supabase/client'
@@ -95,6 +95,7 @@ export function useOrders(
   const [refreshKey, setRefreshKey] = useState(0)
   const today = karachiDateString()
   const paginated = options.paginated ?? false
+  const loadRef = useRef<() => void>(undefined as unknown as () => void)
 
   const counts = useMemo(() => ({
     overdue: allOrders.filter(o => o.dueDate < today && !['delivered','cancelled'].includes(o.status)).length,
@@ -106,6 +107,15 @@ export function useOrders(
   useEffect(() => {
     setPage(0)
   }, [activeFilter, statusFilter, searchQuery])
+
+  useEffect(() => {
+    if (!shopId) return
+    const channel = supabase
+      .channel(uniqueChannelName(`orders-list-${shopId}`))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, () => loadRef.current?.())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [shopId])
 
   useEffect(() => {
     if (!shopId) {
@@ -132,16 +142,13 @@ export function useOrders(
     const load = () => fetchAndSet(true)
     const refresh = () => fetchAndSet(false)
 
+    loadRef.current = load
+
     load()
-    const channel = supabase
-      .channel(uniqueChannelName(`orders-list-${shopId}-${memberId ?? 'all'}`))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
-      .subscribe()
     const interval = setInterval(refresh, 60_000)
     return () => {
       cancelled = true
       clearInterval(interval)
-      supabase.removeChannel(channel)
     }
   }, [shopId, role, memberId, today, activeFilter, statusFilter, searchQuery, page, paginated, refreshKey])
 

@@ -25,6 +25,8 @@ import Image from 'next/image'
 import { recipientLabel } from '@/lib/order-recipient'
 import { SpecialInstructionsSummary } from '@/components/orders/SpecialInstructionsSummary'
 
+let trackChanId = 0
+
 const STATUS_STEPS = ['received','cutting','stitching','finishing','ready','delivered'] as const
 type Step = typeof STATUS_STEPS[number]
 const STATUS_ACCENT = '#2563eb'
@@ -131,7 +133,7 @@ export default function TrackClient({
   useEffect(() => {
     if (!isValidTrackingCode(normCode)) return
     const channel = supabase
-      .channel(`public-track-${normCode}-${Date.now()}`)
+      .channel(`public-track-${normCode}-${trackChanId++}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `tracking_code=eq.${normCode}` }, loadOrder)
       .subscribe()
     return () => {

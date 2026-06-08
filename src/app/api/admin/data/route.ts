@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
 
       case 'pending': {
         const [payments, shops] = await Promise.all([
-          sbGet(`subscription_payments?status=eq.pending&method=neq.reminder&order=paid_at.desc&limit=${limit}&select=*`) as Promise<SubscriptionPaymentRow[]>,
+          sbGet(`subscription_payments?status=eq.pending&method=neq.reminder&order=paid_at.desc&limit=${limit}&offset=${offset}&select=*`) as Promise<SubscriptionPaymentRow[]>,
           sbGet('shops?select=id,shop_name,owner_phone,city') as Promise<ShopRow[]>,
         ])
         const shopMap = new Map(shops.map(s => [s.id, s]))

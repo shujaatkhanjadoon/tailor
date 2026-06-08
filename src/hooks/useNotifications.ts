@@ -61,6 +61,8 @@ export function useNotifications() {
   }
 }
 
+let notifChanId = 0
+
 // Hook for the notification bell — counts upcoming/overdue orders
 export function useNotificationCount(shopId: string | null) {
   const [count, setCount] = useState(0)
@@ -81,7 +83,7 @@ export function useNotificationCount(shopId: string | null) {
     }
     load()
     const channel = supabase
-      .channel(`notification-count-${shopId}-${Date.now()}`)
+      .channel(`notification-count-${shopId}-${notifChanId++}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `shop_id=eq.${shopId}` }, load)
       .subscribe()
     const interval = setInterval(load, 60_000)

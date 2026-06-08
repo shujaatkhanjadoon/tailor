@@ -235,6 +235,21 @@ function PaymentCard({
             </div>
           )}
 
+          {/* Receipt screenshot */}
+          {rd?.receipt_image && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+                Receipt Screenshot
+              </p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={rd.receipt_image}
+                alt="Payment receipt"
+                className="w-full rounded-xl border border-slate-700 bg-slate-900"
+              />
+            </div>
+          )}
+
           <div className="bg-amber-950/30 border border-amber-800 rounded-xl px-3 py-2.5">
             <p className="text-[10px] font-bold uppercase tracking-wide text-amber-400 mb-1">
               Verify Against Bank Statement
