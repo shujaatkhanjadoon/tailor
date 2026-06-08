@@ -1,10 +1,11 @@
 // src/app/api/auth/send-otp/route.ts
-import { NextRequest, NextResponse }     from 'next/server'
+import { NextRequest }     from 'next/server'
 import { generateOTP, hashOTP, sendOTPEmail } from '@/lib/security/email-otp'
 import { getOTPRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { validatePakistaniPhone }        from '@/lib/security/phone'
 import { validate, schemas }             from '@/lib/validation'
 import { sbGet, sbPatch, sbFetch } from '@/lib/supabase/service'
+import { badRequest, tooMany, serverError, ok } from '@/lib/api-response'
 import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
@@ -12,15 +13,12 @@ export async function POST(req: NextRequest) {
   const limiter = getOTPRatelimiter()
   const rl      = await checkRateLimit(limiter, `otp:${getRateLimitId(req)}`, 'sensitive')
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Bahut zyada OTP requests. 1 ghante mein dobara try karein.' },
-      { status: 429 }
-    )
+    return tooMany('Bahut zyada OTP requests. 1 ghante mein dobara try karein.')
   }
 
   const parsed = await validate(schemas.sendOtp, req, 1024)
   if (!parsed.ok) {
-    return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+    return badRequest(parsed.error)
   }
 
   const { phone, email, purpose } = parsed.data
@@ -28,7 +26,7 @@ export async function POST(req: NextRequest) {
   // ── Validate phone ────────────────────────────────────────────
   const phoneResult = validatePakistaniPhone(phone ?? '')
   if (!phoneResult.valid) {
-    return NextResponse.json({ error: phoneResult.error }, { status: 400 })
+    return badRequest(phoneResult.error ?? 'Invalid phone')
   }
 
   const normalizedEmail = email
@@ -40,10 +38,7 @@ export async function POST(req: NextRequest) {
     )
 
     if (emailOwners.length > 0) {
-      return NextResponse.json(
-        { error: 'Yeh email pehle se registered hai. Dusri email use karein ya login karein.' },
-        { status: 409 }
-      )
+      return badRequest('Yeh email pehle se registered hai. Dusri email use karein ya login karein.')
     }
   }
 
@@ -51,10 +46,7 @@ export async function POST(req: NextRequest) {
   const phoneLimiter = getOTPRatelimiter()
   const phoneRL      = await checkRateLimit(phoneLimiter, `otp:phone:${phoneResult.cleaned}`, 'sensitive')
   if (!phoneRL.allowed) {
-    return NextResponse.json(
-      { error: 'Is number par bahut zyada OTP bheje gaye. 1 ghante baad try karein.' },
-      { status: 429 }
-    )
+    return tooMany('Is number par bahut zyada OTP bheje gaye. 1 ghante baad try karein.')
   }
 
   // ── Generate OTP ──────────────────────────────────────────────
@@ -83,21 +75,17 @@ export async function POST(req: NextRequest) {
 
   if (dbError) {
     logger.error('send-otp', 'DB error', dbError)
-    return NextResponse.json({ error: 'Server error. Dobara try karein.' }, { status: 500 })
+    return serverError('Server error. Dobara try karein.')
   }
 
   // ── Send OTP email ────────────────────────────────────────────
   const emailResult = await sendOTPEmail(normalizedEmail, otp, purpose)
   if (!emailResult.success) {
     logger.error('send-otp', 'Resend error', emailResult.error)
-    return NextResponse.json(
-      { error: 'Email nahi aayi. Email address check karein.' },
-      { status: 500 }
-    )
+    return serverError('Email nahi aayi. Email address check karein.')
   }
 
-  return NextResponse.json({
-    success:    true,
+  return ok({
     maskedEmail: `${normalizedEmail.slice(0, 2)}***@${normalizedEmail.split('@')[1]}`,
     expiresAt,
   })

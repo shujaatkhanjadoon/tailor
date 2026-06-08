@@ -36,7 +36,8 @@ export async function GET(req: NextRequest) {
       `admin_notifications` +
       `?or=(target_plan.eq.all,target_plan.eq.${encodeURIComponent(plan)})` +
       `&expires_at=gt.${now}` +
-      `&order=created_at.desc&select=*`
+      `&order=created_at.desc` +
+      `&select=id,title,message,type,target_plan,expires_at,created_at`
     )
     if (!notificationRes.ok) throw new Error(await notificationRes.text())
     return NextResponse.json({ data: await notificationRes.json() })

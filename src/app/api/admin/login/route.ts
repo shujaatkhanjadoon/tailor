@@ -10,7 +10,7 @@ import bcrypt from 'bcryptjs'
 import { getLoginRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 
 export async function POST(req: NextRequest) {
-  const parsed = await validate(schemas.login, req)
+  const parsed = await validate(schemas.adminLogin, req)
   if (!parsed.ok) {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status })
   }

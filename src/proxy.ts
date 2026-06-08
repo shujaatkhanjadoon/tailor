@@ -31,7 +31,7 @@ function addSecurityHeaders(res: NextResponse): void {
   res.headers.set('Permissions-Policy',        'camera=self, microphone=()')
   res.headers.set(
     'Strict-Transport-Security',
-    'max-age=31536000; includeSubDomains'
+    'max-age=63072000; includeSubDomains'
   )
 }
 

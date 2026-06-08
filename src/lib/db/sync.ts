@@ -3,6 +3,9 @@ import { supabase } from '@/lib/supabase/client'
 import { mapShop, mapTeamMember, mapCustomer, mapOrder, mapMeasurement, mapPayment, mapStatusHistory } from '@/lib/supabase/records'
 import { nowISO } from './offline'
 
+export type SyncEventType = 'pull-start' | 'pull-end' | 'push-start' | 'push-end' | 'sync-error'
+export type SyncEventCallback = (event: SyncEventType, table?: string, detail?: string) => void
+
 type TableName =
   | 'shops'
   | 'teamMembers'
@@ -57,6 +60,7 @@ const PUSHABLE: TableName[] = ['shops', 'teamMembers', 'customers', 'measurement
 class SyncEngine {
   private syncing = false
   private listeners: Set<(online: boolean) => void> = new Set()
+  private eventListeners: Map<SyncEventType, Set<SyncEventCallback>> = new Map()
   private started = false
 
   isOnline(): boolean {
@@ -66,6 +70,31 @@ class SyncEngine {
   onOnlineChange(listener: (online: boolean) => void): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
+  }
+
+  onSyncEvent(callback: SyncEventCallback): () => void {
+    const type = 'sync-error' as SyncEventType
+    if (!this.eventListeners.has(type)) {
+      this.eventListeners.set(type, new Set())
+    }
+    for (const t of ['pull-start', 'pull-end', 'push-start', 'push-end', 'sync-error'] as SyncEventType[]) {
+      if (!this.eventListeners.has(t)) {
+        this.eventListeners.set(t, new Set())
+      }
+      this.eventListeners.get(t)!.add(callback)
+    }
+    return () => {
+      for (const s of this.eventListeners.values()) {
+        s.delete(callback)
+      }
+    }
+  }
+
+  private emit(event: SyncEventType, table?: string, detail?: string) {
+    const cbs = this.eventListeners.get(event)
+    if (cbs) {
+      cbs.forEach(fn => fn(event, table, detail))
+    }
   }
 
   private notify(online: boolean) {
@@ -93,7 +122,9 @@ class SyncEngine {
   async pull(shopId?: string): Promise<void> {
     const tables: TableName[] = ['shops', 'teamMembers', 'customers', 'measurements', 'orders', 'payments', 'orderStatusHistory']
     for (const t of tables) {
+      this.emit('pull-start', t)
       await this.pullTable(t, shopId)
+      this.emit('pull-end', t)
     }
   }
 
@@ -120,19 +151,23 @@ class SyncEngine {
       const table = db[tableName] as any
       const isPushable = PUSHABLE.includes(tableName)
 
-      for (const server of serverRecords) {
-        try {
-          const local: AnyRecord | undefined = await table.get(server.id)
+      const ids = serverRecords.map(r => r.id)
+      const localRecords = await table.bulkGet(ids)
+      const localMap = new Map<string, AnyRecord>()
+      for (let i = 0; i < ids.length; i++) {
+        if (localRecords[i] !== undefined) {
+          localMap.set(ids[i], localRecords[i])
+        }
+      }
 
-          if (!isPushable || !local) {
-            // New record or table without sync flags — always accept server version
-            await table.put(server)
-          } else if ((local as any)._synced === 1) {
-            // Record is already synced locally — safe to overwrite with server version
-            await table.put(server)
-          }
-          // If _synced === 0, keep local version (it will be pushed next sync)
-        } catch {}
+      for (const server of serverRecords) {
+        const local = localMap.get(server.id)
+
+        if (!isPushable || !local) {
+          await table.put(server)
+        } else if ((local as any)._synced === 1) {
+          await table.put(server)
+        }
       }
     } catch (err) {
       console.error(`[Sync] Pull ${tableName} failed:`, err)
@@ -147,11 +182,12 @@ class SyncEngine {
     this.syncing = true
     try {
       for (const t of PUSHABLE) {
+        this.emit('push-start', t)
         await this.pushTable(t)
+        this.emit('push-end', t)
       }
-      // After pushing, pull fresh data for records that may have changed server-side
-      // Only pull if we actually pushed something
     } catch (err) {
+      this.emit('sync-error', undefined, String(err))
       console.error('[Sync] Sync failed:', err)
     } finally {
       this.syncing = false
@@ -170,12 +206,29 @@ class SyncEngine {
 
     const supabaseTable = SUPABASE_TABLES[tableName]
 
+    // Batch fetch server versions for conflict check
+    const ids = unsynced.map(r => r.id)
+    const idParams = ids.map((id, i) => `id=eq.${encodeURIComponent(id)}`).join(',')
+    const serverMap = new Map<string, { updated_at: string; deleted_at: string | null }>()
+    try {
+      const res = await supabase
+        .from(supabaseTable)
+        .select('id, updated_at, deleted_at')
+        .in('id', ids)
+      if (!res.error && res.data) {
+        for (const row of res.data) {
+          serverMap.set(row.id, row)
+        }
+      }
+    } catch {
+      // fall through to per-record handling
+    }
+
     for (const record of unsynced) {
       try {
         const r = record as any
 
         if (r._deleted === 1) {
-          // Soft-delete on server and remove from local
           const { error } = await supabase
             .from(supabaseTable)
             .update({ deleted_at: nowISO() })
@@ -185,20 +238,11 @@ class SyncEngine {
           continue
         }
 
-        // ── Conflict check: read server version ──
-        const { data: serverRow, error: fetchErr } = await supabase
-          .from(supabaseTable)
-          .select('updated_at, deleted_at')
-          .eq('id', record.id)
-          .maybeSingle()
-
-        if (fetchErr) throw fetchErr
-
+        const serverRow = serverMap.get(record.id)
         const localUpdatedAt = r.updatedAt || r.createdAt || ''
         const serverUpdatedAt = serverRow?.updated_at || ''
 
         if (serverRow && serverUpdatedAt > localUpdatedAt) {
-          // Server has a newer version — discard local change, pull server version
           const { data: fresh } = await supabase
             .from(supabaseTable)
             .select(SUPABASE_COLUMNS[tableName])
@@ -212,7 +256,6 @@ class SyncEngine {
           continue
         }
 
-        // Local is newer or server has no record → push local version
         const row = recordToRow(tableName, record)
         await supabase.from(supabaseTable).upsert(row).throwOnError()
         await table.update(record.id, { _synced: 1 } as any)
@@ -220,6 +263,31 @@ class SyncEngine {
         console.error(`[Sync] Push ${tableName} ${record.id} failed:`, err)
       }
     }
+  }
+
+  /** Push only records updated after a given timestamp (delta sync). */
+  async syncDelta(since: string): Promise<number> {
+    if (this.syncing || !this.isOnline()) return 0
+    this.syncing = true
+    let pushed = 0
+    try {
+      for (const t of PUSHABLE) {
+        const table = db[t] as any
+        const pending: AnyRecord[] = await table
+          .where('_synced')
+          .equals(0)
+          .and(r => (r as any).updatedAt > since || (r as any).createdAt > since)
+          .toArray()
+        if (pending.length === 0) continue
+        await this.pushTable(t)
+        pushed += pending.length
+      }
+    } catch (err) {
+      console.error('[Sync] Delta sync failed:', err)
+    } finally {
+      this.syncing = false
+    }
+    return pushed
   }
 }
 

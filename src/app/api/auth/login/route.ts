@@ -4,18 +4,17 @@ import { sbFetch } from '@/lib/supabase/service'
 import { generateMemberSessionToken, MEMBER_SESSION_COOKIE, getSessionCookieOptions } from '@/lib/auth/session'
 import { getLoginRatelimiter, checkRateLimit, getRateLimitId, getClientIP } from '@/lib/security/rate-limit'
 import { badRequest, serverError, tooMany } from '@/lib/api-response'
+import { validate, schemas } from '@/lib/validation'
 import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const rawPhone = String(body?.phone ?? '')
-    const rawPin = String(body?.pin ?? '')
-
-    const cleanedPhone = rawPhone.replace(/\D/g, '')
-    if (cleanedPhone.length < 10 || !rawPin) {
-      return badRequest('Phone and PIN required')
+    const parsed = await validate(schemas.login, req, 1024)
+    if (!parsed.ok) {
+      return badRequest(parsed.error)
     }
+    const { phone, pin } = parsed.data
+    const cleanedPhone = phone.replace(/\D/g, '')
 
     const limiter = getLoginRatelimiter()
     const rl = await checkRateLimit(limiter, `login:${cleanedPhone}:${getRateLimitId(req)}`, 'sensitive')
@@ -40,11 +39,11 @@ export async function POST(req: NextRequest) {
     const member = members?.[0]
 
     if (!member) {
-      return NextResponse.json({ success: false, error: 'Account not found' })
+      return badRequest('Account not found')
     }
 
     if (member.locked_until && new Date(member.locked_until) > new Date()) {
-      return NextResponse.json({ success: false, error: 'Account locked', lockedUntil: member.locked_until })
+      return NextResponse.json({ success: false, error: 'Account locked', lockedUntil: member.locked_until }, { status: 423 })
     }
 
     const storedHash = String(member.pin_hash ?? '')
@@ -86,14 +85,14 @@ export async function POST(req: NextRequest) {
           success: false,
           error: 'Account locked for 15 minutes',
           lockedUntil: lockUntil,
-        })
+        }, { status: 423 })
       }
 
       return NextResponse.json({
         success: false,
         error: `Wrong PIN. ${5 - newFailed} attempts remaining.`,
         remainingAttempts: 5 - newFailed,
-      })
+      }, { status: 401 })
     }
 
     await sbFetch(

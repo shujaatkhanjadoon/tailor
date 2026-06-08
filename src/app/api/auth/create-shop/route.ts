@@ -1,46 +1,32 @@
 // src/app/api/auth/create-shop/route.ts
 import crypto from 'crypto'
-import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   sendAdminShopRegistrationEmail,
   sendShopOwnerAccountCreated,
   sendShopVerificationAlert,
 } from '@/lib/security/email-otp'
-import { parseBody } from '@/lib/security/body'
 import { getSignupRatelimiter, checkRateLimit, getRateLimitId } from '@/lib/security/rate-limit'
 import { sbGet, sbPost, sbUpsertById, sbUpsertByShopId } from '@/lib/supabase/service'
+import { validate, schemas } from '@/lib/validation'
+import { badRequest, tooMany, serverError, ok } from '@/lib/api-response'
 import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
   const limiter = getSignupRatelimiter()
   const rl      = await checkRateLimit(limiter, `signup:${getRateLimitId(req)}`, 'sensitive')
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Bahut zyada accounts bana rahe hain. 24 ghante mein dobara try karein.' },
-      { status: 429 }
-    )
+    return tooMany('Bahut zyada accounts bana rahe hain. 24 ghante mein dobara try karein.')
   }
 
-  const parsed = await parseBody<{
-    shopId?: string; shopName?: string; ownerPhone?: string; ownerName?: string;
-    email?: string; city?: string; stateProvince?: string; addressLine?: string;
-    postalCode?: string; pinHash?: string;
-  }>(req)
+  const parsed = await validate(schemas.createShop, req)
   if (!parsed.ok) {
-    return NextResponse.json({ error: parsed.error }, { status: parsed.status })
+    return badRequest(parsed.error)
   }
   const {
-    shopId, shopName, ownerPhone, ownerName,
-    email, city, stateProvince, addressLine, postalCode, pinHash,
+    shopId, shopName, phone: ownerPhone, pin: pinHash, ownerName,
+    email, city, stateProvince, addressLine, postalCode,
   } = parsed.data
-
-  if (!shopId || !shopName || !ownerPhone || !pinHash) {
-    return NextResponse.json(
-      { error: 'Required fields: shopId, shopName, ownerPhone, pinHash' },
-      { status: 400 }
-    )
-  }
 
   try {
     // ── 1. Check for duplicate phone ─────────────────────────────
@@ -212,20 +198,12 @@ export async function POST(req: NextRequest) {
         `https://api.callmebot.com/whatsapp.php` +
         `?phone=${adminWA}&text=${msg}&apikey=${callMeBotKey}`
       ).catch(err => logger.error('create-shop', 'WhatsApp notification failed', err))
-    } else if (adminWA) {
     }
 
-    return NextResponse.json({
-      success:  true,
-      shopId,
-      memberId,
-    })
+    return ok({ shopId, memberId }, 201)
 
   } catch (e) {
     logger.error('create-shop', 'Account creation failed', e)
-    return NextResponse.json(
-      { error: 'Account creation failed. Dobara try karein.' },
-      { status: 500 }
-    )
+    return serverError('Account creation failed. Dobara try karein.')
   }
 }

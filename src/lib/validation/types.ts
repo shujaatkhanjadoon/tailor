@@ -3,6 +3,7 @@ import type { schemas } from './schemas'
 
 export type CreateShopInput = z.infer<typeof schemas.createShop>
 export type LoginInput = z.infer<typeof schemas.login>
+export type AdminLoginInput = z.infer<typeof schemas.adminLogin>
 export type VerifyOtpInput = z.infer<typeof schemas.verifyOtp>
 export type SendOtpInput = z.infer<typeof schemas.sendOtp>
 export type UpdatePinInput = z.infer<typeof schemas.updatePin>

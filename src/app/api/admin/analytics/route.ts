@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 import { format, subMonths, startOfMonth } from 'date-fns'
 import { PLANS } from '@/lib/billing/plans'
-import { sbGet } from '@/lib/supabase/service'
+import { sbFetch } from '@/lib/supabase/service'
 import type { SubscriptionPaymentRow, SubscriptionRow, ShopRow } from '@/lib/supabase/types'
 import { logger } from '@/lib/logger'
 
@@ -14,6 +14,9 @@ export async function GET(req: NextRequest) {
   }
 
   const now = new Date()
+
+  const limit  = Math.min(Math.max(Number(req.nextUrl.searchParams.get('limit')) || 100, 1), 1000)
+  const offset = Math.max(Number(req.nextUrl.searchParams.get('offset')) || 0, 0)
 
   const months = Array.from({ length: 6 }, (_, i) => {
     const d = subMonths(now, 5 - i)
@@ -27,9 +30,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const [allPayments, allShops, allSubs] = await Promise.all([
-      sbGet('subscription_payments?select=amount_pkr,status,paid_at,plan,billing_cycle,shop_id&status=eq.completed') as Promise<SubscriptionPaymentRow[]>,
-      sbGet('shops?select=id,created_at&order=created_at.asc') as Promise<ShopRow[]>,
-      sbGet('subscriptions?select=plan,status,billing_cycle,created_at') as Promise<SubscriptionRow[]>,
+      sbFetch(`subscription_payments?select=amount_pkr,status,paid_at,plan,billing_cycle,shop_id&status=eq.completed&limit=${limit}&offset=${offset}`)
+        .then(r => r.ok ? r.json() : []) as Promise<SubscriptionPaymentRow[]>,
+      sbFetch(`shops?select=id,created_at&order=created_at.asc&limit=${limit}&offset=${offset}`)
+        .then(r => r.ok ? r.json() : []) as Promise<ShopRow[]>,
+      sbFetch(`subscriptions?select=plan,status,billing_cycle,created_at&limit=${limit}&offset=${offset}`)
+        .then(r => r.ok ? r.json() : []) as Promise<SubscriptionRow[]>,
     ])
 
     const payments = allPayments ?? []
@@ -78,6 +84,8 @@ export async function GET(req: NextRequest) {
       totalRevenue: payments.reduce((s, p) => s + Number(p.amount_pkr), 0),
       totalShops:   shops.length,
       activeSubs:   activeSubs.length,
+      limit,
+      offset,
     })
   } catch (e) {
     logger.error('admin', 'Analytics API error', e)

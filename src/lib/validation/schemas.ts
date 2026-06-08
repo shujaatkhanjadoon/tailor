@@ -7,6 +7,7 @@ const pinStr = z.string().min(1, 'PIN required')
 
 export const schemas = {
   createShop: z.object({
+    shopId: uuid,
     shopName: z.string().min(2).max(100).trim(),
     phone,
     pin: pinStr,
@@ -14,9 +15,16 @@ export const schemas = {
     email: z.string().email('Invalid email').transform(v => v.toLowerCase().trim()),
     city: z.string().max(100).trim().optional().default(''),
     stateProvince: z.string().max(100).trim().optional().default(''),
+    addressLine: z.string().max(200).trim().optional().default(''),
+    postalCode: z.string().max(20).trim().optional().default(''),
   }),
 
   login: z.object({
+    phone,
+    pin: z.string().min(1, 'PIN required'),
+  }),
+
+  adminLogin: z.object({
     secret: z.string().min(1, 'Secret or password required'),
     totpCode: z.preprocess(
       v => (v === '' || v === undefined || v === null) ? undefined : v,
