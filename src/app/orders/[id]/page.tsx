@@ -10,6 +10,7 @@ import {
   ArrowLeft, MessageCircle, Clock, Wallet,
   User2, QrCode, ChevronRight, Plus,
   Ruler, StickyNote, Phone, Pencil,
+  FileText,
 } from 'lucide-react'
 import { useOrder } from '@/hooks/useOrders'
 import { useAuth } from '@/lib/auth/AuthContext'
@@ -31,6 +32,7 @@ import { mapCustomer, mapMeasurement, mapShop } from '@/lib/supabase/records'
 import { isParentRelation, napOwnerLabel, recipientLabel } from '@/lib/order-recipient'
 import { formatAmount } from '@/lib/format/currency'
 import { AppFooter } from '@/components/layout/AppFooter'
+import { exportOrderInvoice } from '@/lib/export/invoice'
 
 const PAYMENT_METHODS = [
   { key: 'cash', label: 'Cash', emoji: '💵' },
@@ -355,6 +357,29 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </button>
           </div>
           <div className="flex items-center gap-2">
+            {isOwner && (
+              <button
+                onClick={() => {
+                  exportOrderInvoice({
+                    order,
+                    payments,
+                    shop: {
+                      name: shop?.shopName ?? 'MeraDarzi',
+                      phone: shop?.ownerPhone,
+                      city: shop?.city,
+                      address: shop?.addressLine,
+                      logoUrl: shop?.brandLogoUrl,
+                      brandColor: shop?.brandColor,
+                    },
+                  })
+                }}
+                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30
+                           text-white text-sm font-semibold px-3 py-2 rounded-xl transition-colors"
+              >
+                <FileText size={14} />
+                <span className="hidden min-[400px]:inline">Invoice</span>
+              </button>
+            )}
             {order.status === 'ready' && (
               <a
                 href={waLink}

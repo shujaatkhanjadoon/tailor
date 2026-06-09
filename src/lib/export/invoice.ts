@@ -119,7 +119,7 @@ export async function exportOrderInvoice(data: InvoiceData) {
   y += 5
 
   const garmentRows = [
-    ['Garment', GARMENT_LABELS[order.garmentType] ?? order.garmentType],
+    ['Garment', GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS]?.label ?? order.garmentType],
     ['Urgent', order.isUrgent === 1 ? 'Yes ⚡' : 'No'],
   ]
   if (order.specialInstructions) {
