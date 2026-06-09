@@ -230,3 +230,6 @@ html[dir="rtl"] .lucide-chevrons-left {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 }
+Button, a{
+cursor:pointer;
+}
