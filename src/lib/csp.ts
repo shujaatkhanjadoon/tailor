@@ -1,7 +1,7 @@
 const CSP_DIRECTIVES = {
   'default-src': ["'self'"],
-  'script-src': ["'self'", "'unsafe-eval'", 'https://*.sentry.io'],
-  'style-src': ["'self'"],
+  'script-src': ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://*.sentry.io'],
+  'style-src': ["'self'", "'unsafe-inline'"],
   'img-src': ["'self'", 'https:', 'data:', 'blob:'],
   'font-src': ["'self'", 'data:'],
   'connect-src': [

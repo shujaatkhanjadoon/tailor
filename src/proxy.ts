@@ -5,13 +5,19 @@ import { verifySessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 import { rotateMemberSessionToken, MEMBER_SESSION_COOKIE, getSessionCookieOptions } from '@/lib/auth/session'
 import { checkRateLimit, getAPIRatelimiter, getLoginRatelimiter, getRateLimitId } from '@/lib/security/rate-limit'
 
+// In-memory IP blocklist cache — avoids Supabase round-trip on every API request
+const ipBlockCache = new Map<string, { ts: number; blocked: boolean }>()
+
 // ── CSP ──────────────────────────────────────────────────────────
 function buildCspHeader(): string {
   const isDev = process.env.NODE_ENV === 'development'
   return [
     "default-src 'self'",
-    `script-src 'self'${isDev ? " 'unsafe-eval'" : ''} https://*.sentry.io`,
-    "style-src 'self'",
+    // Next.js requires 'unsafe-inline' for hydration scripts unless using strict CSP with nonces.
+    // TODO: migrate to nonce-based CSP via next.config.js experimental.csp.strict
+    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://*.sentry.io`,
+    // style-src 'unsafe-inline' is needed by CSS-in-JS and Next.js style injection
+    "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' https://fonts.gstatic.com",
     "connect-src 'self' https://*.supabase.co https://api.cloudinary.com https://*.upstash.io wss://*.supabase.co https://*.sentry.io",
@@ -59,23 +65,44 @@ export async function proxy(req: NextRequest) {
     return res
   }
 
-  // ── Global IP blocklist check ──────────────────────────────────
+  // ── Global IP blocklist check (with in-memory cache + timeout) ──
   if (pathname.startsWith('/api/')) {
     try {
       const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
         ?? req.headers.get('x-real-ip')
         ?? 'unknown'
-      const blockRes = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/ip_blocklist?ip=eq.${encodeURIComponent(ip)}&is_active=eq.true&select=id&limit=1`,
-        { headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '', Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''}` } }
-      )
-      if (blockRes.ok) {
-        const blocked = await blockRes.json()
-        if (blocked?.length > 0) {
-          return respond({ error: 'Access denied' }, 403)
+
+      // In-memory cache: skip Supabase query for recently-checked IPs
+      const cacheKey = `bl:${ip}`
+      const cached = ipBlockCache.get(cacheKey)
+      const now = Date.now()
+      if (cached && (now - cached.ts) < 60_000) {
+        if (cached.blocked) return respond({ error: 'Access denied' }, 403)
+      } else {
+        const blockRes = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/ip_blocklist?ip=eq.${encodeURIComponent(ip)}&is_active=eq.true&select=id&limit=1`,
+          {
+            headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '', Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''}` },
+            signal: AbortSignal.timeout(3000),
+          }
+        )
+        if (blockRes.ok) {
+          const blocked = await blockRes.json()
+          const isBlocked = blocked?.length > 0
+          ipBlockCache.set(cacheKey, { ts: now, blocked: isBlocked })
+          if (isBlocked) return respond({ error: 'Access denied' }, 403)
+        }
+      }
+
+      // Cleanup old cache entries periodically
+      if (ipBlockCache.size > 1000) {
+        const cutoff = now - 120_000
+        for (const [k, v] of ipBlockCache) {
+          if (v.ts < cutoff) ipBlockCache.delete(k)
         }
       }
     } catch {
+      // Fail closed on network errors (timeout or Supabase unreachable)
       return respond({ error: 'Access denied' }, 403)
     }
   }

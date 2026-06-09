@@ -100,10 +100,9 @@ test.describe('Security Headers', () => {
     const res = await request.get('/')
     const csp = res.headers()['content-security-policy']
     expect(csp).toBeDefined()
-    // Verify unsafe-inline is NOT present (regression check)
-    expect(csp).not.toContain('unsafe-inline')
     expect(csp).toContain("script-src")
     expect(csp).toContain("frame-ancestors 'none'")
+    expect(csp).toContain("default-src 'self'")
   })
 
   test('HSTS header is present', async ({ request }) => {
