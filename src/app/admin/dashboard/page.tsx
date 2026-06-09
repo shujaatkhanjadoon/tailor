@@ -95,6 +95,7 @@ export default function AdminDashboardPage() {
 
   const cancelledRef = useRef(false)
   const load = useCallback(async () => {
+    cancelledRef.current = false
     setLoading(true)
     setError('')
     try {
