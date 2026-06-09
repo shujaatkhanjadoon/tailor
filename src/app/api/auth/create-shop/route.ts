@@ -6,7 +6,7 @@ import { sbGet, sbPost, sbUpsertById, sbUpsertByShopId } from '@/lib/supabase/se
 import { validate, schemas } from '@/lib/validation'
 import { badRequest, tooMany, serverError, ok } from '@/lib/api-response'
 import { withIdempotency } from '@/lib/idempotency'
-import { validateShopPIN } from '@/lib/security/pin'
+import { validateShopPIN, hashPIN } from '@/lib/security/pin'
 import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
   if (!pinCheck.valid) {
     return badRequest(pinCheck.error ?? 'Kamzor PIN. Mazboot PIN chunein.')
   }
+
+  const storedHash = await hashPIN(pinHash)
 
   try {
     // ── 1. Check for duplicate phone ─────────────────────────────
@@ -101,7 +103,7 @@ export async function POST(req: NextRequest) {
       name:           ownerName ?? shopName + ' (Owner)',
       phone:          ownerPhone,
       role:           'owner',
-      pin_hash:       pinHash,
+      pin_hash:       storedHash,
       email:          normalizedEmail || null,
       email_verified: normalizedEmail ? true : false,
       is_active:      true,

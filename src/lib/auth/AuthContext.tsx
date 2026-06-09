@@ -6,7 +6,7 @@ import {
   useState, useCallback, ReactNode,
 } from 'react'
 import type { TeamMemberRecord } from '../db/schema'
-import { hashPIN }   from '@/lib/security/pin'
+
 import { mapTeamMember } from '@/lib/supabase/records'
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -197,15 +197,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Generate IDs
     const shopId = crypto.randomUUID()
 
-    // Hash PIN
-    let pinHash: string
-    try {
-      pinHash = await hashPIN(pin)
-    } catch (e) {
-      console.error('[Auth] bcrypt failed:', e)
-      throw new Error('PIN hash failed. Please try again.')
-    }
-
     // ── Write to Supabase FIRST via server API ───────────────────
     // This ensures shop exists in DB before verification request
     const apiRes = await fetch('/api/auth/create-shop', {
@@ -214,12 +205,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body:    JSON.stringify({
         shopId,
         shopName,
-        ownerPhone,
+        phone: ownerPhone,
         ownerName: ownerName?.trim() || shopName + ' (Owner)',
         email:     email?.toLowerCase().trim(),
         city:      city?.trim(),
         stateProvince: stateProvince?.trim(),
-        pinHash,
+        pin,
       }),
     })
 

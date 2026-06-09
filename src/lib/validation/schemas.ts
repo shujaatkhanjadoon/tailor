@@ -160,7 +160,7 @@ export const schemas = {
 export async function validate<T extends z.ZodType>(
   schema: T,
   req: Request,
-  maxBytes = 1024 * 100,
+  maxBytes = 5 * 1024 * 1024,
 ): Promise<{ ok: true; data: z.infer<T> } | { ok: false; error: string; status: number }> {
   const parsed = await parseBody<Record<string, unknown>>(req, maxBytes)
   if (!parsed.ok) return parsed

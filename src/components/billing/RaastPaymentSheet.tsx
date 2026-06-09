@@ -46,13 +46,92 @@ export function RaastPaymentSheet({
   const targetPlan = PLANS[planId]
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [receiptBase64, setReceiptBase64] = useState<string | null>(null)
+  const [receiptError, setReceiptError] = useState('')
+
+  const MAX_IMAGE_SIZE = 3.5 * 1024 * 1024
+  const ALLOWED_TYPES = new Set([
+    'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+    'image/heic-sequence', 'image/heif-sequence',
+    'image/gif', 'image/bmp', 'image/tiff', 'application/pdf',
+  ])
+  const ALLOWED_EXTENSIONS = /\.(jpe?g|png|webp|heic|heif|gif|bmp|tiff?|pdf)$/i
+
+  const compressImage = (dataUrl: string, maxBytes: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image()
+      img.onload = () => {
+        let quality = 0.8
+        const step = (q: number): void => {
+          const c = document.createElement('canvas')
+          let w = img.naturalWidth
+          let h = img.naturalHeight
+          const maxDim = 1200
+          if (w > maxDim || h > maxDim) {
+            if (w > h) { h = Math.round(h * maxDim / w); w = maxDim }
+            else { w = Math.round(w * maxDim / h); h = maxDim }
+          }
+          c.width = w; c.height = h
+          const ctx = c.getContext('2d')!
+          ctx.drawImage(img, 0, 0, w, h)
+          c.toBlob(blob => {
+            if (!blob) { reject(new Error('Compression failed')); return }
+            if (blob.size <= maxBytes || q <= 0.1) {
+              const r = new FileReader()
+              r.onload = () => resolve(r.result as string)
+              r.readAsDataURL(blob)
+            } else { step(q - 0.15) }
+          }, 'image/jpeg', q)
+        }
+        step(quality)
+      }
+      img.onerror = () => reject(new Error('Image load failed'))
+      img.src = dataUrl
+    })
+  }
 
   const handleReceiptFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    setReceiptError('')
     if (!file) return
-    setReceiptFile(file)
+
+    const extOk = ALLOWED_EXTENSIONS.test(file.name)
+    const mimeOk = ALLOWED_TYPES.has(file.type)
+    if (!extOk && !mimeOk) {
+      setReceiptError('Sirf JPEG, PNG, WebP, HEIC, GIF, BMP, TIFF ya PDF file upload karein')
+      setReceiptFile(null)
+      setReceiptBase64(null)
+      return
+    }
+
+    const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf'
+    const sizeLimit = isPdf ? MAX_IMAGE_SIZE : 100 * 1024
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      setReceiptError(`File 3.5 MB se choti honi chahiye (yeh ${(file.size / 1024 / 1024).toFixed(1)} MB hai)`)
+      setReceiptFile(null)
+      setReceiptBase64(null)
+      return
+    }
+
     const reader = new FileReader()
-    reader.onload = () => setReceiptBase64(reader.result as string)
+    reader.onload = async () => {
+      try {
+        const compressed = isPdf
+          ? (reader.result as string)
+          : await compressImage(reader.result as string, sizeLimit)
+        setReceiptFile(file)
+        setReceiptBase64(compressed)
+      } catch {
+        setReceiptError('Image compress nahi ho saki — dobara try karein')
+        setReceiptFile(null)
+        setReceiptBase64(null)
+      }
+    }
+    reader.onerror = () => {
+      setReceiptError('File read nahi ho saka')
+      setReceiptFile(null)
+      setReceiptBase64(null)
+    }
     reader.readAsDataURL(file)
   }
 
@@ -113,8 +192,12 @@ export function RaastPaymentSheet({
       })
 
       if (!res.ok) {
-        const err = await res.json()
-        setError(err.error ?? 'Payment submission failed')
+        let errMsg = 'Payment submission failed'
+        try {
+          const err = await res.json()
+          errMsg = err.error ?? errMsg
+        } catch { /* body may be empty */ }
+        setError(errMsg)
         setSaving(false)
         return
       }
@@ -513,10 +596,15 @@ export function RaastPaymentSheet({
                   Payment Receipt (optional)
                 </label>
                 <div className="flex items-center gap-3">
-                  <label className="flex-1 flex items-center justify-center gap-2 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl px-4 py-6 cursor-pointer hover:border-blue-400 transition-colors">
+                  <label className={cn(
+                    "flex-1 flex items-center justify-center gap-2 border-2 border-dashed rounded-2xl px-4 py-6 cursor-pointer transition-colors",
+                    receiptError
+                      ? "border-red-300 bg-red-50"
+                      : "border-slate-200 bg-slate-50 hover:border-blue-400"
+                  )}>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,image/bmp,image/tiff,application/pdf,.pdf"
                       capture="environment"
                       onChange={handleReceiptFile}
                       className="hidden"
@@ -532,15 +620,21 @@ export function RaastPaymentSheet({
                   </label>
                   {receiptFile && (
                     <button
-                      onClick={() => { setReceiptFile(null); setReceiptBase64(null) }}
+                      onClick={() => { setReceiptFile(null); setReceiptBase64(null); setReceiptError('') }}
                       className="text-xs text-red-500 font-semibold"
                     >
                       Remove
                     </button>
                   )}
                 </div>
+                {receiptError && (
+                  <div className="flex items-center gap-2 mt-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+                    <AlertCircle size={13} className="text-red-500 shrink-0" />
+                    <p className="text-xs text-red-600">{receiptError}</p>
+                  </div>
+                )}
                 <p className="text-xs text-slate-400 mt-1.5 ml-1">
-                  Bank app ka screenshot ya photo lein (optional lekin recommended)
+                  JPEG, PNG, WebP, HEIC, GIF, BMP, TIFF ya PDF — 3.5 MB se choti file (optional lekin recommended)
                 </p>
               </div>
 
