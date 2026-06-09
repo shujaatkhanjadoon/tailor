@@ -36,22 +36,46 @@ export async function POST(req: NextRequest) {
 
     const now = new Date().toISOString()
 
-    // Dedup: reject duplicate transactionId
+    // Dedup: reject duplicate transactionId (fail-closed: if we can't check, reject)
     const dupCheck = await sbFetch(
       `subscription_payments?gateway_tx_id=eq.${encodeURIComponent(transactionId)}&select=id&limit=1`
     )
-    if (dupCheck.ok) {
-      const existing = await dupCheck.json()
-      if (existing?.length) {
-        return NextResponse.json({ error: 'Duplicate transaction ID. Payment already submitted.' }, { status: 409 })
-      }
+    if (!dupCheck.ok) {
+      logger.error('submit-payment', 'Dedup check failed — cannot verify uniqueness', { transactionId })
+      return NextResponse.json({ error: 'Unable to verify payment. Please try again.' }, { status: 503 })
     }
-    // Fetch existing subscription ID (for payment FK) — do NOT change subscription status;
+    const existing = await dupCheck.json()
+    if (existing?.length) {
+      return NextResponse.json({ error: 'Duplicate transaction ID. Payment already submitted.' }, { status: 409 })
+    }
+
+    // Fetch or create subscription ID (for payment FK) — do NOT change subscription status;
     // admin must manually verify payment and activate via /api/admin/action
     const subRes = await sbFetch(`subscriptions?shop_id=eq.${encodeURIComponent(shopId)}&select=id&limit=1`)
     if (!subRes.ok) throw new Error('Failed to fetch subscription')
     const [subRow] = await subRes.json()
-    const subscriptionId = subRow?.id ?? null
+    let subscriptionId = subRow?.id ?? null
+
+    // Auto-create subscription row if none exists (new shop without subscription record)
+    if (!subscriptionId) {
+      const createSubRes = await sbFetch('subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+        body: JSON.stringify({
+          shop_id: shopId,
+          plan: 'starter',
+          status: 'active',
+          billing_cycle: null,
+          expires_at: null,
+          updated_at: now,
+        }),
+      })
+      if (createSubRes.ok) {
+        const [created] = await createSubRes.json()
+        subscriptionId = created?.id ?? null
+        logger.info('submit-payment', 'Auto-created missing subscription row', { shopId, subscriptionId })
+      }
+    }
 
     // Insert payment record (status: pending — admin verifies manually)
     const paymentPayload: Record<string, unknown> = {
@@ -153,6 +177,24 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+
+    // Non-blocking: notify admin of new pending payment
+    try {
+      const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
+      if (adminEmail) {
+        const { sendAdminSubscriptionEventEmail } = await import('@/lib/security/email-otp')
+        sendAdminSubscriptionEventEmail({
+          shopId,
+          event: 'payment_submitted',
+          plan: planId,
+          cycle,
+          amountPkr,
+          paymentRef,
+          transactionId,
+          payerName,
+        }).catch((e: unknown) => logger.error('submit-payment', 'Admin notification failed (non-fatal)', e))
+      }
+    } catch { /* non-fatal */ }
 
     return NextResponse.json({ success: true })
   } catch (e) {

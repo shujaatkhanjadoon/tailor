@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { validate, schemas } from '@/lib/validation'
-import { sbGet, sbDelete } from '@/lib/supabase/service'
+import { sbGet, sbPatch, sbDelete } from '@/lib/supabase/service'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 
 async function tryDelete(table: string, filter: string): Promise<boolean> {
@@ -75,6 +75,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Only the active shop owner can permanently delete this shop' }, { status: 403 })
     }
 
+    // Phase 1: Immediately mark shop as inactive to prevent further access
+    const now = new Date().toISOString()
+    await sbPatch(`shops?id=eq.${encodeURIComponent(shopId)}`, {
+      is_active: false,
+      deleted_at: now,
+      updated_at: now,
+    })
+
     let failures = 0
     const [orders, photos] = await Promise.all([
       sbGet(`orders?shop_id=eq.${encodeURIComponent(shopId)}&select=id`).catch(() => []),
@@ -83,22 +91,33 @@ export async function POST(req: NextRequest) {
     const orderIds = orders.map((o: any) => o.id).filter(Boolean)
     const publicIds = photos.map((p: any) => p.public_id).filter(Boolean)
 
+    // Phase 2: Delete Cloudinary assets in parallel
     const photoResults = await Promise.all(publicIds.map(async (publicId: string) => {
       return deleteCloudinaryAsset(publicId)
     }))
     failures += photoResults.filter(r => r === false).length
 
-    for (let i = 0; i < orderIds.length; i += 100) {
-      const ok = await tryDelete('order_status_history', inFilter('order_id', orderIds.slice(i, i + 100)))
-      if (!ok) failures++
-    }
+    // Phase 3: Batch-delete order status history
+    const historyResults = await Promise.all(
+      Array.from({ length: Math.ceil(orderIds.length / 100) }, (_, i) =>
+        tryDelete('order_status_history', inFilter('order_id', orderIds.slice(i * 100, (i + 1) * 100)))
+      )
+    )
+    failures += historyResults.filter(r => !r).length
 
+    // Phase 4: Delete remaining tables in parallel (independent of each other)
     const shopFilter = `shop_id=eq.${encodeURIComponent(shopId)}`
-    for (const table of ['order_photos', 'payments', 'measurements', 'orders', 'customers', 'team_members', 'subscription_payments', 'subscriptions', 'shop_usage', 'shop_verification_requests']) {
-      const ok = await tryDelete(table, shopFilter)
-      if (!ok) failures++
-    }
+    const deleteOrder = ['order_photos', 'payments', 'measurements', 'orders', 'customers']
+    const deleteShop = ['team_members', 'subscription_payments', 'subscriptions', 'shop_usage', 'shop_verification_requests']
 
+    // Delete order-related data first (FK dependencies), then shop-level data
+    const orderDeleteResults = await Promise.all(deleteOrder.map(table => tryDelete(table, shopFilter)))
+    failures += orderDeleteResults.filter(r => !r).length
+
+    const shopDeleteResults = await Promise.all(deleteShop.map(table => tryDelete(table, shopFilter)))
+    failures += shopDeleteResults.filter(r => !r).length
+
+    // Phase 5: Finally remove the shop record itself
     await sbDelete(`shops?id=eq.${encodeURIComponent(shopId)}`)
 
     return NextResponse.json({

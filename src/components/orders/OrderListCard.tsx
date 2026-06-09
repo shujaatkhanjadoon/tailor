@@ -21,6 +21,10 @@ interface OrderListCardProps {
   onAssignTap?: (order: OrderRecord) => void
   isOwner?: boolean
   photoCount?: number
+  // Bulk selection props
+  selectionMode?: boolean
+  isSelected?: boolean
+  onToggleSelect?: (id: string) => void
 }
 
 function formatDueDate(dateStr: string, t: any): { label: string; urgent: boolean } {
@@ -41,6 +45,9 @@ export const OrderListCard = memo(function OrderListCard({
   onAssignTap,
   isOwner = false,
   photoCount: propPhotoCount,
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelect,
 }: OrderListCardProps) {
   const router = useRouter()
   const { t } = useTranslation()
@@ -83,16 +90,41 @@ export const OrderListCard = memo(function OrderListCard({
 
   return (
     <div className={cn(
-      'bg-white border rounded-2xl overflow-hidden transition-all',
-      order.isUrgent === 1 && !isTerminal ? 'border-orange-300' :
-        dueUrgent && !isTerminal ? 'border-red-200' : 'border-slate-200'
+      'flex items-start',
+      selectionMode && 'gap-2'
     )}>
-      {/* Urgent ribbon */}
-      {order.isUrgent === 1 && !isTerminal && (
-        <div className="bg-orange-500 px-4 py-1">
-          <p className="text-white text-[10px] font-bold uppercase tracking-wider">{t('orders.card.urgentRibbon')}</p>
-        </div>
+      {/* Selection checkbox */}
+      {selectionMode && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleSelect?.(order.id) }}
+          className="mt-3 shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center
+            transition-colors"
+          style={{
+            borderColor: isSelected ? '#2563eb' : '#cbd5e1',
+            backgroundColor: isSelected ? '#2563eb' : 'transparent',
+          }}
+          aria-label={isSelected ? 'Deselect order' : 'Select order'}
+        >
+          {isSelected && (
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 6l3 3 5-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </button>
       )}
+
+      <div className={cn(
+        'bg-white border rounded-2xl overflow-hidden transition-all flex-1',
+        isSelected && 'border-blue-500 ring-2 ring-blue-100',
+        !isSelected && order.isUrgent === 1 && !isTerminal ? 'border-orange-300' :
+        !isSelected && dueUrgent && !isTerminal ? 'border-red-200' : 'border-slate-200'
+      )}>
+        {/* Urgent ribbon */}
+        {order.isUrgent === 1 && !isTerminal && (
+          <div className="bg-orange-500 px-4 py-1">
+            <p className="text-white text-[10px] font-bold uppercase tracking-wider">{t('orders.card.urgentRibbon')}</p>
+          </div>
+        )}
 
       {/* Main content */}
       <div
@@ -220,6 +252,7 @@ export const OrderListCard = memo(function OrderListCard({
           </span>
         )}
       </div>
+    </div>
     </div>
   )
 })

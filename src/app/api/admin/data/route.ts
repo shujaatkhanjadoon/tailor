@@ -70,12 +70,18 @@ export async function GET(req: NextRequest) {
       }
 
       case 'shops': {
-        const [shops, subs, usages, orders] = await Promise.all([
+        const [shops, subs, usages] = await Promise.all([
           sbGet(`shops?select=*&order=created_at.desc&limit=${limit}&offset=${offset}`) as Promise<ShopRow[]>,
-          sbGet('subscriptions?select=shop_id,plan,status,billing_cycle,amount_pkr,expires_at,trial_ends_at') as Promise<SubscriptionRow[]>,
-          sbGet('shop_usage?select=shop_id,orders_this_month,customers_total,karigar_count') as Promise<ShopUsageRow[]>,
-          sbGet('orders?select=id,shop_id,status,total_price,amount_paid,created_at,deleted_at') as Promise<OrderRow[]>,
+          sbGet(`subscriptions?select=shop_id,plan,status,billing_cycle,amount_pkr,expires_at,trial_ends_at&order=created_at.desc&limit=${Math.min(limit * 3, 1000)}`) as Promise<SubscriptionRow[]>,
+          sbGet(`shop_usage?select=shop_id,orders_this_month,customers_total,karigar_count&limit=${Math.min(limit * 2, 1000)}`) as Promise<ShopUsageRow[]>,
         ])
+
+        // Only fetch order stats for shops returned in this page (not ALL shops)
+        const shopIds = shops.map(s => s.id)
+        const shopIdsIn = shopIds.map(encodeURIComponent).join(',')
+        const orders: OrderRow[] = shopIds.length > 0
+          ? await sbGet(`orders?shop_id=in.(${shopIdsIn})&select=id,shop_id,status,total_price,amount_paid,deleted_at&order=created_at.desc&limit=${limit * 200}`) as OrderRow[]
+          : []
         return NextResponse.json({
           data: shops.map(shop => ({
             ...shop,

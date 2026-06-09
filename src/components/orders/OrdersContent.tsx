@@ -3,12 +3,13 @@
 import { useState, useMemo, useRef } from 'react'
 import { useEffect }                  from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Plus, X, Filter, Download }    from 'lucide-react'
+import { Search, Plus, X, Filter, Download, CheckSquare }    from 'lucide-react'
 import { useAuth }                    from '@/lib/auth/AuthContext'
 import { useOrders, OrderFilter }     from '@/hooks/useOrders'
 import { OrderListCard }              from '@/components/orders/OrderListCard'
 import { StatusUpdateSheet }          from '@/components/orders/StatusUpdateSheet'
 import { AssignSheet }                from '@/components/orders/AssignSheet'
+import { BulkActionsBar }             from '@/components/orders/BulkActionsBar'
 import { OrderRecord }                from '@/lib/db/schema'
 import { ORDER_STATUS_CONFIG, OrderStatus } from '@/types'
 import { cn }                         from '@/lib/utils'
@@ -19,6 +20,7 @@ import { supabase } from '@/lib/supabase/client'
 import { exportCSV, exportPrintablePDF } from '@/lib/export/download'
 import { useTranslation } from 'react-i18next'
 import { VirtualList } from '@/components/ui/VirtualList'
+import { useBulkSelection } from '@/hooks/useBulkSelection'
 
 export function OrdersContent() {
   const router      = useRouter()
@@ -50,6 +52,11 @@ export function OrdersContent() {
   const [statusSheet, setStatusSheet]         = useState<OrderRecord | null>(null)
   const [assignSheet, setAssignSheet]         = useState<OrderRecord | null>(null)
   const [showStatusDropdown, setShowStatusDropdown] = useState(false)
+
+  // Bulk selection
+  const bulk = useBulkSelection()
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [bulkAssignSheet, setBulkAssignSheet] = useState(false)
 
   const {
     orders,
@@ -96,6 +103,63 @@ export function OrdersContent() {
   }, [searchParams, setActiveFilter, QUICK_FILTERS])
 
   const hasActiveFilters = searchQuery || statusFilter !== 'all' || activeFilter !== 'all'
+
+  // Bulk action handlers
+  const handleBulkStatus = async (newStatus: string) => {
+    const ids = bulk.selectedIds
+    if (ids.length === 0) return
+    try {
+      const res = await fetch('/api/orders/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderIds: ids, action: 'status', value: newStatus }),
+      })
+      if (res.ok) {
+        // Optimistic: update all selected orders in the list
+        ids.forEach(id => patchOrderInList(id, { status: newStatus as OrderRecord['status'] }))
+        bulk.clear()
+        setSelectionMode(false)
+        refresh()
+      }
+    } catch (e) {
+      console.error('Bulk status update failed:', e)
+    }
+  }
+
+  const handleBulkAssign = () => {
+    if (bulk.selectedIds.length === 0) return
+    setBulkAssignSheet(true)
+  }
+
+  const handleBulkUnassign = async () => {
+    const ids = bulk.selectedIds
+    if (ids.length === 0) return
+    try {
+      const res = await fetch('/api/orders/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderIds: ids, action: 'unassign' }),
+      })
+      if (res.ok) {
+        ids.forEach(id => patchOrderInList(id, { assignedTo: undefined, assignedToName: undefined }))
+        bulk.clear()
+        setSelectionMode(false)
+        refresh()
+      }
+    } catch (e) {
+      console.error('Bulk unassign failed:', e)
+    }
+  }
+
+  const toggleSelectionMode = () => {
+    if (selectionMode) {
+      bulk.clear()
+      setSelectionMode(false)
+    } else {
+      setSelectionMode(true)
+    }
+  }
+
   const exportRows = orders.map(o => ({
     order: String(o.orderNumber).padStart(3, '0'),
     customer: o.customerName,
@@ -129,6 +193,18 @@ export function OrdersContent() {
           </div>
           {isOwner && (
             <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={toggleSelectionMode}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
+                  selectionMode
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                )}
+              >
+                <CheckSquare size={15} />
+                <span className="hidden min-[420px]:inline">Select</span>
+              </button>
               <button
                 onClick={() => exportCSV(exportRows, 'darzi-orders')}
                 disabled={orders.length === 0}
@@ -368,8 +444,11 @@ export function OrdersContent() {
                       order={order}
                       isOwner={isOwner}
                       photoCount={photoCounts[order.id]}
-                      onStatusTap={o => setStatusSheet(o)}
-                      onAssignTap={isOwner ? o => setAssignSheet(o) : undefined}
+                      onStatusTap={o => { if (!selectionMode) setStatusSheet(o) }}
+                      onAssignTap={isOwner && !selectionMode ? o => setAssignSheet(o) : undefined}
+                      selectionMode={selectionMode}
+                      isSelected={bulk.isSelected(order.id)}
+                      onToggleSelect={bulk.toggle}
                     />
                   </div>
                 )}
@@ -417,6 +496,46 @@ export function OrdersContent() {
           }}
         />
       )}
+
+      {/* Bulk assign sheet — uses first selected order as template */}
+      {bulkAssignSheet && bulk.selectedIds.length > 0 && (
+        <AssignSheet
+          orderId={bulk.selectedIds[0]}
+          currentAssignee={undefined}
+          onClose={() => setBulkAssignSheet(false)}
+          onAssigned={async (memberId, memberName) => {
+            try {
+              const res = await fetch('/api/orders/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderIds: bulk.selectedIds, action: 'assign', value: memberId }),
+              })
+              if (res.ok) {
+                bulk.selectedIds.forEach(id =>
+                  patchOrderInList(id, { assignedTo: memberId, assignedToName: memberName })
+                )
+                bulk.clear()
+                setSelectionMode(false)
+                setBulkAssignSheet(false)
+                refresh()
+              }
+            } catch (e) {
+              console.error('Bulk assign failed:', e)
+            }
+          }}
+        />
+      )}
+
+      {/* Bulk actions floating bar */}
+      <BulkActionsBar
+        selectedCount={bulk.count}
+        totalCount={orders.length}
+        onClear={() => { bulk.clear(); setSelectionMode(false) }}
+        onSelectAll={() => bulk.selectAll(orders.map(o => o.id))}
+        onUpdateStatus={handleBulkStatus}
+        onAssign={handleBulkAssign}
+        onUnassign={handleBulkUnassign}
+      />
     </div>
   )
 }

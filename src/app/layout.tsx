@@ -7,6 +7,7 @@ import { AuthProvider } from "@/lib/auth/AuthContext";
 import { LocaleProvider } from "@/lib/i18n/LocaleContext";
 import { Toaster } from "@/components/ui/sonner";
 import { PageErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { ThemeProvider } from "@/components/ui/ThemeProvider";
 
 // Entire app is client-heavy for now — opt in per route as pages convert to Server Components
 export const unstable_instant = false
@@ -127,18 +128,21 @@ export default function RootLayout({
       dir="ltr"
       data-scroll-behavior="smooth"
       className="locale-ur"
+      suppressHydrationWarning
     >
       <body
         className={`${poppins.variable} ${notoNastaliqUrdu.variable} min-w-0 overflow-x-clip font-sans antialiased`}
         suppressHydrationWarning
       >
-        <AuthProvider>
-          <LocaleProvider>
-            <AppShell>
-              <PageErrorBoundary>{children}</PageErrorBoundary>
-            </AppShell>
-          </LocaleProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <LocaleProvider>
+              <AppShell>
+                <PageErrorBoundary>{children}</PageErrorBoundary>
+              </AppShell>
+            </LocaleProvider>
+          </AuthProvider>
+        </ThemeProvider>
         <Toaster position="top-right" richColors closeButton />
       </body>
     </html>

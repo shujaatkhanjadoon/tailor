@@ -10,11 +10,11 @@ function buildCspHeader(): string {
   const isDev = process.env.NODE_ENV === 'development'
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
-    "style-src 'self' 'unsafe-inline'",
+    `script-src 'self'${isDev ? " 'unsafe-eval'" : ''} https://*.sentry.io`,
+    "style-src 'self'",
     "img-src 'self' data: https:",
     "font-src 'self' https://fonts.gstatic.com",
-    "connect-src 'self' https://*.supabase.co https://api.cloudinary.com https://*.upstash.io wss://*.supabase.co",
+    "connect-src 'self' https://*.supabase.co https://api.cloudinary.com https://*.upstash.io wss://*.supabase.co https://*.sentry.io",
     "frame-ancestors 'none'",
     "form-action 'self'",
     "base-uri 'self'",
@@ -48,6 +48,16 @@ export async function proxy(req: NextRequest) {
   const res = NextResponse.next()
   addSecurityHeaders(res)
   res.headers.set('Content-Security-Policy', buildCspHeader())
+
+  // ── Cron routes — handle early (skip IP check, rate limit, CSRF) ──
+  // External schedulers (cron-job.org, Vercel Cron) have no origin & may share IPs
+  if (pathname.startsWith('/api/cron')) {
+    const auth = req.headers.get('authorization')
+    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+      return respond({ error: 'Unauthorized' }, 401)
+    }
+    return res
+  }
 
   // ── Global IP blocklist check ──────────────────────────────────
   if (pathname.startsWith('/api/')) {
@@ -91,15 +101,6 @@ export async function proxy(req: NextRequest) {
   // ── Cache-Control for non-sensitive GET API routes ────────────
   if (req.method === 'GET' && pathname.startsWith('/api/') && !pathname.startsWith('/api/admin') && !pathname.startsWith('/api/auth')) {
     res.headers.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=120')
-  }
-
-  // ── Cron routes (skip CSRF — external schedulers have no origin) ──
-  if (pathname.startsWith('/api/cron')) {
-    const auth = req.headers.get('authorization')
-    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-      return respond({ error: 'Unauthorized' }, 401)
-    }
-    return res
   }
 
   // ── CSRF origin/referer check for state-changing API requests ──

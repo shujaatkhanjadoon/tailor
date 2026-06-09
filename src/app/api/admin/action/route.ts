@@ -191,6 +191,20 @@ export async function POST(req: NextRequest) {
           );
         }
 
+        // Verify payment exists and is still pending (idempotency guard)
+        const paymentCheck = await sbGet(`subscription_payments?id=eq.${paymentId}&select=status,shop_id&limit=1`) as { status?: string; shop_id?: string }[];
+        const payment = paymentCheck?.[0];
+        if (!payment) {
+          return NextResponse.json({ error: "Payment not found" }, { status: 404 });
+        }
+        if (payment.status !== "pending") {
+          return NextResponse.json({ error: `Payment already ${payment.status}. Cannot activate.` }, { status: 409 });
+        }
+        // Verify payment belongs to the correct shop
+        if (payment.shop_id && payment.shop_id !== shopId) {
+          return NextResponse.json({ error: "Payment does not belong to this shop" }, { status: 403 });
+        }
+
         const now = new Date().toISOString();
         const previousSub = (await sbGet(`subscriptions?shop_id=eq.${shopId}&select=plan,status,expires_at&limit=1`))[0];
 
@@ -274,11 +288,19 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        // Get existing receipt_data
-        const existing = await sbGet(
-          `subscription_payments?id=eq.${paymentId}&select=receipt_data`
-        );
-        const receiptData = existing?.[0]?.receipt_data ?? {};
+        // Verify payment exists and is still pending (idempotency guard)
+        const paymentCheck = await sbGet(
+          `subscription_payments?id=eq.${paymentId}&select=status,receipt_data&limit=1`
+        ) as { status?: string; receipt_data?: Record<string, unknown> }[];
+        const payment = paymentCheck?.[0];
+        if (!payment) {
+          return NextResponse.json({ error: "Payment not found" }, { status: 404 });
+        }
+        if (payment.status !== "pending") {
+          return NextResponse.json({ error: `Payment already ${payment.status}. Cannot reject.` }, { status: 409 });
+        }
+
+        const receiptData = payment.receipt_data ?? {};
 
         await sbPatch(`subscription_payments?id=eq.${paymentId}`, {
           status: "failed",
@@ -606,12 +628,13 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: "shopIds and reason required" }, { status: 400 });
 
         let count = 0;
-        for (const sid of bsnShopIds) {
+        const errors = await mapConcurrent(bsnShopIds, async (sid) => {
           try {
             notifyOwner(sid, "bulk_notification", "Admin Message", bsnReason);
             count++;
           } catch (e) { logger.warn('admin', `bulk_notification failed for ${sid}`, e); }
-        }
+        }, 10);
+        if (errors.length > 0) logger.warn('admin', `bulk_send_notification had ${errors.length} failures`, errors);
         await logAction("bulk_send_notification", `count=${count}`, bsnShopIds[0], { count });
         return NextResponse.json({ success: true, count });
       }
@@ -676,9 +699,19 @@ export async function POST(req: NextRequest) {
 
         const now = new Date().toISOString();
 
-        // Update the owner's pin_hash (owner is the first team_member, role=owner)
+        // Fetch current token_version so we can increment it to revoke all existing sessions
+        let nextVersion = 2;
+        try {
+          const tvRes = await sbGet(`team_members?shop_id=eq.${pinShopId}&role=eq.owner&select=token_version&limit=1`) as { token_version?: number }[];
+          if (tvRes?.[0] && typeof tvRes[0].token_version === 'number') {
+            nextVersion = tvRes[0].token_version + 1;
+          }
+        } catch { /* use default nextVersion=2 */ }
+
+        // Update the owner's pin_hash and increment token_version to revoke all sessions
         await sbPatch(`team_members?shop_id=eq.${pinShopId}&role=eq.owner`, {
           pin_hash: storedHash,
+          token_version: nextVersion,
           failed_attempts: 0,
           locked_until: null,
           updated_at: now,
@@ -687,6 +720,7 @@ export async function POST(req: NextRequest) {
         // Audit log
         await logAction("reset_owner_pin", pinShopId, pinShopId, {
           pin_reset: true,
+          token_version: nextVersion,
         });
 
         notifyOwner(pinShopId, "reset_owner_pin", "Shop PIN Reset", "Admin ne aapka shop PIN reset kar diya hai. Naya PIN admin se hasil karein.");

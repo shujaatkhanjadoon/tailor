@@ -10,6 +10,7 @@ import Link from 'next/link'
 import type { ShopRecord } from '@/lib/db/schema'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { shopOps } from '@/lib/db/operations'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 const actions = [
   { href: '/settings',             icon: Settings,   key: 'settings' },
@@ -120,6 +121,10 @@ export function MobileAccountBar() {
             ))}
           </div>
           )}
+          <div className="mt-2 flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
+            <span className="text-xs font-medium text-slate-500">Theme</span>
+            <ThemeToggle />
+          </div>
           <button
             onClick={handleLogout}
             className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 px-3 py-3 text-sm font-semibold text-red-600 active:bg-red-100"

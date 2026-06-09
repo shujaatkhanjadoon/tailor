@@ -12,6 +12,7 @@ import {
   Scissors,
   CreditCard,
   Globe,
+  Moon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { SettingsRow } from "@/components/settings/SettingsRow";
@@ -26,6 +27,7 @@ import type { ShopRecord } from "@/lib/db/schema";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "@/lib/i18n/LocaleContext";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -138,6 +140,22 @@ export default function SettingsPage() {
             value={t('settings.languageValue')}
             onClick={toggleLanguage}
           />
+        </div>
+
+        {/* THEME TOGGLE */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-violet-100 rounded-xl flex items-center justify-center">
+                <Moon size={16} className="text-violet-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-700">Theme</p>
+                <p className="text-xs text-slate-400">Light ya dark mode</p>
+              </div>
+            </div>
+            <ThemeToggle />
+          </div>
         </div>
 
         {/* SHOP - owner only */}

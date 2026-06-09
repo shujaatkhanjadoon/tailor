@@ -6,7 +6,7 @@ import { sbFetch } from '@/lib/supabase/service'
 import { validate } from '@/lib/validation'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
-import { SALT_ROUNDS } from '@/lib/security/pin'
+import { SALT_ROUNDS, validateKarigarPIN } from '@/lib/security/pin'
 
 const upsertMemberSchema = z.object({
   id: z.string().uuid().optional(),
@@ -33,6 +33,14 @@ export async function POST(req: NextRequest) {
     }
 
     const { id, name, phone, pin, speciality, payRateType, payRate } = parsed.data
+
+    // Validate PIN strength server-side (prevent bypassing client-side validation)
+    if (pin) {
+      const pinCheck = validateKarigarPIN(pin)
+      if (!pinCheck.valid) {
+        return NextResponse.json({ error: pinCheck.error ?? 'Kamzor PIN. Mazboot PIN chunein.' }, { status: 400 })
+      }
+    }
 
     const now = new Date().toISOString()
     const today = now.split('T')[0]

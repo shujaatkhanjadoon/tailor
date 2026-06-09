@@ -5,6 +5,16 @@ import { useAuth }    from '@/lib/auth/AuthContext'
 import { supabase }   from '@/lib/supabase/client'
 import { PLANS, PlanId, SubStatus, BillingCycle } from '@/lib/billing/plans'
 
+// Module-level cache to prevent duplicate fetches across components
+// TTL is short — plan changes are infrequent, but we don't want stale data
+const CACHE_TTL = 30_000 // 30 seconds
+interface PlanCacheEntry {
+  subData: Record<string, unknown> | null
+  usageData: Record<string, unknown> | null
+  ts: number
+}
+const planCache = new Map<string, PlanCacheEntry>()
+
 export interface PlanState {
   // Plan info
   plan:           PlanId
@@ -83,10 +93,21 @@ export function usePlan(): PlanState {
     return () => { mountedRef.current = false }
   }, [])
 
-  const fetchPlanData = useCallback(async () => {
+  const fetchPlanData = useCallback(async (forceRefresh = false) => {
     if (!shopId) {
       setIsLoading(false)
       return
+    }
+
+    // Check module-level cache first (skip if force refresh)
+    if (!forceRefresh) {
+      const cached = planCache.get(shopId)
+      if (cached && Date.now() - cached.ts < CACHE_TTL) {
+        setSubData(cached.subData)
+        setUsageData(cached.usageData)
+        setIsLoading(false)
+        return
+      }
     }
 
     setIsLoading(true)
@@ -111,8 +132,21 @@ export function usePlan(): PlanState {
         }
 
         // If no subscription row exists yet, default to starter
-        setSubData(subResult.data ?? { plan: 'starter', status: 'active' })
-        setUsageData(usageResult.data ?? null)
+        const sub = subResult.data ?? { plan: 'starter', status: 'active' }
+        const usage = usageResult.data ?? null
+
+        // Update cache
+        planCache.set(shopId, { subData: sub, usageData: usage, ts: Date.now() })
+        // Cleanup old cache entries (keep under 50 entries)
+        if (planCache.size > 50) {
+          const cutoff = Date.now() - CACHE_TTL * 2
+          for (const [key, entry] of planCache) {
+            if (entry.ts < cutoff) planCache.delete(key)
+          }
+        }
+
+        setSubData(sub)
+        setUsageData(usage)
       }
 
     } catch (e) {
@@ -238,6 +272,6 @@ export function usePlan(): PlanState {
 
     upgrade,
     isLoading,
-    refetch: fetchPlanData,
+    refetch: () => fetchPlanData(true),
   }
 }

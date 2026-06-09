@@ -1,23 +1,24 @@
 // src/lib/photos/compress.ts
 
-import loadImageLib from 'blueimp-load-image';
-
+// blueimp-load-image is lazy-loaded — only needed when compressing camera/blobs photos
 function loadImageOriented(blob: Blob): Promise<HTMLCanvasElement> {
-  return new Promise((resolve, reject) => {
-    loadImageLib(
-      blob,
-      (result) => {
-        if (result instanceof HTMLCanvasElement) {
-          resolve(result);
-        } else if (result instanceof Event) {
-          reject(new Error('Failed to load image with orientation correction'));
-        } else {
-          reject(new Error('Unexpected result type from loadImage'));
-        }
-      },
-      { orientation: true, canvas: true }
-    );
-  });
+  return import('blueimp-load-image').then(loadImageLib => {
+    return new Promise((resolve, reject) => {
+      loadImageLib.default(
+        blob,
+        (result: unknown) => {
+          if (result instanceof HTMLCanvasElement) {
+            resolve(result);
+          } else if (result instanceof Event) {
+            reject(new Error('Failed to load image with orientation correction'));
+          } else {
+            reject(new Error('Unexpected result type from loadImage'));
+          }
+        },
+        { orientation: true, canvas: true }
+      );
+    });
+  })
 }
 
 export interface CompressOptions {

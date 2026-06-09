@@ -588,8 +588,7 @@ export const orderOps = {
     if (!data.dueDate) throw new Error('dueDate is required')
 
     const ts = nowKarachiIso()
-    const [orderNumber, shopName, customer] = await Promise.all([
-      orderOps.getNextOrderNumber(shopId),
+    const [shopName, customer] = await Promise.all([
       getShopName(shopId),
       customerOps.get(data.customerId).catch(() => undefined),
     ])
@@ -609,40 +608,61 @@ export const orderOps = {
         data = { ...data, measurementId: undefined }
       }
     }
-    const order: OrderRecord = {
-      id: uuid(),
-      shopId,
-      orderNumber,
-      trackingCode: generateTrackingCode(shopName),
-      amountPaid: 0,
-      createdAt: ts,
-      updatedAt: ts,
-      _synced: 0,
-      _deleted: 0,
-      ...data,
-    }
-    return offlineWrite(
-      'orderOps.add',
-      async () => {
-        const saved = await requireOk(
-          supabase.from('orders').insert(orderToRow(order)).select(ORDER_COLUMNS).single()
-        )
-        if (customer) {
-          await requireOk(
-            supabase.from('customers').update({
-              last_order_at: ts,
-              total_orders: (customer.totalOrders ?? 0) + 1,
-              updated_at: ts,
-            }).eq('id', customer.id)
+
+    // Retry loop for order number race condition — max 3 attempts
+    const MAX_RETRIES = 3
+    let lastError: Error | null = null
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const orderNumber = await orderOps.getNextOrderNumber(shopId)
+      const order: OrderRecord = {
+        id: uuid(),
+        shopId,
+        orderNumber,
+        trackingCode: generateTrackingCode(shopName),
+        amountPaid: 0,
+        createdAt: ts,
+        updatedAt: ts,
+        _synced: 0,
+        _deleted: 0,
+        ...data,
+      }
+
+      try {
+        // Attempt online insert first
+        if (isOnline()) {
+          const saved = await requireOk(
+            supabase.from('orders').insert(orderToRow(order)).select(ORDER_COLUMNS).single()
           )
+          if (customer) {
+            await requireOk(
+              supabase.from('customers').update({
+                last_order_at: ts,
+                total_orders: (customer.totalOrders ?? 0) + 1,
+                updated_at: ts,
+              }).eq('id', customer.id)
+            )
+          }
+          // Cache locally
+          await db.orders.put({ ...mapOrder(saved), _synced: 1 })
+          return mapOrder(saved)
+        } else {
+          // Offline: queue for sync
+          await db.orders.put({ ...order, _synced: 0 })
+          return order
         }
-        return mapOrder(saved)
-      },
-      async (record) => {
-        await db.orders.put(record)
-      },
-      order,
-    )
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err))
+        // Only retry on duplicate key (order number collision)
+        if (lastError.message.includes('duplicate') || lastError.message.includes('23505')) {
+          console.warn(`[orderOps.add] Duplicate order number ${orderNumber}, retrying (attempt ${attempt + 1}/${MAX_RETRIES})`)
+          continue
+        }
+        throw lastError
+      }
+    }
+
+    throw lastError ?? new Error('Failed to create order after retries')
   },
 
   async updateStatus(orderId: string, newStatus: OrderRecord['status'], changedBy: string): Promise<void> {

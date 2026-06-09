@@ -1,4 +1,3 @@
-import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 import { validate, schemas } from '@/lib/validation'
@@ -34,9 +33,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cannot update another member\'s PIN' }, { status: 403 })
     }
 
+    // Fetch current token_version so we can increment it to revoke all existing sessions
+    let nextVersion = 2
+    try {
+      const tvLookup = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members?id=eq.${encodeURIComponent(memberId)}&select=token_version&limit=1`,
+        {
+          headers: {
+            apikey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''}`,
+          },
+        }
+      )
+      if (tvLookup.ok) {
+        const tvData = await tvLookup.json()
+        if (tvData?.length && typeof tvData[0].token_version === 'number') {
+          nextVersion = tvData[0].token_version + 1
+        }
+      }
+    } catch { /* use default nextVersion=2 */ }
+
     await sbPatch(
       `team_members?id=eq.${encodeURIComponent(memberId)}`,
-      { pin_hash: pinHash, updated_at: new Date().toISOString() }
+      {
+        pin_hash: pinHash,
+        token_version: nextVersion,
+        updated_at: new Date().toISOString(),
+      }
     )
 
     return NextResponse.json({ success: true })
