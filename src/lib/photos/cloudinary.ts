@@ -38,7 +38,11 @@ export async function uploadToCloudinary(
     formData.append('fetch_format',   'auto')
 
     const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`
-    const res = await fetch(endpoint, { method: 'POST', body: formData })
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      body: formData,
+      signal: AbortSignal.timeout(30000),
+    })
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))

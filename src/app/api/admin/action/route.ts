@@ -31,9 +31,13 @@ async function logAction(
   details: object,
 ) {
   try {
+    const targetType = ACTION_TYPES[action]
+    if (!targetType) {
+      logger.warn('admin', `Unknown action type for audit log: ${action}`)
+    }
     await sbPost("admin_audit_log", {
       action,
-      target_type: ACTION_TYPES[action] ?? 'subscription',
+      target_type: targetType ?? 'unknown',
       target_id: targetId,
       shop_id: shopId,
       details,

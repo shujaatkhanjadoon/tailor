@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CreditCard, Lock, LogOut, Settings, X } from 'lucide-react'
+import { CreditCard, Lock, LogOut, Settings, WifiOff, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { useTranslation } from 'react-i18next'
 import Image from 'next/image'
@@ -11,6 +11,7 @@ import type { ShopRecord } from '@/lib/db/schema'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { shopOps } from '@/lib/db/operations'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { getPendingSyncCount } from '@/lib/db/offline'
 
 const actions = [
   { href: '/settings',             icon: Settings,   key: 'settings' },
@@ -23,11 +24,20 @@ export function MobileAccountBar() {
   const { currentUser, logout, shopId } = useAuth()
   const [open, setOpen] = useState(false)
   const [shop, setShop] = useState<ShopRecord | undefined>()
+  const [pendingSync, setPendingSync] = useState(0)
   const { t } = useTranslation()
   useEffect(() => {
     if (!shopId) return
     shopOps.get(shopId).then(setShop).catch(() => setShop(undefined))
   }, [shopId])
+
+  // Poll pending sync count
+  useEffect(() => {
+    const check = async () => setPendingSync(await getPendingSyncCount())
+    check()
+    const interval = setInterval(check, 8000)
+    return () => clearInterval(interval)
+  }, [])
   const initials = (currentUser?.name ?? 'User')
     .trim()
     .split(/\s+/)
@@ -65,6 +75,12 @@ export function MobileAccountBar() {
                   </Link>
                 </div>
         <div className="flex items-center gap-2">
+          {pendingSync > 0 && (
+            <span className="flex items-center gap-1 bg-amber-500 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+              <WifiOff size={10} />
+              {pendingSync}
+            </span>
+          )}
           <NotificationBell />
           <button
             aria-label="Open user actions"

@@ -8,7 +8,10 @@ import type {
   TeamMemberRecord,
 } from '@/lib/db/schema'
 
-export function mapShop(row: any): ShopRecord {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseRow = Record<string, any>
+
+export function mapShop(row: SupabaseRow): ShopRecord {
   return {
     id: row.id,
     shopName: row.shop_name,
@@ -30,7 +33,7 @@ export function mapShop(row: any): ShopRecord {
   }
 }
 
-export function mapTeamMember(row: any): TeamMemberRecord {
+export function mapTeamMember(row: SupabaseRow): TeamMemberRecord {
   return {
     id: row.id,
     shopId: row.shop_id,
@@ -49,7 +52,7 @@ export function mapTeamMember(row: any): TeamMemberRecord {
   }
 }
 
-export function mapCustomer(row: any): CustomerRecord {
+export function mapCustomer(row: SupabaseRow): CustomerRecord {
   return {
     id: row.id,
     shopId: row.shop_id,
@@ -68,7 +71,7 @@ export function mapCustomer(row: any): CustomerRecord {
   }
 }
 
-export function mapOrder(row: any): OrderRecord {
+export function mapOrder(row: SupabaseRow): OrderRecord {
   return {
     id: row.id,
     shopId: row.shop_id,
@@ -100,7 +103,7 @@ export function mapOrder(row: any): OrderRecord {
   }
 }
 
-export function mapMeasurement(row: any): MeasurementRecord {
+export function mapMeasurement(row: SupabaseRow): MeasurementRecord {
   return {
     id: row.id,
     customerId: row.customer_id,
@@ -117,7 +120,7 @@ export function mapMeasurement(row: any): MeasurementRecord {
   }
 }
 
-export function mapPayment(row: any): PaymentRecord {
+export function mapPayment(row: SupabaseRow): PaymentRecord {
   return {
     id: row.id,
     shopId: row.shop_id,
@@ -134,7 +137,7 @@ export function mapPayment(row: any): PaymentRecord {
   }
 }
 
-export function mapStatusHistory(row: any): OrderStatusHistoryRecord {
+export function mapStatusHistory(row: SupabaseRow): OrderStatusHistoryRecord {
   return {
     id:         row.id,
     orderId:    row.order_id,

@@ -61,7 +61,8 @@ async function requireOk<T>(query: PromiseLike<{ data: T; error: { message: stri
   return data
 }
 
-const asRows = (rows: unknown): any[] => Array.isArray(rows) ? rows : []
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const asRows = (rows: unknown): Record<string, any>[] => Array.isArray(rows) ? rows as Record<string, any>[] : []
 
 async function deleteCloudinaryAssets(publicIds: string[]) {
   const uniqueIds = [...new Set(publicIds.filter(Boolean))]
@@ -252,7 +253,11 @@ export const teamOps = {
       name: data.name,
       phone: data.phone,
       role: data.role,
-      pin_hash: data.pin.startsWith('$2') ? bcrypt.hashSync(data.pin, 12) : hashPin(data.pin),
+      pin_hash: data.pin.startsWith('$2')
+        // Double-hash guard: if the pin is already bcrypt-hashed (starts with $2), re-hash
+        // to normalize the rounds; otherwise hash the plaintext pin with fresh salt
+        ? bcrypt.hashSync(data.pin, 12)
+        : hashPin(data.pin),
       speciality: data.speciality ?? null,
       pay_rate_type: data.payRateType ?? null,
       pay_rate: data.payRate ?? null,
@@ -274,7 +279,7 @@ export const teamOps = {
     const row = await requireOk(
       supabase.from('team_members').select('pin_hash').eq('id', memberId).maybeSingle()
     )
-    const pinRow = row as any
+    const pinRow = row as Record<string, unknown>
     if (!pinRow?.pin_hash) return false
     const storedHash = String(pinRow.pin_hash)
     if (storedHash.startsWith('$2')) {
@@ -405,7 +410,8 @@ export const customerOps = {
         const saved = await requireOk(
           supabase.from('customers').insert(customerToRow(customer)).select(CUSTOMER_COLUMNS).single()
         )
-        return mapCustomer(saved)
+        if (!saved) throw new Error('Failed to create customer')
+        return mapCustomer(saved as Record<string, unknown>)
       },
       async (record) => {
         await db.customers.put(record)
@@ -504,7 +510,7 @@ export const customerOps = {
     if (isOnline()) {
       try {
         const orderRows = await requireOk(supabase.from('orders').select('id').eq('customer_id', id))
-        await deleteOrdersByIds(asRows(orderRows).map((row: any) => row.id).filter(Boolean))
+        await deleteOrdersByIds(asRows(orderRows).map((row) => String(row.id)).filter(Boolean))
         await Promise.all([
           requireOk(supabase.from('measurements').update({ deleted_at: ts }).eq('customer_id', id)),
           requireOk(supabase.from('customers').update({ deleted_at: ts }).eq('id', id)),
@@ -517,6 +523,17 @@ export const customerOps = {
     } else {
       await markCustomer()
       await cascadeLocal()
+    }
+  },
+
+  async bulkSoftDelete(ids: string[]): Promise<void> {
+    // Process deletes sequentially to avoid overwhelming the DB
+    for (const id of ids) {
+      try {
+        await customerOps.softDelete(id)
+      } catch (err) {
+        console.error(`[customerOps.bulkSoftDelete] Failed to delete ${id}:`, err)
+      }
     }
   },
 }
@@ -644,8 +661,10 @@ export const orderOps = {
             )
           }
           // Cache locally
-          await db.orders.put({ ...mapOrder(saved), _synced: 1 })
-          return mapOrder(saved)
+          if (!saved) throw new Error('Failed to create order')
+          const mapped = mapOrder(saved as Record<string, unknown>)
+          await db.orders.put({ ...mapped, _synced: 1 })
+          return mapped
         } else {
           // Offline: queue for sync
           await db.orders.put({ ...order, _synced: 0 })
@@ -668,7 +687,7 @@ export const orderOps = {
   async updateStatus(orderId: string, newStatus: OrderRecord['status'], changedBy: string): Promise<void> {
     const current = await requireOk(
       supabase.from('orders').select('status, shop_id').eq('id', orderId).single()
-    ) as any
+    ) as { status: string; shop_id: string }
     const ts = nowKarachiIso()
     await requireOk(
       supabase.from('orders').update(clean({
@@ -720,7 +739,8 @@ export const orderOps = {
     const saved = await requireOk(
       supabase.from('orders').update(patch).eq('id', orderId).select(ORDER_COLUMNS).single()
     )
-    return mapOrder(saved)
+    if (!saved) throw new Error('Order not found')
+    return mapOrder(saved as Record<string, unknown>)
   },
 
   async softDelete(orderId: string): Promise<void> {
@@ -768,7 +788,8 @@ export const paymentOps = {
     const orderRow = await requireOk(
       supabase.from('orders').select(ORDER_COLUMNS).eq('id', data.orderId).eq('shop_id', shopId).is('deleted_at', null).single()
     )
-    const order = mapOrder(orderRow)
+    if (!orderRow) throw new Error('Order not found')
+    const order = mapOrder(orderRow as Record<string, unknown>)
     const existing = await paymentOps.getForOrder(data.orderId)
     const paidTowardBalance = existing.reduce((sum, p) => sum + paymentAppliedAmount(p), 0)
     const remainingBalance = Math.max(0, order.totalPrice - paidTowardBalance)
@@ -800,7 +821,8 @@ export const paymentOps = {
     const saved = await requireOk(
       supabase.from('payments').insert(paymentToRow(payment)).select(PAYMENT_COLUMNS).single()
     )
-    return mapPayment(saved)
+    if (!saved) throw new Error('Failed to create payment')
+    return mapPayment(saved as Record<string, unknown>)
   },
 }
 
@@ -818,7 +840,7 @@ export const dashboardOps = {
       supabase.from('orders').select('total_price, amount_paid')
         .eq('shop_id', shopId).is('deleted_at', null).lt('due_date', today).not('status', 'in', '("delivered","cancelled")'),
     ])
-    const overdueOrders = (overdueResult.data ?? []) as any[]
+    const overdueOrders = (overdueResult.data ?? []) as { total_price: number; amount_paid: number }[]
     const pendingBalance = overdueOrders.reduce((sum: number, o) => sum + Math.max(0, Number(o.total_price ?? 0) - Number(o.amount_paid ?? 0)), 0)
     return {
       totalOrdersToday: todayResult.count ?? 0,

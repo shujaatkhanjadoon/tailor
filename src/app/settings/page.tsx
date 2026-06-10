@@ -34,7 +34,7 @@ export default function SettingsPage() {
   const { currentUser, shopId, logout, isOwner } = useAuth();
   const myPlan = usePlan();
   const { t } = useTranslation();
-  const { locale, setLocale } = useLocale();
+  const { locale, setLocale, fontUrdu, setFontUrdu } = useLocale();
 
   const [memberCount, setMemberCount] = useState(0);
   const [orderCount, setOrderCount] = useState(0);
@@ -90,6 +90,10 @@ export default function SettingsPage() {
     setLocale(locale === 'ur' ? 'en' : 'ur');
   };
 
+  const toggleFont = () => {
+    setFontUrdu(!fontUrdu);
+  };
+
   return (
     <ErrorBoundary>
     <div className="flex flex-col min-h-screen bg-slate-50 pb-20 lg:pb-8">
@@ -139,6 +143,19 @@ export default function SettingsPage() {
             sublabel={t('settings.languageDesc')}
             value={t('settings.languageValue')}
             onClick={toggleLanguage}
+          />
+        </div>
+
+        {/* URDU FONT TOGGLE */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <SettingsRow
+            icon={Scissors}
+            iconBg="bg-emerald-100"
+            iconColor="text-emerald-600"
+            label="Urdu Nastaliq Font"
+            sublabel="Nastaliq calligraphy style mein Urdu parhein"
+            value={fontUrdu ? 'On' : 'Off'}
+            onClick={toggleFont}
           />
         </div>
 

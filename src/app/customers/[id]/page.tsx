@@ -1,12 +1,12 @@
 // src/app/customers/[id]/page.tsx
 'use client'
 
-import { use, useState } from 'react'
+import { use, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Phone, MessageCircle, Ruler,
   ShoppingBag, Wallet, Edit3, Trash2,
-  Clock, CheckCircle2,
+  Clock, CheckCircle2, History,
 } from 'lucide-react'
 import { useCustomer } from '@/hooks/useCustomers'
 import { useAuth } from '@/lib/auth/AuthContext'
@@ -19,6 +19,11 @@ import { QuickPaymentSheet } from '@/components/payments/QuickPaymentSheet'
 import { orderBalance, orderPaymentProgress } from '@/lib/payments/calculations'
 import { recipientLabel } from '@/lib/order-recipient'
 import { AppFooter } from '@/components/layout/AppFooter'
+import { supabase } from '@/lib/supabase/client'
+import { mapStatusHistory } from '@/lib/supabase/records'
+import type { OrderStatusHistoryRecord } from '@/lib/db/schema'
+
+type ProfileTab = 'overview' | 'timeline'
 
 export default function CustomerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id }   = use(params)
@@ -26,6 +31,31 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   const { isOwner} = useAuth()
   const { customer, orders, measurements, totalSpent, pendingBalance, finance, refresh } = useCustomer(id)
   const [paymentOrderId, setPaymentOrderId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<ProfileTab>('overview')
+  const [statusHistory, setStatusHistory] = useState<OrderStatusHistoryRecord[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+
+  // Fetch order status history for timeline
+  useEffect(() => {
+    if (activeTab !== 'timeline' || orders.length === 0) return
+    const fetchHistory = async () => {
+      setHistoryLoading(true)
+      try {
+        const orderIds = orders.map(o => o.id)
+        const { data } = await supabase
+          .from('order_status_history')
+          .select('id, order_id, old_status, new_status, shop_id, changed_by, changed_at')
+          .in('order_id', orderIds)
+          .order('changed_at', { ascending: false })
+        setStatusHistory((data ?? []).map(mapStatusHistory))
+      } catch {
+        // non-critical
+      } finally {
+        setHistoryLoading(false)
+      }
+    }
+    fetchHistory()
+  }, [activeTab, orders])
 
   if (!customer) {
     return (
@@ -173,6 +203,89 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
         </div>
       </div>
 
+      {/* ── TABS ── */}
+      <div className="px-4 mt-5">
+        <div className="flex gap-1 bg-slate-100 rounded-2xl p-1">
+          {([
+            { key: 'overview' as ProfileTab, label: 'Overview', icon: ShoppingBag },
+            { key: 'timeline' as ProfileTab, label: 'Order Timeline', icon: History },
+          ]).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all',
+                activeTab === tab.key
+                  ? 'bg-white text-slate-800 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              )}
+            >
+              <tab.icon size={13} />
+              <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── TIMELINE TAB ── */}
+      {activeTab === 'timeline' && (
+        <div className="px-4 mt-4">
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : statusHistory.length === 0 ? (
+            <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center">
+              <History size={32} className="text-slate-300 mx-auto mb-3" />
+              <p className="text-sm font-semibold text-slate-500">No order history yet</p>
+              <p className="text-xs text-slate-400 mt-1">Status changes will appear here</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {statusHistory.map((entry) => {
+                const order = orders.find(o => o.id === entry.orderId)
+                const oldCfg = ORDER_STATUS_CONFIG[entry.oldStatus as keyof typeof ORDER_STATUS_CONFIG]
+                const newCfg = ORDER_STATUS_CONFIG[entry.newStatus as keyof typeof ORDER_STATUS_CONFIG]
+                const date = new Date(entry.changedAt)
+                return (
+                  <div key={entry.id} className="bg-white border border-slate-200 rounded-2xl p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">{oldCfg?.emoji ?? '📋'}</span>
+                        <span className="text-xs text-slate-400">→</span>
+                        <span className="text-sm">{newCfg?.emoji ?? '📋'}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-700">
+                          {oldCfg?.label ?? entry.oldStatus} → {newCfg?.label ?? entry.newStatus}
+                        </p>
+                        {order && (
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            #{String(order.orderNumber).padStart(3, '0')} · {order.customerName}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-medium text-slate-500">
+                          {format(date, 'd MMM yyyy')}
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          {format(date, 'h:mm a')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <AppFooter className="mt-6" />
+        </div>
+      )}
+
+      {/* ── OVERVIEW TAB ── */}
+      {activeTab === 'overview' && (
+      <>
       {/* ── ACTIVE ORDERS ── */}
       <div className="px-4 mt-5">
         <div className="flex items-center justify-between mb-3">
@@ -361,6 +474,8 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
         />
       )}
       <AppFooter className="mt-6" />
+      </>
+      )}
     </div>
   )
 }

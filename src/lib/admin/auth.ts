@@ -120,7 +120,7 @@ export function verifySessionToken(token: string): boolean {
       }
     }
 
-    // 4-part: timestamp:nonce:mode:signature
+    // @deprecated 4-part: timestamp:nonce:mode:signature — legacy format, kept for session migration
     if (parts.length === 4) {
       const [tsStr, , mode, signature] = parts
       const timestamp = parseInt(tsStr, 10)
@@ -142,7 +142,7 @@ export function verifySessionToken(token: string): boolean {
       }
     }
 
-    // New format: timestamp:nonce:signature (3 parts) - legacy
+    // @deprecated timestamp:nonce:signature (3 parts) — legacy format, kept for session migration
     if (parts.length === 3) {
       const [tsStr, , signature] = parts
       const timestamp = parseInt(tsStr, 10)
@@ -163,7 +163,7 @@ export function verifySessionToken(token: string): boolean {
       }
     }
 
-    // Legacy format: timestamp:signature (2 parts)
+    // @deprecated Legacy format: timestamp:signature (2 parts) — kept for session migration
     if (parts.length === 2) {
       const [tsStr, signature] = parts
       const timestamp = parseInt(tsStr, 10)
@@ -231,7 +231,7 @@ export function getAdminSession(token: string): AdminSession | null {
       return { role, username }
     }
 
-    // Legacy 4-part tokens: assume super_admin
+    // @deprecated Legacy 4-part tokens: assume super_admin — kept for session migration
     if (verifySessionToken(token)) {
       return { role: 'super_admin', username: 'master' }
     }

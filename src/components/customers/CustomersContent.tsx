@@ -5,7 +5,7 @@ import { useRouter }                  from 'next/navigation'
 import {
   Plus, Search, X,
   Phone, ChevronRight,
-  ShoppingBag, Download,
+  ShoppingBag, Download, CheckSquare, Trash2,
 } from 'lucide-react'
 import type { CustomerRecord }        from '@/lib/db/schema'
 import { useAuth }                    from '@/lib/auth/AuthContext'
@@ -17,15 +17,23 @@ import { AppFooter } from '@/components/layout/AppFooter'
 import { exportCSV } from '@/lib/export/download'
 import { useTranslation } from 'react-i18next'
 import { VirtualList } from '@/components/ui/VirtualList'
+import { useBulkSelection } from '@/hooks/useBulkSelection'
+import { customerOps } from '@/lib/db/operations'
 
 type GenderFilter = 'all' | 'male' | 'female' | 'child'
 
 function CustomerCardView({
   customer,
   onClick,
+  selectionMode = false,
+  isSelected = false,
+  onToggle,
 }: {
   customer: CustomerRecord
   onClick:  () => void
+  selectionMode?: boolean
+  isSelected?: boolean
+  onToggle?: () => void
 }) {
   const { t } = useTranslation()
   const initials = customer.name
@@ -56,12 +64,21 @@ function CustomerCardView({
 
   return (
     <button
-      onClick={onClick}
-      className="w-full bg-white border border-slate-200 rounded-2xl p-4
-                 text-left transition-all active:scale-[0.98] hover:border-slate-300
-                 hover:shadow-sm"
+      onClick={selectionMode ? onToggle : onClick}
+      className={cn(
+        'w-full bg-white border rounded-2xl p-4 text-left transition-all active:scale-[0.98]',
+        isSelected ? 'border-blue-500 bg-blue-50/50 shadow-sm' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm',
+      )}
     >
       <div className="flex items-center gap-3">
+        {selectionMode && (
+          <div className={cn(
+            'w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-colors',
+            isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 bg-white',
+          )}>
+            {isSelected && <CheckSquare size={12} />}
+          </div>
+        )}
         <div className={cn(
           'w-12 h-12 rounded-full flex items-center justify-center',
           'font-bold text-sm shrink-0',
@@ -117,6 +134,30 @@ export function CustomersContent() {
 
   const { customers: allCustomers, isLoading, hasMore, loadMore } = useCustomers(shopId)
 
+  // Bulk selection
+  const bulk = useBulkSelection()
+  const [selectionMode, setSelectionMode] = useState(false)
+
+  const handleBulkDelete = async () => {
+    const ids = bulk.selectedIds
+    if (ids.length === 0) return
+    if (!confirm(`${ids.length} customer(s) delete karna chahte hain? Yeh wapas nahi aayega.`)) return
+    await customerOps.bulkSoftDelete(ids)
+    bulk.clear()
+    setSelectionMode(false)
+    // Force reload to refresh the list after bulk delete
+    window.location.reload()
+  }
+
+  const handleBulkExportCSV = () => {
+    const selected = filtered.filter(c => bulk.isSelected(c.id))
+    const rows = selected.map(c => ({
+      name: c.name, phone: c.phone, gender: c.gender,
+      totalOrders: c.totalOrders ?? 0, lastOrder: c.lastOrderAt ?? '', notes: c.notes ?? '',
+    }))
+    exportCSV(rows, 'darzi-customers-selected')
+  }
+
   const filtered = useMemo(() => {
     let list = [...allCustomers]
     if (gender !== 'all') list = list.filter(c => c.gender === gender)
@@ -166,6 +207,16 @@ export function CustomersContent() {
           </div>
           {isOwner && (
             <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => { setSelectionMode(v => !v); bulk.clear() }}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
+                  selectionMode ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200',
+                )}
+              >
+                <CheckSquare size={15} />
+                <span className="hidden min-[420px]:inline">{selectionMode ? 'Done' : 'Select'}</span>
+              </button>
               <button onClick={() => exportCSV(exportRows, 'darzi-customers')} disabled={filtered.length === 0}
                 className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-40">
                 <Download size={15} />
@@ -259,7 +310,13 @@ export function CustomersContent() {
                 onEndReached={hasMore ? loadMore : undefined}
                 renderItem={(customer: CustomerRecord) => (
                   <div className="px-0 py-1.5">
-                    <CustomerCardView customer={customer} onClick={() => router.push(`/customers/${customer.id}`)} />
+                    <CustomerCardView
+                      customer={customer}
+                      onClick={() => router.push(`/customers/${customer.id}`)}
+                      selectionMode={selectionMode}
+                      isSelected={bulk.isSelected(customer.id)}
+                      onToggle={() => bulk.toggle(customer.id)}
+                    />
                   </div>
                 )}
               />
@@ -275,6 +332,58 @@ export function CustomersContent() {
         )}
         {!isLoading && <AppFooter className="mt-4" />}
       </main>
+
+      {/* Bulk Actions Bar */}
+      {selectionMode && bulk.count > 0 && (
+        <div className="fixed bottom-24 lg:bottom-4 left-1/2 -translate-x-1/2 z-40
+          bg-slate-900 text-white rounded-2xl shadow-2xl px-4 py-3
+          flex items-center gap-2 flex-wrap justify-center
+          border border-slate-700 backdrop-blur-sm bg-slate-900/95
+          max-w-[95vw] animate-in slide-in-from-bottom-2"
+        >
+          <span className="text-xs font-bold text-slate-300 whitespace-nowrap mr-1">
+            {bulk.count} selected
+          </span>
+
+          <button
+            onClick={() => bulk.selectAll(filtered.map(c => c.id))}
+            className="text-[10px] font-semibold text-blue-400 hover:text-blue-300 px-1.5"
+          >
+            All ({filtered.length})
+          </button>
+
+          <div className="w-px h-5 bg-slate-600 mx-1" />
+
+          <button
+            onClick={handleBulkExportCSV}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold
+              bg-green-600 hover:bg-green-500 transition-colors"
+          >
+            <Download size={12} />
+            Export
+          </button>
+
+          <button
+            onClick={handleBulkDelete}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold
+              bg-red-600 hover:bg-red-500 transition-colors"
+          >
+            <Trash2 size={12} />
+            Delete
+          </button>
+
+          <div className="w-px h-5 bg-slate-600 mx-1" />
+
+          <button
+            onClick={() => { bulk.clear(); setSelectionMode(false) }}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold
+              text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+          >
+            <X size={12} />
+            Cancel
+          </button>
+        </div>
+      )}
     </div>
   )
 }

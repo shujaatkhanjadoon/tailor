@@ -170,6 +170,11 @@
     font-family: var(--font-urdu), var(--font-sans), sans-serif;
   }
 
+  /* Urdu Nastaliq font toggle — applies when font-urdu class is set on <html> */
+  html.font-urdu body {
+    font-family: var(--font-urdu), var(--font-sans), sans-serif !important;
+  }
+
   @media (max-width: 639px) {
     button {
       min-width: 40px;

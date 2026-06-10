@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase/client'
 import { mapShop, mapTeamMember, mapCustomer, mapOrder, mapMeasurement, mapPayment, mapStatusHistory } from '@/lib/supabase/records'
 import { nowISO } from './offline'
 
-export type SyncEventType = 'pull-start' | 'pull-end' | 'push-start' | 'push-end' | 'sync-error'
+export type SyncEventType = 'pull-start' | 'pull-end' | 'push-start' | 'push-end' | 'sync-error' | 'sync-conflict'
 export type SyncEventCallback = (event: SyncEventType, table?: string, detail?: string) => void
 
 type TableName =
@@ -73,11 +73,7 @@ class SyncEngine {
   }
 
   onSyncEvent(callback: SyncEventCallback): () => void {
-    const type = 'sync-error' as SyncEventType
-    if (!this.eventListeners.has(type)) {
-      this.eventListeners.set(type, new Set())
-    }
-    for (const t of ['pull-start', 'pull-end', 'push-start', 'push-end', 'sync-error'] as SyncEventType[]) {
+    for (const t of ['pull-start', 'pull-end', 'push-start', 'push-end', 'sync-error', 'sync-conflict'] as SyncEventType[]) {
       if (!this.eventListeners.has(t)) {
         this.eventListeners.set(t, new Set())
       }
@@ -242,7 +238,9 @@ class SyncEngine {
         const localUpdatedAt = r.updatedAt || r.createdAt || ''
         const serverUpdatedAt = serverRow?.updated_at || ''
 
-        if (serverRow && serverUpdatedAt > localUpdatedAt) {
+        if (serverRow && new Date(serverUpdatedAt).getTime() > new Date(localUpdatedAt).getTime()) {
+          // Server has a newer version — keep server version, skip local push
+          this.emit('sync-conflict', tableName)
           const { data: fresh } = await supabase
             .from(supabaseTable)
             .select(SUPABASE_COLUMNS[tableName])
