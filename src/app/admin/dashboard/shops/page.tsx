@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   Search,
@@ -22,6 +23,8 @@ import {
   Lock,
   X,
   ExternalLink,
+  Layers,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmModal } from "@/components/admin/ConfirmModal";
@@ -937,6 +940,7 @@ function ShopCard({
 // ── Main Page ─────────────────────────────────────────────────────
 
 export default function AdminShopsPage() {
+  const router = useRouter();
   // Guard: defer time-dependent rendering to after hydration to avoid
   // PPR prerender warning ("cannot access Date.now() before uncached data")
   const [hydrated, setHydrated] = useState(false);
@@ -1040,6 +1044,34 @@ export default function AdminShopsPage() {
   useEffect(() => {
     loadInitial();
   }, [loadInitial]);
+
+  // ── CSV Export ───────────────────────────────────────────────────
+  const exportCSV = useCallback(() => {
+    const headers = ['Shop Name', 'Phone', 'Email', 'City', 'Plan', 'Billing Cycle', 'Status', 'Expiry', 'Orders (mo)', 'Customers', 'Karigar', 'Created']
+    const rows = shops.map(s => {
+      const sub = s.subscriptions?.[0]
+      const usage = s.shop_usage?.[0]
+      return [
+        s.shop_name ?? '',
+        s.owner_phone ?? '',
+        s.owner_email ?? '',
+        s.city ?? '',
+        sub?.plan ?? s.plan ?? '',
+        sub?.billing_cycle ?? '',
+        sub?.status ?? '',
+        sub?.expires_at ? new Date(sub.expires_at).toLocaleDateString('en-PK') : '',
+        String(usage?.orders_this_month ?? 0),
+        String(usage?.customers_total ?? 0),
+        String(usage?.karigar_count ?? 0),
+        s.created_at ? new Date(s.created_at).toLocaleDateString('en-PK') : '',
+      ]
+    })
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = `shops-export-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click(); URL.revokeObjectURL(url)
+  }, [shops])
 
   // ── Confirmation handler ───────────────────────────────────────
   const showConfirm = useCallback(
@@ -1307,9 +1339,28 @@ export default function AdminShopsPage() {
             {loading ? "Loading..." : `${shops.length} total shops`}
           </p>
         </div>
-        <button
-          onClick={loadInitial}
-          disabled={loading}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push('/admin/dashboard/shops/bulk')}
+            className="flex items-center gap-1.5 bg-purple-900/40 border border-purple-700
+                       text-purple-300 hover:bg-purple-900/60 text-xs font-semibold
+                       px-3 py-2 rounded-xl transition-colors"
+          >
+            <Layers size={13} />
+            <span className="hidden sm:inline">Bulk Ops</span>
+          </button>
+          <button
+            onClick={exportCSV}
+            className="flex items-center gap-1.5 bg-green-900/40 border border-green-700
+                       text-green-300 hover:bg-green-900/60 text-xs font-semibold
+                       px-3 py-2 rounded-xl transition-colors"
+          >
+            <Download size={13} />
+            <span className="hidden sm:inline">CSV</span>
+          </button>
+          <button
+            onClick={loadInitial}
+            disabled={loading}
           className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700
                      text-slate-300 font-semibold px-3 py-2 rounded-xl text-sm
                      disabled:opacity-50 transition-colors"
@@ -1317,6 +1368,7 @@ export default function AdminShopsPage() {
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           <span className="hidden sm:inline">Refresh</span>
         </button>
+      </div>
       </div>
 
       {/* Pending verifications section */}

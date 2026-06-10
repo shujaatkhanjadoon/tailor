@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   RefreshCw, CheckCircle2, XCircle,
   Clock, Copy, Check, MessageCircle,
-  ChevronDown, ChevronUp, Smartphone, Search,
+  ChevronDown, ChevronUp, Smartphone, Search, Download,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -437,6 +437,26 @@ export default function AdminPaymentsPage() {
     load(false, s)
   }
 
+  const exportCSV = () => {
+    const headers = ['Shop Name', 'Phone', 'Plan', 'Cycle', 'Amount (PKR)', 'Status', 'Method', 'TxID', 'Date']
+    const rows = payments.map(p => [
+      p.shops?.shop_name ?? '',
+      p.shops?.owner_phone ?? '',
+      p.plan ?? '',
+      p.billing_cycle ?? '',
+      String(p.amount_pkr ?? 0),
+      p.status ?? '',
+      p.method ?? '',
+      p.gateway_tx_id ?? '',
+      p.paid_at ? new Date(p.paid_at).toLocaleDateString('en-PK') : '',
+    ])
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = `payments-${statusFilter}-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click(); URL.revokeObjectURL(url)
+  }
+
   const handleActivate = async (p: Payment) => {
     const res  = await fetch('/api/admin/action', {
       method:  'POST',
@@ -484,15 +504,26 @@ export default function AdminPaymentsPage() {
             {loading ? 'Loading...' : `${payments.length} ${statusFilter} payment${payments.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <button
-          onClick={() => load(false, statusFilter, search)}
-          disabled={loading}
-          className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700
-                     text-slate-300 font-semibold px-3 py-2 rounded-xl text-sm"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          <span className="hidden sm:inline">Refresh</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportCSV}
+            className="flex items-center gap-1.5 bg-green-900/40 border border-green-700
+                       text-green-300 hover:bg-green-900/60 text-xs font-semibold
+                       px-3 py-2 rounded-xl transition-colors"
+          >
+            <Download size={13} />
+            <span className="hidden sm:inline">CSV</span>
+          </button>
+          <button
+            onClick={() => load(false, statusFilter, search)}
+            disabled={loading}
+            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700
+                       text-slate-300 font-semibold px-3 py-2 rounded-xl text-sm"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Status tabs + search */}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, Bell, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { RefreshCw, Bell, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface NotificationTemplate {
@@ -29,24 +29,38 @@ const TYPE_COLORS: Record<string, string> = {
   urgent: "bg-red-900/50 text-red-400",
 };
 
+const PER_PAGE = 50
+
 export default function NotificationHistoryPage() {
   const [logs, setLogs] = useState<NotificationTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const [hasMore, setHasMore] = useState(true);
+  const offsetRef = useRef(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (append = false) => {
+    if (append) setLoadingMore(true); else setLoading(true)
     setError("");
     try {
-      const res = await fetch("/api/admin/data?type=notification_history&limit=200");
+      const offset = append ? offsetRef.current : 0
+      const res = await fetch(`/api/admin/data?type=notification_history&limit=${PER_PAGE}&offset=${offset}`);
       if (res.status === 401) { window.location.href = "/admin/login"; return; }
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setLogs(data.data ?? []);
+      const batch = (data.data ?? []) as NotificationTemplate[]
+      if (append) {
+        setLogs(prev => [...prev, ...batch])
+        offsetRef.current += batch.length
+      } else {
+        setLogs(batch)
+        offsetRef.current = PER_PAGE
+      }
+      setHasMore(batch.length >= PER_PAGE)
     } catch (e) {
       setError(String(e));
     } finally {
-      setLoading(false);
+      setLoading(false); setLoadingMore(false)
     }
   }, []);
 
@@ -59,7 +73,7 @@ export default function NotificationHistoryPage() {
           <h1 className="text-xl font-bold text-white">Notification History</h1>
           <p className="text-slate-400 text-sm mt-0.5">{logs.length} total notifications sent</p>
         </div>
-        <button onClick={load} disabled={loading}
+        <button onClick={() => load()} disabled={loading}
           className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold px-3 py-2 rounded-xl disabled:opacity-50"
         >
           <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> Refresh
@@ -88,38 +102,54 @@ export default function NotificationHistoryPage() {
       )}
 
       {!loading && logs.length > 0 && (
-        <div className="space-y-2">
-          {logs.map(log => (
-            <div key={log.id}
-              className="bg-slate-800/40 border border-slate-700 rounded-xl p-3"
-            >
-              <div className="flex items-start gap-3">
-                <div className={cn(
-                  "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                  TYPE_COLORS[log.type] ?? "bg-slate-700 text-slate-400",
-                )}>
-                  <Bell size={14} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium text-slate-200 truncate">{log.title}</span>
-                    <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full", TYPE_COLORS[log.type] ?? "bg-slate-800 text-slate-400")}>
-                      {log.type}
-                    </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-400">
-                      {log.target_plan}
-                    </span>
+        <>
+          <div className="space-y-2">
+            {logs.map(log => (
+              <div key={log.id}
+                className="bg-slate-800/40 border border-slate-700 rounded-xl p-3"
+              >
+                <div className="flex items-start gap-3">
+                  <div className={cn(
+                    "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                    TYPE_COLORS[log.type] ?? "bg-slate-700 text-slate-400",
+                  )}>
+                    <Bell size={14} />
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{log.message}</p>
-                  <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-600">
-                    <span>Created: {formatDateTime(log.created_at)}</span>
-                    <span>Expires: {formatDateTime(log.expires_at)}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-slate-200 truncate">{log.title}</span>
+                      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full", TYPE_COLORS[log.type] ?? "bg-slate-800 text-slate-400")}>
+                        {log.type}
+                      </span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-400">
+                        {log.target_plan}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{log.message}</p>
+                    <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-600">
+                      <span>Created: {formatDateTime(log.created_at)}</span>
+                      <span>Expires: {formatDateTime(log.expires_at)}</span>
+                    </div>
                   </div>
                 </div>
               </div>
+            ))}
+          </div>
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <button
+                onClick={() => load(true)}
+                disabled={loadingMore}
+                className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600
+                           text-slate-300 text-xs font-semibold px-4 py-2.5 rounded-xl
+                           disabled:opacity-50 transition-colors"
+              >
+                {loadingMore ? <RefreshCw size={12} className="animate-spin" /> : <ChevronDown size={12} />}
+                {loadingMore ? "Loading..." : "Load More"}
+              </button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );
