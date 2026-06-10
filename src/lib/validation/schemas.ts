@@ -88,6 +88,7 @@ export const schemas = {
     role: z.enum(['super_admin', 'finance', 'support']).optional(),
     password: z.string().optional(),
     days: z.number().optional(),
+    expiresAt: z.string().optional(),
   }),
 
   adminNotificationPost: z.object({

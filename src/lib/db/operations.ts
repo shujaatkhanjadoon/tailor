@@ -46,7 +46,7 @@ const ORDER_COLUMNS = 'id,shop_id,order_number,tracking_code,customer_id,custome
 const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,applied_to_balance,kind,method,recorded_by,paid_at,notes,deleted_at'
 const TEAM_MEMBER_COLUMNS = 'id,shop_id,name,phone,role,pin_hash,speciality,pay_rate_type,pay_rate,is_active,joined_at,created_at,deleted_at'
 
-export const uuid = (): string => crypto.randomUUID()
+export const uuid = (): string => globalThis.crypto.randomUUID()
 
 function clean<T extends Record<string, unknown>>(row: T): T {
   Object.keys(row).forEach(key => {
