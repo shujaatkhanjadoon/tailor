@@ -225,7 +225,7 @@ export async function GET(req: NextRequest) {
         if (!shopId) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
         const [shopRows, subs, subPayments, orders, shopPayments, team, statusHistory, usage, auditLogs] = await Promise.all([
-          sbGet(`shops?id=eq.${shopId}&limit=1`) as Promise<ShopRow[]>,
+          sbGet(`shops?select=*&id=eq.${shopId}&limit=1`) as Promise<ShopRow[]>,
           sbGet(`subscriptions?shop_id=eq.${shopId}&order=created_at.desc`) as Promise<SubscriptionRow[]>,
           sbGet(`subscription_payments?shop_id=eq.${shopId}&order=paid_at.desc&limit=50`) as Promise<SubscriptionPaymentRow[]>,
           sbGet(`orders?shop_id=eq.${shopId}&order=created_at.desc&limit=100`) as Promise<OrderRow[]>,

@@ -40,11 +40,26 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
     )
   }
 
+  // Block editing delivered or cancelled orders
+  const completed = order?.status === 'delivered' || order?.status === 'cancelled'
+
   if (!order) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="h-7 w-7 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
       </div>
+    )
+  }
+
+  if (completed) {
+    return (
+      <AccessNotice
+        icon="role"
+        title={order.status === 'delivered' ? 'Order delivered hai' : 'Order cancel hai'}
+        message={order.status === 'delivered'
+          ? 'Delivered order edit nahi ho sakta. Ye order complete ho chuka hai.'
+          : 'Cancelled order edit nahi ho sakta.'}
+      />
     )
   }
 

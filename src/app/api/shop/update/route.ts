@@ -39,14 +39,14 @@ export async function POST(req: NextRequest) {
     const updateData: Record<string, unknown> = {
       shop_name: shopName,
       owner_name: ownerName,
-      whatsapp_number: whatsapp ?? null,
-      state_province: stateProvince ?? null,
-      city: city ?? null,
-      address_line: addressLine ?? null,
-      postal_code: postalCode ?? null,
-      brand_name: brandName ?? null,
-      brand_color: brandColor ?? null,
-      brand_logo_url: brandLogoUrl ?? null,
+      whatsapp_number: whatsapp?.trim() || null,
+      state_province: stateProvince?.trim() || null,
+      city: city?.trim() || null,
+      address_line: addressLine?.trim() || null,
+      postal_code: postalCode?.trim() || null,
+      brand_name: brandName?.trim() || null,
+      brand_color: brandColor || null,
+      brand_logo_url: brandLogoUrl || null,
       updated_at: now,
     }
 

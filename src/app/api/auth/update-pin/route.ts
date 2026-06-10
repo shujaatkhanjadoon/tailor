@@ -62,7 +62,19 @@ export async function POST(req: NextRequest) {
       }
     )
 
-    return NextResponse.json({ success: true })
+    // Issue a fresh session token with the new token_version so the
+    // user stays logged in after changing their PIN.
+    const { generateMemberSessionToken } = await import('@/lib/auth/session')
+    const newToken = generateMemberSessionToken(memberId, shopId, undefined, nextVersion)
+    const response = NextResponse.json({ success: true })
+    response.cookies.set(MEMBER_SESSION_COOKIE, newToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict' as const,
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+      path: '/',
+    })
+    return response
   } catch (e) {
     logger.error('update-pin', 'PIN update error', e)
     return NextResponse.json(

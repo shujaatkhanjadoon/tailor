@@ -392,7 +392,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 <span>Gahak Ko Batao</span>
               </a>
             )}
-            {isOwner && (
+            {isOwner && !isTerminal && (
               <button
                 onClick={() => router.push(`/orders/${order.id}/edit`)}
                 className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30

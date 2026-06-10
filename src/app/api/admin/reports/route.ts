@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
           return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
         })
 
-        const shops: ShopRow[] = await sbGet('shops?select=id,created_at,plan,is_active,city')
+        const shops: ShopRow[] = await sbGet('shops?select=id,shop_name,created_at,plan,is_active,city,state_province')
 
         const data = monthKeys.map(key => ({
           month: key,

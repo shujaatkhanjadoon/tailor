@@ -12,7 +12,7 @@ import { teamOps }             from '@/lib/db/operations'
 import { useAuth }             from '@/lib/auth/AuthContext'
 import { cn }                  from '@/lib/utils'
 import { usePlan }             from '@/hooks/usePlan'
-import { KARIGAR_PIN_LENGTH, validateKarigarPIN, hashPIN, getPINStrength } from '@/lib/security/pin'
+import { KARIGAR_PIN_LENGTH, validateKarigarPIN, getPINStrength } from '@/lib/security/pin'
 import { validatePakistaniPhone } from '@/lib/security/phone'
 import { supabase }            from '@/lib/supabase/client'
 import { formatKarigarSkills, KARIGAR_SKILLS, parseKarigarSkills } from '@/lib/team/karigar-skills'
@@ -250,35 +250,16 @@ export function TeamManager() {
       const phoneResult = validatePakistaniPhone(form.phone)
       const cleanPhone  = phoneResult.cleaned
 
-      // Hash PIN if new or changed
-      let pinToSave: string
-      if (!editingId || pinChanged) {
-        pinToSave = await hashPIN(form.pin)
-      } else {
-        // Keep existing hash
-        const existingMember = members.find(m => m.id === editingId)
-        pinToSave = existingMember?.pin ?? form.pin
-      }
-
-      const memberData = {
-        name:        form.name.trim(),
-        phone:       cleanPhone,
-        role:        'karigar' as const,
-        pin:         pinToSave,
-        speciality:  formatKarigarSkills(form.speciality.split(',')),
-        payRateType: canUsePayReports ? form.payRateType : undefined,
-        payRate:     canUsePayReports ? Number(form.payRate) || 0 : 0,
-      }
-
-      // ── Write to Supabase via API (immediate) ─────────────────
+      // ── Write to Supabase via API ────────────────────────────
+      // Send raw PIN — the API validates and hashes it server-side
       const payload = {
         id: editingId ?? undefined,
-        name: memberData.name,
-        phone: memberData.phone,
-        pin: editingId && !pinChanged ? undefined : pinToSave,
-        speciality: memberData.speciality,
-        payRateType: memberData.payRateType,
-        payRate: memberData.payRate,
+        name: form.name.trim(),
+        phone: cleanPhone,
+        pin: (!editingId || pinChanged) ? form.pin : undefined,
+        speciality: formatKarigarSkills(form.speciality.split(',')),
+        payRateType: canUsePayReports ? form.payRateType : undefined,
+        payRate: canUsePayReports ? Number(form.payRate) || 0 : 0,
       }
 
       const res = await fetch('/api/team/members', {
@@ -294,10 +275,18 @@ export function TeamManager() {
       }
 
       if (editingId) {
-        await teamOps.update(editingId, memberData)
+        // Existing member: optimistically update local state with form data
+        const updatedData = {
+          name: form.name.trim(),
+          phone: cleanPhone,
+          speciality: formatKarigarSkills(form.speciality.split(',')),
+          payRateType: canUsePayReports ? form.payRateType : undefined,
+          payRate: canUsePayReports ? Number(form.payRate) || 0 : 0,
+        }
+        await teamOps.update(editingId, updatedData)
         setMembers(prev => {
           const updated = prev.map(m => m.id === editingId
-            ? { ...m, ...memberData, _synced: 1 as const }
+            ? { ...m, ...updatedData, _synced: 1 as const }
             : m
           )
           return updated.sort((a, b) => {
@@ -308,7 +297,16 @@ export function TeamManager() {
         })
       } else {
         const newId = crypto.randomUUID()
-        const member = await teamOps.addWithId(shopId, newId, memberData)
+        const newMemberData = {
+          name: form.name.trim(),
+          phone: cleanPhone,
+          role: 'karigar' as const,
+          pin: form.pin,
+          speciality: formatKarigarSkills(form.speciality.split(',')),
+          payRateType: canUsePayReports ? form.payRateType : undefined,
+          payRate: canUsePayReports ? Number(form.payRate) || 0 : 0,
+        }
+        const member = await teamOps.addWithId(shopId, newId, newMemberData)
         setMembers(prev => {
           const updated = [...prev, { ...member, _synced: 1 as const }]
           return updated.sort((a, b) => {
