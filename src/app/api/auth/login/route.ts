@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       `?phone=eq.${encodeURIComponent(cleanedPhone)}` +
       `&is_active=eq.true` +
       `&deleted_at=is.null` +
-      `&select=id,shop_id,name,role,pin_hash,locked_until,failed_attempts` +
+      `&select=id,shop_id,name,role,pin_hash,locked_until,failed_attempts,token_version` +
       `&limit=1`
     )
 
@@ -121,7 +121,8 @@ export async function POST(req: NextRequest) {
       }),
     }).catch(() => {})
 
-    const token = generateMemberSessionToken(member.id, member.shop_id)
+    const tokenVersion = typeof member.token_version === 'number' ? member.token_version : 1
+    const token = generateMemberSessionToken(member.id, member.shop_id, undefined, tokenVersion)
     const res = NextResponse.json({ success: true, role: member.role })
     res.cookies.set(MEMBER_SESSION_COOKIE, token, getSessionCookieOptions())
 
