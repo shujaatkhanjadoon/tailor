@@ -427,12 +427,23 @@ export async function POST(req: NextRequest) {
 
         const now = new Date().toISOString();
 
-        // Soft-delete/deactivate related login and billing data first so
-        // rejected accounts cannot continue signing in while preserving audit.
+        // Fetch current token_version for all team members to increment
+        let tokenVersion = 2; // default if we can't read
+        try {
+          const tvRes = await sbGet(
+            `team_members?shop_id=eq.${encodeURIComponent(shopId)}&role=eq.owner&select=token_version&limit=1`
+          ) as { token_version?: number }[];
+          if (tvRes?.[0] && typeof tvRes[0].token_version === 'number') {
+            tokenVersion = tvRes[0].token_version + 1;
+          }
+        } catch { /* use default */ }
+
+        // Phase 1: Immediately revoke access
         await Promise.all([
           sbPatch(`team_members?shop_id=eq.${shopId}`, {
             is_active: false,
             deleted_at: now,
+            token_version: tokenVersion,
             updated_at: now,
           }).catch((e) => logger.warn('admin', 'team cleanup', e)),
           sbPatch(`subscriptions?shop_id=eq.${shopId}`, {
@@ -454,7 +465,69 @@ export async function POST(req: NextRequest) {
           updated_at: now,
         });
 
-        await logAction("shop_deleted", shopId, shopId, { reason });
+        // Phase 2: Cascade cleanup — soft-delete all business data
+        // Mirrors the owner-side /api/shop/delete cascade to prevent orphaned rows
+        try {
+          const [orders, photos] = await Promise.all([
+            sbGet(`orders?shop_id=eq.${encodeURIComponent(shopId)}&select=id`).catch(() => []),
+            sbGet(`order_photos?shop_id=eq.${encodeURIComponent(shopId)}&select=id,public_id`).catch(() => []),
+          ]);
+
+          const orderIds = (orders as { id: string }[]).map(o => o.id).filter(Boolean);
+          const photosList = (photos as { id: string; public_id?: string }[]);
+          const publicIds = photosList.map(p => p.public_id).filter((id): id is string => !!id);
+
+          // Delete Cloudinary assets
+          if (publicIds.length > 0) {
+            const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+            const apiKey = process.env.CLOUDINARY_API_KEY ?? process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
+            const apiSecret = process.env.CLOUDINARY_API_SECRET;
+            if (cloudName && apiKey && apiSecret) {
+              await Promise.all(publicIds.map((publicId) => {
+                const timestamp = Math.round(Date.now() / 1000);
+                const signString = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
+                const signature = crypto.createHash('sha256').update(signString).digest('hex');
+                const formData = new FormData();
+                formData.append('public_id', publicId);
+                formData.append('timestamp', String(timestamp));
+                formData.append('api_key', apiKey);
+                formData.append('signature', signature);
+                return fetch(
+                  `https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`,
+                  { method: 'POST', body: formData, signal: AbortSignal.timeout(30000) },
+                ).catch(() => {});
+              }));
+            }
+          }
+
+          // Soft-delete in dependency order
+          const shopFilter = `shop_id=eq.${encodeURIComponent(shopId)}`;
+          await Promise.all([
+            sbPatch(`order_status_history?${shopFilter}`, { deleted_at: now }).catch(() => {}),
+            orderIds.length > 0
+              ? sbPatch(`order_photos?${shopFilter}`, { deleted_at: now }).catch(() => {})
+              : Promise.resolve(),
+          ]);
+          await Promise.all([
+            sbPatch(`payments?${shopFilter}`, { deleted_at: now }).catch(() => {}),
+            sbPatch(`measurements?${shopFilter}`, { deleted_at: now }).catch(() => {}),
+          ]);
+          await Promise.all([
+            sbPatch(`orders?${shopFilter}`, { deleted_at: now }).catch(() => {}),
+            sbPatch(`customers?${shopFilter}`, { deleted_at: now }).catch(() => {}),
+          ]);
+
+          // Clean up remaining shop-level tables
+          await Promise.all([
+            sbPatch(`subscription_payments?${shopFilter}`, { deleted_at: now }).catch(() => {}),
+            sbPatch(`shop_usage?${shopFilter}`, { deleted_at: now }).catch(() => {}),
+            sbPatch(`push_subscriptions?${shopFilter}`, { deleted_at: now }).catch(() => {}),
+          ]);
+        } catch (e) {
+          logger.warn('admin', 'Cascade cleanup had errors (non-fatal)', e);
+        }
+
+        await logAction("shop_deleted", shopId, shopId, { reason, token_version: tokenVersion });
         notifyOwner(shopId, "shop_deleted", "Shop Account Deleted", "Admin deleted/deactivated your shop account.", [
           ["Reason", reason ?? "N/A"],
         ]);

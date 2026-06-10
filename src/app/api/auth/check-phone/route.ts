@@ -43,7 +43,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ found: false })
     }
 
-    return NextResponse.json({ found: true })
+    // Fetch shop name for display on PIN login screen
+    let shopName: string | null = null
+    let shopActive = true
+    if (member.shop_id) {
+      try {
+        const shopRes = await sbFetch(
+          `shops?id=eq.${encodeURIComponent(member.shop_id)}&select=shop_name,is_active&limit=1`
+        )
+        if (shopRes.ok) {
+          const shops = await shopRes.json()
+          if (shops?.[0]) {
+            shopName = shops[0].shop_name ?? null
+            shopActive = shops[0].is_active !== false
+          }
+        }
+      } catch { /* non-fatal */ }
+    }
+
+    return NextResponse.json({
+      found: true,
+      shopName,
+      lockedUntil: member.locked_until ?? null,
+      shopActive,
+    })
   } catch (e) {
     logger.error('check-phone', 'POST error', e)
     return serverError('Phone lookup failed')

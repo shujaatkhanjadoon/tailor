@@ -23,6 +23,18 @@ export async function POST(req: NextRequest) {
 
   const { shopId, shopName, ownerName, ownerPhone, ownerEmail, city } = parsed.data
 
+  // Check if a verification request already exists for this shop (idempotency)
+  const existing = await sbFetch(
+    `shop_verification_requests?shop_id=eq.${encodeURIComponent(shopId)}&status=eq.pending&select=id&limit=1`
+  )
+  if (existing.ok) {
+    const existingData = await existing.json()
+    if (existingData?.length > 0) {
+      // Already has a pending request — don't duplicate
+      return NextResponse.json({ success: true, alreadyExists: true })
+    }
+  }
+
   // Insert verification request
   const res = await sbFetch('shop_verification_requests', {
     method:  'POST',

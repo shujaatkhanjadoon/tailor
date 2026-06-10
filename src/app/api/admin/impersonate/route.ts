@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const members = await sbGet(
-      `team_members?shop_id=eq.${encodeURIComponent(shopId)}&role=eq.owner&is_active=eq.true&select=id,shop_id&limit=1`,
+      `team_members?shop_id=eq.${encodeURIComponent(shopId)}&role=eq.owner&is_active=eq.true&select=id,shop_id,token_version&limit=1`,
     )
 
     if (!members || members.length === 0) {
@@ -47,7 +47,8 @@ export async function POST(req: NextRequest) {
 
     const memberId = String(members[0].id)
     const memberShopId = String(members[0].shop_id)
-    const sessionToken = generateMemberSessionToken(memberId, memberShopId)
+    const tokenVersion = typeof members[0].token_version === 'number' ? members[0].token_version : undefined
+    const sessionToken = generateMemberSessionToken(memberId, memberShopId, undefined, tokenVersion)
 
     logAdminAction('impersonated_login', 'shop', shopId, shopId, {
       impersonated_member_id: memberId,

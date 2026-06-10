@@ -235,22 +235,27 @@ export async function exportOrderInvoice(data: InvoiceData) {
   })
   y = (doc as any).lastAutoTable?.finalY + 3 || y + 15
 
-  // Special instructions — render each line in its own row for readability
+  // Special instructions — single row with proper wrapping
   if (order.specialInstructions) {
     const formatted = formatInstructions(order.specialInstructions)
-    const lines = formatted.split('\n').filter(Boolean)
-
-    autoTable(doc, {
-      body: lines.map(line => [line]),
-      startY: y,
-      theme: 'plain',
-      styles: { fontSize: 8, textColor: [70, 70, 70], cellPadding: 3 },
-      margin: { left: margin },
-      tableWidth: pageW,
-      tableLineColor: [225, 225, 225] as any,
-      tableLineWidth: 0.2,
-    })
-    y = (doc as any).lastAutoTable?.finalY + 5 || y + 15
+    if (formatted) {
+      autoTable(doc, {
+        body: [[
+          {
+            content: formatted,
+            styles: { fontSize: 8, textColor: [70, 70, 70], cellPadding: 5 },
+          },
+        ]],
+        startY: y,
+        theme: 'plain',
+        styles: { cellPadding: 3 },
+        margin: { left: margin },
+        tableWidth: pageW,
+        tableLineColor: [225, 225, 225] as any,
+        tableLineWidth: 0.2,
+      })
+      y = (doc as any).lastAutoTable?.finalY + 5 || y + 15
+    }
   }
 
   // Assigned karigar

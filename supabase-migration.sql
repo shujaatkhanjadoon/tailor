@@ -268,6 +268,17 @@ CREATE TABLE IF NOT EXISTS cron_cursors (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS message_templates (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  key         TEXT NOT NULL UNIQUE,
+  label       TEXT NOT NULL,
+  subject     TEXT DEFAULT '',
+  body        TEXT NOT NULL,
+  variables   TEXT[] DEFAULT ARRAY[]::TEXT[],
+  channel     TEXT DEFAULT 'whatsapp',
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Add missing columns to existing shops (safe to re-run)
 ALTER TABLE shops ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ;
 ALTER TABLE shops ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
@@ -509,6 +520,9 @@ $$;
 -- customers, or team members are inserted / updated / deleted.
 -- Uses upsert so a row is created on first write for every shop.
 
+-- Ensure id column exists (may be missing on tables that predate this DDL)
+ALTER TABLE shop_usage ADD COLUMN IF NOT EXISTS id UUID DEFAULT gen_random_uuid();
+
 CREATE OR REPLACE FUNCTION upsert_shop_usage(
   p_shop_id UUID
 ) RETURNS void
@@ -516,8 +530,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  INSERT INTO shop_usage (id, shop_id, orders_this_month, customers_total, karigar_count, storage_used_kb, month_year, updated_at)
-  VALUES (gen_random_uuid(), p_shop_id, 0, 0, 0, 0, to_char(now(), 'YYYY-MM'), now())
+  INSERT INTO shop_usage (shop_id, orders_this_month, customers_total, karigar_count, storage_used_kb, month_year, updated_at)
+  VALUES (p_shop_id, 0, 0, 0, 0, to_char(now(), 'YYYY-MM'), now())
   ON CONFLICT (shop_id) DO NOTHING;
 END;
 $$;
@@ -668,4 +682,17 @@ CREATE TRIGGER team_usage_trigger
   ON team_members
   FOR EACH ROW
   EXECUTE FUNCTION trg_team_refresh_usage();
+
+-- ============================================================
+-- 7. DEFAULT MESSAGE TEMPLATES (seed data)
+-- ============================================================
+
+INSERT INTO message_templates (id, key, label, subject, body, variables, channel, updated_at) VALUES
+  (gen_random_uuid(), 'activation', 'Activation Message', 'Aapki shop activate ho gayi hai!', 'Assalam o Alaikum {owner_name}! Aapki MeraDarzi shop ({shop_name}) activate ho gayi hai. Ab aap login karke orders lena shuru kar sakte hain.\n\nShukriya!\nMeraDarzi Team', ARRAY['owner_name', 'shop_name'], 'whatsapp', now()),
+  (gen_random_uuid(), 'rejection', 'Rejection Message', 'Shop verification rejected', 'Assalam o Alaikum {owner_name}! Aapki MeraDarzi shop ({shop_name}) ki verification reject kar di gayi hai.\n\nWajah: {reason}\n\nBaraye meharbani humse rabta karein.\nShukriya!', ARRAY['owner_name', 'shop_name', 'reason'], 'whatsapp', now()),
+  (gen_random_uuid(), 'reminder_5d', '5-Day Reminder', 'Subscription 5 din mein expire ho rahi hai', 'Assalam o Alaikum {owner_name}! Aapki MeraDarzi subscription {days_left} din mein expire ho rahi hai.\n\nExpiry Date: {expiry_date}\nPlan: {plan}\n\nRenewal karein: {renewal_url}\n\nShukriya!', ARRAY['owner_name', 'shop_name', 'days_left', 'expiry_date', 'plan', 'renewal_url'], 'whatsapp', now()),
+  (gen_random_uuid(), 'reminder_3d', '3-Day Reminder', 'Subscription 3 din mein expire ho rahi hai', 'Assalam o Alaikum {owner_name}! Aapki MeraDarzi subscription sirf {days_left} din mein expire ho rahi hai.\n\nExpiry Date: {expiry_date}\nPlan: {plan}\n\nAbhi renewal karein: {renewal_url}\n\nShukriya!', ARRAY['owner_name', 'shop_name', 'days_left', 'expiry_date', 'plan', 'renewal_url'], 'whatsapp', now()),
+  (gen_random_uuid(), 'reminder_1d', '1-Day Reminder', 'Subscription kal expire ho rahi hai!', 'Assalam o Alaikum {owner_name}! Aapki MeraDarzi subscription KAL expire ho rahi hai.\n\nExpiry Date: {expiry_date}\nPlan: {plan}\n\nFauran renewal karein: {renewal_url}\n\nAgar renewal nahi kiya to service band ho jayegi.\nShukriya!', ARRAY['owner_name', 'shop_name', 'days_left', 'expiry_date', 'plan', 'renewal_url'], 'whatsapp', now()),
+  (gen_random_uuid(), 'expiry_notification', 'Expiry Notification', 'Aapki subscription expire ho gayi hai', 'Assalam o Alaikum {owner_name}! Aapki MeraDarzi subscription expire ho gayi hai. Ab aap limited features use kar sakte hain.\n\nApni service dubara active karne ke liye renewal karein:\n{renewal_url}\n\nShukriya!', ARRAY['owner_name', 'shop_name', 'renewal_url'], 'whatsapp', now())
+ON CONFLICT (key) DO NOTHING;
 
