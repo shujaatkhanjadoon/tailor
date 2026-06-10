@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   RefreshCw, CheckCircle2, XCircle,
   Clock, Copy, Check, MessageCircle,
-  ChevronDown, ChevronUp, Smartphone,
+  ChevronDown, ChevronUp, Smartphone, Search,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -327,8 +327,8 @@ function PaymentCard({
             loading={activating}
           />
 
-          {/* Action buttons */}
-          {!showReject && (
+          {/* Action buttons — only for pending payments */}
+          {payment.status === 'pending' && !showReject && (
             <div className="flex flex-col gap-2 min-[420px]:flex-row">
               <button
                 onClick={() => setConfirmActivate(true)}
@@ -354,25 +354,62 @@ function PaymentCard({
               </button>
             </div>
           )}
+
+          {/* Status badge for non-pending payments */}
+          {payment.status !== 'pending' && (
+            <div className={`rounded-xl px-3 py-2 text-xs font-bold text-center ${
+              payment.status === 'completed' ? 'bg-green-900/30 text-green-400 border border-green-800' :
+              payment.status === 'failed'    ? 'bg-red-900/30 text-red-400 border border-red-800' :
+              payment.status === 'refunded'  ? 'bg-purple-900/30 text-purple-400 border border-purple-800' :
+              'bg-slate-800 text-slate-400 border border-slate-700'
+            }`}>
+              {payment.status === 'completed' ? '✓ Payment Verified & Activated' :
+               payment.status === 'failed'    ? '✗ Payment Rejected' :
+               payment.status === 'refunded'  ? '↩ Refunded' :
+               payment.status}
+            </div>
+          )}
         </div>
       )}
     </div>
   )
 }
 
+type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'all'
+
+const STATUS_TABS: { key: PaymentStatus; label: string; color: string }[] = [
+  { key: 'pending',   label: 'Pending',   color: 'border-amber-500 bg-amber-500/10 text-amber-300' },
+  { key: 'completed', label: 'Completed', color: 'border-green-500 bg-green-500/10 text-green-300' },
+  { key: 'failed',    label: 'Failed',    color: 'border-red-500 bg-red-500/10 text-red-300' },
+  { key: 'refunded',  label: 'Refunded',  color: 'border-purple-500 bg-purple-500/10 text-purple-300' },
+  { key: 'all',       label: 'All',       color: 'border-slate-500 bg-slate-500/10 text-slate-300' },
+]
+
 export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [loading,  setLoading]  = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error,    setError]    = useState('')
+  const [statusFilter, setStatusFilter] = useState<PaymentStatus>('pending')
+  const [search, setSearch] = useState('')
   const offsetRef  = useRef(0)
 
-  const load = useCallback(async (append = false) => {
+  const load = useCallback(async (append = false, filterStatus?: PaymentStatus, searchQuery?: string) => {
     if (append) setLoadingMore(true); else setLoading(true)
     setError('')
     try {
       const offset = append ? offsetRef.current : 0
-      const res  = await fetch(`/api/admin/data?type=pending&limit=25&offset=${offset}`)
+      const s = filterStatus ?? statusFilter
+      const q = searchQuery ?? search
+      const params = new URLSearchParams({
+        type: s === 'pending' ? 'pending' : 'payments',
+        limit: '25',
+        offset: String(offset),
+      })
+      if (s !== 'pending') params.set('status', s)
+      if (q) params.set('search', q)
+
+      const res  = await fetch(`/api/admin/data?${params.toString()}`)
       if (res.status === 401) { window.location.href = '/admin/login'; return }
       const data = await res.json()
       if (data.error) throw new Error(data.error)
@@ -389,9 +426,16 @@ export default function AdminPaymentsPage() {
     } finally {
       setLoading(false); setLoadingMore(false)
     }
-  }, [])
+  }, [statusFilter, search])
 
-  useEffect(() => { load() }, [load] )
+  useEffect(() => { load() }, [load])
+
+  const changeFilter = (s: PaymentStatus) => {
+    setStatusFilter(s)
+    offsetRef.current = 0
+    setPayments([])
+    load(false, s)
+  }
 
   const handleActivate = async (p: Payment) => {
     const res  = await fetch('/api/admin/action', {
@@ -408,6 +452,7 @@ export default function AdminPaymentsPage() {
     })
     const data = await res.json()
     if (!data.success) throw new Error(data.error ?? 'Activation failed')
+    setPayments(prev => prev.filter(x => x.id !== p.id))
   }
 
   const handleReject = async (p: Payment, reason: string, totp?: string) => {
@@ -427,6 +472,8 @@ export default function AdminPaymentsPage() {
     setPayments(prev => prev.filter(x => x.id !== p.id))
   }
 
+  const isPendingTab = statusFilter === 'pending'
+
   return (
     <div className="space-y-5">
 
@@ -434,11 +481,11 @@ export default function AdminPaymentsPage() {
         <div>
           <h1 className="text-xl lg:text-2xl font-bold text-white">Payments</h1>
           <p className="text-slate-400 text-sm mt-0.5">
-            {loading ? 'Loading...' : `${payments.length} pending verification`}
+            {loading ? 'Loading...' : `${payments.length} ${statusFilter} payment${payments.length !== 1 ? 's' : ''}`}
           </p>
         </div>
         <button
-          onClick={() => load()}
+          onClick={() => load(false, statusFilter, search)}
           disabled={loading}
           className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700
                      text-slate-300 font-semibold px-3 py-2 rounded-xl text-sm"
@@ -446,6 +493,42 @@ export default function AdminPaymentsPage() {
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           <span className="hidden sm:inline">Refresh</span>
         </button>
+      </div>
+
+      {/* Status tabs + search */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
+          {STATUS_TABS.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => changeFilter(tab.key)}
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
+                statusFilter === tab.key
+                  ? tab.color
+                  : 'border-slate-700 text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="relative w-full sm:w-64">
+          <input
+            type="text"
+            placeholder="Shop name ya phone..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { offsetRef.current = 0; load(false, statusFilter, search) } }}
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-3 pr-8 py-2
+                       text-sm text-white placeholder:text-slate-600 outline-none focus:border-blue-500"
+          />
+          <button
+            onClick={() => { offsetRef.current = 0; load(false, statusFilter, search) }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+          >
+            <Search size={14} />
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -469,8 +552,12 @@ export default function AdminPaymentsPage() {
                           justify-center mb-4">
             <CheckCircle2 size={28} className="text-green-500" />
           </div>
-          <p className="font-bold text-white mb-1">Sab Clear!</p>
-          <p className="text-slate-400 text-sm">Koi pending payment nahi</p>
+          <p className="font-bold text-white mb-1">
+            {statusFilter === 'pending' ? 'Sab Clear!' : `Koi ${statusFilter} payment nahi`}
+          </p>
+          <p className="text-slate-400 text-sm">
+            {statusFilter === 'pending' ? 'Koi pending payment nahi' : 'Try a different filter'}
+          </p>
         </div>
       )}
 
@@ -480,8 +567,8 @@ export default function AdminPaymentsPage() {
             <PaymentCard
               key={p.id}
               payment={p}
-              onActivate={handleActivate}
-              onReject={handleReject}
+              onActivate={isPendingTab ? handleActivate : async () => {}}
+              onReject={isPendingTab ? handleReject : async () => {}}
             />
           ))}
           <div className="flex justify-center pt-2">

@@ -393,6 +393,23 @@ export const customerOps = {
     shopId: string,
     data: Pick<CustomerRecord, 'name' | 'phone' | 'gender' | 'whatsapp'>
   ): Promise<CustomerRecord> {
+    // Limit unverified shops: max 10 customers until admin approval
+    const { data: shopVerification } = await supabase
+      .from('shops')
+      .select('verification_status')
+      .eq('id', shopId)
+      .maybeSingle()
+    if (shopVerification?.verification_status === 'pending') {
+      const { count } = await supabase
+        .from('customers')
+        .select('id', { count: 'exact', head: true })
+        .eq('shop_id', shopId)
+        .is('deleted_at', null)
+      if ((count ?? 0) >= 10) {
+        throw new Error('Aapka account verification pending hai. Sirf 10 customers tak allowed hain. Admin se contact karein.')
+      }
+    }
+
     const ts = nowKarachiIso()
     const customer: CustomerRecord = {
       id: uuid(),
@@ -603,6 +620,23 @@ export const orderOps = {
     if (!data.customerId) throw new Error('customerId is required')
     if (!data.garmentType) throw new Error('garmentType is required')
     if (!data.dueDate) throw new Error('dueDate is required')
+
+    // Limit unverified shops: max 5 orders until admin approval
+    const { data: shopVerification } = await supabase
+      .from('shops')
+      .select('verification_status')
+      .eq('id', shopId)
+      .maybeSingle()
+    if (shopVerification?.verification_status === 'pending') {
+      const { count } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('shop_id', shopId)
+        .is('deleted_at', null)
+      if ((count ?? 0) >= 5) {
+        throw new Error('Aapka account verification pending hai. Sirf 5 orders tak allowed hain. Admin se contact karein.')
+      }
+    }
 
     const ts = nowKarachiIso()
     const [shopName, customer] = await Promise.all([

@@ -447,7 +447,7 @@ CREATE POLICY payments_select ON payments
   FOR SELECT USING (shop_id = current_shop_id() AND deleted_at IS NULL);
 
 CREATE POLICY order_photos_select ON order_photos
-  FOR SELECT USING (shop_id = current_shop_id());
+  FOR SELECT USING (shop_id = current_shop_id() AND deleted_at IS NULL);
 
 CREATE POLICY order_status_history_select ON order_status_history
   FOR SELECT USING (shop_id = current_shop_id());
@@ -499,4 +499,171 @@ BEGIN
   RETURN FOUND;
 END;
 $$;
+
+-- ============================================================
+-- 6. SHOP USAGE COUNTER TRIGGERS
+-- ============================================================
+-- Automatically maintain shop_usage counters when orders,
+-- customers, or team members are inserted / updated / deleted.
+-- Uses upsert so a row is created on first write for every shop.
+
+CREATE OR REPLACE FUNCTION upsert_shop_usage(
+  p_shop_id UUID
+) RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  INSERT INTO shop_usage (id, shop_id, orders_this_month, customers_total, karigar_count, storage_used_kb, month_year, updated_at)
+  VALUES (gen_random_uuid(), p_shop_id, 0, 0, 0, 0, to_char(now(), 'YYYY-MM'), now())
+  ON CONFLICT (shop_id) DO NOTHING;
+END;
+$$;
+
+-- Recalculate orders_this_month from live data
+CREATE OR REPLACE FUNCTION recalc_orders_this_month(p_shop_id UUID)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  cnt integer;
+BEGIN
+  SELECT COUNT(*)::integer INTO cnt
+  FROM orders
+  WHERE shop_id = p_shop_id
+    AND deleted_at IS NULL
+    AND created_at >= date_trunc('month', now());
+  RETURN cnt;
+END;
+$$;
+
+-- Recalculate customers_total from live data
+CREATE OR REPLACE FUNCTION recalc_customers_total(p_shop_id UUID)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  cnt integer;
+BEGIN
+  SELECT COUNT(*)::integer INTO cnt
+  FROM customers
+  WHERE shop_id = p_shop_id
+    AND deleted_at IS NULL;
+  RETURN cnt;
+END;
+$$;
+
+-- Recalculate karigar_count from live data
+CREATE OR REPLACE FUNCTION recalc_karigar_count(p_shop_id UUID)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  cnt integer;
+BEGIN
+  SELECT COUNT(*)::integer INTO cnt
+  FROM team_members
+  WHERE shop_id = p_shop_id
+    AND role = 'karigar'
+    AND is_active = true
+    AND deleted_at IS NULL;
+  RETURN cnt;
+END;
+$$;
+
+-- Refresh all counters for a shop
+CREATE OR REPLACE FUNCTION refresh_shop_usage(p_shop_id UUID)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  PERFORM upsert_shop_usage(p_shop_id);
+  UPDATE shop_usage
+  SET orders_this_month = recalc_orders_this_month(p_shop_id),
+      customers_total   = recalc_customers_total(p_shop_id),
+      karigar_count     = recalc_karigar_count(p_shop_id),
+      month_year        = to_char(now(), 'YYYY-MM'),
+      updated_at        = now()
+  WHERE shop_id = p_shop_id;
+END;
+$$;
+
+-- Trigger: refresh shop_usage when orders change
+CREATE OR REPLACE FUNCTION trg_orders_refresh_usage()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  IF (TG_OP = 'INSERT') THEN
+    PERFORM refresh_shop_usage(NEW.shop_id);
+  ELSIF (TG_OP = 'UPDATE') THEN
+    PERFORM refresh_shop_usage(NEW.shop_id);
+  ELSIF (TG_OP = 'DELETE') THEN
+    PERFORM refresh_shop_usage(OLD.shop_id);
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS orders_usage_trigger ON orders;
+CREATE TRIGGER orders_usage_trigger
+  AFTER INSERT OR UPDATE OF deleted_at, created_at OR DELETE
+  ON orders
+  FOR EACH ROW
+  EXECUTE FUNCTION trg_orders_refresh_usage();
+
+-- Trigger: refresh shop_usage when customers change
+CREATE OR REPLACE FUNCTION trg_customers_refresh_usage()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  IF (TG_OP = 'INSERT') THEN
+    PERFORM refresh_shop_usage(NEW.shop_id);
+  ELSIF (TG_OP = 'UPDATE') THEN
+    PERFORM refresh_shop_usage(NEW.shop_id);
+  ELSIF (TG_OP = 'DELETE') THEN
+    PERFORM refresh_shop_usage(OLD.shop_id);
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS customers_usage_trigger ON customers;
+CREATE TRIGGER customers_usage_trigger
+  AFTER INSERT OR UPDATE OF deleted_at OR DELETE
+  ON customers
+  FOR EACH ROW
+  EXECUTE FUNCTION trg_customers_refresh_usage();
+
+-- Trigger: refresh shop_usage when team members change
+CREATE OR REPLACE FUNCTION trg_team_refresh_usage()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  IF (TG_OP = 'INSERT') THEN
+    PERFORM refresh_shop_usage(NEW.shop_id);
+  ELSIF (TG_OP = 'UPDATE') THEN
+    PERFORM refresh_shop_usage(NEW.shop_id);
+  ELSIF (TG_OP = 'DELETE') THEN
+    PERFORM refresh_shop_usage(OLD.shop_id);
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS team_usage_trigger ON team_members;
+CREATE TRIGGER team_usage_trigger
+  AFTER INSERT OR UPDATE OF is_active, deleted_at OR DELETE
+  ON team_members
+  FOR EACH ROW
+  EXECUTE FUNCTION trg_team_refresh_usage();
 

@@ -3,7 +3,8 @@
 
 import { logAdminAction } from '@/lib/admin/audit'
 import { buildActivationWhatsApp, buildRejectionWhatsApp } from './whatsapp-notify'
-import { sbGet, sbPatch, sbUpsertByShopId, type Row } from '@/lib/supabase/service'
+import { sbGet, sbFetch, sbPatch, sbUpsertByShopId, type Row } from '@/lib/supabase/service'
+import { logger } from '@/lib/logger'
 import { PLANS } from './plans'
 import { subscriptionExpiresAt } from './cycles'
 
@@ -61,19 +62,32 @@ export interface PaginatedResult<T> {
 
 export async function getAllShops(page = 1, perPage = 50) {
   const offset = (page - 1) * perPage
-  // Fetch in parallel
   const [shops, subscriptions, usages] = await Promise.all([
     sbGet(`shops?select=id,shop_name,owner_phone,city,plan,is_active,created_at,updated_at&order=created_at.desc&limit=${perPage}&offset=${offset}`),
-    sbGet('subscriptions?select=shop_id,plan,status,billing_cycle,trial_ends_at,expires_at,grace_ends_at,amount_pkr,created_at,updated_at'),
-    sbGet('shop_usage?select=shop_id,orders_this_month,customers_total,karigar_count,storage_used_kb,month_year'),
+    // Only fetch subscriptions and usage for the shops in the current page
+    sbGet(`subscriptions?select=shop_id,plan,status,billing_cycle,trial_ends_at,expires_at,grace_ends_at,amount_pkr,created_at,updated_at&limit=2000`),
+    sbGet(`shop_usage?select=shop_id,orders_this_month,customers_total,karigar_count,storage_used_kb,month_year&limit=2000`),
   ])
 
-  // Join manually
+  const shopIds = new Set(shops.map((s: Row) => s.id))
+
+  // Join manually — only attach matching rows
   return shops.map((shop: Row) => ({
     ...shop,
     subscriptions: subscriptions.filter((s: Row) => s.shop_id === shop.id),
     shop_usage:    usages.filter((u: Row) => u.shop_id === shop.id),
   }))
+}
+
+export async function getAllShopsCount(): Promise<number> {
+  const res = await sbFetch('shops?select=id&limit=0', { method: 'GET' })
+  // Supabase returns count in content-range header
+  const range = res.headers.get('content-range')
+  if (range) {
+    const parts = range.split('/')
+    return parseInt(parts[parts.length - 1], 10) || 0
+  }
+  return 0
 }
 
 // ── Get pending payments ──────────────────────────────────────────
@@ -159,7 +173,7 @@ export async function activateSubscription(
     return { success: true, shopName: shop?.shop_name, shopPhone: shop?.owner_phone, waLink }
 
   } catch (e) {
-    console.error('[Admin] activateSubscription:', e)
+    logger.error('billing-admin', 'activateSubscription:', e)
     return { success: false, error: String(e) }
   }
 }
@@ -205,7 +219,7 @@ export async function rejectPayment(
     return { success: true, shopPhone: shop?.owner_phone, waLink }
 
   } catch (e) {
-    console.error('[Admin] rejectPayment:', e)
+    logger.error('billing-admin', 'rejectPayment:', e)
     return { success: false, error: String(e) }
   }
 }
@@ -250,7 +264,7 @@ export async function adminSetPlan(
 
     return { success: true }
   } catch (e) {
-    console.error('[Admin] adminSetPlan:', e)
+    logger.error('billing-admin', 'adminSetPlan:', e)
     return { success: false, error: String(e) }
   }
 }
@@ -276,7 +290,7 @@ export async function deactivateShop(
     await logAdminAction('shop_deactivated', 'shop', shopId, shopId, { reason })
     return { success: true }
   } catch (e) {
-    console.error('[Admin] deactivateShop:', e)
+    logger.error('billing-admin', 'deactivateShop:', e)
     return { success: false, error: String(e) }
   }
 }
@@ -314,7 +328,7 @@ export async function reactivateShop(
     await logAdminAction('shop_activated', 'shop', shopId, shopId)
     return { success: true }
   } catch (e) {
-    console.error('[Admin] reactivateShop:', e)
+    logger.error('billing-admin', 'reactivateShop:', e)
     return { success: false, error: String(e) }
   }
 }

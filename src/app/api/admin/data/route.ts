@@ -58,6 +58,45 @@ export async function GET(req: NextRequest) {
         })
       }
 
+      case 'payments': {
+        const status = req.nextUrl.searchParams.get('status') ?? 'all'
+        const plan   = req.nextUrl.searchParams.get('plan')
+        const cycle  = req.nextUrl.searchParams.get('cycle')
+        const search = req.nextUrl.searchParams.get('search')
+
+        // Build query filters for subscription_payments
+        const filters: string[] = ['method=neq.reminder']
+        if (status !== 'all') {
+          filters.push(`status=eq.${encodeURIComponent(status)}`)
+        }
+        if (plan) {
+          filters.push(`plan=eq.${encodeURIComponent(plan)}`)
+        }
+        if (cycle) {
+          filters.push(`billing_cycle=eq.${encodeURIComponent(cycle)}`)
+        }
+
+        const queryPath = `subscription_payments?${filters.join('&')}&order=paid_at.desc&limit=${limit}&offset=${offset}&select=*`
+
+        const [payments, shops] = await Promise.all([
+          sbGet(queryPath) as Promise<SubscriptionPaymentRow[]>,
+          sbGet('shops?select=id,shop_name,owner_phone,city') as Promise<ShopRow[]>,
+        ])
+        const shopMap = new Map(shops.map(s => [s.id, s]))
+        let results = payments.map(p => ({ ...p, shops: shopMap.get(p.shop_id) ?? null }))
+
+        // Client-side search filter (by shop name or phone)
+        if (search) {
+          const q = search.toLowerCase()
+          results = results.filter(p =>
+            p.shops?.shop_name?.toLowerCase().includes(q) ||
+            p.shops?.owner_phone?.includes(q)
+          )
+        }
+
+        return NextResponse.json({ data: results })
+      }
+
       case 'disputes': {
         const [refundedPayments, shops] = await Promise.all([
           sbGet(`subscription_payments?status=eq.refunded&order=paid_at.desc&limit=${limit}&select=*`) as Promise<SubscriptionPaymentRow[]>,
