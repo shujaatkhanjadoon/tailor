@@ -129,6 +129,28 @@ export async function POST(req: NextRequest) {
       const cleanPhone = `92${shop.owner_phone.replace(/^0/, '').replace(/\D/g, '')}`
       const waLink    = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
 
+      // Send email reminder to shop owner (non-blocking)
+      try {
+        const { sendShopOwnerAdminActionEmail } = await import('@/lib/security/email-otp')
+        const emailTitle = sub.isTrial
+          ? `Trial ending in ${days} day${days > 1 ? 's' : ''}`
+          : `Subscription expiring in ${days} day${days > 1 ? 's' : ''}`
+        const emailMessage = sub.isTrial
+          ? `Aapka free trial ${days} din mein khatam ho raha hai. Features continue rakhne ke liye upgrade karein.`
+          : `Aapka ${planName} plan ${days} din mein expire ho raha hai. Renew karne ke liye billing page visit karein.`
+        await sendShopOwnerAdminActionEmail({
+          shopId: sub.shop_id,
+          action: 'subscription_reminder',
+          title: emailTitle,
+          message: emailMessage,
+          details: [
+            ['Plan', planName],
+            ['Days Left', String(days)],
+            ...(sub.isTrial ? [['Type', 'Trial'] as [string, unknown]] : []),
+          ],
+        })
+      } catch { /* non-fatal */ }
+
       await sbPost('subscription_payments', {
         shop_id:       sub.shop_id,
         plan:          sub.plan,

@@ -285,6 +285,8 @@ export async function deactivateShop(
 
 export async function reactivateShop(
   shopId: string,
+  planId: string = 'professional',
+  cycle: string = 'monthly',
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const existingSubs = await sbGet(
@@ -293,12 +295,12 @@ export async function reactivateShop(
     const existingSub = existingSubs?.[0]
     const oldExpiry = existingSub?.expires_at ? new Date(existingSub.expires_at) : null
     const baseDate = (oldExpiry && oldExpiry > new Date()) ? oldExpiry : new Date()
-    const expiresAt = subscriptionExpiresAt('monthly', baseDate)
+    const expiresAt = subscriptionExpiresAt(cycle, baseDate)
 
     await sbUpsertByShopId('subscriptions', {
       shop_id:    shopId,
       status:     'active',
-      plan:       'professional',
+      plan:       planId,
       expires_at: expiresAt,
       grace_ends_at: null,
       cancelled_at:  null,
@@ -306,7 +308,7 @@ export async function reactivateShop(
     })
 
     await sbPatch(`shops?id=eq.${shopId}`,
-      { plan: 'professional', plan_expires_at: expiresAt, updated_at: new Date().toISOString() }
+      { plan: planId, plan_expires_at: expiresAt, updated_at: new Date().toISOString() }
     )
 
     await logAdminAction('shop_activated', 'shop', shopId, shopId)

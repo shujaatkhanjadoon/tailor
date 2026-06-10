@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     // 0. Auto-reject pending payments older than 48 hours (stuck payments)
     const staleCutoff = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString()
     const stalePayments = await sbGet(
-      `subscription_payments?status=eq.pending&paid_at=lt.${staleCutoff}&select=id,receipt_data&limit=${BATCH_SIZE}`
+      `subscription_payments?status=eq.pending&paid_at=lt.${staleCutoff}&select=id,shop_id,receipt_data&limit=${BATCH_SIZE}`
     )
     await mapConcurrent(stalePayments, async (p) => {
       const receipt = p.receipt_data ?? {}
@@ -65,6 +65,14 @@ export async function POST(req: NextRequest) {
         status: 'failed',
         receipt_data: { ...receipt, rejection_reason: 'Auto-rejected: pending > 48 hours', rejected_at: nowISO },
       })
+      // Notify admin of auto-rejection
+      if (p.shop_id) {
+        await sendAdminSubscriptionEventEmail({
+          shopId: p.shop_id,
+          event: 'payment_submitted',
+          reason: 'Auto-rejected: pending > 48 hours without verification',
+        }).catch(() => {})
+      }
       stalePaymentsRejected++
     })
 

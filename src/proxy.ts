@@ -207,6 +207,19 @@ export async function proxy(req: NextRequest) {
     if (!token || !verifySessionToken(token)) {
       return respond({ error: 'Unauthorized' }, 401)
     }
+
+    // Rate-limit destructive admin action endpoint separately
+    if (pathname === '/api/admin/action') {
+      const adminRl = await checkRateLimit(
+        getLoginRatelimiter(),
+        `admin-action:${getRateLimitId(req)}`,
+        'sensitive'
+      )
+      if (!adminRl.allowed) {
+        return respond({ error: adminRl.error ?? 'Too many admin actions. Please wait.' }, 429)
+      }
+    }
+
     return res
   }
 

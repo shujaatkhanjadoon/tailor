@@ -49,6 +49,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Duplicate transaction ID. Payment already submitted.' }, { status: 409 })
     }
 
+    // Stacking prevention: block new submission if shop already has a pending payment
+    const pendingCheck = await sbFetch(
+      `subscription_payments?shop_id=eq.${encodeURIComponent(shopId)}&status=eq.pending&select=id,plan,billing_cycle&limit=1`
+    )
+    if (pendingCheck.ok) {
+      const pendingPayments = await pendingCheck.json()
+      if (pendingPayments?.length) {
+        const pending = pendingPayments[0]
+        return NextResponse.json({
+          error: `Aapka aik payment pehle se pending hai (${pending.plan} ${pending.billing_cycle}). Admin ke approve karne ke baad naya payment submit karein.`,
+        }, { status: 409 })
+      }
+    }
+
     // Fetch or create subscription ID (for payment FK) — do NOT change subscription status;
     // admin must manually verify payment and activate via /api/admin/action
     const subRes = await sbFetch(`subscriptions?shop_id=eq.${encodeURIComponent(shopId)}&select=id&limit=1`)

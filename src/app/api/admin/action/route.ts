@@ -5,7 +5,8 @@ import { sendAdminSubscriptionEventEmail, sendShopOwnerAdminActionEmail } from "
 import { ADMIN_SESSION_COOKIE, verifySessionToken, verifyTOTP, getAdminSession } from "@/lib/admin/auth";
 import { validate, schemas } from "@/lib/validation";
 import { sbGet, sbPatch, sbPost, sbUpsertByShopId } from "@/lib/supabase/service";
-import { subscriptionExpiresAt } from "@/lib/billing/cycles";
+import { subscriptionExpiresAt, calculateProratedExpiry } from "@/lib/billing/cycles";
+import type { PlanId } from "@/lib/billing/plans";
 import { mapConcurrent } from '@/lib/concurrent'
 import { logger } from '@/lib/logger';
 import bcrypt from 'bcryptjs'
@@ -210,9 +211,21 @@ export async function POST(req: NextRequest) {
         }
 
         const now = new Date().toISOString();
-        const previousSub = (await sbGet(`subscriptions?shop_id=eq.${shopId}&select=plan,status,expires_at&limit=1`))[0];
+        const previousSub = (await sbGet(`subscriptions?shop_id=eq.${shopId}&select=plan,status,expires_at,billing_cycle&limit=1`))[0];
 
-        const expiresAt = subscriptionExpiresAt(cycle, previousSub?.expires_at ? new Date(previousSub.expires_at) : undefined);
+        // Calculate prorated expiry — remaining value from previous plan is credited
+        const billingCycle = cycle ?? 'monthly';
+        const paidAmount = amountPkr ?? 0;
+        const expiresAt = previousSub?.plan && previousSub.plan !== 'starter'
+          ? calculateProratedExpiry(
+              previousSub.plan,
+              previousSub.billing_cycle,
+              previousSub.expires_at,
+              planId as PlanId,
+              billingCycle,
+              paidAmount,
+            )
+          : subscriptionExpiresAt(billingCycle, previousSub?.expires_at ? new Date(previousSub.expires_at) : undefined);
 
         // Fetch payment receipt_data for coupon info
         let couponCode: string | undefined;
@@ -230,7 +243,7 @@ export async function POST(req: NextRequest) {
         await sbUpsertByShopId("subscriptions", {
           shop_id: shopId,
           plan: planId,
-          billing_cycle: cycle,
+          billing_cycle: billingCycle,
           status: "active",
           expires_at: expiresAt,
           grace_ends_at: null,
@@ -256,14 +269,14 @@ export async function POST(req: NextRequest) {
         // Audit log
         await logAction("activate_subscription", paymentId, shopId, {
           plan: planId,
-          cycle,
+          cycle: billingCycle,
           amount: amountPkr,
           coupon_code: couponCode,
           performed_by: adminName,
         });
         notifyOwner(shopId, "activate_subscription", "Subscription Payment Approved", `Your ${planId} subscription payment has been approved.`, [
           ["Plan", planId],
-          ["Cycle", cycle],
+          ["Cycle", billingCycle],
           ["Amount", amountPkr ? `Rs. ${amountPkr}` : "N/A"],
           ["Expires At", expiresAt],
           ...(couponCode ? [["Coupon", `${couponCode} (${discountPct}% off)`] as [string, unknown]] : []),
@@ -273,7 +286,7 @@ export async function POST(req: NextRequest) {
           event: subscriptionEvent(previousSub?.plan, planId),
           previousPlan: previousSub?.plan ?? undefined,
           plan: planId,
-          cycle,
+          cycle: billingCycle,
           amountPkr,
           expiresAt,
           couponCode,
@@ -547,7 +560,7 @@ export async function POST(req: NextRequest) {
         }
 
         const existing = await sbGet(
-          `subscription_payments?id=eq.${paymentId}&select=receipt_data,status`
+          `subscription_payments?id=eq.${paymentId}&select=receipt_data,status,shop_id,plan,billing_cycle`
         );
         if (!existing?.[0]) {
           return NextResponse.json({ error: "Payment not found" }, { status: 404 });
@@ -557,19 +570,41 @@ export async function POST(req: NextRequest) {
         }
 
         const receiptData = existing[0].receipt_data ?? {};
+        const refundedShopId = shopId ?? existing[0].shop_id;
+        const now = new Date().toISOString();
+
         await sbPatch(`subscription_payments?id=eq.${paymentId}`, {
           status: "refunded",
           receipt_data: {
             ...receiptData,
             refund_reason: reason ?? "Refunded by admin",
-            refunded_at: new Date().toISOString(),
+            refunded_at: now,
           },
         });
 
-        await logAction("refund_payment", paymentId, shopId ?? paymentId, {
+        // Revert shop plan to starter when refunding
+        if (refundedShopId) {
+          await sbUpsertByShopId("subscriptions", {
+            shop_id: refundedShopId,
+            plan: "starter",
+            billing_cycle: null,
+            status: "active",
+            expires_at: null,
+            grace_ends_at: null,
+            cancelled_at: null,
+            updated_at: now,
+          });
+          await sbPatch(`shops?id=eq.${refundedShopId}`, {
+            plan: "starter",
+            plan_expires_at: null,
+            updated_at: now,
+          });
+        }
+
+        await logAction("refund_payment", paymentId, refundedShopId ?? paymentId, {
           reason,
         });
-        if (shopId) notifyOwner(shopId, "refund_payment", "Payment Refunded", "Your subscription payment has been refunded.", [
+        if (refundedShopId) notifyOwner(refundedShopId, "refund_payment", "Payment Refunded", "Your subscription payment has been refunded and your plan has been reset to Starter.", [
           ["Reason", reason ?? "N/A"],
         ]);
 

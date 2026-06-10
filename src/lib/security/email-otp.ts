@@ -9,10 +9,13 @@ import { brandedTemplate } from '@/lib/email-templates/branded-shell'
 import { buildOtpEmailHtml } from '@/lib/email-templates/otp-email'
 
 let _resend: Resend | null = null
-function getResend(): Resend {
+function getResend(): Resend | null {
   if (!_resend) {
     const key = process.env.RESEND_API_KEY
-    if (!key) throw new Error('RESEND_API_KEY is required')
+    if (!key) {
+      console.warn('[Email] RESEND_API_KEY not set — email sending is disabled')
+      return null
+    }
     _resend = new Resend(key)
   }
   return _resend
@@ -75,7 +78,10 @@ async function sendSystemEmail(
     emailLastSentAt.set(rateKey, now)
   }
 
-  return getResend().emails.send(args)
+  const resend = getResend()
+  if (!resend) return { data: null, error: null }
+
+  return resend.emails.send(args)
 }
 
 export function generateOTP(): string {
@@ -109,8 +115,14 @@ export async function sendOTPEmail(
 
   const html = buildOtpEmailHtml(otp, purpose)
 
+  const resend = getResend()
+  if (!resend) {
+    console.warn('[Email OTP] Resend not configured — skipping OTP email')
+    return { success: false, error: 'Email service not configured' }
+  }
+
   try {
-    const { error } = await getResend().emails.send({ from: FROM, to: email, subject, html })
+    const { error } = await resend.emails.send({ from: FROM, to: email, subject, html })
     if (error) {
       console.error('[Email OTP] Send error:', error)
       return { success: false, error: error.message }

@@ -1,3 +1,12 @@
+// src/app/api/billing/subscription-event/route.ts
+// NOTE: This endpoint is NOTIFICATION-ONLY. It sends admin email alerts about
+// subscription lifecycle events (upgrade, downgrade, cancel, etc.) but does NOT
+// change subscription state. Actual state changes happen in:
+//   - /api/billing/submit-payment (payment submission)
+//   - /api/billing/cancel (subscription cancellation)
+//   - /api/admin/action (admin-approved activation/rejection/refund)
+//   - /api/cron/expire-subscriptions (automated expiry/grace/downgrade)
+
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
 import { validate, schemas } from '@/lib/validation'

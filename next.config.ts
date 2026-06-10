@@ -20,7 +20,11 @@ const appTimeZone = process.env.TIMEZONE ?? process.env.TIMEZ ?? process.env.TZ 
 process.env.TZ = appTimeZone
 
 const nextConfig: NextConfig = {
-  cacheComponents: true,
+  // cacheComponents disabled — the entire app is client-heavy (auth state,
+  // browser APIs, Dexie offline DB).  PPR static shells add no value and
+  // trigger "new Date() before uncached data" prerender errors for every
+  // route.  Re-enable per-route later as pages convert to Server Components.
+  cacheComponents: false,
 
   experimental: {
     webpackBuildWorker: true,

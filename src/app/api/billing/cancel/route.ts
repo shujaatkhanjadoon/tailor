@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
-import { sbFetch } from '@/lib/supabase/service'
+import { sbFetch, sbPost } from '@/lib/supabase/service'
 import { validate } from '@/lib/validation'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: 400 })
     }
 
-    const { expiresAt } = parsed.data
+    const { reason, expiresAt } = parsed.data
 
     const now = new Date().toISOString()
     const currentExpiry = expiresAt ? new Date(expiresAt).getTime() : Date.now()
@@ -52,6 +52,31 @@ export async function POST(req: NextRequest) {
         updated_at: now,
       }),
     })
+
+    // Audit log
+    await sbPost('admin_audit_log', {
+      action: 'subscription_cancelled',
+      target_type: 'subscription',
+      target_id: sub.id,
+      shop_id: shopId,
+      details: { reason, plan: sub.plan, grace_ends_at: graceEndsAt },
+      performed_at: now,
+    }).catch((e) => logger.error('billing-cancel', 'Audit log failed (non-fatal)', e))
+
+    // Notify admin
+    try {
+      const { sendAdminSubscriptionEventEmail } = await import('@/lib/security/email-otp')
+      await sendAdminSubscriptionEventEmail({
+        shopId,
+        event: 'cancelled',
+        previousPlan: sub.plan,
+        plan: sub.plan,
+        reason,
+        expiresAt: graceEndsAt,
+      })
+    } catch (e) {
+      logger.error('billing-cancel', 'Admin notification failed (non-fatal)', e)
+    }
 
     return NextResponse.json({ success: true })
   } catch (e) {

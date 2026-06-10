@@ -262,6 +262,12 @@ CREATE TABLE IF NOT EXISTS shop_verification_requests (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS cron_cursors (
+  job_name      TEXT PRIMARY KEY,
+  cursor_value  TEXT,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Add plan_expires_at to existing shops (safe to re-run)
 ALTER TABLE shops ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ;
 
@@ -344,6 +350,10 @@ ALTER TABLE team_members ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL
 -- Prevent duplicate order numbers within a shop (race condition fix)
 ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_shop_id_order_number_key;
 ALTER TABLE orders ADD CONSTRAINT orders_shop_id_order_number_key UNIQUE (shop_id, order_number);
+
+-- Prevent duplicate transaction IDs in subscription payments
+ALTER TABLE subscription_payments DROP CONSTRAINT IF EXISTS subscription_payments_gateway_tx_id_key;
+ALTER TABLE subscription_payments ADD CONSTRAINT subscription_payments_gateway_tx_id_key UNIQUE (gateway_tx_id);
 
 -- ============================================================
 -- 3. CHECK CONSTRAINTS
@@ -465,4 +475,28 @@ CREATE POLICY email_verifications_select ON email_verifications
 
 CREATE POLICY push_subscriptions_select ON push_subscriptions
   FOR SELECT USING (shop_id = current_shop_id());
+
+-- ============================================================
+-- 5. DATABASE FUNCTIONS
+-- ============================================================
+
+-- Atomic coupon used_count increment (prevents race conditions)
+CREATE OR REPLACE FUNCTION increment_coupon_used_count(p_coupon_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  updated_count INTEGER;
+BEGIN
+  UPDATE coupons
+  SET used_count = used_count + 1
+  WHERE id = p_coupon_id
+    AND (max_uses IS NULL OR used_count < max_uses)
+    AND is_active = true
+  RETURNING used_count INTO updated_count;
+
+  RETURN FOUND;
+END;
+$$;
 
