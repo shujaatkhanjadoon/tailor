@@ -26,6 +26,15 @@ function formatCurrency(amount: number) {
   return `Rs. ${amount.toLocaleString()}`
 }
 
+function hexToRgb(hex: string): [number, number, number] {
+  const c = hex.replace('#', '')
+  return [
+    parseInt(c.substring(0, 2), 16),
+    parseInt(c.substring(2, 4), 16),
+    parseInt(c.substring(4, 6), 16),
+  ]
+}
+
 export async function exportOrderInvoice(data: InvoiceData) {
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([
     import('jspdf'),
@@ -35,148 +44,235 @@ export async function exportOrderInvoice(data: InvoiceData) {
   const { order, payments, shop } = data
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const brandColor = hexToRgb(shop.brandColor ?? '#1d4ed8')
-  const pageW = 190 // usable width in mm
-  let y = 10
+  const pageW = 190
+  const margin = 14
+  let y = 0
 
-  // ── Header ──────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // HEADER BAR
+  // ═══════════════════════════════════════════════════════════════
   doc.setFillColor(...brandColor)
-  doc.rect(0, 0, 210, 28, 'F')
+  doc.rect(0, 0, 210, 32, 'F')
 
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(18)
+  doc.setFontSize(20)
   doc.setFont('helvetica', 'bold')
-  doc.text(shop.name || 'MeraDarzi', 14, 16)
+  doc.text(shop.name || 'MeraDarzi', margin, 14)
 
-  doc.setFontSize(9)
+  doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
-  const subLine = [shop.city, shop.phone].filter(Boolean).join(' • ')
-  if (subLine) doc.text(subLine, 14, 22)
-  y = 34
+  const subLine = [shop.city, shop.phone].filter(Boolean).join('  •  ')
+  if (subLine) doc.text(subLine, margin, 21)
 
-  // ── Invoice title ───────────────────────────────────────────────
+  // Invoice badge on the right
+  doc.setFontSize(22)
+  doc.setFont('helvetica', 'bold')
+  doc.text('INVOICE', 196, 20, { align: 'right' })
+  y = 40
+
+  // ═══════════════════════════════════════════════════════════════
+  // ORDER NUMBER & STATUS — prominent
+  // ═══════════════════════════════════════════════════════════════
   doc.setTextColor(...brandColor)
-  doc.setFontSize(14)
+  doc.setFontSize(16)
   doc.setFont('helvetica', 'bold')
-  doc.text('ORDER INVOICE', 14, y)
-  y += 6
+  doc.text(`Order #${String(order.orderNumber).padStart(3, '0')}`, margin, y)
+  y += 7
 
+  // Status badge
+  const statusCfg = ORDER_STATUS_CONFIG[order.status]
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
-  doc.setTextColor(100, 100, 100)
-  doc.text(`Generated: ${new Date().toLocaleString('en-PK')}`, 14, y)
+  doc.setTextColor(80, 80, 80)
+  const statusLabel = statusCfg?.label ?? order.status
+  doc.text(`Status: ${statusLabel}`, margin, y)
+  y += 4
+
+  doc.setFontSize(7)
+  doc.setTextColor(140, 140, 140)
+  doc.text(`Generated: ${new Date().toLocaleString('en-PK')}`, margin, y)
   y += 10
 
-  // ── Order Info ──────────────────────────────────────────────────
-  const infoRows = [
-    ['Order #', String(order.orderNumber).padStart(3, '0')],
-    ['Status', ORDER_STATUS_CONFIG[order.status]?.label ?? order.status],
-    ['Date', formatDate(order.createdAt)],
-    ['Due Date', formatDate(order.dueDate)],
-    ['Tracking Code', order.trackingCode],
-  ]
-  autoTable(doc, {
-    body: infoRows,
-    startY: y,
-    theme: 'plain',
-    styles: { fontSize: 8, cellPadding: 1.5 },
-    columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 35, textColor: [100, 100, 100] },
-      1: { cellWidth: 'auto' },
-    },
-    margin: { left: 14 },
-    tableWidth: pageW,
-  })
-  y = (doc as any).lastAutoTable?.finalY + 6 || y + 40
+  // ═══════════════════════════════════════════════════════════════
+  // SEPARATOR
+  // ═══════════════════════════════════════════════════════════════
+  doc.setDrawColor(...brandColor)
+  doc.setLineWidth(0.3)
+  doc.line(margin, y, 196, y)
+  y += 8
 
-  // ── Customer Info ───────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // KEY DETAILS — two-column grid
+  // ═══════════════════════════════════════════════════════════════
+  const leftCol = [
+    { label: 'Date',      value: formatDate(order.createdAt) },
+    { label: 'Due Date',  value: formatDate(order.dueDate) },
+  ]
+  const rightCol = [
+    { label: 'Tracking',  value: order.trackingCode },
+    { label: 'Urgent',    value: order.isUrgent === 1 ? '⚡ Yes' : 'No' },
+  ]
+
+  const colW = (pageW - 10) / 2
+  let rowY = y
+
+  leftCol.forEach(({ label, value }) => {
+    doc.setFontSize(7)
+    doc.setTextColor(140, 140, 140)
+    doc.setFont('helvetica', 'normal')
+    doc.text(label.toUpperCase(), margin, rowY)
+    doc.setFontSize(9)
+    doc.setTextColor(40, 40, 40)
+    doc.setFont('helvetica', 'bold')
+    doc.text(value, margin, rowY + 4)
+    rowY += 11
+  })
+
+  rowY = y
+  rightCol.forEach(({ label, value }) => {
+    doc.setFontSize(7)
+    doc.setTextColor(140, 140, 140)
+    doc.setFont('helvetica', 'normal')
+    doc.text(label.toUpperCase(), margin + colW + 10, rowY)
+    doc.setFontSize(9)
+    doc.setTextColor(40, 40, 40)
+    doc.setFont('helvetica', 'bold')
+    doc.text(String(value), margin + colW + 10, rowY + 4)
+    rowY += 11
+  })
+
+  y += 26
+
+  // ═══════════════════════════════════════════════════════════════
+  // CUSTOMER CARD
+  // ═══════════════════════════════════════════════════════════════
+  doc.setDrawColor(220, 220, 220)
+  doc.setFillColor(250, 250, 250)
+  doc.roundedRect(margin, y - 2, pageW, 14, 2, 2, 'FD')
+
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(80, 80, 80)
+  doc.text('CUSTOMER', margin + 3, y + 3)
+
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(30, 30, 30)
+  doc.text(order.customerName, margin + 3, y + 8.5)
+
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(100, 100, 100)
+  doc.text(order.customerPhone, margin + colW + 10, y + 8.5)
+
+  if (order.orderForRelation && order.orderForRelation !== 'self') {
+    doc.setFontSize(7)
+    doc.setTextColor(140, 140, 140)
+    doc.text(`For: ${order.orderForName ?? order.orderForRelation}`, margin + 3, y + 13)
+  }
+  y += 18
+
+  // ═══════════════════════════════════════════════════════════════
+  // GARMENT DETAILS
+  // ═══════════════════════════════════════════════════════════════
   doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...brandColor)
-  doc.text('Customer', 14, y)
-  y += 5
+  doc.text('Garment Details', margin, y)
+  y += 6
 
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(60, 60, 60)
-  const custFields = [
-    order.customerName,
-    order.customerPhone,
-    order.orderForRelation && order.orderForRelation !== 'self'
-      ? `For: ${order.orderForName ?? order.orderForRelation}`
-      : null,
-  ].filter(Boolean)
-  custFields.forEach(f => {
-    doc.text(`• ${f}`, 14, y)
-    y += 4.5
+  const garmentName = GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS]?.label ?? order.garmentType
+  const garmentEmoji = GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS]?.emoji ?? ''
+
+  autoTable(doc, {
+    body: [[
+      { content: `${garmentEmoji}  ${garmentName}`, styles: { fontSize: 10, fontStyle: 'bold', textColor: [30, 30, 30] } },
+    ]],
+    startY: y,
+    theme: 'plain',
+    styles: { cellPadding: 4 },
+    margin: { left: margin },
+    tableWidth: pageW,
+    tableLineColor: [...brandColor, 0.15] as any,
+    tableLineWidth: 0.5,
   })
+  y = (doc as any).lastAutoTable?.finalY + 3 || y + 15
+
+  // Special instructions
+  if (order.specialInstructions) {
+    autoTable(doc, {
+      body: [[
+        {
+          content: order.specialInstructions,
+          styles: { fontSize: 8, textColor: [70, 70, 70], cellPadding: 5 },
+        },
+      ]],
+      startY: y,
+      theme: 'plain',
+      styles: { cellPadding: 3 },
+      margin: { left: margin },
+      tableWidth: pageW,
+      tableLineColor: [220, 220, 220] as any,
+      tableLineWidth: 0.3,
+    })
+    y = (doc as any).lastAutoTable?.finalY + 5 || y + 15
+  }
+
+  // Assigned karigar
+  if (order.assignedToName) {
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100, 100, 100)
+    doc.text(`Assigned to: ${order.assignedToName}`, margin, y)
+    y += 6
+  }
+
   y += 3
 
-  // ── Garment Details ─────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // PRICE BREAKDOWN — card style
+  // ═══════════════════════════════════════════════════════════════
   doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...brandColor)
-  doc.text('Order Details', 14, y)
-  y += 5
-
-  const garmentRows = [
-    ['Garment', GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS]?.label ?? order.garmentType],
-    ['Urgent', order.isUrgent === 1 ? 'Yes ⚡' : 'No'],
-  ]
-  if (order.specialInstructions) {
-    garmentRows.push(['Instructions', order.specialInstructions])
-  }
-  if (order.assignedToName) {
-    garmentRows.push(['Assigned To', order.assignedToName])
-  }
-  autoTable(doc, {
-    body: garmentRows,
-    startY: y,
-    theme: 'plain',
-    styles: { fontSize: 8, cellPadding: 1.5 },
-    columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 30, textColor: [100, 100, 100] },
-      1: { cellWidth: 'auto' },
-    },
-    margin: { left: 14 },
-    tableWidth: pageW,
-  })
-  y = (doc as any).lastAutoTable?.finalY + 6 || y + 30
-
-  // ── Price Breakdown ─────────────────────────────────────────────
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...brandColor)
-  doc.text('Price Breakdown', 14, y)
-  y += 5
+  doc.text('Price Breakdown', margin, y)
+  y += 6
 
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0)
   const balance = orderBalance(order)
-  const priceRows = [
-    ['Total Price', formatCurrency(order.totalPrice)],
-    ['Amount Paid', formatCurrency(totalPaid)],
-    ['Balance Due', balance > 0 ? formatCurrency(balance) : 'Paid ✓'],
-  ]
+
   autoTable(doc, {
-    body: priceRows,
+    body: [
+      ['Total Price',   formatCurrency(order.totalPrice)],
+      ['Amount Paid',   formatCurrency(totalPaid)],
+      [
+        { content: 'Balance Due', styles: { fontStyle: 'bold', textColor: balance > 0 ? [180, 50, 50] : [40, 140, 60] } },
+        { content: balance > 0 ? formatCurrency(balance) : 'Fully Paid ✓', styles: { fontStyle: 'bold', textColor: balance > 0 ? [180, 50, 50] : [40, 140, 60] } },
+      ],
+    ],
     startY: y,
     theme: 'plain',
-    styles: { fontSize: 8, cellPadding: 1.5 },
+    styles: { fontSize: 10, cellPadding: 4 },
     columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 40, textColor: [100, 100, 100] },
-      1: { cellWidth: 'auto', halign: 'right' },
+      0: { fontStyle: 'bold', cellWidth: 60, textColor: [80, 80, 80] },
+      1: { cellWidth: 'auto', halign: 'right', fontStyle: 'bold', textColor: [30, 30, 30] },
     },
-    margin: { left: 14 },
+    margin: { left: margin },
     tableWidth: pageW,
+    tableLineColor: [230, 230, 230] as any,
+    tableLineWidth: 0.3,
   })
-  y = (doc as any).lastAutoTable?.finalY + 6 || y + 30
+  y = (doc as any).lastAutoTable?.finalY + 6 || y + 35
 
-  // ── Payment History ─────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // PAYMENT HISTORY
+  // ═══════════════════════════════════════════════════════════════
   if (payments.length > 0) {
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(...brandColor)
-    doc.text('Payment History', 14, y)
-    y += 5
+    doc.text('Payment History', margin, y)
+    y += 6
 
     autoTable(doc, {
       head: [['Date', 'Method', 'Amount']],
@@ -186,25 +282,34 @@ export async function exportOrderInvoice(data: InvoiceData) {
         formatCurrency(p.amount),
       ]),
       startY: y,
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: brandColor, textColor: [255, 255, 255] },
-      margin: { left: 14 },
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: brandColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: 50 },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 'auto', halign: 'right' },
+      },
+      margin: { left: margin },
       tableWidth: pageW,
+      alternateRowStyles: { fillColor: [248, 248, 248] },
     })
     y = (doc as any).lastAutoTable?.finalY + 8 || y + 30
   }
 
-  // ── Footer ──────────────────────────────────────────────────────
-  if (y < 260) y = 265
+  // ═══════════════════════════════════════════════════════════════
+  // FOOTER
+  // ═══════════════════════════════════════════════════════════════
+  if (y < 250) y = 260
   doc.setDrawColor(220, 220, 220)
-  doc.line(14, y, 196, y)
+  doc.setLineWidth(0.3)
+  doc.line(margin, y, 196, y)
   y += 6
 
   doc.setFontSize(7)
-  doc.setTextColor(150, 150, 150)
+  doc.setTextColor(160, 160, 160)
   doc.setFont('helvetica', 'normal')
-  doc.text('Generated by MeraDarzi — Best Tailor Management Software in Pakistan', 14, y)
-  doc.text('meradarzi.pk', 14, y + 4)
+  doc.text('Generated by MeraDarzi — Best Tailor Management Software in Pakistan', margin, y)
+  doc.text('meradarzi.pk', margin, y + 4)
 
   // Download
   const filename = `invoice-${shop.name.replace(/\s+/g, '-')}-${order.orderNumber}-${new Date().toISOString().split('T')[0]}.pdf`
@@ -215,13 +320,4 @@ export async function exportOrderInvoice(data: InvoiceData) {
   a.download = filename
   a.click()
   URL.revokeObjectURL(url)
-}
-
-function hexToRgb(hex: string): [number, number, number] {
-  const c = hex.replace('#', '')
-  return [
-    parseInt(c.substring(0, 2), 16),
-    parseInt(c.substring(2, 4), 16),
-    parseInt(c.substring(4, 6), 16),
-  ]
 }
