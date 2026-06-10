@@ -268,8 +268,10 @@ CREATE TABLE IF NOT EXISTS cron_cursors (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Add plan_expires_at to existing shops (safe to re-run)
+-- Add missing columns to existing shops (safe to re-run)
 ALTER TABLE shops ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ;
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
 
 -- ============================================================
 -- 1. MISSING DATABASE INDEXES

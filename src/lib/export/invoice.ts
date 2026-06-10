@@ -35,6 +35,46 @@ function hexToRgb(hex: string): [number, number, number] {
   ]
 }
 
+// jsPDF's default Helvetica font only supports WinAnsiEncoding
+// (Latin-1).  Emoji, Arabic/Urdu script, and other non-Latin
+// characters render as garbled bytes.  Strip them — for full Urdu
+// support we'd need to embed Noto Nastaliq Urdu (~500 KB).
+function sanitizeForPdf(text: string): string {
+  return (
+    text
+      // Remove emoji and other symbol blocks
+      .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+      .replace(/[\u{2600}-\u{27BF}]/gu, '')
+      .replace(/[\u{FE00}-\u{FEFF}]/gu, '')
+      .replace(/[\u{200D}\u{200C}]/gu, '')
+      // Remove Arabic / Urdu script blocks — cannot render without an
+      // embedded font.  This removes parenthesised Urdu like (گول گردن)
+      // but preserves the English label.
+      .replace(/[؀-ۿ]/g, '')
+      .replace(/[ݐ-ݿ]/g, '')
+      .replace(/[ﭐ-﷿]/g, '')
+      .replace(/[ﹰ-﻿]/g, '')
+      // Collapse whitespace left by removed characters
+      .replace(/\s*\(\s*\)/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+  )
+}
+
+// Format instructions into separate lines for readability
+function formatInstructions(raw: string): string {
+  const cleaned = sanitizeForPdf(raw)
+  if (!cleaned) return ''
+  if (cleaned.includes('|')) {
+    return cleaned
+      .split('|')
+      .map(s => s.trim())
+      .filter(Boolean)
+      .join('\n')
+  }
+  return cleaned
+}
+
 export async function exportOrderInvoice(data: InvoiceData) {
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([
     import('jspdf'),
@@ -64,14 +104,13 @@ export async function exportOrderInvoice(data: InvoiceData) {
   const subLine = [shop.city, shop.phone].filter(Boolean).join('  •  ')
   if (subLine) doc.text(subLine, margin, 21)
 
-  // Invoice badge on the right
   doc.setFontSize(22)
   doc.setFont('helvetica', 'bold')
   doc.text('INVOICE', 196, 20, { align: 'right' })
   y = 40
 
   // ═══════════════════════════════════════════════════════════════
-  // ORDER NUMBER & STATUS — prominent
+  // ORDER NUMBER & STATUS
   // ═══════════════════════════════════════════════════════════════
   doc.setTextColor(...brandColor)
   doc.setFontSize(16)
@@ -79,13 +118,11 @@ export async function exportOrderInvoice(data: InvoiceData) {
   doc.text(`Order #${String(order.orderNumber).padStart(3, '0')}`, margin, y)
   y += 7
 
-  // Status badge
   const statusCfg = ORDER_STATUS_CONFIG[order.status]
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80, 80, 80)
-  const statusLabel = statusCfg?.label ?? order.status
-  doc.text(`Status: ${statusLabel}`, margin, y)
+  doc.text(`Status: ${statusCfg?.label ?? order.status}`, margin, y)
   y += 4
 
   doc.setFontSize(7)
@@ -110,7 +147,7 @@ export async function exportOrderInvoice(data: InvoiceData) {
   ]
   const rightCol = [
     { label: 'Tracking',  value: order.trackingCode },
-    { label: 'Urgent',    value: order.isUrgent === 1 ? '⚡ Yes' : 'No' },
+    { label: 'Urgent',    value: order.isUrgent === 1 ? 'Yes' : 'No' },
   ]
 
   const colW = (pageW - 10) / 2
@@ -181,16 +218,16 @@ export async function exportOrderInvoice(data: InvoiceData) {
   doc.text('Garment Details', margin, y)
   y += 6
 
-  const garmentName = GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS]?.label ?? order.garmentType
-  const garmentEmoji = GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS]?.emoji ?? ''
+  const garmentLabel = GARMENT_LABELS[order.garmentType as keyof typeof GARMENT_LABELS]
+  const garmentName = garmentLabel?.label ?? order.garmentType
 
   autoTable(doc, {
     body: [[
-      { content: `${garmentEmoji}  ${garmentName}`, styles: { fontSize: 10, fontStyle: 'bold', textColor: [30, 30, 30] } },
+      { content: garmentName, styles: { fontSize: 11, fontStyle: 'bold', textColor: [30, 30, 30] } },
     ]],
     startY: y,
     theme: 'plain',
-    styles: { cellPadding: 4 },
+    styles: { cellPadding: 5 },
     margin: { left: margin },
     tableWidth: pageW,
     tableLineColor: [...brandColor, 0.15] as any,
@@ -198,22 +235,20 @@ export async function exportOrderInvoice(data: InvoiceData) {
   })
   y = (doc as any).lastAutoTable?.finalY + 3 || y + 15
 
-  // Special instructions
+  // Special instructions — render each line in its own row for readability
   if (order.specialInstructions) {
+    const formatted = formatInstructions(order.specialInstructions)
+    const lines = formatted.split('\n').filter(Boolean)
+
     autoTable(doc, {
-      body: [[
-        {
-          content: order.specialInstructions,
-          styles: { fontSize: 8, textColor: [70, 70, 70], cellPadding: 5 },
-        },
-      ]],
+      body: lines.map(line => [line]),
       startY: y,
       theme: 'plain',
-      styles: { cellPadding: 3 },
+      styles: { fontSize: 8, textColor: [70, 70, 70], cellPadding: 3 },
       margin: { left: margin },
       tableWidth: pageW,
-      tableLineColor: [220, 220, 220] as any,
-      tableLineWidth: 0.3,
+      tableLineColor: [225, 225, 225] as any,
+      tableLineWidth: 0.2,
     })
     y = (doc as any).lastAutoTable?.finalY + 5 || y + 15
   }
@@ -230,7 +265,7 @@ export async function exportOrderInvoice(data: InvoiceData) {
   y += 3
 
   // ═══════════════════════════════════════════════════════════════
-  // PRICE BREAKDOWN — card style
+  // PRICE BREAKDOWN
   // ═══════════════════════════════════════════════════════════════
   doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
@@ -247,7 +282,7 @@ export async function exportOrderInvoice(data: InvoiceData) {
       ['Amount Paid',   formatCurrency(totalPaid)],
       [
         { content: 'Balance Due', styles: { fontStyle: 'bold', textColor: balance > 0 ? [180, 50, 50] : [40, 140, 60] } },
-        { content: balance > 0 ? formatCurrency(balance) : 'Fully Paid ✓', styles: { fontStyle: 'bold', textColor: balance > 0 ? [180, 50, 50] : [40, 140, 60] } },
+        { content: balance > 0 ? formatCurrency(balance) : 'Fully Paid', styles: { fontStyle: 'bold', textColor: balance > 0 ? [180, 50, 50] : [40, 140, 60] } },
       ],
     ],
     startY: y,

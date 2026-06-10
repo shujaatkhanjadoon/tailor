@@ -60,7 +60,7 @@ export function RaastPaymentSheet({
     return new Promise((resolve, reject) => {
       const img = new window.Image()
       img.onload = () => {
-        let quality = 0.8
+        const quality = 0.8
         const step = (q: number): void => {
           const c = document.createElement('canvas')
           let w = img.naturalWidth

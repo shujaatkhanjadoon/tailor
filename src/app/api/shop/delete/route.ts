@@ -77,11 +77,19 @@ export async function POST(req: NextRequest) {
 
     // Phase 1: Immediately mark shop as inactive to prevent further access
     const now = new Date().toISOString()
-    await sbPatch(`shops?id=eq.${encodeURIComponent(shopId)}`, {
-      is_active: false,
-      deleted_at: now,
-      updated_at: now,
-    })
+    // Try with deleted_at first (post-migration), fall back without it
+    try {
+      await sbPatch(`shops?id=eq.${encodeURIComponent(shopId)}`, {
+        is_active: false,
+        deleted_at: now,
+        updated_at: now,
+      })
+    } catch {
+      await sbPatch(`shops?id=eq.${encodeURIComponent(shopId)}`, {
+        is_active: false,
+        updated_at: now,
+      })
+    }
 
     let failures = 0
     const [orders, photos] = await Promise.all([

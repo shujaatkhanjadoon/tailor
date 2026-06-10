@@ -27,7 +27,6 @@ const nextConfig: NextConfig = {
   cacheComponents: false,
 
   experimental: {
-    webpackBuildWorker: true,
     optimizePackageImports: ['lucide-react', 'recharts'],
   },
 
