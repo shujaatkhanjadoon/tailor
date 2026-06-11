@@ -219,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(apiData.error ?? 'Account creation failed on server')
     }
 
-    await createServerSession(apiData.memberId, shopId, pin)
+    await createServerSession(apiData.data.memberId, shopId, pin)
     setCachedShopId(shopId)
 
     const partial = await readStateFromDB()

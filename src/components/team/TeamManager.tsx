@@ -274,6 +274,8 @@ export function TeamManager() {
         return
       }
 
+      const result = await res.json()
+
       if (editingId) {
         // Existing member: optimistically update local state with form data
         const updatedData = {
@@ -296,19 +298,11 @@ export function TeamManager() {
           })
         })
       } else {
-        const newId = crypto.randomUUID()
-        const newMemberData = {
-          name: form.name.trim(),
-          phone: cleanPhone,
-          role: 'karigar' as const,
-          pin: form.pin,
-          speciality: formatKarigarSkills(form.speciality.split(',')),
-          payRateType: canUsePayReports ? form.payRateType : undefined,
-          payRate: canUsePayReports ? Number(form.payRate) || 0 : 0,
-        }
-        const member = await teamOps.addWithId(shopId, newId, newMemberData)
+        // API already created the member — use the returned data directly
+        // instead of calling teamOps.addWithId (which would double-insert)
+        const newMember = result.data as TeamMemberRecord
         setMembers(prev => {
-          const updated = [...prev, { ...member, _synced: 1 as const }]
+          const updated = [...prev, { ...newMember, _synced: 1 as const }]
           return updated.sort((a, b) => {
             if (a.role === 'owner') return -1
             if (b.role === 'owner') return 1
