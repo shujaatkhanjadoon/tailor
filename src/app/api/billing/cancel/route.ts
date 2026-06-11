@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/session'
-import { sbFetch, sbPost } from '@/lib/supabase/service'
+import { sbFetch } from '@/lib/supabase/service'
 import { validate } from '@/lib/validation'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
@@ -24,15 +24,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: 400 })
     }
 
-    const { reason, expiresAt } = parsed.data
+    const { reason } = parsed.data
 
     const now = new Date().toISOString()
-    const currentExpiry = expiresAt ? new Date(expiresAt).getTime() : Date.now()
-    const graceEndsAt = new Date(currentExpiry + 7 * 86400000).toISOString()
 
-    // Set status to cancelled with grace period
+    // Fetch current subscription
     const subRes = await sbFetch(
-      `subscriptions?shop_id=eq.${encodeURIComponent(shopId)}&select=id,plan,status&limit=1`,
+      `subscriptions?shop_id=eq.${encodeURIComponent(shopId)}&select=id,plan,status,expires_at&limit=1`,
     )
     if (!subRes.ok) {
       return NextResponse.json({ error: 'Failed to fetch subscription' }, { status: 500 })
@@ -42,25 +40,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No active subscription' }, { status: 404 })
     }
 
+    // Prevent duplicate cancellation
+    if (sub.status === 'cancelled') {
+      return NextResponse.json({ error: 'Subscription is already cancelled' }, { status: 409 })
+    }
+
+    // Mark subscription as cancelled — keep expires_at unchanged so the user
+    // retains access until the end of the current billing period.
+    // The cron job will transition cancelled→grace→starter when expiry passes.
     await sbFetch(`subscriptions?id=eq.${sub.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
       body: JSON.stringify({
         status: 'cancelled',
         cancelled_at: now,
-        grace_ends_at: graceEndsAt,
         updated_at: now,
       }),
     })
 
     // Audit log
-    await sbPost('admin_audit_log', {
-      action: 'subscription_cancelled',
-      target_type: 'subscription',
-      target_id: sub.id,
-      shop_id: shopId,
-      details: { reason, plan: sub.plan, grace_ends_at: graceEndsAt },
-      performed_at: now,
+    await sbFetch('admin_audit_log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        action: 'subscription_cancelled',
+        target_type: 'subscription',
+        target_id: sub.id,
+        shop_id: shopId,
+        details: { reason, plan: sub.plan, expires_at: sub.expires_at, cancelled_at: now },
+        performed_at: now,
+      }),
     }).catch((e) => logger.error('billing-cancel', 'Audit log failed (non-fatal)', e))
 
     // Notify admin
@@ -72,13 +81,13 @@ export async function POST(req: NextRequest) {
         previousPlan: sub.plan,
         plan: sub.plan,
         reason,
-        expiresAt: graceEndsAt,
+        expiresAt: sub.expires_at,
       })
     } catch (e) {
       logger.error('billing-cancel', 'Admin notification failed (non-fatal)', e)
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, expiresAt: sub.expires_at })
   } catch (e) {
     logger.error('billing-cancel', 'Cancel failed', e)
     return NextResponse.json({ error: 'Cancel failed' }, { status: 500 })

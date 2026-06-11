@@ -1,9 +1,8 @@
-// src/app/billing/cancel/page.tsx
 'use client'
 
 import { useState }  from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, AlertTriangle, CheckCircle2, MessageCircle } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, CheckCircle2, MessageCircle, Calendar, Info } from 'lucide-react'
 import { useAuth }   from '@/lib/auth/AuthContext'
 import { usePlan }   from '@/hooks/usePlan'
 import { PLANS }     from '@/lib/billing/plans'
@@ -31,7 +30,7 @@ export default function CancelPage() {
 
   const currentPlan = PLANS[plan.plan]
   const adminWhatsAppLink = `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(
-    `Assalam o Alaikum, meri subscription downgrade/cancel request submit ho gayi hai.\n\nShop ID: ${shopId ?? 'N/A'}\nCurrent plan: ${plan.plan}\nReason: ${reason || 'N/A'}`,
+    `Assalam o Alaikum, meri subscription cancellation request submit ho gayi hai.\n\nShop ID: ${shopId ?? 'N/A'}\nCurrent plan: ${plan.plan}\nReason: ${reason || 'N/A'}`,
   )}`
 
   const handleCancel = async () => {
@@ -51,27 +50,19 @@ export default function CancelPage() {
       if (!res.ok) {
         const err = await res.json()
         console.error('[Billing Cancel] API error:', err.error)
+        window.alert(err.error || 'Cancel request failed')
         return
       }
-
-      await fetch('/api/billing/subscription-event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          shopId,
-          event: 'downgraded',
-          previousPlan: plan.plan,
-          plan: 'starter',
-          reason,
-          expiresAt: plan.expiresAt?.toISOString() ?? null,
-        }),
-      }).catch((e) => console.error('[Billing Cancel] Admin email event failed:', e))
 
       setStep('done')
     } finally {
       setCancelling(false)
     }
   }
+
+  const expiryDate = plan.expiresAt
+    ? plan.expiresAt.toLocaleDateString('en-PK', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null
 
   if (step === 'done') {
     return (
@@ -81,11 +72,20 @@ export default function CancelPage() {
         </div>
         <h2 className="text-xl font-bold text-slate-800 mb-2">Subscription Cancel Ho Gayi</h2>
         <p className="text-slate-500 text-sm leading-relaxed max-w-xs mb-6">
-          Aapka plan {plan.expiresAt
-            ? plan.expiresAt.toLocaleDateString('en-PK', { day: 'numeric', month: 'long' })
-            : 'end of period'
-          } tak active rahega. Data delete nahi hoga.
+          {expiryDate ? (
+            <>Aapka plan <strong>{expiryDate}</strong> tak chalta rahega. Uske baad aap Starter plan par aa jayenge.</>
+          ) : (
+            <>Aapka plan current period ke end tak active rahega. Data delete nahi hoga.</>
+          )}
         </p>
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 max-w-xs w-full mb-6 text-left">
+          <div className="flex items-start gap-2">
+            <Info size={14} className="text-blue-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-blue-700 leading-relaxed">
+              End period ke baad 7 din ka grace period milega. Uske baad aap Starter plan par aa jayenge. Aapka data safe rahega — agar dubara upgrade karein to sab wapas mil jayega.
+            </p>
+          </div>
+        </div>
         <a
           href={adminWhatsAppLink}
           target="_blank"
@@ -120,28 +120,55 @@ export default function CancelPage() {
 
       <div className="px-4 pt-6 space-y-5 max-w-lg mx-auto">
 
-        {/* Warning */}
+        {/* Warning — access until end of period */}
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-bold text-amber-800 text-sm mb-1">Cancel karne se pehle:</p>
-              <ul className="text-xs text-amber-700 space-y-1 leading-relaxed">
-                <li>• Aapka {currentPlan.name} plan {plan.expiresAt
-                  ? plan.expiresAt.toLocaleDateString('en-PK', { day:'numeric', month:'long' })
-                  : 'period end'
-                } tak chalega</li>
-                <li>• Uske baad Starter plan par aa jayenge</li>
-                <li>• Data delete nahi hoga — sirf features band ho jaengi</li>
-                <li>• 7 din grace period milegi features ke liye</li>
+              <p className="font-bold text-amber-800 text-sm mb-2">Cancel karne se pehle yeh jaan lein:</p>
+              <ul className="text-xs text-amber-700 space-y-1.5 leading-relaxed">
+                <li className="flex items-start gap-1.5">
+                  <Calendar size={12} className="shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Aapka {currentPlan.name} plan {expiryDate || 'period end'} tak active rahega</strong> — cancel ke baad bhi access milega
+                  </span>
+                </li>
+                <li>• Uske baad 7 din ka <strong>grace period</strong> milega (limited features)</li>
+                <li>• Grace period ke baad <strong>Starter</strong> plan par aa jayenge (free)</li>
+                <li>• <strong>Data delete nahi hoga</strong> — sirf features band ho jaengi</li>
+                <li>• Kabhi bhi dubara upgrade kar sakte hain, data wapas mil jayega</li>
               </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Current plan info */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4">
+          <p className="font-semibold text-slate-700 text-sm mb-2">Current Subscription</p>
+          <div className="space-y-1">
+            <p className="text-sm text-slate-600">
+              Plan: <span className="font-bold">{currentPlan.emoji} {currentPlan.name}</span>
+            </p>
+            {expiryDate && (
+              <p className="text-sm text-slate-600">
+                Expires: <span className="font-semibold">{expiryDate}</span>
+              </p>
+            )}
+            {plan.billingCycle && (
+              <p className="text-sm text-slate-600">
+                Billing: <span className="font-semibold capitalize">{plan.billingCycle}</span>
+              </p>
+            )}
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-green-600 bg-green-50 rounded-xl px-3 py-2">
+              <CheckCircle2 size={12} />
+              Access until {expiryDate || 'period end'} — no immediate changes
             </div>
           </div>
         </div>
 
         {/* What you'll lose */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4">
-          <p className="font-semibold text-slate-700 text-sm mb-3">Cancel ke baad kya band hoga:</p>
+          <p className="font-semibold text-slate-700 text-sm mb-3">Grace period ke baad yeh features band ho jaenge:</p>
           <div className="space-y-2">
             {[
               'Karigar accounts',

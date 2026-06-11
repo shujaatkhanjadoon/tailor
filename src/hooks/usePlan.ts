@@ -197,7 +197,10 @@ export function usePlan(): PlanState {
   // Computed booleans
   const isTrialing = status === 'trialing' && trialEndsAt !== null && now !== null && trialEndsAt > now
   const inGrace    = status === 'grace'    && graceEndsAt !== null && now !== null && graceEndsAt > now
-  const isActive   = status === 'active'   || isTrialing
+
+  // A cancelled subscription with future expires_at still has active access until period end
+  const isCancelledWithAccess = status === 'cancelled' && expiresAt !== null && now !== null && expiresAt > now
+  const isActive   = status === 'active'   || isTrialing || isCancelledWithAccess
   const isExpired  = status === 'expired'  ||
     (status === 'cancelled' && expiresAt !== null && now !== null && expiresAt < now)
 

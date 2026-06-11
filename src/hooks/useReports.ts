@@ -6,8 +6,8 @@ import { mapOrder, mapPayment, mapTeamMember } from '@/lib/supabase/records'
 
 export type ReportPeriod = '7d' | '30d' | '90d' | '365d' | 'all'
 
-const ORDER_COLUMNS = 'id,shop_id,order_number,tracking_code,customer_id,customer_name,customer_phone,order_for_relation,order_for_name,recipient_gender,measurement_id,garment_type,status,assigned_to,assigned_to_name,total_price,amount_paid,is_urgent,due_date,special_instructions,fabric_photo_url,style_photo_url,created_at,updated_at,delivered_at,deleted_at'
-const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,applied_to_balance,kind,method,recorded_by,paid_at,notes,deleted_at'
+const ORDER_COLUMNS = 'id,shop_id,customer_id,customer_name,garment_type,status,assigned_to,total_price,amount_paid,is_urgent,created_at'
+const PAYMENT_COLUMNS = 'id,shop_id,order_id,amount,method,paid_at'
 const TEAM_COLUMNS = 'id,shop_id,name,role,speciality,pay_rate_type,pay_rate,is_active,deleted_at'
 
 let chanId = 0
@@ -52,8 +52,11 @@ export function useReports(shopId: string | null) {
   const [allPayments, setAllPayments] = useState<PaymentRecord[]>([])
   const [teamMembers, setTeamMembers] = useState<TeamMemberRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [now, setNow] = useState<Date | null>(null)
-  useEffect(() => { setNow(new Date()) }, [])
+  const [cacheBust, setCacheBust] = useState(0)
+  useEffect(() => {
+    const interval = setInterval(() => setCacheBust(c => c + 1), 60_000)
+    return () => clearInterval(interval)
+  }, [])
 
   const [statusDistribution, setStatusDistribution] = useState<{status: string; count: number}[]>([])
   const [garmentBreakdown, setGarmentBreakdown] = useState<{type: string; count: number; revenue: number}[]>([])
@@ -75,93 +78,43 @@ export function useReports(shopId: string | null) {
     const fetchAndSet = async (showLoading: boolean) => {
       if (showLoading) setIsLoading(true)
       try {
-        if (!now) return
+        const now = new Date()
         const rangeStart = period === 'all' ? periodStart(now, '365d') : periodStart(now, period)
 
-        const ordersPromise = (() => {
-          let q = supabase
-            .from('orders')
-            .select(ORDER_COLUMNS)
-            .eq('shop_id', shopId)
-            .is('deleted_at', null)
-            .order('created_at', { ascending: false })
-          if (rangeStart) q = q.gte('created_at', rangeStart)
-          return q
-        })()
-
-        const paymentsPromise = (() => {
-          let q = supabase
-            .from('payments')
-            .select(PAYMENT_COLUMNS)
-            .eq('shop_id', shopId)
-            .is('deleted_at', null)
-            .order('paid_at', { ascending: true })
-          if (rangeStart) q = q.gte('paid_at', rangeStart)
-          return q
-        })()
-
-        const teamPromise = supabase
-          .from('team_members')
-          .select(TEAM_COLUMNS)
-          .eq('shop_id', shopId)
-          .eq('is_active', true)
-          .is('deleted_at', null)
-
-        const customersCountPromise = supabase
-          .from('customers')
-          .select('id', { count: 'exact' })
-          .eq('shop_id', shopId)
-          .is('deleted_at', null)
-
-        const statusPromise = (() => {
-          let q = supabase
-            .from('orders')
-            .select('status, count(*)')
-            .eq('shop_id', shopId)
-            .is('deleted_at', null)
-            .not('status', 'eq', 'cancelled')
-          if (rangeStart) q = q.gte('created_at', rangeStart)
-          return q
-        })()
-
-        const garmentPromise = (() => {
-          let q = supabase
-            .from('orders')
-            .select('garment_type, count(*), total_price.sum()')
-            .eq('shop_id', shopId)
-            .is('deleted_at', null)
-            .not('status', 'eq', 'cancelled')
-          if (rangeStart) q = q.gte('created_at', rangeStart)
-          return q
-        })()
-
-        const customerAggPromise = (() => {
-          let q = supabase
-            .from('orders')
-            .select('customer_id, customer_name, count(*), total_price.sum(), amount_paid.sum()')
-            .eq('shop_id', shopId)
-            .is('deleted_at', null)
-            .not('status', 'eq', 'cancelled')
-          if (rangeStart) q = q.gte('created_at', rangeStart)
-          return q.order('sum', { ascending: false }).limit(8)
-        })()
-
-        const methodPromise = (() => {
-          let q = supabase
-            .from('payments')
-            .select('method, amount.sum()')
-            .eq('shop_id', shopId)
-            .is('deleted_at', null)
-          if (rangeStart) q = q.gte('paid_at', rangeStart)
-          return q
-        })()
-
-        const [
-          ordersRes, paymentsRes, teamRes, customersCountRes,
-          statusRes, garmentRes, customerAggRes, methodRes,
-        ] = await Promise.all([
-          ordersPromise, paymentsPromise, teamPromise, customersCountPromise,
-          statusPromise, garmentPromise, customerAggPromise, methodPromise,
+        const [ordersRes, paymentsRes, teamRes, customersCountRes,
+          statusRes, garmentRes, customerAggRes, methodRes] = await Promise.all([
+          (() => {
+            let q = supabase.from('orders').select(ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null).order('created_at', { ascending: false })
+            if (rangeStart) q = q.gte('created_at', rangeStart)
+            return q
+          })(),
+          (() => {
+            let q = supabase.from('payments').select(PAYMENT_COLUMNS).eq('shop_id', shopId).is('deleted_at', null).order('paid_at', { ascending: true })
+            if (rangeStart) q = q.gte('paid_at', rangeStart)
+            return q
+          })(),
+          supabase.from('team_members').select(TEAM_COLUMNS).eq('shop_id', shopId).eq('is_active', true).is('deleted_at', null),
+          supabase.from('customers').select('id', { count: 'exact' }).eq('shop_id', shopId).is('deleted_at', null),
+          (() => {
+            let q = supabase.from('orders').select('status, count(*)').eq('shop_id', shopId).is('deleted_at', null).not('status', 'eq', 'cancelled')
+            if (rangeStart) q = q.gte('created_at', rangeStart)
+            return q
+          })(),
+          (() => {
+            let q = supabase.from('orders').select('garment_type, count(*), total_price.sum()').eq('shop_id', shopId).is('deleted_at', null).not('status', 'eq', 'cancelled')
+            if (rangeStart) q = q.gte('created_at', rangeStart)
+            return q
+          })(),
+          (() => {
+            let q = supabase.from('orders').select('customer_id, customer_name, count(*), total_price.sum(), amount_paid.sum()').eq('shop_id', shopId).is('deleted_at', null).not('status', 'eq', 'cancelled')
+            if (rangeStart) q = q.gte('created_at', rangeStart)
+            return q.order('sum', { ascending: false }).limit(8)
+          })(),
+          (() => {
+            let q = supabase.from('payments').select('method, amount.sum()').eq('shop_id', shopId).is('deleted_at', null)
+            if (rangeStart) q = q.gte('paid_at', rangeStart)
+            return q
+          })(),
         ])
 
         if (!cancelled) {
@@ -170,30 +123,13 @@ export function useReports(shopId: string | null) {
           setTeamMembers((teamRes.data ?? []).map(mapTeamMember))
           setTotalCustomers(customersCountRes.count ?? 0)
 
-          setStatusDistribution(
-            ((statusRes.data ?? []) as any[]).map((d) => ({ status: d.status, count: d.count }))
-          )
-          setGarmentBreakdown(
-            ((garmentRes.data ?? []) as any[]).map((d) => ({ type: d.garment_type, count: d.count, revenue: d.sum }))
-          )
-          setTopCustomers(
-            ((customerAggRes.data ?? []) as any[]).map((d) => ({
-              id: d.customer_id, name: d.customer_name,
-              orders: d.count, revenue: d.sum, paid: d.amount_paid_sum,
-            }))
-          )
+          setStatusDistribution(((statusRes.data ?? []) as any[]).map((d) => ({ status: d.status, count: d.count })))
+          setGarmentBreakdown(((garmentRes.data ?? []) as any[]).map((d) => ({ type: d.garment_type, count: d.count, revenue: d.sum })))
+          setTopCustomers(((customerAggRes.data ?? []) as any[]).map((d) => ({ id: d.customer_id, name: d.customer_name, orders: d.count, revenue: d.sum, paid: d.amount_paid_sum })))
 
           const rawMethods = (methodRes.data ?? []) as any[]
           const totalMethodAmount = rawMethods.reduce((s: number, m) => s + (m.sum ?? 0), 0)
-          setPaymentMethods(
-            rawMethods
-              .map((m) => ({
-                method: m.method,
-                amount: m.sum ?? 0,
-                pct: totalMethodAmount > 0 ? Math.round(((m.sum ?? 0) / totalMethodAmount) * 100) : 0,
-              }))
-              .sort((a, b) => b.amount - a.amount)
-          )
+          setPaymentMethods(rawMethods.map((m) => ({ method: m.method, amount: m.sum ?? 0, pct: totalMethodAmount > 0 ? Math.round(((m.sum ?? 0) / totalMethodAmount) * 100) : 0 })).sort((a, b) => b.amount - a.amount))
         }
       } finally {
         if (!cancelled && showLoading) setIsLoading(false)
@@ -222,18 +158,18 @@ export function useReports(shopId: string | null) {
   }, [shopId, period])
 
   const filteredOrders = useMemo(() => {
-    const start = now ? periodStart(now, period) : null
+    const start = periodStart(new Date(), period)
     if (!start) return allOrders
     return allOrders.filter(o => o.createdAt >= start)
-  }, [allOrders, period, now])
+  }, [allOrders, period, cacheBust])
 
   const filteredPayments = useMemo(() => {
-    const start = now ? periodStart(now, period) : null
+    const start = periodStart(new Date(), period)
     const validOrderIds = new Set(allOrders.filter(o => o.status !== 'cancelled').map(o => o.id))
     const scoped = allPayments.filter(p => validOrderIds.has(p.orderId))
     if (!start) return scoped
     return scoped.filter(p => p.paidAt >= start)
-  }, [allPayments, allOrders, period, now])
+  }, [allPayments, allOrders, period, cacheBust])
 
   const reportPayments = useMemo(() => {
     const validOrderIds = new Set(allOrders.filter(o => o.status !== 'cancelled').map(o => o.id))
@@ -241,6 +177,7 @@ export function useReports(shopId: string | null) {
   }, [allOrders, allPayments])
 
   const summary = useMemo(() => {
+    const now = new Date()
     const orders   = filteredOrders.filter(o => o.status !== 'cancelled')
     const payments = filteredPayments
     const allO     = allOrders.filter(o => o.status !== 'cancelled')
@@ -263,11 +200,12 @@ export function useReports(shopId: string | null) {
 
     const urgentOrders = orders.filter(o => o.isUrgent === 1).length
 
-    const pStart = now ? prevPeriodStart(now, period) : null
+    const pStart = prevPeriodStart(now, period)
     const validOrderIds = new Set(allOrders.filter(o => o.status !== 'cancelled').map(o => o.id))
+    const currentPeriodStart = periodStart(now, period)
     const prevPayments = allPayments.filter(p =>
       validOrderIds.has(p.orderId) &&
-      pStart && p.paidAt >= pStart && p.paidAt < (now ? periodStart(now, period) ?? '' : '')
+      pStart && p.paidAt >= pStart && p.paidAt < (currentPeriodStart ?? '')
     )
     const prevRevenue = sumPayments(prevPayments).received
     const revenueGrowth = prevRevenue > 0
@@ -288,10 +226,10 @@ export function useReports(shopId: string | null) {
       overpayments: paymentTotals.overpayments,
       totalCustomers,
     }
-  }, [filteredOrders, filteredPayments, allOrders, allPayments, totalCustomers, period, now])
+  }, [filteredOrders, filteredPayments, allOrders, allPayments, totalCustomers, period, cacheBust])
 
   const monthlyIncome = useMemo(() => {
-    if (!now) return []
+    const now = new Date()
     const months   = lastNMonths(now, 12)
     const payments = reportPayments
     return months.map(({ key, label }) => {
@@ -301,10 +239,10 @@ export function useReports(shopId: string | null) {
       const digital       = income - cash
       return { key, label, income, cash, digital }
     })
-  }, [reportPayments, now])
+  }, [reportPayments, cacheBust])
 
   const weeklyIncome = useMemo(() => {
-    if (!now) return []
+    const now = new Date()
     const payments = reportPayments
     const result   = []
     for (let i = 7; i >= 0; i--) {
@@ -322,7 +260,7 @@ export function useReports(shopId: string | null) {
       result.push({ label, income })
     }
     return result
-  }, [reportPayments, now])
+  }, [reportPayments, cacheBust])
 
   const karigarStats = useMemo(() => {
     const orders  = filteredOrders.filter(o => o.status !== 'cancelled')
@@ -355,7 +293,7 @@ export function useReports(shopId: string | null) {
   const paymentSummary = useMemo(() => sumPayments(filteredPayments), [filteredPayments])
 
   const dailyActivity = useMemo(() => {
-    if (!now) return []
+    const now = new Date()
     const orders   = allOrders
     const payments = reportPayments
     const result   = []
@@ -375,7 +313,7 @@ export function useReports(shopId: string | null) {
       })
     }
     return result
-  }, [allOrders, reportPayments, now])
+  }, [allOrders, reportPayments, cacheBust])
 
   return {
     period, setPeriod,

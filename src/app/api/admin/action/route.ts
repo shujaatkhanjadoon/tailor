@@ -210,22 +210,40 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: "Payment does not belong to this shop" }, { status: 403 });
         }
 
-        const now = new Date().toISOString();
+        const now = new Date();
+        const nowISO = now.toISOString();
         const previousSub = (await sbGet(`subscriptions?shop_id=eq.${shopId}&select=plan,status,expires_at,billing_cycle&limit=1`))[0];
 
-        // Calculate prorated expiry — remaining value from previous plan is credited
+        // Determine if this is an upgrade, downgrade, or same-plan renewal
+        const currentPlanId = previousSub?.plan ?? 'starter';
+        const newPlanRank = planRank(planId);
+        const currentPlanRank = planRank(currentPlanId);
+
         const billingCycle = cycle ?? 'monthly';
-        const paidAmount = amountPkr ?? 0;
-        const expiresAt = previousSub?.plan && previousSub.plan !== 'starter'
-          ? calculateProratedExpiry(
-              previousSub.plan,
-              previousSub.billing_cycle,
-              previousSub.expires_at,
-              planId as PlanId,
-              billingCycle,
-              paidAmount,
-            )
-          : subscriptionExpiresAt(billingCycle, previousSub?.expires_at ? new Date(previousSub.expires_at) : undefined);
+
+        // Calculate expiry:
+        //   - Upgrade or same-plan renewal: extend from existing expiry with proration
+        //   - Downgrade: start fresh from now
+        let expiresAt: string;
+        if (newPlanRank < currentPlanRank) {
+          // Downgrade — start fresh from now
+          expiresAt = subscriptionExpiresAt(billingCycle, now)!;
+        } else if (previousSub?.plan && previousSub.plan !== 'starter') {
+          // Upgrade or renewal from paid plan — prorate remaining value
+          const paidAmount = amountPkr ?? 0;
+          expiresAt = calculateProratedExpiry(
+            previousSub.plan,
+            previousSub.billing_cycle,
+            previousSub.expires_at,
+            planId as PlanId,
+            billingCycle,
+            paidAmount,
+            now,
+          );
+        } else {
+          // Activation from starter — standard expiry from now
+          expiresAt = subscriptionExpiresAt(billingCycle, now)!;
+        }
 
         // Fetch payment receipt_data for coupon info
         let couponCode: string | undefined;
@@ -239,7 +257,7 @@ export async function POST(req: NextRequest) {
           }
         } catch { /* ignore lookup failure */ }
 
-        // Activate subscription
+        // Activate subscription — always set status to active (handles reactivation from cancelled)
         await sbUpsertByShopId("subscriptions", {
           shop_id: shopId,
           plan: planId,
@@ -250,20 +268,20 @@ export async function POST(req: NextRequest) {
           cancelled_at: null,
           trial_ends_at: null,
           amount_pkr: amountPkr,
-          updated_at: now,
+          updated_at: nowISO,
         });
 
         // Mark payment completed
         await sbPatch(`subscription_payments?id=eq.${paymentId}`, {
           status: "completed",
-          paid_at: now,
+          paid_at: nowISO,
         });
 
         // Update subscription plan only. Shop account activation is controlled separately.
         await sbPatch(`shops?id=eq.${shopId}`, {
           plan: planId,
           plan_expires_at: expiresAt,
-          updated_at: now,
+          updated_at: nowISO,
         });
 
         // Audit log
@@ -271,6 +289,7 @@ export async function POST(req: NextRequest) {
           plan: planId,
           cycle: billingCycle,
           amount: amountPkr,
+          previous_plan: currentPlanId,
           coupon_code: couponCode,
           performed_by: adminName,
         });

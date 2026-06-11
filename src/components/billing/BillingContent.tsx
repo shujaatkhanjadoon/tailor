@@ -147,9 +147,15 @@ function BillingContentInner() {
                 "px-3 py-1.5 rounded-full text-xs font-bold",
                 plan.isTrial
                   ? "bg-white/20 text-white"
-                  : plan.isActive
-                    ? "bg-white/20 text-white"
-                    : "bg-red-100 text-red-700",
+                  : plan.inGrace
+                    ? "bg-orange-100 text-orange-700"
+                    : plan.isExpired
+                      ? "bg-red-100 text-red-700"
+                      : plan.status === "cancelled" && plan.isActive
+                        ? "bg-slate-200 text-slate-600"
+                        : plan.isActive
+                          ? "bg-white/20 text-white"
+                          : "bg-red-100 text-red-700",
               )}
             >
               {plan.isTrial
@@ -158,7 +164,9 @@ function BillingContentInner() {
                   ? "⚠️ Grace"
                   : plan.isExpired
                     ? "🔴 Expired"
-                    : "✓ Active"}
+                    : plan.status === "cancelled" && plan.isActive
+                      ? "⏸️ Cancelled"
+                      : "✓ Active"}
             </div>
           </div>
 
@@ -238,13 +246,26 @@ function BillingContentInner() {
         </button>
       </div>
 
-      {plan.plan !== "starter" && plan.isActive && !plan.isTrial && (
+      {plan.plan !== "starter" && plan.isActive && !plan.isTrial && plan.status !== "cancelled" && (
         <button
           onClick={() => router.push("/billing/cancel")}
           className="w-full text-slate-400 text-xs font-medium py-3 underline"
         >
           Subscription cancel karna chahte hain?
         </button>
+      )}
+      {plan.status === "cancelled" && plan.isActive && (
+        <div className="text-center py-4">
+          <p className="text-xs text-slate-400">
+            Subscription cancelled. {plan.expiresAt && <>Access until {format(plan.expiresAt, "d MMM yyyy")}.</>}
+          </p>
+          <button
+            onClick={() => router.push("/billing/upgrade")}
+            className="mt-2 text-xs font-semibold text-blue-600 underline"
+          >
+            Dobara activate karein →
+          </button>
+        </div>
       )}
     </div>
   );

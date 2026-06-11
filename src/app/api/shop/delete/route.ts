@@ -113,19 +113,41 @@ export async function POST(req: NextRequest) {
     )
     failures += historyResults.filter(r => !r).length
 
-    // Phase 4: Delete remaining tables in parallel (independent of each other)
+    // Phase 4: Delete tables respecting FK dependency order (sequentially by dependency group)
     const shopFilter = `shop_id=eq.${encodeURIComponent(shopId)}`
-    const deleteOrder = ['order_photos', 'payments', 'measurements', 'orders', 'customers']
-    const deleteShop = ['team_members', 'subscription_payments', 'subscriptions', 'shop_usage', 'shop_verification_requests']
 
-    // Delete order-related data first (FK dependencies), then shop-level data
-    const orderDeleteResults = await Promise.all(deleteOrder.map(table => tryDelete(table, shopFilter)))
-    failures += orderDeleteResults.filter(r => !r).length
+    // Group A: tables that reference orders or customers (parallel-safe among themselves)
+    const groupA = await Promise.all([
+      tryDelete('order_photos', shopFilter),
+      tryDelete('payments', shopFilter),
+      tryDelete('measurements', shopFilter),
+    ])
+    failures += groupA.filter(r => !r).length
 
-    const shopDeleteResults = await Promise.all(deleteShop.map(table => tryDelete(table, shopFilter)))
-    failures += shopDeleteResults.filter(r => !r).length
+    // Group B: tables referenced by group A (orders, customers) — run after group A
+    const groupB = await Promise.all([
+      tryDelete('orders', shopFilter),
+      tryDelete('customers', shopFilter),
+    ])
+    failures += groupB.filter(r => !r).length
 
-    // Phase 5: Finally remove the shop record itself
+    // Group C: subscription_payments references subscriptions — sequential within group
+    const c1 = await tryDelete('subscription_payments', shopFilter)
+    if (!c1) failures++
+
+    // Group D: subscriptions references shops — run after subscription_payments
+    const d1 = await tryDelete('subscriptions', shopFilter)
+    if (!d1) failures++
+
+    // Group E: remaining tables that reference shops (parallel-safe among themselves)
+    const groupE = await Promise.all([
+      tryDelete('team_members', shopFilter),
+      tryDelete('shop_usage', shopFilter),
+      tryDelete('shop_verification_requests', shopFilter),
+    ])
+    failures += groupE.filter(r => !r).length
+
+    // Phase 5: Finally remove the shop record itself (all referencing tables must be empty first)
     await sbDelete(`shops?id=eq.${encodeURIComponent(shopId)}`)
 
     return NextResponse.json({

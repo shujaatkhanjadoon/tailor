@@ -62,14 +62,24 @@ export interface PaginatedResult<T> {
 
 export async function getAllShops(page = 1, perPage = 50) {
   const offset = (page - 1) * perPage
-  const [shops, subscriptions, usages] = await Promise.all([
-    sbGet(`shops?select=id,shop_name,owner_phone,city,plan,is_active,created_at,updated_at&order=created_at.desc&limit=${perPage}&offset=${offset}`),
-    // Only fetch subscriptions and usage for the shops in the current page
-    sbGet(`subscriptions?select=shop_id,plan,status,billing_cycle,trial_ends_at,expires_at,grace_ends_at,amount_pkr,created_at,updated_at&limit=2000`),
-    sbGet(`shop_usage?select=shop_id,orders_this_month,customers_total,karigar_count,storage_used_kb,month_year&limit=2000`),
+  const shops = await sbGet(`shops?select=id,shop_name,owner_phone,city,plan,is_active,created_at,updated_at&order=created_at.desc&limit=${perPage}&offset=${offset}`)
+
+  if (shops.length === 0) return []
+
+  // Only fetch subscriptions and usage for the shops on this page — not all 2000
+  const shopIds = shops.map((s: Row) => s.id)
+  const shopIdFilter = shopIds.map((id: string) => `shop_id=in.(${id})`).join(',')
+  // Use OR filter if multiple shops, else use eq
+  const filterParam = shopIds.length === 1
+    ? `shop_id=eq.${shopIds[0]}`
+    : `or=(${shopIdFilter})`
+
+  const [subscriptions, usages] = await Promise.all([
+    sbGet(`subscriptions?select=shop_id,plan,status,billing_cycle,trial_ends_at,expires_at,grace_ends_at,amount_pkr,created_at,updated_at&${filterParam}`),
+    sbGet(`shop_usage?select=shop_id,orders_this_month,customers_total,karigar_count,storage_used_kb,month_year&${filterParam}`),
   ])
 
-  const shopIds = new Set(shops.map((s: Row) => s.id))
+  const shopIdSet = new Set(shopIds)
 
   // Join manually — only attach matching rows
   return shops.map((shop: Row) => ({
@@ -108,6 +118,12 @@ export async function getPendingPayments() {
 
 // ── Activate a pending payment ────────────────────────────────────
 
+function planRank(pid?: string | null): number {
+  if (pid === 'business') return 3
+  if (pid === 'professional') return 2
+  return 1
+}
+
 export async function activateSubscription(
   paymentId:  string,
   planId:     string,
@@ -119,17 +135,33 @@ export async function activateSubscription(
     // 1. Get shop details + existing subscription
     const [shops, existingSubs] = await Promise.all([
       sbGet(`shops?id=eq.${shopId}&select=shop_name,owner_phone`),
-      sbGet(`subscriptions?shop_id=eq.${shopId}&select=expires_at&limit=1`),
+      sbGet(`subscriptions?shop_id=eq.${shopId}&select=plan,expires_at,billing_cycle&limit=1`),
     ])
     const shop = shops[0]
     const existingSub = existingSubs?.[0]
 
-    // 2. Calculate expiry — extend from existing expiry so users don't lose paid time
-    const oldExpiry = existingSub?.expires_at ? new Date(existingSub.expires_at) : null
-    const baseDate = (oldExpiry && oldExpiry > new Date()) ? oldExpiry : new Date()
-    const expiresAtISO = subscriptionExpiresAt(cycle, baseDate)
+    // 2. Determine if this is an upgrade, downgrade, or same-plan renewal
+    const currentPlanId = existingSub?.plan ?? 'starter'
+    const newPlanRank = planRank(planId)
+    const currentPlanRank = planRank(currentPlanId)
 
-    // 3. Upsert subscription
+    // 3. Calculate expiry:
+    //    - Upgrade or same-plan renewal: extend from existing expiry so users don't lose paid time
+    //    - Downgrade: start from now (don't extend from higher-tier's remaining time)
+    const now = new Date()
+    let expiresAtISO: string | null
+
+    if (newPlanRank < currentPlanRank) {
+      // Downgrade — start fresh from now
+      expiresAtISO = subscriptionExpiresAt(cycle, new Date())
+    } else {
+      // Upgrade or same-plan renewal — extend from existing expiry
+      const oldExpiry = existingSub?.expires_at ? new Date(existingSub.expires_at) : null
+      const baseDate = (oldExpiry && oldExpiry > now) ? oldExpiry : now
+      expiresAtISO = subscriptionExpiresAt(cycle, baseDate)
+    }
+
+    // 4. Upsert subscription — always set status to active (handles reactivation from cancelled)
     await sbUpsertByShopId('subscriptions', {
       shop_id:          shopId,
       plan:             planId,
@@ -143,23 +175,23 @@ export async function activateSubscription(
       updated_at:       new Date().toISOString(),
     })
 
-    // 4. Mark payment as completed
+    // 5. Mark payment as completed
     await sbPatch(`subscription_payments?id=eq.${paymentId}`,
       { status: 'completed', paid_at: new Date().toISOString() }
     )
 
-    // 5. Update shop plan
+    // 6. Update shop plan
     await sbPatch(`shops?id=eq.${shopId}`,
       { plan: planId, plan_expires_at: expiresAtISO, updated_at: new Date().toISOString() }
     )
 
-    // 6. Audit log
+    // 7. Audit log
     await logAdminAction(
       'activate_subscription', 'subscription', paymentId, shopId,
-      { plan: planId, cycle, amount: amountPkr, shop_name: shop?.shop_name }
+      { plan: planId, cycle, amount: amountPkr, shop_name: shop?.shop_name, previous_plan: currentPlanId }
     )
 
-    // 7. Build WhatsApp link
+    // 8. Build WhatsApp link
     const waLink = shop?.owner_phone
       ? buildActivationWhatsApp(
           shop.owner_phone,

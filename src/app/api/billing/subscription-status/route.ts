@@ -3,6 +3,11 @@ import { verifyMemberSessionToken, MEMBER_SESSION_COOKIE } from '@/lib/auth/sess
 import { sbGet } from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
 
+// Simple in-memory cache for subscription status
+// TTL is short since this is used for polling after payment
+const cache = new Map<string, { data: object; ts: number }>()
+const CACHE_TTL = 10_000 // 10 seconds
+
 export async function GET(req: NextRequest) {
   try {
     const token = req.cookies.get(MEMBER_SESSION_COOKIE)?.value
@@ -12,18 +17,30 @@ export async function GET(req: NextRequest) {
     }
     const { shopId } = session
 
+    // Check cache
+    const cached = cache.get(shopId)
+    if (cached && Date.now() - cached.ts < CACHE_TTL) {
+      return NextResponse.json(cached.data)
+    }
+
     const subs = await sbGet(`subscriptions?shop_id=eq.${encodeURIComponent(shopId)}&select=status,plan,expires_at&limit=1`)
     const sub = subs?.[0]
 
     if (!sub) {
-      return NextResponse.json({ status: 'none', plan: 'starter' })
+      const data = { status: 'none', plan: 'starter' }
+      cache.set(shopId, { data, ts: Date.now() })
+      return NextResponse.json(data)
     }
 
-    return NextResponse.json({
+    const responseData = {
       status: sub.status,
       plan: sub.plan,
       expiresAt: sub.expires_at,
-    })
+    }
+
+    cache.set(shopId, { data: responseData, ts: Date.now() })
+
+    return NextResponse.json(responseData)
   } catch (e) {
     logger.error('subscription-status', 'Error', e)
     return NextResponse.json({ error: 'Failed to fetch status' }, { status: 500 })

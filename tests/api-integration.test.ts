@@ -463,6 +463,7 @@ describe('POST /api/billing/submit-payment', () => {
   it('submits payment successfully (200)', async () => {
     const txId = encodeURIComponent(validPayment.transactionId)
     mockSupabase(`subscription_payments?gateway_tx_id=eq.${txId}&select=id&limit=1`, [])
+    mockSupabase(`subscription_payments?shop_id=eq.${encodeURIComponent(TEST_SHOP_ID)}&status=eq.pending&select=id,plan,billing_cycle&limit=1`, [])
     const subId = randomUUID()
     mockSupabase(`subscriptions?shop_id=eq.${encodeURIComponent(TEST_SHOP_ID)}&select=id&limit=1`, [{ id: subId }])
     mockSupabase('subscription_payments', [{ id: randomUUID() }], 201)
@@ -591,6 +592,7 @@ describe('Idempotency-Key support', () => {
     const txId = `idem-test-tx-${randomUUID()}`
     mockSupabase(`subscription_payments?gateway_tx_id=eq.${encodeURIComponent(txId)}&select=id&limit=1`, [])
     const shopId = TEST_SHOP_ID
+    mockSupabase(`subscription_payments?shop_id=eq.${encodeURIComponent(shopId)}&status=eq.pending&select=id,plan,billing_cycle&limit=1`, [])
     mockSupabase(`subscriptions?shop_id=eq.${encodeURIComponent(shopId)}&select=id&limit=1`, [{ id: randomUUID() }])
     mockSupabase('subscription_payments', [{ id: randomUUID() }], 201)
 

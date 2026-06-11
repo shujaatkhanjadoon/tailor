@@ -19,6 +19,21 @@ export function PlanBadge() {
     return null
   }
 
+  // ── Cancelled but still has access until period end ───────────────
+  if (plan.status === 'cancelled' && plan.plan !== 'starter') {
+    return (
+      <button
+        onClick={() => router.push('/billing')}
+        className="flex items-center gap-1.5 bg-slate-100 border border-slate-300
+                   text-slate-600 text-xs font-bold px-3 py-1.5 rounded-full
+                   hover:bg-slate-200 transition-colors"
+      >
+        {plan.plan === 'business' ? '👑' : '⭐'} {plan.plan === 'business' ? 'Business' : 'Pro'}
+        <span className="ml-1 text-red-500">· Cancelled</span>
+      </button>
+    )
+  }
+
   // ── Expired ───────────────────────────────────────────────────────
   if (plan.isExpired) {
     return (
