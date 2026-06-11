@@ -118,10 +118,62 @@ export async function getPendingPayments() {
 
 // ── Activate a pending payment ────────────────────────────────────
 
-function planRank(pid?: string | null): number {
-  if (pid === 'business') return 3
-  if (pid === 'professional') return 2
-  return 1
+/**
+ * Calculate remaining value of an existing subscription in PKR.
+ * Formula: remaining days × daily rate of the current plan.
+ */
+function remainingValue(
+  planId: string | null | undefined,
+  cycle: string | null | undefined,
+  expiresAt: string | null | undefined,
+  now: Date,
+): number {
+  if (!expiresAt || !cycle || planId === 'starter') return 0
+  const expiry = new Date(expiresAt)
+  if (expiry <= now) return 0
+  const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / 86400000)
+  const plan = PLANS[planId as keyof typeof PLANS]
+  if (!plan) return 0
+  const price = cycle === 'yearly' ? (plan.yearlyPkr ?? 0) : (plan.monthlyPkr ?? 0)
+  if (!price) return 0
+  const duration = cycle === 'yearly' ? 365 : 30
+  const dailyRate = price / duration
+  return Math.round(daysLeft * dailyRate)
+}
+
+/**
+ * Calculate new expiry using value-based proration.
+ * Formula:
+ *   Total Value = Remaining Value (from old plan) + New Payment Amount
+ *   New Daily Rate = New Plan Price / New Plan Duration
+ *   New Subscription Days = Total Value / New Daily Rate
+ *   New Expiry = Today + New Subscription Days
+ */
+function proratedExpiry(
+  oldPlanId: string | null | undefined,
+  oldCycle: string | null | undefined,
+  oldExpiresAt: string | null | undefined,
+  newPlanId: string,
+  newCycle: string,
+  paymentAmount: number,
+  now: Date,
+): string | null {
+  const plan = PLANS[newPlanId as keyof typeof PLANS]
+  if (!plan || newCycle === 'lifetime') return null
+
+  const newPrice = newCycle === 'yearly' ? (plan.yearlyPkr ?? 0) : (plan.monthlyPkr ?? 0)
+  if (!newPrice) return subscriptionExpiresAt(newCycle, now)
+
+  const newDuration = newCycle === 'yearly' ? 365 : 30
+  const newDailyRate = newPrice / newDuration
+
+  const remaining = remainingValue(oldPlanId, oldCycle, oldExpiresAt, now)
+  const totalValue = remaining + paymentAmount
+  const newDays = Math.round(totalValue / newDailyRate)
+
+  const expiry = new Date(now)
+  expiry.setDate(expiry.getDate() + newDays)
+  return expiry.toISOString()
 }
 
 export async function activateSubscription(
@@ -140,28 +192,23 @@ export async function activateSubscription(
     const shop = shops[0]
     const existingSub = existingSubs?.[0]
 
-    // 2. Determine if this is an upgrade, downgrade, or same-plan renewal
-    const currentPlanId = existingSub?.plan ?? 'starter'
-    const newPlanRank = planRank(planId)
-    const currentPlanRank = planRank(currentPlanId)
-
-    // 3. Calculate expiry:
-    //    - Upgrade or same-plan renewal: extend from existing expiry so users don't lose paid time
-    //    - Downgrade: start from now (don't extend from higher-tier's remaining time)
     const now = new Date()
-    let expiresAtISO: string | null
 
-    if (newPlanRank < currentPlanRank) {
-      // Downgrade — start fresh from now
-      expiresAtISO = subscriptionExpiresAt(cycle, new Date())
-    } else {
-      // Upgrade or same-plan renewal — extend from existing expiry
-      const oldExpiry = existingSub?.expires_at ? new Date(existingSub.expires_at) : null
-      const baseDate = (oldExpiry && oldExpiry > now) ? oldExpiry : now
-      expiresAtISO = subscriptionExpiresAt(cycle, baseDate)
-    }
+    // 2. Calculate value-based prorated expiry
+    //    This handles upgrade, downgrade, renewal, and first-time activation automatically:
+    //    Remaining value from old plan + new payment = total pool of value
+    //    Total value / new daily rate = days of access on new plan
+    const expiresAtISO = proratedExpiry(
+      existingSub?.plan,
+      existingSub?.billing_cycle,
+      existingSub?.expires_at,
+      planId,
+      cycle,
+      amountPkr,
+      now,
+    )
 
-    // 4. Upsert subscription — always set status to active (handles reactivation from cancelled)
+    // 3. Upsert subscription — always set status to active (handles reactivation from cancelled)
     await sbUpsertByShopId('subscriptions', {
       shop_id:          shopId,
       plan:             planId,
@@ -172,26 +219,27 @@ export async function activateSubscription(
       trial_ends_at:    null,
       cancelled_at:     null,
       amount_pkr:       amountPkr,
-      updated_at:       new Date().toISOString(),
+      updated_at:       now.toISOString(),
     })
 
-    // 5. Mark payment as completed
+    // 4. Mark payment as completed
     await sbPatch(`subscription_payments?id=eq.${paymentId}`,
-      { status: 'completed', paid_at: new Date().toISOString() }
+      { status: 'completed', paid_at: now.toISOString() }
     )
 
-    // 6. Update shop plan
+    // 5. Update shop plan
     await sbPatch(`shops?id=eq.${shopId}`,
-      { plan: planId, plan_expires_at: expiresAtISO, updated_at: new Date().toISOString() }
+      { plan: planId, plan_expires_at: expiresAtISO, updated_at: now.toISOString() }
     )
 
-    // 7. Audit log
+    // 6. Audit log
+    const currentPlanId = existingSub?.plan ?? 'starter'
     await logAdminAction(
       'activate_subscription', 'subscription', paymentId, shopId,
-      { plan: planId, cycle, amount: amountPkr, shop_name: shop?.shop_name, previous_plan: currentPlanId }
+      { plan: planId, cycle, amount: amountPkr, shop_name: shop?.shop_name, previous_plan: currentPlanId, expires_at: expiresAtISO }
     )
 
-    // 8. Build WhatsApp link
+    // 7. Build WhatsApp link
     const waLink = shop?.owner_phone
       ? buildActivationWhatsApp(
           shop.owner_phone,

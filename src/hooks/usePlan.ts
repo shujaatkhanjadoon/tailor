@@ -83,8 +83,7 @@ export function usePlan(): PlanState {
   const [isLoading, setIsLoading] = useState(true)
   const [subData,   setSubData]   = useState<Record<string, unknown> | null>(null)
   const [usageData, setUsageData] = useState<Record<string, unknown> | null>(null)
-  const [now, setNow] = useState<Date | null>(null)
-  useEffect(() => { setNow(new Date()) }, [])
+  const now = new Date()
 
   // Track if component is still mounted
   const mountedRef = useRef(true)
@@ -177,7 +176,7 @@ export function usePlan(): PlanState {
     : null
   const isPaidPlanExpired = rawPlanId !== 'starter' &&
     rawExpiresAt !== null &&
-    now !== null && rawExpiresAt < now &&
+    rawExpiresAt < now &&
     rawStatus !== 'trialing'
   const planId: PlanId    = isPaidPlanExpired ? 'starter' : rawPlanId
   const status: SubStatus = isPaidPlanExpired ? 'active' : rawStatus
@@ -195,18 +194,18 @@ export function usePlan(): PlanState {
     : null
 
   // Computed booleans
-  const isTrialing = status === 'trialing' && trialEndsAt !== null && now !== null && trialEndsAt > now
-  const inGrace    = status === 'grace'    && graceEndsAt !== null && now !== null && graceEndsAt > now
+  const isTrialing = status === 'trialing' && trialEndsAt !== null && trialEndsAt > now
+  const inGrace    = status === 'grace'    && graceEndsAt !== null && graceEndsAt > now
 
   // A cancelled subscription with future expires_at still has active access until period end
-  const isCancelledWithAccess = status === 'cancelled' && expiresAt !== null && now !== null && expiresAt > now
+  const isCancelledWithAccess = status === 'cancelled' && expiresAt !== null && expiresAt > now
   const isActive   = status === 'active'   || isTrialing || isCancelledWithAccess
   const isExpired  = status === 'expired'  ||
-    (status === 'cancelled' && expiresAt !== null && now !== null && expiresAt < now)
+    (status === 'cancelled' && expiresAt !== null && expiresAt < now)
 
   // Days left until trial/expiry
   const relevantDate = isTrialing ? trialEndsAt : expiresAt
-  const daysLeft     = relevantDate && now
+  const daysLeft     = relevantDate
     ? Math.max(0, Math.ceil((relevantDate.getTime() - now.getTime()) / 86400000))
     : null
 

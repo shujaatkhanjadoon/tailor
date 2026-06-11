@@ -6,6 +6,7 @@ import {
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
+import { TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatAmount } from '@/lib/format/currency'
 
@@ -48,6 +49,19 @@ export function IncomeChart({ monthly, weekly }: IncomeChartProps) {
     [view, monthly, weekly]
   )
   const maxVal  = useMemo(() => Math.max(...data.map(d => d.income), 1), [data])
+
+  if (data.length === 0) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-2xl p-5">
+        <h3 className="font-bold text-slate-800 mb-4">Income</h3>
+        <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+          <TrendingUp size={36} className="mb-2 opacity-50" />
+          <p className="text-sm font-medium">Koi income data nahi</p>
+          <p className="text-xs mt-1">Is period mein koi payment record nahi mila</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-5">

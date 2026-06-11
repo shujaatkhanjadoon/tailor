@@ -19,6 +19,9 @@ interface SummaryCardsProps {
 }
 
 export function SummaryCards({ summary }: SummaryCardsProps) {
+  if (!summary || (summary.totalOrders === 0 && summary.totalRevenue === 0)) {
+    return null
+  }
   const cards = [
     {
       label:    'Total Income',

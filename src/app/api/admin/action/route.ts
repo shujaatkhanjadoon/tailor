@@ -5,7 +5,8 @@ import { sendAdminSubscriptionEventEmail, sendShopOwnerAdminActionEmail } from "
 import { ADMIN_SESSION_COOKIE, verifySessionToken, verifyTOTP, getAdminSession } from "@/lib/admin/auth";
 import { validate, schemas } from "@/lib/validation";
 import { sbGet, sbPatch, sbPost, sbUpsertByShopId } from "@/lib/supabase/service";
-import { subscriptionExpiresAt, calculateProratedExpiry } from "@/lib/billing/cycles";
+import { subscriptionExpiresAt } from "@/lib/billing/cycles";
+import { activateSubscription } from "@/lib/billing/admin";
 import type { PlanId } from "@/lib/billing/plans";
 import { mapConcurrent } from '@/lib/concurrent'
 import { logger } from '@/lib/logger';
@@ -205,47 +206,18 @@ export async function POST(req: NextRequest) {
         if (payment.status !== "pending") {
           return NextResponse.json({ error: `Payment already ${payment.status}. Cannot activate.` }, { status: 409 });
         }
-        // Verify payment belongs to the correct shop
         if (payment.shop_id && payment.shop_id !== shopId) {
           return NextResponse.json({ error: "Payment does not belong to this shop" }, { status: 403 });
         }
 
-        const now = new Date();
-        const nowISO = now.toISOString();
-        const previousSub = (await sbGet(`subscriptions?shop_id=eq.${shopId}&select=plan,status,expires_at,billing_cycle&limit=1`))[0];
+        // Use the shared value-based proration logic from admin.ts
+        const result = await activateSubscription(paymentId, planId, cycle ?? 'monthly', amountPkr ?? 0, shopId);
 
-        // Determine if this is an upgrade, downgrade, or same-plan renewal
-        const currentPlanId = previousSub?.plan ?? 'starter';
-        const newPlanRank = planRank(planId);
-        const currentPlanRank = planRank(currentPlanId);
-
-        const billingCycle = cycle ?? 'monthly';
-
-        // Calculate expiry:
-        //   - Upgrade or same-plan renewal: extend from existing expiry with proration
-        //   - Downgrade: start fresh from now
-        let expiresAt: string;
-        if (newPlanRank < currentPlanRank) {
-          // Downgrade — start fresh from now
-          expiresAt = subscriptionExpiresAt(billingCycle, now)!;
-        } else if (previousSub?.plan && previousSub.plan !== 'starter') {
-          // Upgrade or renewal from paid plan — prorate remaining value
-          const paidAmount = amountPkr ?? 0;
-          expiresAt = calculateProratedExpiry(
-            previousSub.plan,
-            previousSub.billing_cycle,
-            previousSub.expires_at,
-            planId as PlanId,
-            billingCycle,
-            paidAmount,
-            now,
-          );
-        } else {
-          // Activation from starter — standard expiry from now
-          expiresAt = subscriptionExpiresAt(billingCycle, now)!;
+        if (!result.success) {
+          return NextResponse.json({ error: result.error ?? 'Activation failed' }, { status: 500 });
         }
 
-        // Fetch payment receipt_data for coupon info
+        // Fetch payment receipt_data for coupon info (for notifications)
         let couponCode: string | undefined;
         let discountPct: number | undefined;
         try {
@@ -257,62 +229,28 @@ export async function POST(req: NextRequest) {
           }
         } catch { /* ignore lookup failure */ }
 
-        // Activate subscription — always set status to active (handles reactivation from cancelled)
-        await sbUpsertByShopId("subscriptions", {
-          shop_id: shopId,
-          plan: planId,
-          billing_cycle: billingCycle,
-          status: "active",
-          expires_at: expiresAt,
-          grace_ends_at: null,
-          cancelled_at: null,
-          trial_ends_at: null,
-          amount_pkr: amountPkr,
-          updated_at: nowISO,
-        });
+        // Get previous plan + new expiry for notifications
+        const [previousSub] = await sbGet(`subscriptions?shop_id=eq.${shopId}&select=plan,status,expires_at,billing_cycle&limit=1`) as { plan?: string; status?: string; expires_at?: string; billing_cycle?: string }[];
 
-        // Mark payment completed
-        await sbPatch(`subscription_payments?id=eq.${paymentId}`, {
-          status: "completed",
-          paid_at: nowISO,
-        });
-
-        // Update subscription plan only. Shop account activation is controlled separately.
-        await sbPatch(`shops?id=eq.${shopId}`, {
-          plan: planId,
-          plan_expires_at: expiresAt,
-          updated_at: nowISO,
-        });
-
-        // Audit log
-        await logAction("activate_subscription", paymentId, shopId, {
-          plan: planId,
-          cycle: billingCycle,
-          amount: amountPkr,
-          previous_plan: currentPlanId,
-          coupon_code: couponCode,
-          performed_by: adminName,
-        });
         notifyOwner(shopId, "activate_subscription", "Subscription Payment Approved", `Your ${planId} subscription payment has been approved.`, [
           ["Plan", planId],
-          ["Cycle", billingCycle],
+          ["Cycle", cycle ?? 'monthly'],
           ["Amount", amountPkr ? `Rs. ${amountPkr}` : "N/A"],
-          ["Expires At", expiresAt],
-          ...(couponCode ? [["Coupon", `${couponCode} (${discountPct}% off)`] as [string, unknown]] : []),
+          ["Expires At", previousSub?.expires_at ?? 'N/A'],
         ]);
         await sendAdminSubscriptionEventEmail({
           shopId,
           event: subscriptionEvent(previousSub?.plan, planId),
           previousPlan: previousSub?.plan ?? undefined,
           plan: planId,
-          cycle: billingCycle,
+          cycle: cycle ?? 'monthly',
           amountPkr,
-          expiresAt,
+          expiresAt: previousSub?.expires_at ?? '',
           couponCode,
           discountPct,
         }).catch((e) => logger.error('admin', 'Admin subscription email failed (non-fatal)', e));
 
-        return NextResponse.json({ success: true, expiresAt });
+        return NextResponse.json({ success: true, expiresAt: previousSub?.expires_at });
       }
 
       case "reject_payment": {
