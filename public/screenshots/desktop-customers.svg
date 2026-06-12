@@ -1,0 +1,207 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 850" font-family="Poppins, system-ui, sans-serif">
+  <defs>
+    <filter id="s1" x="-5%" y="-5%" width="115%" height="115%"><feDropShadow dx="0" dy="1" stdDeviation="3" flood-opacity="0.04"/></filter>
+  </defs>
+  <rect width="1280" height="850" fill="#f0f4f8"/>
+  <rect x="0" y="0" width="260" height="850" fill="#0f172a"/>
+  <rect x="20" y="20" width="220" height="50" rx="10" fill="#1e293b"/>
+  <rect x="28" y="28" width="36" height="34" rx="8" fill="#2563eb"/>
+  <text x="46" y="51" fill="#fff" font-size="16" font-weight="700" text-anchor="middle">MD</text>
+  <text x="75" y="48" fill="#fff" font-size="17" font-weight="600">MeraDarzi</text>
+  <text x="75" y="63" fill="#94a3b8" font-size="9">Pakistan's Tailor OS</text>
+  <rect x="16" y="86" width="228" height="40" rx="10" fill="#2563eb"/>
+  <text x="50" y="112" fill="#fff" font-size="13" font-weight="600">+ Naya Order</text>
+  <g transform="translate(0, 145)">
+    <rect x="12" y="0" width="236" height="44" rx="10" fill="transparent"/>
+    <text x="50" y="27" fill="#94a3b8" font-size="13">Dashboard</text><rect x="22" y="16" width="18" height="18" rx="4" fill="none" stroke="#94a3b8" stroke-width="1.8"/><rect x="26" y="20" width="10" height="10" rx="2" fill="#94a3b8"/>
+    <rect x="12" y="52" width="236" height="44" rx="10" fill="transparent"/>
+    <text x="50" y="79" fill="#94a3b8" font-size="13">Orders</text>
+    <rect x="22" y="68" width="18" height="18" rx="4" fill="none" stroke="#94a3b8" stroke-width="1.8"/>
+    <line x1="26" y1="72" x2="36" y2="72" stroke="#94a3b8" stroke-width="1.8"/>
+    <line x1="26" y1="77" x2="33" y2="77" stroke="#94a3b8" stroke-width="1.8"/>
+    <line x1="26" y1="82" x2="36" y2="82" stroke="#94a3b8" stroke-width="1.8"/>
+    <rect x="12" y="104" width="236" height="44" rx="10" fill="#2563eb"/>
+    <text x="50" y="131" fill="#fff" font-size="13" font-weight="500">Customers</text>
+    <circle cx="31" cy="120" r="8" fill="none" stroke="#fff" stroke-width="1.8"/>
+    <circle cx="31" cy="125" r="3" fill="#fff"/>
+    <path d="M23 134 Q31 128 39 134" fill="none" stroke="#fff" stroke-width="1.8"/>
+    <rect x="12" y="156" width="236" height="44" rx="10" fill="transparent"/>
+    <text x="50" y="183" fill="#94a3b8" font-size="13">Payments</text>
+    <rect x="24" y="170" width="14" height="14" rx="2" fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+    <text x="26" y="182" fill="#94a3b8" font-size="8" font-weight="700">$</text>
+    <rect x="12" y="208" width="236" height="44" rx="10" fill="transparent"/>
+    <text x="50" y="235" fill="#94a3b8" font-size="13">Reports</text>
+    <rect x="23" y="221" width="16" height="14" rx="2" fill="none" stroke="#94a3b8" stroke-width="1.6"/>
+    <line x1="26" y1="228" x2="36" y2="228" stroke="#94a3b8" stroke-width="1.2"/>
+    <line x1="26" y1="232" x2="33" y2="232" stroke="#94a3b8" stroke-width="1.2"/>
+    <rect x="12" y="260" width="236" height="44" rx="10" fill="transparent"/>
+    <text x="50" y="287" fill="#94a3b8" font-size="13">Team</text>
+    <circle cx="27" cy="276" r="3" fill="#94a3b8"/><circle cx="35" cy="276" r="3" fill="#94a3b8"/>
+    <circle cx="31" cy="284" r="3" fill="#94a3b8"/>
+    <rect x="12" y="312" width="236" height="44" rx="10" fill="transparent"/>
+    <text x="50" y="339" fill="#94a3b8" font-size="13">Settings</text>
+    <circle cx="31" cy="330" r="7" fill="none" stroke="#94a3b8" stroke-width="1.8"/>
+    <rect x="28" y="327" width="6" height="6" rx="3" fill="#94a3b8"/>
+  </g>
+  <rect x="16" y="750" width="228" height="64" rx="12" fill="#1e293b"/>
+  <circle cx="45" cy="782" r="18" fill="#2563eb"/>
+  <text x="45" y="787" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">AK</text>
+  <text x="72" y="777" fill="#fff" font-size="13" font-weight="500">Ahmed's Tailors</text>
+  <rect x="72" y="786" width="80" height="18" rx="5" fill="#1d4ed8"/>
+  <text x="112" y="799" fill="#bfdbfe" font-size="9" text-anchor="middle">Professional</text>
+  <!-- MAIN -->
+  <g transform="translate(280,0)">
+    <rect x="0" y="0" width="1000" height="64" fill="#fff"/>
+    <rect x="0" y="63" width="1000" height="1" fill="#e2e8f0"/>
+    <text x="28" y="28" fill="#64748b" font-size="12">Pages</text>
+    <text x="72" y="28" fill="#64748b" font-size="12">/</text>
+    <text x="84" y="28" fill="#0f172a" font-size="12" font-weight="600">Customers</text>
+    <rect x="580" y="16" width="200" height="32" rx="16" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="595" cy="32" r="4" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+    <line x1="598" y1="35" x2="603" y2="40" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="606" y="36" fill="#94a3b8" font-size="11">Search...</text>
+    <rect x="810" y="16" width="32" height="32" rx="8" fill="#f1f5f9"/>
+    <text x="826" y="37" fill="#64748b" font-size="16">🔔</text>
+    <circle cx="832" cy="20" r="6" fill="#ef4444"/>
+    <text x="832" y="23" fill="#fff" font-size="7" font-weight="600" text-anchor="middle">3</text>
+    <!-- Header -->
+    <rect x="0" y="64" width="1000" height="120" fill="#fff"/>
+    <rect x="0" y="183" width="1000" height="1" fill="#e2e8f0"/>
+    <text x="28" y="100" fill="#0f172a" font-size="22" font-weight="700">Customers</text>
+    <text x="28" y="122" fill="#64748b" font-size="13">Showing 48 customers</text>
+    <rect x="720" y="85" width="80" height="32" rx="8" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="732" y="105" fill="#64748b" font-size="11">☐ Select</text>
+    <rect x="810" y="85" width="72" height="32" rx="8" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="822" y="105" fill="#64748b" font-size="11">⬇ CSV</text>
+    <rect x="892" y="85" width="90" height="32" rx="8" fill="#2563eb"/>
+    <text x="910" y="105" fill="#fff" font-size="11" font-weight="600">+ New Customer</text>
+    <!-- Search & Filters -->
+    <rect x="28" y="140" width="280" height="36" rx="10" fill="#f1f5f9"/>
+    <circle cx="48" cy="158" r="5" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+    <line x1="52" y1="162" x2="58" y2="168" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="65" y="162" fill="#94a3b8" font-size="12">Search by name or phone...</text>
+    <!-- Gender Filter Pills -->
+    <rect x="320" y="142" width="50" height="32" rx="16" fill="#2563eb"/>
+    <text x="345" y="163" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">All</text>
+    <rect x="378" y="142" width="58" height="32" rx="16" fill="#fff" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="407" y="163" fill="#64748b" font-size="11" text-anchor="middle">Male</text>
+    <rect x="444" y="142" width="70" height="32" rx="16" fill="#fff" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="479" y="163" fill="#64748b" font-size="11" text-anchor="middle">Female</text>
+    <rect x="522" y="142" width="58" height="32" rx="16" fill="#fff" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="551" y="163" fill="#64748b" font-size="11" text-anchor="middle">Child</text>
+    <rect x="598" y="142" width="1" height="32" fill="#e2e8f0"/>
+    <rect x="612" y="142" width="65" height="32" rx="16" fill="#1e293b"/>
+    <text x="644" y="163" fill="#fff" font-size="11" text-anchor="middle">Recent</text>
+    <rect x="685" y="142" width="60" height="32" rx="16" fill="#fff" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="715" y="163" fill="#64748b" font-size="11" text-anchor="middle">Name</text>
+    <rect x="753" y="142" width="65" height="32" rx="16" fill="#fff" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="785" y="163" fill="#64748b" font-size="11" text-anchor="middle">Orders</text>
+    <!-- Mini Stats -->
+    <rect x="28" y="196" width="195" height="60" rx="12" fill="#eff6ff"/>
+    <text x="48" y="222" fill="#2563eb" font-size="24" font-weight="700">48</text>
+    <text x="48" y="244" fill="#1e40af" font-size="11">Total Customers</text>
+    <rect x="235" y="196" width="195" height="60" rx="12" fill="#f0fdf4"/>
+    <text x="255" y="222" fill="#16a34a" font-size="24" font-weight="700">32</text>
+    <text x="255" y="244" fill="#166534" font-size="11">Active (with orders)</text>
+    <rect x="442" y="196" width="195" height="60" rx="12" fill="#f5f3ff"/>
+    <text x="462" y="222" fill="#8b5cf6" font-size="24" font-weight="700">18</text>
+    <text x="462" y="244" fill="#6d28d9" font-size="11">Ordered This Month</text>
+    <!-- Customer Cards -->
+    <g transform="translate(28, 275)">
+      <!-- Row 1 -->
+      <rect x="0" y="0" width="940" height="58" rx="12" fill="#fff" stroke="#e2e8f0" stroke-width="1" filter="url(#s1)"/>
+      <circle cx="30" cy="29" r="20" fill="#dbeafe"/>
+      <text x="30" y="34" fill="#2563eb" font-size="11" font-weight="700" text-anchor="middle">AK</text>
+      <text x="60" y="26" fill="#0f172a" font-size="14" font-weight="600">Ali Khan</text>
+      <text x="60" y="44" fill="#64748b" font-size="11">📞 0300-1234567</text>
+      <text x="260" y="44" fill="#64748b" font-size="11">📍 Lahore</text>
+      <text x="480" y="26" fill="#2563eb" font-size="11" font-weight="500">🛍 8 orders</text>
+      <text x="480" y="44" fill="#64748b" font-size="10">Total: Rs 12,500</text>
+      <text x="680" y="26" fill="#16a34a" font-size="11">Last: 10 Jun 2026</text>
+      <text x="680" y="44" fill="#64748b" font-size="10">Today: ✅</text>
+      <text x="900" y="34" fill="#cbd5e1" font-size="16">›</text>
+      <!-- Row 2 -->
+      <rect x="0" y="68" width="940" height="58" rx="12" fill="#fff" stroke="#e2e8f0" stroke-width="1" filter="url(#s1)"/>
+      <circle cx="30" cy="97" r="20" fill="#fce7f3"/>
+      <text x="30" y="102" fill="#db2777" font-size="11" font-weight="700" text-anchor="middle">SA</text>
+      <text x="60" y="94" fill="#0f172a" font-size="14" font-weight="600">Sara Ahmed</text>
+      <rect x="140" y="82" width="48" height="18" rx="5" fill="#fce7f3"/>
+      <text x="164" y="95" fill="#db2777" font-size="9" text-anchor="middle">Female</text>
+      <text x="60" y="112" fill="#64748b" font-size="11">📞 0321-7654321</text>
+      <text x="260" y="112" fill="#64748b" font-size="11">📍 Islamabad</text>
+      <text x="480" y="94" fill="#2563eb" font-size="11" font-weight="500">🛍 12 orders</text>
+      <text x="480" y="112" fill="#64748b" font-size="10">Total: Rs 28,400</text>
+      <text x="680" y="94" fill="#16a34a" font-size="11">Last: 12 Jun 2026</text>
+      <text x="680" y="112" fill="#64748b" font-size="10">Today: ✅</text>
+      <text x="900" y="102" fill="#cbd5e1" font-size="16">›</text>
+      <!-- Row 3 -->
+      <rect x="0" y="136" width="940" height="58" rx="12" fill="#fff" stroke="#e2e8f0" stroke-width="1" filter="url(#s1)"/>
+      <circle cx="30" cy="165" r="20" fill="#dcfce7"/>
+      <text x="30" y="170" fill="#16a34a" font-size="11" font-weight="700" text-anchor="middle">UM</text>
+      <text x="60" y="162" fill="#0f172a" font-size="14" font-weight="600">Usman Malik</text>
+      <text x="60" y="180" fill="#64748b" font-size="11">📞 0333-9876543</text>
+      <text x="260" y="180" fill="#64748b" font-size="11">📍 Faisalabad</text>
+      <text x="480" y="162" fill="#2563eb" font-size="11" font-weight="500">🛍 5 orders</text>
+      <text x="480" y="180" fill="#64748b" font-size="10">Total: Rs 9,800</text>
+      <text x="680" y="162" fill="#64748b" font-size="11">Last: 08 Jun 2026</text>
+      <text x="680" y="180" fill="#64748b" font-size="10">5 days ago</text>
+      <text x="900" y="174" fill="#cbd5e1" font-size="16">›</text>
+      <!-- Row 4 -->
+      <rect x="0" y="204" width="940" height="58" rx="12" fill="#fff" stroke="#e2e8f0" stroke-width="1" filter="url(#s1)"/>
+      <circle cx="30" cy="233" r="20" fill="#fef3c7"/>
+      <text x="30" y="238" fill="#d97706" font-size="11" font-weight="700" text-anchor="middle">FB</text>
+      <text x="60" y="230" fill="#0f172a" font-size="14" font-weight="600">Fatima Bibi</text>
+      <rect x="140" y="218" width="48" height="18" rx="5" fill="#fce7f3"/>
+      <text x="164" y="231" fill="#db2777" font-size="9" text-anchor="middle">Female</text>
+      <text x="60" y="248" fill="#64748b" font-size="11">📞 0345-1112233</text>
+      <text x="260" y="248" fill="#64748b" font-size="11">📍 Gujranwala</text>
+      <text x="480" y="230" fill="#2563eb" font-size="11" font-weight="500">🛍 15 orders</text>
+      <text x="480" y="248" fill="#64748b" font-size="10">Total: Rs 35,200</text>
+      <text x="680" y="230" fill="#16a34a" font-size="11">Last: 11 Jun 2026</text>
+      <text x="680" y="248" fill="#64748b" font-size="10">Yesterday: ✅</text>
+      <text x="900" y="242" fill="#cbd5e1" font-size="16">›</text>
+      <!-- Row 5 -->
+      <rect x="0" y="272" width="940" height="58" rx="12" fill="#fff" stroke="#e2e8f0" stroke-width="1" filter="url(#s1)"/>
+      <circle cx="30" cy="301" r="20" fill="#ede9fe"/>
+      <text x="30" y="306" fill="#7c3aed" font-size="11" font-weight="700" text-anchor="middle">IR</text>
+      <text x="60" y="298" fill="#0f172a" font-size="14" font-weight="600">Imran Raza</text>
+      <text x="60" y="316" fill="#64748b" font-size="11">📞 0312-5556677</text>
+      <text x="260" y="316" fill="#64748b" font-size="11">📍 Sialkot</text>
+      <text x="480" y="298" fill="#2563eb" font-size="11" font-weight="500">🛍 3 orders</text>
+      <text x="480" y="316" fill="#64748b" font-size="10">Total: Rs 5,100</text>
+      <text x="680" y="298" fill="#64748b" font-size="11">Last: 25 May 2026</text>
+      <text x="680" y="316" fill="#64748b" font-size="10">18 days ago</text>
+      <text x="900" y="310" fill="#cbd5e1" font-size="16">›</text>
+      <!-- Row 6 -->
+      <rect x="0" y="340" width="940" height="58" rx="12" fill="#fff" stroke="#e2e8f0" stroke-width="1" filter="url(#s1)"/>
+      <circle cx="30" cy="369" r="20" fill="#ffe4e6"/>
+      <text x="30" y="374" fill="#e11d48" font-size="11" font-weight="700" text-anchor="middle">ZN</text>
+      <text x="60" y="366" fill="#0f172a" font-size="14" font-weight="600">Zainab Noor</text>
+      <rect x="140" y="354" width="48" height="18" rx="5" fill="#fce7f3"/>
+      <text x="164" y="367" fill="#db2777" font-size="9" text-anchor="middle">Female</text>
+      <text x="60" y="384" fill="#64748b" font-size="11">📞 0346-3334444</text>
+      <text x="260" y="384" fill="#64748b" font-size="11">📍 Rawalpindi</text>
+      <text x="480" y="366" fill="#2563eb" font-size="11" font-weight="500">🛍 7 orders</text>
+      <text x="480" y="384" fill="#64748b" font-size="10">Total: Rs 18,900</text>
+      <text x="680" y="366" fill="#16a34a" font-size="11">Last: 09 Jun 2026</text>
+      <text x="680" y="384" fill="#64748b" font-size="10">3 days ago</text>
+      <text x="900" y="378" fill="#cbd5e1" font-size="16">›</text>
+      <!-- Pagination -->
+      <text x="420" y="430" fill="#64748b" font-size="11">Showing 1-6 of 48 customers</text>
+      <rect x="520" y="416" width="32" height="28" rx="6" fill="#2563eb"/>
+      <text x="536" y="435" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">1</text>
+      <rect x="558" y="416" width="32" height="28" rx="6" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="574" y="435" fill="#64748b" font-size="11" text-anchor="middle">2</text>
+      <rect x="596" y="416" width="32" height="28" rx="6" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="612" y="435" fill="#64748b" font-size="11" text-anchor="middle">3</text>
+      <text x="636" y="435" fill="#64748b" font-size="11">...</text>
+      <rect x="656" y="416" width="32" height="28" rx="6" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="672" y="435" fill="#64748b" font-size="11" text-anchor="middle">8</text>
+    </g>
+    <rect x="0" y="815" width="1000" height="35" fill="#f8fafc"/>
+    <rect x="0" y="815" width="1000" height="1" fill="#e2e8f0"/>
+    <circle cx="28" cy="832" r="4" fill="#16a34a"/>
+    <text x="38" y="836" fill="#64748b" font-size="11">Online — Synced</text>
+    <text x="840" y="836" fill="#94a3b8" font-size="11">MeraDarzi v2.0 · Pakistan ka Tailor OS</text>
+  </g>
+</svg>
