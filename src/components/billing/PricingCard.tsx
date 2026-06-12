@@ -2,7 +2,7 @@
 'use client'
 
 import { Check, Zap } from 'lucide-react'
-import { PlanDefinition, PlanId, yearlySaving, yearlySavingPercent } from '@/lib/billing/plans'
+import { PlanDefinition, PlanId, yearlySaving, yearlySavingPercent, formatYearlyDeal } from '@/lib/billing/plans'
 import { cn } from '@/lib/utils'
 
 interface PricingCardProps {
@@ -177,15 +177,23 @@ export function PricingCard({
 
             {/* Yearly savings */}
             {cycle === 'yearly' && saving && (
-              <div className={cn(
-                'inline-flex items-center gap-1 mt-2 text-[11px] font-bold px-2 py-1 rounded-lg',
-                isCurrent
-                  ? 'bg-green-100 text-green-700'
-                  : isFeatured || isPremium
-                  ? 'bg-white/20 text-white'
-                  : 'bg-green-100 text-green-700'
-              )}>
-                Rs. {saving.toLocaleString()} bachat! {savingPct ? `(${savingPct}% save)` : ''}
+              <div className="mt-2 space-y-0.5">
+                <div className={cn(
+                  'inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg',
+                  isCurrent
+                    ? 'bg-green-100 text-green-700'
+                    : isFeatured || isPremium
+                    ? 'bg-white/20 text-white'
+                    : 'bg-green-100 text-green-700'
+                )}>
+                  Rs. {saving.toLocaleString()} bachat! {savingPct ? `(${savingPct}% save)` : ''}
+                </div>
+                <p className={cn(
+                  'text-[10px] font-semibold',
+                  isCurrent ? 'text-green-600' : isFeatured || isPremium ? 'text-blue-200' : 'text-emerald-600'
+                )}>
+                  {formatYearlyDeal(plan)}
+                </p>
               </div>
             )}
           </div>

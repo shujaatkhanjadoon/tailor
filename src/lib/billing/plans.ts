@@ -73,8 +73,8 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     id:          'professional',
     name:        'Professional',
     tagline:     'Growing shop ke liye — sab kuch',
-    monthlyPkr:  999,
-    yearlyPkr:   9999,
+    monthlyPkr:  499,
+    yearlyPkr:   4999,
     lifetimePkr: null,
     color:       'blue',
     emoji:       '⭐',
@@ -107,8 +107,8 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     id:          'business',
     name:        'Business',
     tagline:     'Badi dukaan ya multiple branches',
-    monthlyPkr:  2499,
-    yearlyPkr:   25000,
+    monthlyPkr:  999,
+    yearlyPkr:   9999,
     lifetimePkr: null,
     color:       'purple',
     emoji:       '👑',
@@ -212,4 +212,17 @@ export function formatYearlySaving(plan: PlanDefinition): string | null {
   const saving = yearlySaving(plan)
   if (saving === null) return null
   return `Rs. ${saving.toLocaleString()} bachat`
+}
+
+export function yearlyMonthsFree(plan: PlanDefinition): number | null {
+  if (!plan.monthlyPkr || !plan.yearlyPkr) return null
+  const monthsCost = plan.yearlyPkr / plan.monthlyPkr
+  return Math.round(12 - monthsCost)
+}
+
+export function formatYearlyDeal(plan: PlanDefinition): string | null {
+  const monthsFree = yearlyMonthsFree(plan)
+  if (monthsFree === null || monthsFree <= 0) return null
+  const monthsPaid = 12 - monthsFree
+  return `Sirf ${monthsPaid} months ki payment — ${monthsFree} months free! 🎉`
 }

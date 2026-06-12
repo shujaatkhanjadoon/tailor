@@ -3,7 +3,7 @@
 
 import { X, Zap, Check } from 'lucide-react'
 import { usePlan }        from '@/hooks/usePlan'
-import { PLANS, FEATURE_DESCRIPTIONS } from '@/lib/billing/plans'
+import { PLANS, FEATURE_DESCRIPTIONS, yearlySavingPercent, formatYearlyDeal } from '@/lib/billing/plans'
 
 
 interface UpgradePromptProps {
@@ -81,7 +81,9 @@ export function UpgradePrompt({ feature, onClose }: UpgradePromptProps) {
             <p className="text-lg font-bold text-white">
               Rs. {targetPlan.yearlyPkr?.toLocaleString()}
             </p>
-            <p className="text-xs text-blue-200">per year · save 21%</p>
+            <p className="text-xs text-blue-200">
+              per year · {yearlySavingPercent(targetPlan)}% save · {formatYearlyDeal(targetPlan)}
+            </p>
           </div>
         </div>
 

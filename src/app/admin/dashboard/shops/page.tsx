@@ -33,10 +33,10 @@ import { ConfirmModal } from "@/components/admin/ConfirmModal";
 
 const PLAN_OPTIONS = [
   { value: "starter|monthly", label: "🌱 Starter (Free)" },
-  { value: "professional|monthly", label: "⭐ Professional Monthly (Rs.999)" },
-  { value: "professional|yearly", label: "⭐ Professional Yearly (Rs.9,999)" },
-  { value: "business|monthly", label: "👑 Business Monthly (Rs.2,499)" },
-  { value: "business|yearly", label: "👑 Business Yearly (Rs.25,000)" },
+  { value: "professional|monthly", label: "⭐ Professional Monthly (Rs.499)" },
+  { value: "professional|yearly", label: "⭐ Professional Yearly (Rs.4,999)" },
+  { value: "business|monthly", label: "👑 Business Monthly (Rs.999)" },
+  { value: "business|yearly", label: "👑 Business Yearly (Rs.9,999)" },
 ];
 
 type ShopTab =

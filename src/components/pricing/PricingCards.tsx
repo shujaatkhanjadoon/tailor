@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Check, ArrowRight } from 'lucide-react'
-import { PLANS, type PlanId, yearlySaving, yearlySavingPercent } from '@/lib/billing/plans'
+import { PLANS, type PlanId, yearlySaving, yearlySavingPercent, formatYearlyDeal } from '@/lib/billing/plans'
 import { BillingCycleToggle } from '@/components/billing/BillingCycleToggle'
 import { cn } from '@/lib/utils'
 
@@ -91,12 +91,20 @@ export function PricingCards() {
                       {cycle === 'yearly' ? 'per year' : 'per month'}
                     </p>
                     {cycle === 'yearly' && saving && (
-                      <span className={cn(
-                        'inline-block mt-2 text-xs font-bold px-3 py-1 rounded-lg',
-                        isFeatured || isPremium ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700'
-                      )}>
-                        Rs. {saving.toLocaleString()} bachat ({savingPct}% save)
-                      </span>
+                      <div className="mt-2 space-y-0.5">
+                        <span className={cn(
+                          'inline-block text-xs font-bold px-3 py-1 rounded-lg',
+                          isFeatured || isPremium ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700'
+                        )}>
+                          Rs. {saving.toLocaleString()} bachat ({savingPct}% save)
+                        </span>
+                        <p className={cn(
+                          'text-[11px] font-semibold',
+                          isFeatured || isPremium ? 'text-blue-200' : 'text-emerald-600'
+                        )}>
+                          {formatYearlyDeal(p)}
+                        </p>
+                      </div>
                     )}
                   </>
                 )}

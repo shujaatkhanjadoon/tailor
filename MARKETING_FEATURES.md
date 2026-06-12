@@ -308,7 +308,7 @@ Pakistan mein tailor app kaun si hai
 MeraDarzi Pakistan ka tailor management app hai jo tailor shops, boutiques aur darzi ki dukano ko digital banata hai. Orders, gahak, payments aur karigar sab ek app mein manage karein.
 
 **Q2: Kya yeh free hai?**
-Haan! Starter plan bilkul free hai aur 30 orders/month tak istemal kar sakte hain. Professional plan Rs 300/month aur Business plan Rs 700/month mein available hai.
+Haan! Starter plan bilkul free hai aur 30 orders/month tak istemal kar sakte hain. Professional plan Rs 499/month aur Business plan Rs 999/month mein available hai.
 
 **Q3: Kya yeh Urdu mein chal sakta hai?**
 Jee haan! MeraDarzi poori tarah English aur Urdu dono mein available hai. Aap apni pasand ki zaban choose kar sakte hain.

@@ -28,7 +28,7 @@ function buildReminderMessage(
       `❌ Cloud sync band\n\n` +
       `📱 Abhi upgrade karein:\n` +
       `${APP_URL}/billing/upgrade\n\n` +
-      `*Professional plan:* Rs. 999/month sirf!\n` +
+      `*Professional plan:* Rs. 499/month sirf!\n` +
       `Raast se pay karein — bilkul free transaction! ⚡\n\n` +
       `Shukriya! 🙏`
     )

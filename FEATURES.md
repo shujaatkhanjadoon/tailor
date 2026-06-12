@@ -123,7 +123,7 @@
 
 | Feature | Description | File(s) |
 |---------|-------------|---------|
-| **3 pricing tiers** | Starter (free, 30 orders/mo), Professional (Rs 300), Business (Rs 700) | `lib/billing/plans.ts` |
+| **3 pricing tiers** | Starter (free, 30 orders/mo), Professional (Rs 499/mo), Business (Rs 999/mo) | `lib/billing/plans.ts` |
 | **Billing cycles** | Monthly subscription with automatic renewal | `lib/billing/cycles.ts` |
 | **Proration** | Upgrade/downgrade proration for partial months | `lib/billing/cycles.ts` |
 | **Expiry calculation** | Auto-calculate subscription end dates | `lib/billing/cycles.ts` |
