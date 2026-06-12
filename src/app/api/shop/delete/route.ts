@@ -66,15 +66,6 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const owner = await sbGet(
-      `team_members?id=eq.${encodeURIComponent(memberId)}` +
-      `&shop_id=eq.${encodeURIComponent(shopId)}` +
-      `&role=eq.owner&is_active=eq.true&select=id&limit=1`,
-    )
-    if (owner.length === 0) {
-      return NextResponse.json({ error: 'Only the active shop owner can permanently delete this shop' }, { status: 403 })
-    }
-
     // Phase 1: Immediately mark shop as inactive to prevent further access
     const now = new Date().toISOString()
     // Try with deleted_at first (post-migration), fall back without it
@@ -92,12 +83,14 @@ export async function POST(req: NextRequest) {
     }
 
     let failures = 0
-    const [orders, photos] = await Promise.all([
+    const [orders, photos, teamPhones] = await Promise.all([
       sbGet(`orders?shop_id=eq.${encodeURIComponent(shopId)}&select=id`).catch(() => []),
       sbGet(`order_photos?shop_id=eq.${encodeURIComponent(shopId)}&select=public_id`).catch(() => []),
+      sbGet(`team_members?shop_id=eq.${encodeURIComponent(shopId)}&select=phone`).catch(() => []),
     ])
     const orderIds = orders.map((o: any) => o.id).filter(Boolean)
     const publicIds = photos.map((p: any) => p.public_id).filter(Boolean)
+    const phones = [...new Set(teamPhones.map((t: any) => t.phone).filter(Boolean))] as string[]
 
     // Phase 2: Delete Cloudinary assets in parallel
     const photoResults = await Promise.all(publicIds.map(async (publicId: string) => {
@@ -105,7 +98,17 @@ export async function POST(req: NextRequest) {
     }))
     failures += photoResults.filter(r => r === false).length
 
-    // Phase 3: Batch-delete order status history
+    // Phase 3: Delete phone-based records (email_verifications, login_attempts use phone, not shop_id)
+    if (phones.length > 0) {
+      const phoneFilter = inFilter('phone', phones)
+      const phoneCleanup = await Promise.all([
+        tryDelete('email_verifications', phoneFilter),
+        tryDelete('login_attempts', phoneFilter),
+      ])
+      failures += phoneCleanup.filter(r => !r).length
+    }
+
+    // Phase 4: Batch-delete order status history
     const historyResults = await Promise.all(
       Array.from({ length: Math.ceil(orderIds.length / 100) }, (_, i) =>
         tryDelete('order_status_history', inFilter('order_id', orderIds.slice(i * 100, (i + 1) * 100)))
@@ -113,20 +116,26 @@ export async function POST(req: NextRequest) {
     )
     failures += historyResults.filter(r => !r).length
 
-    // Phase 4: Delete tables respecting FK dependency order (sequentially by dependency group)
+    // Phase 5: Delete tables respecting FK dependency order (sequentially by dependency group)
     const shopFilter = `shop_id=eq.${encodeURIComponent(shopId)}`
 
-    // Group A: tables that reference orders or customers (parallel-safe among themselves)
+    // Group A: tables that reference only shops (no FK dependencies on other deletable tables)
     const groupA = await Promise.all([
       tryDelete('order_photos', shopFilter),
       tryDelete('payments', shopFilter),
-      tryDelete('measurements', shopFilter),
     ])
     failures += groupA.filter(r => !r).length
 
-    // Group B: tables referenced by group A (orders, customers) — run after group A
+    // Group B: orders + customers (orders FK → measurements, so null out measurement_id first)
+    const nullMeasurement = await sbPatch(
+      `orders?shop_id=eq.${encodeURIComponent(shopId)}`,
+      { measurement_id: null },
+    ).then(() => true).catch(() => false)
+    if (!nullMeasurement) failures++
+
     const groupB = await Promise.all([
       tryDelete('orders', shopFilter),
+      tryDelete('measurements', shopFilter),
       tryDelete('customers', shopFilter),
     ])
     failures += groupB.filter(r => !r).length
@@ -142,12 +151,20 @@ export async function POST(req: NextRequest) {
     // Group E: remaining tables that reference shops (parallel-safe among themselves)
     const groupE = await Promise.all([
       tryDelete('team_members', shopFilter),
-      tryDelete('shop_usage', shopFilter),
       tryDelete('shop_verification_requests', shopFilter),
+      tryDelete('coupon_redemptions', shopFilter),
+      tryDelete('admin_audit_log', shopFilter),
     ])
     failures += groupE.filter(r => !r).length
 
-    // Phase 5: Finally remove the shop record itself (all referencing tables must be empty first)
+    // Phase 6: Final cleanup — ensure shop_usage is deleted (no CASCADE, may need retry)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const ok = await tryDelete('shop_usage', shopFilter)
+      if (ok) break
+      await new Promise(r => setTimeout(r, 500))
+    }
+
+    // Phase 7: Finally remove the shop record itself (all referencing tables must be empty first)
     await sbDelete(`shops?id=eq.${encodeURIComponent(shopId)}`)
 
     return NextResponse.json({

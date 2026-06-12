@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { customerOps } from "@/lib/db/operations";
+import { db } from "@/lib/db/schema";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { cn } from "@/lib/utils";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
@@ -82,6 +83,7 @@ function NewCustomerForm({ shopId }: { shopId: string | null }) {
   const [savedName, setSavedName] = useState("");
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [duplicateWarn, setDuplicateWarn] = useState<{ name: string; phone: string } | null>(null);
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -98,15 +100,26 @@ function NewCustomerForm({ shopId }: { shopId: string | null }) {
     if (errors.phone) setErrors((e) => ({ ...e, phone: "" }));
   };
 
-  const handleSave = async () => {
+  const handleSave = async (skipDuplicateCheck = false) => {
     if (!validate()) return;
 
-    // Guard: shopId must be available
     if (!shopId) {
       setError("Shop setup nahi hua. Pehle /setup par jayein.");
       return;
     }
 
+    if (!skipDuplicateCheck && phone.length >= 11) {
+      const existing = await db.customers
+        .where({ shopId, phone })
+        .filter(c => c._deleted !== 1)
+        .first()
+      if (existing) {
+        setDuplicateWarn({ name: existing.name, phone: existing.phone })
+        return
+      }
+    }
+
+    setDuplicateWarn(null)
     setSaving(true);
     setError("");
     try {
@@ -117,7 +130,6 @@ function NewCustomerForm({ shopId }: { shopId: string | null }) {
         gender,
       });
 
-      // Also save notes if entered (update after add)
       if (notes.trim()) {
         await customerOps.update(customer.id, { notes: notes.trim() });
       }
@@ -402,12 +414,54 @@ function NewCustomerForm({ shopId }: { shopId: string | null }) {
             <p className="text-sm text-red-600">{error}</p>
           </div>
         )}
+
+        {/* Duplicate phone warning */}
+        {duplicateWarn && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+            {duplicateWarn.name ? (
+              <>
+                <p className="text-sm text-amber-800 font-medium">
+                  Yeh phone number pehle se maujood hai:
+                </p>
+                <p className="text-sm text-amber-700">
+                  <strong>{duplicateWarn.name}</strong> — {duplicateWarn.phone}
+                </p>
+                <p className="text-xs text-amber-600">
+                  Agar yeh koi aur shakhs hai (e.g. family member, driver) to add karein.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-amber-800 font-medium">
+                  Yeh phone number ({duplicateWarn.phone}) pehle se kisi aur gahak ke saath registered hai
+                </p>
+                <p className="text-xs text-amber-600">
+                  Agar yeh wohi gahak hai to cancel karein. Agar naya gahak hai to add karein.
+                </p>
+              </>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDuplicateWarn(null)}
+                className="flex-1 bg-white border border-slate-300 text-slate-700 font-semibold py-2.5 rounded-xl text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSave(true)}
+                className="flex-1 bg-amber-600 text-white font-semibold py-2.5 rounded-xl text-sm"
+              >
+                Phir Bhi Add Karein
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Save button */}
       <div className="px-4 pt-4 mb-16 lg:mb-0">
         <button
-          onClick={handleSave}
+          onClick={() => handleSave(false)}
           disabled={saving || !name.trim() || phone.length < 11}
           className="w-full bg-blue-600 disabled:bg-slate-300 text-white font-bold
                      py-4 rounded-2xl text-base transition-colors active:scale-[0.98]

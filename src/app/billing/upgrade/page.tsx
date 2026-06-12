@@ -213,7 +213,7 @@ function UpgradeContent() {
           onClose={() => setSelectedPlan(null)}
           onSubmitted={() => {
             setSelectedPlan(null)
-            router.push('/billing?payment=submitted')
+            router.push(`/billing?payment=submitted&t=${Date.now()}`)
           }}
         />
       )}

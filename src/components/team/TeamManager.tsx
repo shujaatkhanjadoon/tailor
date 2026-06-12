@@ -194,18 +194,22 @@ export function TeamManager() {
     if (!phoneResult.valid) {
       newErrors.phone = phoneResult.error!
       valid = false
-    } else {
-      // Check uniqueness in Supabase (don't allow duplicate phone)
+    } else if (shopId) {
+      // Check globally unique (same shop → show name, other shop → generic)
       const existing = await supabase
         .from('team_members')
-        .select('id, name, role')
+        .select('id, name, role, shop_id')
         .eq('phone', phoneResult.cleaned)
         .eq('is_active', true)
         .limit(1)
 
-      const existingMember = existing.data?.[0]
-      if (existingMember && existingMember.id !== editingId) {
-        newErrors.phone = `Yeh number pehle se registered hai (${existingMember.name} — ${existingMember.role})`
+      const member = existing.data?.[0]
+      if (member && member.id !== editingId) {
+        if (member.shop_id === shopId) {
+          newErrors.phone = `Yeh number pehle se registered hai (${member.name} — ${member.role})`
+        } else {
+          newErrors.phone = `Yeh number pehle se kisi aur dukaan par registered hai`
+        }
         valid = false
       }
     }

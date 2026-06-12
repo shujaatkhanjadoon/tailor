@@ -26,8 +26,14 @@ export async function GET(req: NextRequest) {
     const subs = await sbGet(`subscriptions?shop_id=eq.${encodeURIComponent(shopId)}&select=status,plan,expires_at&limit=1`)
     const sub = subs?.[0]
 
+    // Fetch the latest payment for this shop
+    const latestPayments = await sbGet(
+      `subscription_payments?shop_id=eq.${encodeURIComponent(shopId)}&order=paid_at.desc&limit=1&select=status,paid_at`,
+    )
+    const latestPayment = latestPayments?.[0] ?? null
+
     if (!sub) {
-      const data = { status: 'none', plan: 'starter' }
+      const data = { status: 'none', plan: 'starter', latestPayment }
       cache.set(shopId, { data, ts: Date.now() })
       return NextResponse.json(data)
     }
@@ -36,6 +42,7 @@ export async function GET(req: NextRequest) {
       status: sub.status,
       plan: sub.plan,
       expiresAt: sub.expires_at,
+      latestPayment,
     }
 
     cache.set(shopId, { data: responseData, ts: Date.now() })

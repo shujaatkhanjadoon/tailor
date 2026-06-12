@@ -403,6 +403,11 @@ describe('POST /api/team/members', () => {
 
   it('creates a new team member (201)', async () => {
     const id = randomUUID()
+    // Phone dupe check must return empty (no duplicate) before the create mock
+    mockSupabase(
+      `team_members?phone=eq.03001234567&is_active=eq.true&deleted_at=is.null&select=id,shop_id,name,role&limit=1`,
+      [], 200,
+    )
     mockSupabase('team_members', [{ id, name: 'Karigar', role: 'karigar', shop_id: TEST_SHOP_ID }], 201)
     const res = await h.teamMembers(api('/api/team/members', {
       name: 'Karigar', phone: '03001234567',

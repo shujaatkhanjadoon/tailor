@@ -73,6 +73,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, data: { id } })
     }
 
+    // Check phone uniqueness globally
+    const dupeRes = await sbFetch(
+      `team_members?phone=eq.${phone}&is_active=eq.true&deleted_at=is.null&select=id,shop_id,name,role&limit=1`,
+    )
+    if (dupeRes.ok) {
+      const dupe = await dupeRes.json() as { id: string; shop_id: string; name: string; role: string }[]
+      if (dupe.length && dupe[0].id !== id) {
+        const member = dupe[0]
+        if (member.shop_id === shopId) {
+          return NextResponse.json({
+            error: `Yeh number pehle se registered hai (${member.name} — ${member.role})`,
+          }, { status: 409 })
+        }
+        return NextResponse.json({
+          error: 'Yeh number pehle se kisi aur dukaan par registered hai',
+        }, { status: 409 })
+      }
+    }
+
     // Create
     const memberId = id ?? crypto.randomUUID()
 

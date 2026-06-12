@@ -21,6 +21,7 @@ function BillingContentInner() {
   const planDef = PLANS[plan.plan];
   const searchParams = useSearchParams();
   const paymentSubmitted = searchParams.get("payment") === "submitted";
+  const paymentSubmittedAt = searchParams.get("t");
   const [paymentVerified, setPaymentVerified] = useState(false);
   const [pollingActive, setPollingActive] = useState(false);
 
@@ -29,26 +30,36 @@ function BillingContentInner() {
     try {
       const res = await fetch(`/api/billing/subscription-status?shopId=${shopId}`)
       const data = await res.json()
-      if (data.status === 'active' && data.plan !== 'starter') {
-        setPaymentVerified(true)
-        setPollingActive(false)
-        return true
+      const latestPayment = data.latestPayment
+      // Verify the latest payment was created AFTER our submission timestamp
+      // AND its status is no longer 'pending' — ensures we track the right payment
+      if (latestPayment && latestPayment.status !== 'pending') {
+        const paymentTime = new Date(latestPayment.paid_at).getTime()
+        const submittedTime = paymentSubmittedAt ? parseInt(paymentSubmittedAt) : 0
+        if (!isNaN(paymentTime) && paymentTime >= submittedTime) {
+          window.location.href = '/billing'
+          return true
+        }
       }
     } catch { /* ignore */ }
     return false
-  }, [shopId])
+  }, [shopId, paymentSubmittedAt])
 
   useEffect(() => {
     if (paymentSubmitted && shopId) {
-      setPollingActive(true)
-      checkPaymentStatus()
-      const interval = setInterval(async () => {
-        const done = await checkPaymentStatus()
-        if (done) clearInterval(interval)
-      }, 10000)
-      return () => clearInterval(interval)
+      // If latest payment is already processed, redirect immediately
+      checkPaymentStatus().then(done => {
+        if (!done) {
+          setPollingActive(true)
+          const interval = setInterval(async () => {
+            const d = await checkPaymentStatus()
+            if (d) clearInterval(interval)
+          }, 10000)
+          return () => clearInterval(interval)
+        }
+      })
     }
-  }, [paymentSubmitted, shopId, checkPaymentStatus])
+  }, [paymentSubmitted, shopId, paymentSubmittedAt, checkPaymentStatus])
 
   const adminWhatsAppLink = `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(
     `Assalam o Alaikum, meri subscription payment request submit ho gayi hai. Please verify kar dein.\n\nPlan: ${plan.plan}\nShop ID: ${shopId ?? "N/A"}`,
@@ -153,9 +164,11 @@ function BillingContentInner() {
                       ? "bg-red-100 text-red-700"
                       : plan.status === "cancelled" && plan.isActive
                         ? "bg-slate-200 text-slate-600"
-                        : plan.isActive
-                          ? "bg-white/20 text-white"
-                          : "bg-red-100 text-red-700",
+                        : plan.isActive && plan.plan === "starter"
+                          ? "bg-green-100 text-green-700"
+                          : plan.isActive
+                            ? "bg-white/20 text-white"
+                            : "bg-red-100 text-red-700",
               )}
             >
               {plan.isTrial
