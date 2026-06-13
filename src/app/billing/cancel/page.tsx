@@ -1,6 +1,7 @@
 'use client'
 
 import { useState }  from 'react'
+import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, AlertTriangle, CheckCircle2, MessageCircle, Calendar, Info } from 'lucide-react'
 import { useAuth }   from '@/lib/auth/AuthContext'
@@ -50,7 +51,7 @@ export default function CancelPage() {
       if (!res.ok) {
         const err = await res.json()
         console.error('[Billing Cancel] API error:', err.error)
-        window.alert(err.error || 'Cancel request failed')
+        toast.error(err.error || 'Cancel request failed')
         return
       }
 

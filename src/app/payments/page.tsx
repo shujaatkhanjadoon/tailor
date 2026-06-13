@@ -73,28 +73,30 @@ export default function PaymentsPage() {
     <ErrorBoundary>
     <div className="flex min-h-dvh flex-col overflow-x-clip bg-slate-50 pb-24 lg:pb-8">
       <header className="bg-white border-b border-slate-100 px-4 pt-2 lg:pt-0 pb-4 sticky top-14 lg:top-1 z-10">
-        <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
-          <div className="min-w-0">
+        <div className="mb-4 space-y-2 lg:flex lg:items-center lg:justify-between lg:gap-3 lg:space-y-0">
+          <div className="flex items-center justify-between gap-3 lg:block">
             <h1 className="text-xl font-bold text-slate-800">{t('payments.title')}</h1>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-400 lg:mt-0.5">
               {t('payments.showingCount', { count: stats.filteredCount })} · Rs. {stats.filteredTotal.toLocaleString()} received
             </p>
           </div>
           {isOwner && (
-            <div className="flex shrink-0 items-center gap-2">
-              <button onClick={() => exportCSV(exportRows, 'darzi-payments')} disabled={payments.length === 0}
-                className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-40">
-                <Download size={15} />
-                <span className="hidden min-[420px]:inline">{t('payments.exportCSV')}</span>
-              </button>
-              <button onClick={() => exportPrintablePDF('MeraDarzi Payments', exportRows, 'darzi-payments')} disabled={payments.length === 0}
-                className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-40">
-                <Download size={15} />
-                <span className="hidden min-[420px]:inline">{t('payments.exportPDF')}</span>
-              </button>
+            <div className="flex items-center justify-between overflow-x-auto scrollbar-hide lg:shrink-0">
+              <div className="flex items-center gap-2">
+                <button onClick={() => exportCSV(exportRows, 'darzi-payments')} disabled={payments.length === 0}
+                  className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-2 py-1.5 text-xs font-semibold lg:px-3 lg:py-2.5 lg:text-sm text-slate-700 hover:bg-slate-200 disabled:opacity-40">
+                  <Download size={13} />
+                  <span>{t('payments.exportCSV')}</span>
+                </button>
+                <button onClick={() => exportPrintablePDF('MeraDarzi Payments', exportRows, 'darzi-payments')} disabled={payments.length === 0}
+                  className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-2 py-1.5 text-xs font-semibold lg:px-3 lg:py-2.5 lg:text-sm text-slate-700 hover:bg-slate-200 disabled:opacity-40">
+                  <Download size={13} />
+                  <span>{t('payments.exportPDF')}</span>
+                </button>
+              </div>
               <button onClick={() => setShowSheet(true)}
-                className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors active:scale-95">
-                <Plus size={16} /> {t('payments.record')}
+                className="ml-3 flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl lg:text-sm lg:px-4 lg:py-2.5 transition-colors active:scale-95">
+                <Plus size={14} /> {t('payments.record')}
               </button>
             </div>
           )}

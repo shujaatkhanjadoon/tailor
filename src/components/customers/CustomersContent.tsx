@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef } from 'react'
+import { toast } from 'sonner'
 import { useRouter }                  from 'next/navigation'
 import {
   Plus, Search, X,
@@ -19,6 +20,7 @@ import { useTranslation } from 'react-i18next'
 import { VirtualList } from '@/components/ui/VirtualList'
 import { useBulkSelection } from '@/hooks/useBulkSelection'
 import { customerOps } from '@/lib/db/operations'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 type GenderFilter = 'all' | 'male' | 'female' | 'child'
 
@@ -137,15 +139,20 @@ export function CustomersContent() {
   // Bulk selection
   const bulk = useBulkSelection()
   const [selectionMode, setSelectionMode] = useState(false)
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
 
   const handleBulkDelete = async () => {
     const ids = bulk.selectedIds
     if (ids.length === 0) return
-    if (!confirm(`${ids.length} customer(s) delete karna chahte hain? Yeh wapas nahi aayega.`)) return
-    await customerOps.bulkSoftDelete(ids)
-    bulk.clear()
-    setSelectionMode(false)
-    window.location.reload()
+    setShowBulkDeleteDialog(false)
+    try {
+      await customerOps.bulkSoftDelete(ids)
+      bulk.clear()
+      setSelectionMode(false)
+      window.location.reload()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Bulk delete failed')
+    }
   }
 
   const handleBulkExportCSV = () => {
@@ -197,33 +204,35 @@ export function CustomersContent() {
   return (
     <div className="flex min-h-dvh flex-col overflow-x-clip bg-slate-50 pb-24 lg:pb-8">
       <header className="bg-white border-b border-slate-100 px-4 pt-2 lg:pt-0 pb-4 sticky top-14 lg:top-1 z-10">
-        <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
-          <div className="min-w-0">
+        <div className="mb-3 space-y-2 lg:flex lg:items-center lg:justify-between lg:gap-3 lg:space-y-0">
+          <div className="flex items-center justify-between gap-3 lg:block">
             <h1 className="text-xl font-bold text-slate-800">{t('customers.title')}</h1>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-400 lg:mt-0.5">
               {isLoading ? t('customers.loading') : t('customers.showingCount', { count: filtered.length })}
             </p>
           </div>
           {isOwner && (
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                onClick={() => { setSelectionMode(v => !v); bulk.clear() }}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
-                  selectionMode ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200',
-                )}
-              >
-                <CheckSquare size={15} />
-                <span className="hidden min-[420px]:inline">{selectionMode ? 'Done' : 'Select'}</span>
-              </button>
-              <button onClick={() => exportCSV(exportRows, 'darzi-customers')} disabled={filtered.length === 0}
-                className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-40">
-                <Download size={15} />
-                <span className="hidden min-[420px]:inline">{t('customers.exportCSV')}</span>
-              </button>
+            <div className="flex items-center justify-between overflow-x-auto scrollbar-hide lg:shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setSelectionMode(v => !v); bulk.clear() }}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-xs font-semibold lg:px-3 lg:py-2.5 lg:text-sm transition-colors',
+                    selectionMode ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200',
+                  )}
+                >
+                  <CheckSquare size={13} />
+                  <span>{selectionMode ? 'Done' : 'Select'}</span>
+                </button>
+                <button onClick={() => exportCSV(exportRows, 'darzi-customers')} disabled={filtered.length === 0}
+                  className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-2 py-1.5 text-xs font-semibold lg:px-3 lg:py-2.5 lg:text-sm text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-40">
+                  <Download size={13} />
+                  <span>{t('customers.exportCSV')}</span>
+                </button>
+              </div>
               <button onClick={() => router.push('/customers/new')}
-                className="flex shrink-0 items-center gap-1.5 bg-blue-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl active:scale-95 transition-colors hover:bg-blue-700">
-                <Plus size={16} />
+                className="ml-3 flex shrink-0 items-center gap-1.5 bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-xl lg:text-sm lg:px-4 lg:py-2.5 active:scale-95 transition-colors hover:bg-blue-700">
+                <Plus size={14} />
                 {t('customers.newCustomer')}
               </button>
             </div>
@@ -335,7 +344,7 @@ export function CustomersContent() {
       {/* Bulk Actions Bar */}
       {selectionMode && bulk.count > 0 && (
         <div className="fixed bottom-24 lg:bottom-4 left-1/2 -translate-x-1/2 z-40
-          bg-slate-900 text-white rounded-2xl shadow-2xl px-4 py-3
+          text-white rounded-2xl shadow-2xl px-4 py-3
           flex items-center gap-2 flex-wrap justify-center
           border border-slate-700 backdrop-blur-sm bg-slate-900/95
           max-w-[95vw] animate-in slide-in-from-bottom-2"
@@ -363,7 +372,7 @@ export function CustomersContent() {
           </button>
 
           <button
-            onClick={handleBulkDelete}
+            onClick={() => setShowBulkDeleteDialog(true)}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold
               bg-red-600 hover:bg-red-500 transition-colors"
           >
@@ -383,6 +392,17 @@ export function CustomersContent() {
           </button>
         </div>
       )}
+
+      <ConfirmDialog
+        open={showBulkDeleteDialog}
+        onOpenChange={setShowBulkDeleteDialog}
+        title={`${bulk.selectedIds.length} customer(s) delete karein?`}
+        description="Yeh wapas nahi aayega."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleBulkDelete}
+      />
     </div>
   )
 }

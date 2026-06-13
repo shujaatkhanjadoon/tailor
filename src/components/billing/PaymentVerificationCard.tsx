@@ -12,6 +12,7 @@ import { buildActivationWhatsApp, buildRejectionWhatsApp } from '@/lib/billing/w
 import { PLANS, PlanId } from '@/lib/billing/plans'
 import { subscriptionExpiresAt } from '@/lib/billing/cycles'
 import { cn } from '@/lib/utils'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { format } from 'date-fns'
 
 interface PaymentVerificationCardProps {
@@ -27,6 +28,7 @@ export function PaymentVerificationCard({ payment, onUpdated }: PaymentVerificat
   const [showRejectForm, setShowRejectForm] = useState(false)
   const [result,         setResult]         = useState<'activated' | 'rejected' | null>(null)
   const [copied,         setCopied]         = useState(false)
+  const [showActivateDialog, setShowActivateDialog] = useState(false)
 
   const shop     = payment.shops
   const planDef  = PLANS[payment.plan as PlanId]
@@ -38,7 +40,7 @@ export function PaymentVerificationCard({ payment, onUpdated }: PaymentVerificat
   }
 
   const handleActivate = async () => {
-    if (!confirm(`Activate karein: ${shop?.shop_name}?`)) return
+    setShowActivateDialog(false)
     setActivating(true)
 
     const res = await activateSubscription(
@@ -251,7 +253,7 @@ export function PaymentVerificationCard({ payment, onUpdated }: PaymentVerificat
           <div className="flex gap-2">
             {/* Activate */}
             <button
-              onClick={handleActivate}
+              onClick={() => setShowActivateDialog(true)}
               disabled={activating}
               className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-slate-300
                          text-white font-bold py-3.5 rounded-xl text-sm
@@ -293,6 +295,17 @@ export function PaymentVerificationCard({ payment, onUpdated }: PaymentVerificat
           </a>
         )}
       </div>
+
+      <ConfirmDialog
+        open={showActivateDialog}
+        onOpenChange={setShowActivateDialog}
+        title={`Activate karein: ${shop?.shop_name}?`}
+        description="Subscription activate ho jayegi aur shop owner ko WhatsApp notification bhej diya jayega."
+        confirmLabel="Activate"
+        cancelLabel="Cancel"
+        onConfirm={handleActivate}
+        loading={activating}
+      />
     </div>
   )
 }

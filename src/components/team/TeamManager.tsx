@@ -10,7 +10,9 @@ import {
 import { TeamMemberRecord }    from '@/lib/db/schema'
 import { teamOps }             from '@/lib/db/operations'
 import { useAuth }             from '@/lib/auth/AuthContext'
+import { toast } from 'sonner'
 import { cn }                  from '@/lib/utils'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { usePlan }             from '@/hooks/usePlan'
 import { KARIGAR_PIN_LENGTH, validateKarigarPIN, getPINStrength } from '@/lib/security/pin'
 import { validatePakistaniPhone } from '@/lib/security/phone'
@@ -120,6 +122,7 @@ export function TeamManager() {
   const [editingId,    setEditingId]    = useState<string | null>(null)
   const [saving,       setSaving]       = useState(false)
   const [pinChanged,   setPinChanged]   = useState(false)
+  const [deactivateTarget, setDeactivateTarget] = useState<TeamMemberRecord | null>(null)
 
   const [form, setForm] = useState({
     name:        '',
@@ -344,17 +347,17 @@ export function TeamManager() {
   }
 
   // ── Deactivate karigar ────────────────────────────────────────
-  const handleDeactivate = async (member: TeamMemberRecord) => {
-    if (!confirm(
-      `"${member.name}" ko hatana chahte hain?\n\n` +
-      `Woh login nahi kar sakenge. Unke assigned orders unassigned ho jayenge.`
-    )) return
+  const handleDeactivate = async () => {
+    const member = deactivateTarget
+    if (!member) return
+    setDeactivateTarget(null)
 
     try {
       await teamOps.deactivate(member.id)
       setMembers(prev => prev.filter(m => m.id !== member.id))
+      toast.success(`${member.name} ko hata diya gaya`)
     } catch (e) {
-      alert(`Error: ${String(e)}`)
+      toast.error(`Error: ${String(e)}`)
     }
   }
 
@@ -750,7 +753,7 @@ export function TeamManager() {
                     </button>
                     <button
                       aria-label={`Remove ${member.name}`}
-                      onClick={() => handleDeactivate(member)}
+                      onClick={() => setDeactivateTarget(member)}
                       className="w-9 h-9 flex items-center justify-center rounded-full
                                  hover:bg-red-50 text-slate-300 hover:text-red-500
                                  transition-colors"
@@ -775,6 +778,17 @@ export function TeamManager() {
           }
         </p>
       )}
+
+      <ConfirmDialog
+        open={deactivateTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeactivateTarget(null) }}
+        title={`${deactivateTarget?.name ?? ''} ko hatana chahte hain?`}
+        description="Woh login nahi kar sakenge. Unke assigned orders unassigned ho jayenge."
+        confirmLabel="Remove"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleDeactivate}
+      />
     </div>
   )
 }

@@ -179,12 +179,12 @@ export function OrdersContent() {
       {/* ── HEADER ── */}
       <header className="bg-white border-b border-slate-100 px-4 pt-2 lg:pt-0 pb-4
                          sticky top-14 lg:top-1 z-10">
-        <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
-          <div className="min-w-0">
+        <div className="mb-3 space-y-2 lg:flex lg:items-center lg:justify-between lg:gap-3 lg:space-y-0">
+          <div className="flex items-center justify-between gap-3 lg:block">
             <h1 className="text-xl font-bold text-slate-800">
               {isKarigar ? t('orders.titleKarigar') : t('orders.titleOwner')}
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-400 lg:mt-0.5">
               {isLoading
                 ? t('orders.loading')
                 : t('orders.showingCount', { count: orders.length, total })
@@ -192,42 +192,44 @@ export function OrdersContent() {
             </p>
           </div>
           {isOwner && (
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                onClick={toggleSelectionMode}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
-                  selectionMode
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                )}
-              >
-                <CheckSquare size={15} />
-                <span className="hidden min-[420px]:inline">Select</span>
-              </button>
-              <button
-                onClick={() => exportCSV(exportRows, 'darzi-orders')}
-                disabled={orders.length === 0}
-                className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-40"
-              >
-                <Download size={15} />
-                <span className="hidden min-[420px]:inline">{t('orders.exportCSV')}</span>
-              </button>
-              <button
-                onClick={() => exportPrintablePDF('MeraDarzi Orders', exportRows, 'darzi-orders')}
-                disabled={orders.length === 0}
-                className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-40"
-              >
-                <Download size={15} />
-                <span className="hidden min-[420px]:inline">{t('orders.exportPDF')}</span>
-              </button>
+            <div className="flex items-center justify-between overflow-x-auto scrollbar-hide lg:shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleSelectionMode}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-xs font-semibold lg:px-3 lg:py-2.5 lg:text-sm transition-colors',
+                    selectionMode
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  )}
+                >
+                  <CheckSquare size={13} />
+                  <span>Select</span>
+                </button>
+                <button
+                  onClick={() => exportCSV(exportRows, 'darzi-orders')}
+                  disabled={orders.length === 0}
+                  className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-2 py-1.5 text-xs font-semibold lg:px-3 lg:py-2.5 lg:text-sm text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-40"
+                >
+                  <Download size={13} />
+                  <span>{t('orders.exportCSV')}</span>
+                </button>
+                <button
+                  onClick={() => exportPrintablePDF('MeraDarzi Orders', exportRows, 'darzi-orders')}
+                  disabled={orders.length === 0}
+                  className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-2 py-1.5 text-xs font-semibold lg:px-3 lg:py-2.5 lg:text-sm text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-40"
+                >
+                  <Download size={13} />
+                  <span>{t('orders.exportPDF')}</span>
+                </button>
+              </div>
               <button
                 onClick={() => router.push('/orders/new')}
-                className="flex items-center gap-1.5 bg-blue-600 text-white
-                         text-sm font-semibold px-4 py-2.5 rounded-xl
+                className="ml-3 flex items-center gap-1.5 bg-blue-600 text-white
+                         text-xs font-semibold px-3 py-1.5 rounded-xl lg:text-sm lg:px-4 lg:py-2.5
                          active:scale-95 transition-colors hover:bg-blue-700"
               >
-                <Plus size={15} />
+                <Plus size={13} />
                 {t('orders.newOrder')}
               </button>
             </div>

@@ -20,11 +20,11 @@ export function BottomNav() {
   const { t } = useTranslation();
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 w-full bg-white/95 border-t border-slate-200 backdrop-blur lg:hidden pb-[env(safe-area-inset-bottom)]">
-      <div className="mx-auto grid h-16 max-w-3xl grid-cols-7">
+      <div className="flex h-16 gap-1 overflow-x-auto px-2 scrollbar-hide">
         {navItems.map(({ href, icon: Icon, key }) => {
           const isActive = pathname === href;
           return (
-            <Link key={href} href={href} className={`relative flex h-full min-w-0 flex-col items-center justify-center gap-1 px-1 transition-colors ${isActive ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
+            <Link key={href} href={href} className={`relative flex shrink-0 flex-col items-center justify-center gap-1 px-1 py-2 transition-colors min-w-14 ${isActive ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
               <Icon size={21} strokeWidth={isActive ? 2.5 : 1.8} className={isActive ? 'text-blue-600' : 'text-slate-400'} />
               <span className={`max-w-full truncate text-[9.5px] font-medium leading-none sm:text-[10px] ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>{t(`navMobile.${key}`)}</span>
               {isActive && <span className="absolute bottom-1 size-1 rounded-full bg-blue-600" />}

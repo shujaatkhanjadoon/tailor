@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -266,7 +267,7 @@ function VerificationCard({
       await onAction(request.shop_id, status, note.trim());
       setDone(status);
     } catch (e) {
-      alert(`Error: ${String(e)}`);
+      toast.error(`Error: ${String(e)}`);
     } finally {
       setProcessing(false);
     }
