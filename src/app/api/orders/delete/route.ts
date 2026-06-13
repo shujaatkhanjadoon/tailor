@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     )
 
     // 4. Get measurement_id from this order and soft-delete that measurement
-    const orderRows: { measurement_id: string | null }[] = await sbGet(
+    const orderRows: { measurement_id: string | null }[] = await sbGet<{ measurement_id: string | null }>(
       `orders?${orderFilter}&${shopFilter}&select=measurement_id`
     ).catch(() => [])
     const measurementId = orderRows[0]?.measurement_id

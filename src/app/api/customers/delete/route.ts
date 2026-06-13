@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     const shopFilter = `shop_id=eq.${encodeURIComponent(session.shopId)}`
 
     // ── Validation: check active orders + pending balance ───
-    const allOrders: { id: string; order_number: number; status: string; amount: number }[] = await sbGet(
+    const allOrders: { id: string; order_number: number; status: string; amount: number }[] = await sbGet<{ id: string; order_number: number; status: string; amount: number }>(
       `orders?customer_id=eq.${encodeURIComponent(id)}&${shopFilter}&select=id,order_number,status,amount`
     ).catch(() => [])
     const cancelled = new Set(['cancelled'])
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     if (delivered.length > 0) {
       const delOrderIds = delivered.map(o => o.id)
-      const payments: { order_id: string; amount: number }[] = await sbGet(
+      const payments: { order_id: string; amount: number }[] = await sbGet<{ order_id: string; amount: number }>(
         `payments?order_id=in.(${delOrderIds.map(encodeURIComponent).join(',')})&${shopFilter}&deleted_at=is.null&select=order_id,amount`
       ).catch(() => [])
 
@@ -84,11 +84,11 @@ export async function POST(req: NextRequest) {
     const ts = nowKarachiIso()
 
     // Get all orders for cascade
-    const orders: { id: string; measurement_id: string | null }[] = await sbGet(
+    const orders: { id: string; measurement_id: string | null }[] = await sbGet<{ id: string; measurement_id: string | null }>(
       `orders?customer_id=eq.${encodeURIComponent(id)}&${shopFilter}&select=id,measurement_id`
     ).catch(() => [])
 
-    const orderIds = orders.map(o => o.id).filter(Boolean)
+    const orderIds = orders.map(o => o.id).filter((id): id is string => id !== null)
 
     // Cascade delete each order's data
     if (orderIds.length > 0) {
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
         sbPatch(`payments?order_id=in.(${orderIds.map(encodeURIComponent).join(',')})&${shopFilter}`, { deleted_at: ts }),
       ])
 
-      const measurementIds = orders.map(o => o.measurement_id).filter(Boolean)
+      const measurementIds = orders.map(o => o.measurement_id).filter((id): id is string => id !== null)
       if (measurementIds.length > 0) {
         await sbPatch(
           `measurements?id=in.(${measurementIds.map(encodeURIComponent).join(',')})&${shopFilter}`,

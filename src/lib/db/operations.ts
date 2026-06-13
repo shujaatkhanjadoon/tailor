@@ -449,9 +449,19 @@ export const customerOps = {
   },
 
   async softDelete(id: string): Promise<void> {
-    const existing = await db.customers.get(id)
+    // ── Server validation FIRST ──
+    const res = await fetch('/api/customers/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || 'Server delete failed')
+    }
 
-    // Collect all related records for local cascade
+    // Only mark locally after server confirms
+    const existing = await db.customers.get(id)
     const orders = existing ? await db.orders.where('customerId').equals(id).toArray() : []
     const orderIds = orders.map(o => o.id)
     const payments = orderIds.length > 0
@@ -461,41 +471,20 @@ export const customerOps = {
       ? await db.measurements.where('customerId').equals(id).toArray()
       : []
 
-    // Mark everything as deleted locally
-    const markDeleted = (synced: 0 | 1) => {
-      const ops: Promise<unknown>[] = []
-      if (existing) {
-        ops.push(db.customers.put({ ...existing, _deleted: 1, _synced: synced } as CustomerRecord))
-      }
-      for (const order of orders) {
-        ops.push(db.orders.put({ ...order, _deleted: 1, _synced: synced } as OrderRecord))
-      }
-      for (const p of payments) {
-        ops.push(db.payments.put({ ...p, _deleted: 1, _synced: synced } as PaymentRecord))
-      }
-      for (const m of measurements) {
-        ops.push(db.measurements.put({ ...m, _deleted: 1, _synced: synced } as MeasurementRecord))
-      }
-      return Promise.all(ops)
+    const ops: Promise<unknown>[] = []
+    if (existing) {
+      ops.push(db.customers.put({ ...existing, _deleted: 1, _synced: 1 } as CustomerRecord))
     }
-
-    await markDeleted(0)
-
-    try {
-      const res = await fetch('/api/customers/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || 'Server delete failed')
-      }
-      await markDeleted(1)
-    } catch (err) {
-      console.warn('[Offline] customerOps.softDelete failed, queuing locally:', err)
-      throw err
+    for (const order of orders) {
+      ops.push(db.orders.put({ ...order, _deleted: 1, _synced: 1 } as OrderRecord))
     }
+    for (const p of payments) {
+      ops.push(db.payments.put({ ...p, _deleted: 1, _synced: 1 } as PaymentRecord))
+    }
+    for (const m of measurements) {
+      ops.push(db.measurements.put({ ...m, _deleted: 1, _synced: 1 } as MeasurementRecord))
+    }
+    await Promise.all(ops)
   },
 
   async bulkSoftDelete(ids: string[]): Promise<void> {
@@ -759,37 +748,29 @@ export const orderOps = {
   },
 
   async softDelete(orderId: string): Promise<void> {
-    const existing = await db.orders.get(orderId)
+    const res = await fetch('/api/orders/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: orderId }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || 'Server delete failed')
+    }
 
+    const existing = await db.orders.get(orderId)
     const payments = existing
       ? await db.payments.where('orderId').equals(orderId).toArray()
       : []
 
-    const markDeleted = async (synced: 0 | 1) => {
-      const ops: Promise<unknown>[] = []
-      if (existing) {
-        ops.push(db.orders.put({ ...existing, _deleted: 1, _synced: synced } as OrderRecord))
-      }
-      for (const p of payments) {
-        ops.push(db.payments.put({ ...p, _deleted: 1, _synced: synced } as PaymentRecord))
-      }
-      await Promise.all(ops)
+    const ops: Promise<unknown>[] = []
+    if (existing) {
+      ops.push(db.orders.put({ ...existing, _deleted: 1, _synced: 1 } as OrderRecord))
     }
-
-    await markDeleted(0)
-
-    try {
-      const res = await fetch('/api/orders/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: orderId }),
-      })
-      if (!res.ok) throw new Error('Server delete failed')
-      await markDeleted(1)
-    } catch (err) {
-      console.warn('[Offline] orderOps.softDelete failed, queuing locally:', err)
-      throw err
+    for (const p of payments) {
+      ops.push(db.payments.put({ ...p, _deleted: 1, _synced: 1 } as PaymentRecord))
     }
+    await Promise.all(ops)
   },
 
   async recover(id: string): Promise<void> {

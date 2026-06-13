@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { Trash2, RotateCcw, AlertTriangle, RefreshCw, User, ShoppingBag } from 'lucide-react'
+import { toast } from 'sonner'
 import { customerOps, orderOps } from '@/lib/db/operations'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { formatDistanceToNow } from 'date-fns'
 
 interface TrashCustomer {
@@ -36,6 +38,7 @@ export default function TrashPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [pending, setPending] = useState<string | null>(null)
+  const [dialog, setDialog] = useState<{ type: 'customer' | 'order'; id: string; action: 'recover' | 'purge'; name: string } | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -53,8 +56,8 @@ export default function TrashPage() {
   useEffect(() => { load() }, [])
 
   const handleRecover = async (type: 'customer' | 'order', id: string) => {
-    if (!confirm('Is record ko recover karna chahte hain?')) return
     setPending(id)
+    setDialog(null)
     try {
       if (type === 'customer') {
         await customerOps.recover(id)
@@ -63,14 +66,15 @@ export default function TrashPage() {
         await orderOps.recover(id)
         setOrders(prev => prev.filter(o => o.id !== id))
       }
+      toast.success('Record recovered successfully')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Recover failed')
+      toast.error(err instanceof Error ? err.message : 'Recover failed')
     } finally { setPending(null) }
   }
 
   const handlePurge = async (type: 'customer' | 'order', id: string) => {
-    if (!confirm('Is record ko permanently delete karna chahte hain? Yeh wapas nahi aayega.')) return
     setPending(id)
+    setDialog(null)
     try {
       if (type === 'customer') {
         await customerOps.purge(id)
@@ -79,8 +83,9 @@ export default function TrashPage() {
         await orderOps.purge(id)
         setOrders(prev => prev.filter(o => o.id !== id))
       }
+      toast.success('Record permanently deleted')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Permanent delete failed')
+      toast.error(err instanceof Error ? err.message : 'Permanent delete failed')
     } finally { setPending(null) }
   }
 
@@ -151,14 +156,14 @@ export default function TrashPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <button
-                      onClick={() => handleRecover('customer', c.id)}
+                      onClick={() => setDialog({ type: 'customer', id: c.id, action: 'recover', name: c.name })}
                       disabled={pending === c.id}
                       className="flex items-center gap-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                     >
                       <RotateCcw size={12} /> Recover
                     </button>
                     <button
-                      onClick={() => handlePurge('customer', c.id)}
+                      onClick={() => setDialog({ type: 'customer', id: c.id, action: 'purge', name: c.name })}
                       disabled={pending === c.id}
                       className="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                     >
@@ -197,14 +202,14 @@ export default function TrashPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <button
-                      onClick={() => handleRecover('order', o.id)}
+                      onClick={() => setDialog({ type: 'order', id: o.id, action: 'recover', name: `#${o.order_number} — ${o.customer_name}` })}
                       disabled={pending === o.id}
                       className="flex items-center gap-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                     >
                       <RotateCcw size={12} /> Recover
                     </button>
                     <button
-                      onClick={() => handlePurge('order', o.id)}
+                      onClick={() => setDialog({ type: 'order', id: o.id, action: 'purge', name: `#${o.order_number} — ${o.customer_name}` })}
                       disabled={pending === o.id}
                       className="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                     >
@@ -218,6 +223,24 @@ export default function TrashPage() {
         </section>
       )}
     </div>
+
+      <ConfirmDialog
+        open={dialog !== null}
+        onOpenChange={(open) => { if (!open) setDialog(null) }}
+        title={dialog ? `${dialog.action === 'recover' ? 'Recover' : 'Permanently Delete'} ${dialog.name}?` : ''}
+        description={dialog?.action === 'recover'
+          ? 'Yeh record wapas aa jayega aur aap isay dobara use kar sakenge.'
+          : 'Yeh record permanently delete ho jayega aur wapas nahi aayega.'}
+        confirmLabel={dialog?.action === 'recover' ? 'Recover' : 'Delete Forever'}
+        cancelLabel="Cancel"
+        variant={dialog?.action === 'purge' ? 'danger' : 'default'}
+        onConfirm={() => {
+          if (!dialog) return
+          if (dialog.action === 'recover') handleRecover(dialog.type, dialog.id)
+          else handlePurge(dialog.type, dialog.id)
+        }}
+        loading={pending !== null}
+      />
     </div>
   )
 }

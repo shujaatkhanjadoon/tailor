@@ -8,10 +8,12 @@ import {
   ShoppingBag, Wallet, Edit3, Trash2,
   Clock, CheckCircle2, History,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { useCustomer } from '@/hooks/useCustomers'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { ORDER_STATUS_CONFIG, GARMENT_LABELS } from '@/types'
 import { customerOps } from '@/lib/db/operations'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 import { formatRupees } from '@/lib/format/currency'
 import { format, formatDistanceToNow } from 'date-fns'
@@ -32,6 +34,8 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   const { customer, orders, measurements, totalSpent, pendingBalance, finance, refresh } = useCustomer(id)
   const [paymentOrderId, setPaymentOrderId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<ProfileTab>('overview')
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [statusHistory, setStatusHistory] = useState<OrderStatusHistoryRecord[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
 
@@ -72,12 +76,15 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   const today         = new Date().toISOString().split('T')[0]
 
   const handleDelete = async () => {
-    if (!confirm(`${customer.name} ko delete karna chahte hain? Yeh wapas nahi aayega.`)) return
+    setDeleting(true)
     try {
       await customerOps.softDelete(id)
       router.push('/customers')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Delete fail hogaya. Dobara koshish karein.')
+      toast.error(err instanceof Error ? err.message : 'Delete fail hogaya')
+      setShowDeleteDialog(false)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -115,7 +122,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
               </button>
               <button
                 aria-label="Delete customer"
-                onClick={handleDelete}
+                onClick={() => setShowDeleteDialog(true)}
                 className="w-11 h-11 flex items-center justify-center rounded-full bg-red-500/40"
               >
                 <Trash2 size={15} className="text-white" />
@@ -283,7 +290,18 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
               })}
             </div>
           )}
-          <AppFooter className="mt-6" />
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title={`${customer.name} ko delete karein?`}
+        description="Customer ke saare orders, payments aur measurements permanent delete ho jayenge. Yeh wapas nahi aayega."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
+      <AppFooter className="mt-6" />
         </div>
       )}
 

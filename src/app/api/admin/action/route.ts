@@ -855,7 +855,7 @@ export async function POST(req: NextRequest) {
         for (const table of tables) {
           try {
             const filter = `${table}?${deletedFilter}`
-            const rows: { id: string }[] = await sbGet(`${filter}&select=id`).catch(() => [])
+            const rows: { id: string }[] = await sbGet<{ id: string }>(`${filter}&select=id`).catch(() => [])
             if (rows.length > 0) {
               await sbDelete(filter).catch(async () => {
                 for (const row of rows) {
