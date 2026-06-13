@@ -10,8 +10,7 @@ import {
   TriangleAlert, Activity, TrendingUp, Users,
   Ban, KeyRound, Layers, UserCog, Database,
 } from 'lucide-react'
-import { SessionTimer } from './SessionTimer'
-import { cn }           from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import Image from 'next/image'
 
 const NAV_ITEMS = [
@@ -191,7 +190,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <SessionTimer onExpired={() => window.location.href = '/admin/login'} />
         </header>
 
         {/* Page content */}

@@ -82,7 +82,7 @@ export function useReports(shopId: string | null) {
         const rangeStart = period === 'all' ? periodStart(now, '365d') : periodStart(now, period)
 
         const [ordersRes, paymentsRes, teamRes, customersCountRes,
-          statusRes, garmentRes, customerAggRes, methodRes] = await Promise.all([
+          garmentRes] = await Promise.all([
           (() => {
             let q = supabase.from('orders').select(ORDER_COLUMNS).eq('shop_id', shopId).is('deleted_at', null).order('created_at', { ascending: false })
             if (rangeStart) q = q.gte('created_at', rangeStart)
@@ -96,40 +96,64 @@ export function useReports(shopId: string | null) {
           supabase.from('team_members').select(TEAM_COLUMNS).eq('shop_id', shopId).eq('is_active', true).is('deleted_at', null),
           supabase.from('customers').select('id', { count: 'exact' }).eq('shop_id', shopId).is('deleted_at', null),
           (() => {
-            let q = supabase.from('orders').select('status, count(*)').eq('shop_id', shopId).is('deleted_at', null).not('status', 'eq', 'cancelled')
-            if (rangeStart) q = q.gte('created_at', rangeStart)
-            return q
-          })(),
-          (() => {
             let q = supabase.from('orders').select('garment_type, count(*), total_price.sum()').eq('shop_id', shopId).is('deleted_at', null).not('status', 'eq', 'cancelled')
             if (rangeStart) q = q.gte('created_at', rangeStart)
-            return q
-          })(),
-          (() => {
-            let q = supabase.from('orders').select('customer_id, customer_name, count(*), total_price.sum(), amount_paid.sum()').eq('shop_id', shopId).is('deleted_at', null).not('status', 'eq', 'cancelled')
-            if (rangeStart) q = q.gte('created_at', rangeStart)
-            return q.order('sum', { ascending: false }).limit(8)
-          })(),
-          (() => {
-            let q = supabase.from('payments').select('method, amount.sum()').eq('shop_id', shopId).is('deleted_at', null)
-            if (rangeStart) q = q.gte('paid_at', rangeStart)
             return q
           })(),
         ])
 
         if (!cancelled) {
-          setAllOrders((ordersRes.data ?? []).map(mapOrder))
+          const mappedOrders = (ordersRes.data ?? []).map(mapOrder)
+          setAllOrders(mappedOrders)
           setAllPayments((paymentsRes.data ?? []).map(mapPayment))
           setTeamMembers((teamRes.data ?? []).map(mapTeamMember))
           setTotalCustomers(customersCountRes.count ?? 0)
 
-          setStatusDistribution(((statusRes.data ?? []) as any[]).map((d) => ({ status: d.status, count: d.count })))
-          setGarmentBreakdown(((garmentRes.data ?? []) as any[]).map((d) => ({ type: d.garment_type, count: d.count, revenue: d.sum })))
-          setTopCustomers(((customerAggRes.data ?? []) as any[]).map((d) => ({ id: d.customer_id, name: d.customer_name, orders: d.count, revenue: d.sum, paid: d.amount_paid_sum })))
+          // Compute status distribution locally
+          const statusMap = new Map<string, number>()
+          for (const o of mappedOrders) {
+            if (o.status === 'cancelled') continue
+            statusMap.set(o.status, (statusMap.get(o.status) ?? 0) + 1)
+          }
+          setStatusDistribution(
+            [...statusMap.entries()].map(([status, count]) => ({ status, count }))
+          )
 
-          const rawMethods = (methodRes.data ?? []) as any[]
-          const totalMethodAmount = rawMethods.reduce((s: number, m) => s + (m.sum ?? 0), 0)
-          setPaymentMethods(rawMethods.map((m) => ({ method: m.method, amount: m.sum ?? 0, pct: totalMethodAmount > 0 ? Math.round(((m.sum ?? 0) / totalMethodAmount) * 100) : 0 })).sort((a, b) => b.amount - a.amount))
+          setGarmentBreakdown(((garmentRes.data ?? []) as any[]).map((d) => ({ type: d.garment_type, count: d.count, revenue: d.sum })))
+
+          // Compute top customers locally from fetched orders
+          const customerMap = new Map<string, { name: string; orders: number; revenue: number; paid: number }>()
+          for (const o of mappedOrders) {
+            if (o.status === 'cancelled') continue
+            const c = customerMap.get(o.customerId)
+            if (c) {
+              c.orders++
+              c.revenue += o.totalPrice
+              c.paid += o.amountPaid
+            } else {
+              customerMap.set(o.customerId, {
+                name: o.customerName,
+                orders: 1,
+                revenue: o.totalPrice,
+                paid: o.amountPaid,
+              })
+            }
+          }
+          setTopCustomers(
+            [...customerMap.entries()]
+              .map(([id, data]) => ({ id, ...data }))
+              .sort((a, b) => b.revenue - a.revenue)
+              .slice(0, 8)
+          )
+
+          // Compute payment methods locally
+          const methodMap = new Map<string, number>()
+          for (const p of (paymentsRes.data ?? [])) {
+            methodMap.set(p.method, (methodMap.get(p.method) ?? 0) + p.amount)
+          }
+          const rawMethods = [...methodMap.entries()].map(([method, amount]) => ({ method, amount }))
+          const totalMethodAmount = rawMethods.reduce((s, m) => s + m.amount, 0)
+          setPaymentMethods(rawMethods.map((m) => ({ ...m, pct: totalMethodAmount > 0 ? Math.round((m.amount / totalMethodAmount) * 100) : 0 })).sort((a, b) => b.amount - a.amount))
         }
       } finally {
         if (!cancelled && showLoading) setIsLoading(false)

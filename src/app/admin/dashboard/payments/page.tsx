@@ -387,12 +387,22 @@ const STATUS_TABS: { key: PaymentStatus; label: string; color: string }[] = [
 
 export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([])
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
   const [loading,  setLoading]  = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error,    setError]    = useState('')
   const [statusFilter, setStatusFilter] = useState<PaymentStatus>('pending')
   const [search, setSearch] = useState('')
   const offsetRef  = useRef(0)
+
+  const fetchCounts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/data?type=payment_counts')
+      if (res.status === 401) { window.location.href = '/admin/login'; return }
+      const data = await res.json()
+      if (data.data) setStatusCounts(data.data)
+    } catch { /* non-critical */ }
+  }, [])
 
   const load = useCallback(async (append = false, filterStatus?: PaymentStatus, searchQuery?: string) => {
     if (append) setLoadingMore(true); else setLoading(true)
@@ -428,7 +438,7 @@ export default function AdminPaymentsPage() {
     }
   }, [statusFilter, search])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load(); fetchCounts() }, [load, fetchCounts])
 
   const changeFilter = (s: PaymentStatus) => {
     setStatusFilter(s)
@@ -501,7 +511,15 @@ export default function AdminPaymentsPage() {
         <div>
           <h1 className="text-xl lg:text-2xl font-bold text-white">Payments</h1>
           <p className="text-slate-400 text-sm mt-0.5">
-            {loading ? 'Loading...' : `${payments.length} ${statusFilter} payment${payments.length !== 1 ? 's' : ''}`}
+            {loading ? 'Loading...' : (
+              <span className="flex items-center gap-2">
+                <span className="text-amber-400 font-semibold">{statusCounts.pending ?? '?'} pending</span>
+                <span className="text-slate-600">·</span>
+                <span className="text-green-400 font-semibold">{statusCounts.completed ?? '?'} completed</span>
+                <span className="text-slate-600">·</span>
+                <span className="text-red-400 font-semibold">{statusCounts.failed ?? '?'} failed</span>
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -533,13 +551,20 @@ export default function AdminPaymentsPage() {
             <button
               key={tab.key}
               onClick={() => changeFilter(tab.key)}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
+              className={`shrink-0 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
                 statusFilter === tab.key
                   ? tab.color
                   : 'border-slate-700 text-slate-500 hover:text-slate-300'
               }`}
             >
               {tab.label}
+              {statusCounts[tab.key] !== undefined && (
+                <span className={`text-[10px] ${
+                  statusFilter === tab.key ? 'opacity-80' : 'text-slate-600'
+                }`}>
+                  {statusCounts[tab.key]}
+                </span>
+              )}
             </button>
           ))}
         </div>

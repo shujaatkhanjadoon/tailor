@@ -33,6 +33,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   const { isOwner} = useAuth()
   const { customer, orders, measurements, totalSpent, pendingBalance, finance, refresh } = useCustomer(id)
   const [paymentOrderId, setPaymentOrderId] = useState<string | null>(null)
+  const [showCustomerPayment, setShowCustomerPayment] = useState(false)
   const [activeTab, setActiveTab] = useState<ProfileTab>('overview')
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -184,7 +185,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
       {/* ── QUICK ACTIONS ── */}
       <div className="px-4 -mt-4">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-3">
-          <div className="grid grid-cols-3 gap-2">
+          <div className={`grid gap-2 ${isOwner ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
             <a
               href={`tel:${customer.phone}`}
               className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors"
@@ -210,6 +211,15 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                 Nap ({measurements.length})
               </span>
             </button>
+            {isOwner && (
+              <button
+                onClick={() => setShowCustomerPayment(true)}
+                className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-blue-50 hover:bg-blue-100 transition-colors"
+              >
+                <Wallet size={18} className="text-blue-600" />
+                <span className="text-[11px] font-medium text-blue-700">Collect Payment</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -493,6 +503,13 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
           preOrder={orders.find(o => o.id === paymentOrderId)}
           onClose={() => setPaymentOrderId(null)}
           onSaved={() => { refresh(); setPaymentOrderId(null) }}
+        />
+      )}
+      {showCustomerPayment && (
+        <QuickPaymentSheet
+          customerId={id}
+          onClose={() => setShowCustomerPayment(false)}
+          onSaved={() => { refresh(); setShowCustomerPayment(false) }}
         />
       )}
       <AppFooter className="mt-6" />

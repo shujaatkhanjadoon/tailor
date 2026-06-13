@@ -30,12 +30,14 @@ function CustomerCardView({
   selectionMode = false,
   isSelected = false,
   onToggle,
+  activeOrders = 0,
 }: {
   customer: CustomerRecord
   onClick:  () => void
   selectionMode?: boolean
   isSelected?: boolean
   onToggle?: () => void
+  activeOrders?: number
 }) {
   const { t } = useTranslation()
   const initials = customer.name
@@ -107,10 +109,14 @@ function CustomerCardView({
             <span className="font-mono">{customer.phone}</span>
           </div>
           <div className="flex items-center gap-3 mt-1.5">
-            {(customer.totalOrders ?? 0) > 0 && (
-              <span className="flex items-center gap-1 text-[10px] text-slate-500">
-                <ShoppingBag size={10} />
-                {t('customers.orders', { count: customer.totalOrders })}
+            {customer.totalOrders > 0 && (
+              <span className="flex items-center gap-1 text-xs text-slate-500 font-medium">
+                <ShoppingBag size={12} />
+                {activeOrders > 0 && (
+                  <span className="text-blue-600 font-semibold">{activeOrders} active</span>
+                )}
+                <span className="text-slate-400">·</span>
+                <span>{customer.totalOrders} total</span>
               </span>
             )}
             {lastOrderText && (
@@ -134,7 +140,7 @@ export function CustomersContent() {
   const [gender,  setGender]  = useState<GenderFilter>('all')
   const [sortBy,  setSortBy]  = useState<'name' | 'orders' | 'recent'>('recent')
 
-  const { customers: allCustomers, isLoading, hasMore, loadMore } = useCustomers(shopId)
+  const { customers: allCustomers, isLoading, hasMore, loadMore, activeOrdersCount } = useCustomers(shopId)
 
   // Bulk selection
   const bulk = useBulkSelection()
@@ -324,6 +330,7 @@ export function CustomersContent() {
                       selectionMode={selectionMode}
                       isSelected={bulk.isSelected(customer.id)}
                       onToggle={() => bulk.toggle(customer.id)}
+                      activeOrders={activeOrdersCount[customer.id] ?? 0}
                     />
                   </div>
                 )}

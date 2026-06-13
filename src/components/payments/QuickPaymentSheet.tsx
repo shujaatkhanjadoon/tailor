@@ -24,9 +24,10 @@ interface Props {
   onClose: () => void;
   onSaved: () => void;
   preOrder?: OrderRecord; // if opened from a specific order
+  customerId?: string;    // filter orders to this customer
 }
 
-export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
+export function QuickPaymentSheet({ onClose, onSaved, preOrder, customerId }: Props) {
   const { shopId, currentUser } = useAuth();
   const [selectedOrder, setSelected] = useState<OrderRecord | null>(
     preOrder ?? null,
@@ -46,7 +47,7 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
 
   const { orders } = useOrders(shopId, "owner", currentUser?.id);
   const pendingOrders = orders
-    .filter(o => o.status !== "cancelled" && orderBalance(o) > 0)
+    .filter(o => o.status !== "cancelled" && orderBalance(o) > 0 && (!customerId || o.customerId === customerId))
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
   const filteredOrders = pendingOrders.filter((o) => {
@@ -153,7 +154,6 @@ export function QuickPaymentSheet({ onClose, onSaved, preOrder }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center lg:items-center"
-      onClick={onClose}
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 

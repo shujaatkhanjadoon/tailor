@@ -20,6 +20,7 @@ export function useCustomers(shopId: string | null) {
   const [query, setQuery] = useState('')
   const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female' | 'child'>('all')
   const [allCustomers, setAllCustomers] = useState<CustomerRecord[]>([])
+  const [activeOrdersCount, setActiveOrdersCount] = useState<Record<string, number>>({})
   const [page, setPage] = useState(0)
   const [totalCustomers, setTotalCustomers] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -78,6 +79,22 @@ export function useCustomers(shopId: string | null) {
         setAllCustomers(prev => page > 0 ? [...prev, ...(data ?? []).map(mapCustomer)] : (data ?? []).map(mapCustomer))
         setTotalCustomers(totalCount ?? 0)
       }
+
+      // Fetch active order counts for current page customers
+      const ids = (data ?? []).map(c => c.id)
+      if (!cancelled && ids.length > 0) {
+        const { data: activeRows } = await supabase
+          .from('orders')
+          .select('customer_id')
+          .in('customer_id', ids)
+          .in('status', ['pending', 'cutting', 'sewing', 'ready'])
+          .is('deleted_at', null)
+        const map: Record<string, number> = {}
+        for (const row of (activeRows ?? [])) {
+          map[row.customer_id] = (map[row.customer_id] ?? 0) + 1
+        }
+        setActiveOrdersCount(prev => page > 0 ? { ...prev, ...map } : map)
+      }
       if (!cancelled && showLoading) setIsLoading(false)
     }
 
@@ -113,6 +130,7 @@ export function useCustomers(shopId: string | null) {
     customers: filtered,
     total: totalCustomers,
     isLoading,
+    activeOrdersCount,
     query, setQuery,
     genderFilter, setGenderFilter,
     hasMore: (page + 1) * CUSTOMERS_PER_PAGE < totalCustomers,

@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, verifySessionToken } from '@/lib/admin/auth'
 import { PLANS } from '@/lib/billing/plans'
-import { sbGet } from '@/lib/supabase/service'
+import { sbGet, sbCount } from '@/lib/supabase/service'
 import type {
   SubscriptionPaymentRow, SubscriptionRow, ShopRow, ShopUsageRow,
   OrderRow, AdminAuditLogRow, ShopVerificationRequestRow,
@@ -199,6 +199,18 @@ export async function GET(req: NextRequest) {
                 .reduce((s, p) => s + Number(p.amount_pkr), 0),
             },
           }
+        })
+      }
+
+      case 'payment_counts': {
+        const [pending, completed, failed, refunded] = await Promise.all([
+          sbCount('subscription_payments?status=eq.pending&method=neq.reminder'),
+          sbCount('subscription_payments?status=eq.completed'),
+          sbCount('subscription_payments?status=eq.failed'),
+          sbCount('subscription_payments?status=eq.refunded'),
+        ])
+        return NextResponse.json({
+          data: { pending, completed, failed, refunded }
         })
       }
 

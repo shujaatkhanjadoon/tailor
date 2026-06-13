@@ -60,6 +60,16 @@ export async function sbFetch(path: string, init: RequestInit = {}): Promise<Res
 export type Row = Record<string, any>
 export type TableRow<T> = T extends { Row: infer R } ? R : Row
 
+export async function sbCount(path: string): Promise<number> {
+  const res = await sbFetch(`${path}&limit=0&select=`, {
+    headers: { Prefer: 'count=exact' },
+  })
+  const range = res.headers.get('content-range')
+  if (!range) return 0
+  const match = range.match(/\/(\d+)$/)
+  return match ? parseInt(match[1], 10) : 0
+}
+
 export async function sbGet<T = Row>(path: string): Promise<T[]> {
   const res = await sbFetch(path)
   if (!res.ok) {
