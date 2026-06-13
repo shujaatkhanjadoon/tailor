@@ -2,7 +2,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ClipboardList, Users, Wallet, Settings, BarChart3 } from 'lucide-react';
+import { Home, ClipboardList, Users, Wallet, Settings, BarChart3, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { href: '/customers', icon: Users, key: 'customers' },
   { href: '/payments', icon: Wallet, key: 'payments' },
   { href: '/reports', icon: BarChart3, key: 'reports' },
+  { href: '/trash', icon: Trash2, key: 'trash' },
   { href: '/settings', icon: Settings, key: 'settings' },
 ] as const;
 
@@ -19,7 +20,7 @@ export function BottomNav() {
   const { t } = useTranslation();
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 w-full bg-white/95 border-t border-slate-200 backdrop-blur lg:hidden pb-[env(safe-area-inset-bottom)]">
-      <div className="mx-auto grid h-16 max-w-3xl grid-cols-6">
+      <div className="mx-auto grid h-16 max-w-3xl grid-cols-7">
         {navItems.map(({ href, icon: Icon, key }) => {
           const isActive = pathname === href;
           return (

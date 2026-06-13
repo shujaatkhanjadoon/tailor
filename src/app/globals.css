@@ -238,3 +238,7 @@ html[dir="rtl"] .lucide-chevrons-left {
 Button, a{
 cursor:pointer;
 }
+
+html {
+  scroll-behavior: smooth;
+}

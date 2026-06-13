@@ -4,7 +4,7 @@ import crypto from 'crypto'
 import { sendAdminSubscriptionEventEmail, sendShopOwnerAdminActionEmail } from "@/lib/security/email-otp";
 import { ADMIN_SESSION_COOKIE, verifySessionToken, verifyTOTP, getAdminSession } from "@/lib/admin/auth";
 import { validate, schemas } from "@/lib/validation";
-import { sbGet, sbPatch, sbPost, sbUpsertByShopId } from "@/lib/supabase/service";
+import { sbGet, sbPatch, sbPost, sbDelete, sbUpsertByShopId } from "@/lib/supabase/service";
 import { subscriptionExpiresAt } from "@/lib/billing/cycles";
 import { activateSubscription } from "@/lib/billing/admin";
 import type { PlanId } from "@/lib/billing/plans";
@@ -24,12 +24,13 @@ const ACTION_TYPES: Record<string, string> = {
   reset_admin_totp: 'admin', force_logout_sessions: 'admin',
   reset_owner_pin: 'shop', send_notification: 'notification',
   bulk_send_notification: 'notification', activate_shop_owner: 'shop',
+  purge_deleted: 'system',
 }
 
 async function logAction(
   action: string,
   targetId: string,
-  shopId: string,
+  shopId: string | null,
   details: object,
 ) {
   try {
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest) {
   const { action } = body;
 
   // ── Role-based access control ──────────────────────────────
-  const SUPER_ADMIN_ONLY = ['create_admin', 'deactivate_admin', 'activate_admin', 'reset_admin_totp', 'force_logout_sessions']
+  const SUPER_ADMIN_ONLY = ['create_admin', 'deactivate_admin', 'activate_admin', 'reset_admin_totp', 'force_logout_sessions', 'purge_deleted']
   const SUPPORT_RESTRICTED = ['delete_shop', 'deactivate_shop', 'activate_shop', 'reset_owner_pin', 'bulk_send_notification', 'send_notification', 'verify_shop']
 
   if (adminRole === 'support') {
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── TOTP 2FA for destructive actions ─────────────────────────
-  const DESTRUCTIVE_ACTIONS = ['delete_shop', 'deactivate_shop', 'activate_shop', 'set_plan', 'reject_payment', 'refund_payment', 'extend_expiry', 'set_custom_expiry', 'update_subscription_amount', 'bulk_set_plan', 'bulk_extend_expiry', 'block_ip', 'unblock_ip', 'reset_admin_totp', 'force_logout_sessions', 'create_admin', 'deactivate_admin', 'activate_admin', 'reset_owner_pin']
+  const DESTRUCTIVE_ACTIONS = ['delete_shop', 'deactivate_shop', 'activate_shop', 'set_plan', 'reject_payment', 'refund_payment', 'extend_expiry', 'set_custom_expiry', 'update_subscription_amount', 'bulk_set_plan', 'bulk_extend_expiry', 'block_ip', 'unblock_ip', 'reset_admin_totp', 'force_logout_sessions', 'create_admin', 'deactivate_admin', 'activate_admin', 'reset_owner_pin', 'purge_deleted']
   const totpSecret = process.env.ADMIN_TOTP_SECRET
   if (DESTRUCTIVE_ACTIONS.includes(action)) {
     if (!totpSecret) {
@@ -795,6 +796,92 @@ export async function POST(req: NextRequest) {
         notifyOwner(pinShopId, "reset_owner_pin", "Shop PIN Reset", "Admin ne aapka shop PIN reset kar diya hai. Naya PIN admin se hasil karein.");
 
         return NextResponse.json({ success: true, newPin, message: "Naya 6-digit PIN generate ho gaya hai. Admin is PIN ko shop owner ko de sakta hai." });
+      }
+
+      // ── Purge Soft-Deleted Records ───────────────────────────
+
+      case "purge_deleted": {
+        const days = body.days ?? 0
+        const deletedFilter = days > 0
+          ? `deleted_at=lt.${encodeURIComponent(new Date(Date.now() - days * 86400000).toISOString())}`
+          : 'deleted_at=not.is.null'
+
+        const results: Record<string, number> = {}
+        const errors: string[] = []
+
+        const ALL_TABLES: string[] = [
+          'order_photos', 'payments', 'order_status_history',
+          'measurements', 'orders', 'customers', 'team_members',
+        ]
+        const selected = body.purgeTables?.length ? body.purgeTables : ALL_TABLES
+        const tables = ALL_TABLES.filter(t => selected.includes(t))
+
+        // 1. Delete Cloudinary assets (only if order_photos is selected)
+        if (tables.includes('order_photos')) {
+          try {
+            const photos: { public_id?: string }[] = await sbGet(
+              `order_photos?${deletedFilter}&select=public_id`
+            ).catch(() => [])
+            const publicIds = photos.map(p => p.public_id).filter(Boolean) as string[]
+            if (publicIds.length > 0) {
+              const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+              const apiKey = process.env.CLOUDINARY_API_KEY ?? process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY
+              const apiSecret = process.env.CLOUDINARY_API_SECRET
+              if (cloudName && apiKey && apiSecret) {
+                await mapConcurrent(publicIds, async (publicId) => {
+                  const timestamp = Math.round(Date.now() / 1000)
+                  const signString = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`
+                  const signature = crypto.createHash('sha256').update(signString).digest('hex')
+                  const formData = new FormData()
+                  formData.append('public_id', publicId)
+                  formData.append('timestamp', String(timestamp))
+                  formData.append('api_key', apiKey)
+                  formData.append('signature', signature)
+                  await fetch(
+                    `https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`,
+                    { method: 'POST', body: formData, signal: AbortSignal.timeout(30000) },
+                  ).catch(() => {})
+                }, 10)
+              }
+            }
+            results.cloudinary = publicIds.length
+          } catch (e) {
+            errors.push(`Cloudinary cleanup error: ${e}`)
+          }
+        }
+
+        // 2. Hard-delete in dependency order (order_photos first, then rest, customers/team_members last)
+
+        for (const table of tables) {
+          try {
+            const filter = `${table}?${deletedFilter}`
+            const rows: { id: string }[] = await sbGet(`${filter}&select=id`).catch(() => [])
+            if (rows.length > 0) {
+              await sbDelete(filter).catch(async () => {
+                for (const row of rows) {
+                  await sbDelete(`${table}?id=eq.${row.id}`).catch(() => {})
+                }
+              })
+            }
+            results[table] = rows.length
+          } catch (e) {
+            errors.push(`${table} purge error: ${e}`)
+            results[table] = -1
+          }
+        }
+
+        await logAction('purge_deleted', 'system', null, {
+          results,
+          errors: errors.length > 0 ? errors : undefined,
+          performed_by: adminName,
+        })
+
+        return NextResponse.json({
+          success: true,
+          results,
+          summary: `Purged ${Object.entries(results).filter(([, v]) => v > 0).map(([k, v]) => `${k}:${v}`).join(', ') || 'nothing to purge'}`,
+          errors: errors.length > 0 ? errors : undefined,
+        })
       }
 
       // ── Admin Account Management ─────────────────────────────

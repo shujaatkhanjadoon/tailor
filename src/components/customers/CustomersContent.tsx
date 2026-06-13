@@ -145,7 +145,6 @@ export function CustomersContent() {
     await customerOps.bulkSoftDelete(ids)
     bulk.clear()
     setSelectionMode(false)
-    // Force reload to refresh the list after bulk delete
     window.location.reload()
   }
 

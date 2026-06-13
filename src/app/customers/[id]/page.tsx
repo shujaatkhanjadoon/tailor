@@ -73,8 +73,12 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
 
   const handleDelete = async () => {
     if (!confirm(`${customer.name} ko delete karna chahte hain? Yeh wapas nahi aayega.`)) return
-    await customerOps.softDelete(id)
-    router.push('/customers')
+    try {
+      await customerOps.softDelete(id)
+      router.push('/customers')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Delete fail hogaya. Dobara koshish karein.')
+    }
   }
 
   const buildOrderWhatsApp = (orderNum: number, balance: number) => {

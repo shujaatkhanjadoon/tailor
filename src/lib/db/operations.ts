@@ -64,57 +64,6 @@ async function requireOk<T>(query: PromiseLike<{ data: T; error: { message: stri
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const asRows = (rows: unknown): Record<string, any>[] => Array.isArray(rows) ? rows as Record<string, any>[] : []
 
-async function deleteCloudinaryAssets(publicIds: string[]) {
-  const uniqueIds = [...new Set(publicIds.filter(Boolean))]
-  if (uniqueIds.length === 0) return
-  const results = await Promise.allSettled(uniqueIds.map(publicId =>
-    fetch('/api/photos/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ publicId }),
-    })
-  ))
-  const failures = results.filter(r => r.status === 'rejected')
-  if (failures.length > 0) {
-    console.error(`[deleteCloudinaryAssets] ${failures.length} asset(s) failed to delete`)
-  }
-}
-
-async function getOrderPhotoPublicIds(orderIds: string[]) {
-  if (orderIds.length === 0) return []
-  const rows = await requireOk(
-    supabase
-      .from('order_photos')
-      .select('public_id')
-      .in('order_id', orderIds)
-      .not('public_id', 'is', null)
-  )
-  return asRows(rows).map((row) => row.public_id).filter(Boolean)
-}
-
-async function deleteOrdersByIds(orderIds: string[]) {
-  if (orderIds.length === 0) return
-  const ts = nowKarachiIso()
-  const publicIds = await getOrderPhotoPublicIds(orderIds)
-  await deleteCloudinaryAssets(publicIds)
-
-  await Promise.all([
-    requireOk(supabase.from('order_photos').delete().in('order_id', orderIds)),
-    requireOk(supabase.from('payments').update({ deleted_at: ts }).in('order_id', orderIds)),
-    requireOk(supabase.from('order_status_history').update({ deleted_at: ts }).in('order_id', orderIds)),
-  ])
-
-  const orderRows = await requireOk(
-    supabase.from('orders').select('measurement_id').in('id', orderIds)
-  )
-  const measurementIds = asRows(orderRows).map((row) => row.measurement_id).filter(Boolean)
-  if (measurementIds.length > 0) {
-    await requireOk(supabase.from('measurements').update({ deleted_at: ts }).in('id', measurementIds))
-  }
-
-  await requireOk(supabase.from('orders').update({ deleted_at: ts }).in('id', orderIds))
-}
-
 function customerToRow(customer: CustomerRecord) {
   return clean({
     id: customer.id,
@@ -500,51 +449,56 @@ export const customerOps = {
   },
 
   async softDelete(id: string): Promise<void> {
-    const ts = nowKarachiIso()
+    const existing = await db.customers.get(id)
 
-    const cascadeLocal = async () => {
-      const orders = await db.orders.where('customerId').equals(id).toArray()
-      for (const order of orders) {
-        const payments = await db.payments.where('orderId').equals(order.id).toArray()
-        for (const p of payments) {
-          await db.payments.put({ ...p, _deleted: 1, _synced: 0 } as PaymentRecord)
-        }
-        await db.orders.put({ ...order, _deleted: 1, _synced: 0 } as OrderRecord)
-      }
-      const measurements = await db.measurements.where('customerId').equals(id).toArray()
-      for (const m of measurements) {
-        await db.measurements.put({ ...m, _deleted: 1, _synced: 0 } as MeasurementRecord)
-      }
-    }
+    // Collect all related records for local cascade
+    const orders = existing ? await db.orders.where('customerId').equals(id).toArray() : []
+    const orderIds = orders.map(o => o.id)
+    const payments = orderIds.length > 0
+      ? await db.payments.where('orderId').anyOf(orderIds).toArray()
+      : []
+    const measurements = existing
+      ? await db.measurements.where('customerId').equals(id).toArray()
+      : []
 
-    const markCustomer = async () => {
-      const existing = await db.customers.get(id)
+    // Mark everything as deleted locally
+    const markDeleted = (synced: 0 | 1) => {
+      const ops: Promise<unknown>[] = []
       if (existing) {
-        await db.customers.put({ ...existing, _deleted: 1, _synced: 0 } as CustomerRecord)
+        ops.push(db.customers.put({ ...existing, _deleted: 1, _synced: synced } as CustomerRecord))
       }
+      for (const order of orders) {
+        ops.push(db.orders.put({ ...order, _deleted: 1, _synced: synced } as OrderRecord))
+      }
+      for (const p of payments) {
+        ops.push(db.payments.put({ ...p, _deleted: 1, _synced: synced } as PaymentRecord))
+      }
+      for (const m of measurements) {
+        ops.push(db.measurements.put({ ...m, _deleted: 1, _synced: synced } as MeasurementRecord))
+      }
+      return Promise.all(ops)
     }
 
-    if (isOnline()) {
-      try {
-        const orderRows = await requireOk(supabase.from('orders').select('id').eq('customer_id', id))
-        await deleteOrdersByIds(asRows(orderRows).map((row) => String(row.id)).filter(Boolean))
-        await Promise.all([
-          requireOk(supabase.from('measurements').update({ deleted_at: ts }).eq('customer_id', id)),
-          requireOk(supabase.from('customers').update({ deleted_at: ts }).eq('id', id)),
-        ])
-      } catch (err) {
-        console.warn('[Offline] customerOps.softDelete failed, queuing locally:', err)
+    await markDeleted(0)
+
+    try {
+      const res = await fetch('/api/customers/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'Server delete failed')
       }
-      await markCustomer()
-      await cascadeLocal()
-    } else {
-      await markCustomer()
-      await cascadeLocal()
+      await markDeleted(1)
+    } catch (err) {
+      console.warn('[Offline] customerOps.softDelete failed, queuing locally:', err)
+      throw err
     }
   },
 
   async bulkSoftDelete(ids: string[]): Promise<void> {
-    // Process deletes sequentially to avoid overwhelming the DB
     for (const id of ids) {
       try {
         await customerOps.softDelete(id)
@@ -552,6 +506,33 @@ export const customerOps = {
         console.error(`[customerOps.bulkSoftDelete] Failed to delete ${id}:`, err)
       }
     }
+  },
+
+  async recover(id: string): Promise<void> {
+    const res = await fetch('/api/customers/recover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || 'Recover failed')
+    }
+    const existing = await db.customers.get(id)
+    if (existing) await db.customers.put({ ...existing, _deleted: 0, _synced: 1 })
+  },
+
+  async purge(id: string): Promise<void> {
+    const res = await fetch('/api/customers/purge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || 'Permanent delete failed')
+    }
+    await db.customers.delete(id)
   },
 }
 
@@ -778,18 +759,64 @@ export const orderOps = {
   },
 
   async softDelete(orderId: string): Promise<void> {
-    if (isOnline()) {
-      await deleteOrdersByIds([orderId])
-    } else {
-      const existing = await db.orders.get(orderId)
+    const existing = await db.orders.get(orderId)
+
+    const payments = existing
+      ? await db.payments.where('orderId').equals(orderId).toArray()
+      : []
+
+    const markDeleted = async (synced: 0 | 1) => {
+      const ops: Promise<unknown>[] = []
       if (existing) {
-        await db.orders.put({ ...existing, _deleted: 1, _synced: 0 } as OrderRecord)
-        const payments = await db.payments.where('orderId').equals(orderId).toArray()
-        for (const p of payments) {
-          await db.payments.put({ ...p, _deleted: 1, _synced: 0 } as PaymentRecord)
-        }
+        ops.push(db.orders.put({ ...existing, _deleted: 1, _synced: synced } as OrderRecord))
       }
+      for (const p of payments) {
+        ops.push(db.payments.put({ ...p, _deleted: 1, _synced: synced } as PaymentRecord))
+      }
+      await Promise.all(ops)
     }
+
+    await markDeleted(0)
+
+    try {
+      const res = await fetch('/api/orders/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: orderId }),
+      })
+      if (!res.ok) throw new Error('Server delete failed')
+      await markDeleted(1)
+    } catch (err) {
+      console.warn('[Offline] orderOps.softDelete failed, queuing locally:', err)
+      throw err
+    }
+  },
+
+  async recover(id: string): Promise<void> {
+    const res = await fetch('/api/orders/recover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || 'Recover failed')
+    }
+    const existing = await db.orders.get(id)
+    if (existing) await db.orders.put({ ...existing, _deleted: 0, _synced: 1 })
+  },
+
+  async purge(id: string): Promise<void> {
+    const res = await fetch('/api/orders/purge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || 'Permanent delete failed')
+    }
+    await db.orders.delete(id)
   },
 }
 

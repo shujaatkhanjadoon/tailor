@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import {
   Home, ClipboardList, Users, Wallet,
-  Settings, Plus, BarChart3, LogOut,
+  Settings, Plus, BarChart3, LogOut, Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth/AuthContext'
@@ -21,6 +21,7 @@ const navItems = [
   { href: '/customers', icon: Users, key: 'customers' },
   { href: '/payments', icon: Wallet, key: 'payments' },
   { href: '/reports', icon: BarChart3, key: 'reports' },
+  { href: '/trash', icon: Trash2, key: 'trash' },
   { href: '/settings', icon: Settings, key: 'settings' },
 ]
 

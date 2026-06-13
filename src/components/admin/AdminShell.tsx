@@ -8,7 +8,7 @@ import {
   Store, BarChart2, ScrollText, LogOut,
   Shield, Menu, X, ChevronRight, Bell, Settings, Percent,
   TriangleAlert, Activity, TrendingUp, Users,
-  Ban, KeyRound, Layers, UserCog,
+  Ban, KeyRound, Layers, UserCog, Database,
 } from 'lucide-react'
 import { SessionTimer } from './SessionTimer'
 import { cn }           from '@/lib/utils'
@@ -29,6 +29,7 @@ const NAV_ITEMS = [
   { href: '/admin/dashboard/coupons',          label: 'Coupons',      icon: Percent         },
   { href: '/admin/dashboard/admins',           label: 'Admins',       icon: UserCog         },
   { href: '/admin/dashboard/settings/messages', label: 'Messages',    icon: Settings        },
+  { href: '/admin/dashboard/settings/database',  label: 'Database',    icon: Database         },
   { href: '/admin/dashboard/security/blocklist', label: 'Blocklist',  icon: Ban             },
   { href: '/admin/dashboard/security/2fa',      label: '2FA',        icon: KeyRound         },
   { href: '/admin/dashboard/logs',             label: 'Audit Log',    icon: ScrollText      },
